@@ -40,6 +40,68 @@ function predictedScore(match) {
   return match.forebetDetail?.predictedScore || match.forebet?.predictedScore || "—";
 }
 
+function pct(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? `${Math.round(n * 100)}%` : "—";
+}
+
+function modelHero(match, sourceCount) {
+  const score = predictedScore(match);
+  const forebetState = String(match.health?.forebetState || "").toUpperCase();
+
+  if (score !== "—") {
+    return {
+      label: "FOREBET",
+      main: score,
+      sub: sourceCount ? `${sourceCount} model channels` : "MODEL",
+    };
+  }
+
+  const candidates = [
+    ["MULTI", match.multi],
+    ["FOREBET", match.forebet],
+    ["DC", match.dc],
+    ["PI", match.pi],
+    ["FORM", match.form],
+  ];
+  const chosen = candidates.find(([, model]) => model && (model.home != null || model.draw != null || model.away != null));
+  if (chosen) {
+    const [label, model] = chosen;
+    const fbNote =
+      forebetState === "FIXTURE_ONLY"
+        ? "Forebet: fixture only"
+        : forebetState === "UNRESOLVED"
+          ? "Forebet: unresolved"
+          : forebetState
+            ? `Forebet: ${forebetState}`
+            : "";
+    return {
+      label: `${label} MODEL`,
+      main: `H ${pct(model.home)} · D ${pct(model.draw)} · A ${pct(model.away)}`,
+      sub: fbNote || (sourceCount ? `${sourceCount} model channels` : "MODEL"),
+    };
+  }
+
+  if (match.health?.fallbackRecommendation) {
+    return {
+      label: String(match.health?.fallbackSource || "FALLBACK"),
+      main: String(match.health.fallbackRecommendation),
+      sub: String(match.health?.fallbackMarket || "fallback model"),
+    };
+  }
+
+  return {
+    label: "MODEL STATUS",
+    main: "NO MODEL",
+    sub:
+      forebetState === "FIXTURE_ONLY"
+        ? "Forebet fixture only"
+        : forebetState === "UNRESOLVED"
+          ? "Forebet unresolved · internal model unavailable"
+          : "No usable model evidence",
+  };
+}
+
 function totalSignal(match) {
   const row = match.forebetDetail?.goalsCurrentLine;
   const status = lineComparisonStatus(match, "goals");
@@ -82,13 +144,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const primaryAway = match.awayZh || match.away;
   const goals = totalSignal(match);
   const corners = cornerSignal(match);
-  const score = predictedScore(match);
-  const forebetState = String(match.health?.forebetState || "").toUpperCase();
-  const forebetHasModel = score !== "—";
-  const forebetMain = forebetHasModel ? score : "VS";
-  const forebetSub = forebetHasModel
-    ? (sourceCount ? `${sourceCount} sources` : "MODEL")
-    : (forebetState === "FIXTURE_ONLY" ? "只有賽程" : forebetState === "UNRESOLVED" ? "未配對 Forebet" : "暫無 Forebet 模型");
+  const hero = modelHero(match, sourceCount);
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const edgeText = edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp` : "—";
@@ -133,9 +189,9 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
           <div className="upcoming-scoreboard">
             <b className="upcoming-home-name">{primaryHome}</b>
             <div className="upcoming-score-main">
-              <small>FOREBET</small>
-              <strong>{forebetMain}</strong>
-              <span>{forebetSub}</span>
+              <small>{hero.label}</small>
+              <strong>{hero.main}</strong>
+              <span>{hero.sub}</span>
             </div>
             <b className="upcoming-away-name">{primaryAway}</b>
           </div>
