@@ -33,8 +33,8 @@ function predictedScore(match) {
 
 function totalSignal(match) {
   const row = match.forebetDetail?.ou25 || {};
-  const over = row.over ?? match.multi?.over25;
-  const under = row.under ?? match.multi?.under25;
+  const over = row.over;
+  const under = row.under;
   const avg = row.avgGoals ?? match.forebetDetail?.avgGoals;
   const status = lineComparisonStatus(match, "goals");
   if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA", status };
