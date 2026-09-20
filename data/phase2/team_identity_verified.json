@@ -9,18 +9,8 @@
       "source_event_url": "https://www.sofascore.com/football/match/feyenoord-fc-utrecht/Yibsjjb",
       "source_event_kickoff": "2026-09-20T10:15:00Z",
       "kickoff_delta_minutes": 0,
-      "home": {
-        "hkjc_name": "Feyenoord",
-        "source_team_id": "2959",
-        "source_name": "Feyenoord",
-        "source_team_url": "https://www.sofascore.com/football/team/feyenoord/2959"
-      },
-      "away": {
-        "hkjc_name": "Utrecht",
-        "source_team_id": "2948",
-        "source_name": "FC Utrecht",
-        "source_team_url": "https://www.sofascore.com/football/team/fc-utrecht/2948"
-      },
+      "home": {"hkjc_name":"Feyenoord","source_team_id":"2959","source_name":"Feyenoord","source_team_url":"https://www.sofascore.com/football/team/feyenoord/2959"},
+      "away": {"hkjc_name":"Utrecht","source_team_id":"2948","source_name":"FC Utrecht","source_team_url":"https://www.sofascore.com/football/team/fc-utrecht/2948"},
       "confirmed": true,
       "confidence": 1,
       "verification_note": "Historical verification fixture; not counted as current-upcoming coverage."
@@ -32,22 +22,12 @@
       "source_event_url": "https://www.sofascore.com/football/match/ac-milan-lecce/OdbsRdb",
       "source_event_kickoff": "2026-09-20T18:45:00Z",
       "kickoff_delta_minutes": 0,
-      "home": {
-        "hkjc_name": "AC Milan",
-        "source_team_id": "2692",
-        "source_name": "AC Milan",
-        "source_team_url": "https://www.sofascore.com/football/team/milan/2692"
-      },
-      "away": {
-        "hkjc_name": "Lecce",
-        "source_team_id": "2689",
-        "source_name": "Lecce",
-        "source_team_url": "https://www.sofascore.com/football/team/lecce/2689"
-      },
+      "home": {"hkjc_name":"AC Milan","source_team_id":"2692","source_name":"AC Milan","source_team_url":"https://www.sofascore.com/football/team/milan/2692"},
+      "away": {"hkjc_name":"Lecce","source_team_id":"2689","source_name":"Lecce","source_team_url":"https://www.sofascore.com/football/team/lecce/2689"},
       "confirmed": true,
       "confidence": 1,
       "verified_at": "2026-09-20T18:31:29Z",
-      "verification_note": "Current HKJC fixture and Sofascore independently agree on home/away and 18:45 UTC kickoff; both Sofascore team IDs verified from team URLs."
+      "verification_note": "Current at verification time; HKJC fixture and Sofascore independently agreed on home/away and kickoff."
     },
     {
       "hkjc_event_id": "FB5440",
@@ -56,22 +36,27 @@
       "source_event_url": "https://www.sofascore.com/football/match/paris-saint-germain-olympique-de-marseille/QHsUH",
       "source_event_kickoff": "2026-09-20T18:45:00Z",
       "kickoff_delta_minutes": 0,
-      "home": {
-        "hkjc_name": "Marseille",
-        "source_team_id": "1641",
-        "source_name": "Olympique de Marseille",
-        "source_team_url": "https://www.sofascore.com/football/team/olympique-de-marseille/1641"
-      },
-      "away": {
-        "hkjc_name": "Paris Saint Germain",
-        "source_team_id": "55505",
-        "source_name": "Paris Saint-Germain",
-        "source_team_url": "https://www.sofascore.com/football/team/paris-saint-germain/55505"
-      },
+      "home": {"hkjc_name":"Marseille","source_team_id":"1641","source_name":"Olympique de Marseille","source_team_url":"https://www.sofascore.com/football/team/olympique-de-marseille/1641"},
+      "away": {"hkjc_name":"Paris Saint Germain","source_team_id":"55505","source_name":"Paris Saint-Germain","source_team_url":"https://www.sofascore.com/football/team/paris-saint-germain/55505"},
       "confirmed": true,
       "confidence": 1,
       "verified_at": "2026-09-20T18:31:29Z",
-      "verification_note": "Current HKJC fixture and Sofascore independently agree on home/away and 18:45 UTC kickoff; both Sofascore team IDs verified from team URLs."
+      "verification_note": "Current at verification time; HKJC fixture and Sofascore independently agreed on home/away and kickoff."
+    },
+    {
+      "hkjc_event_id": "FB5457",
+      "hkjc_kickoff": "2026-09-20T23:00:00Z",
+      "source": "sofascore+official_broadcast",
+      "source_event_url": "https://www.primevideo.com/-/es/detail/0J0VTAWF4SVJ490R7NKE2G9W4X",
+      "source_event_kickoff": "2026-09-20T22:30:00Z",
+      "kickoff_delta_minutes": 30,
+      "home": {"hkjc_name":"Inter Miami CF","source_team_id":"337602","source_name":"Inter Miami CF","source_team_url":"https://www.sofascore.com/football/team/inter-miami-cf/337602"},
+      "away": {"hkjc_name":"San Diego FC","source_team_id":"1043961","source_name":"San Diego FC","source_team_url":"https://www.sofascore.com/football/team/san-diego-fc/1043961"},
+      "confirmed": false,
+      "confidence": 0.8,
+      "verified_at": "2026-09-20T20:33:14Z",
+      "verification_note": "Identity names and both Sofascore team IDs are verified, but Prime Video lists 18:30 EDT (22:30 UTC) while HKJC lists 23:00 UTC. Fail closed: fixture-level identity remains unconfirmed pending a trusted source with matching kickoff.",
+      "raw_context": {"hkjc_fetched_at":"2026-09-20T20:30:02.253Z","hkjc_tournament":"MLS","kickoff_conflict_minutes":30,"identity_status":"UNRESOLVED_KICKOFF_CONFLICT"}
     }
   ]
 }
