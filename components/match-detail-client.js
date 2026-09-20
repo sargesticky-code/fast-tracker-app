@@ -167,6 +167,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const shadow = match.live?.shadow || null;
   const goalsCompare = lineComparisonStatus(match, "goals");
   const cornersCompare = lineComparisonStatus(match, "corners");
+  const goalsLineModel = match.forebetDetail?.goalsCurrentLine || null;
+  const cornersLineModel = match.forebetDetail?.cornersCurrentLine || null;
 
   return (
     <main className="shell detail-shell">
@@ -269,22 +271,22 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <div className="total-market">
             <span>HKJC 入球 O/U · {match.goals?.line || "—"}</span>
             <div><b>大 {formatOdds(match.goals?.over)}</b><b>細 {formatOdds(match.goals?.under)}</b></div>
-            {match.forebetDetail?.ou25?.over != null
-              ? <small className={goalsCompare.key === "mismatch" ? "line-warning" : ""}>
-                  Forebet O2.5 {(match.forebetDetail.ou25.over * 100).toFixed(0)}% · U2.5 {(match.forebetDetail.ou25.under * 100).toFixed(0)}% · Avg {match.forebetDetail.ou25.avgGoals ?? "—"}
-                  {goalsCompare.key === "mismatch" ? ` · LINE MISMATCH：不可同 HKJC ${goalsCompare.currentLine} 直接計 Edge` : ""}
+            {goalsLineModel?.over != null
+              ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
+                  {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} O{goalsLineModel.line} {(goalsLineModel.over * 100).toFixed(0)}% ·
+                  U{goalsLineModel.line} {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
                 </small>
-              : <small>Forebet O/U NO DATA</small>}
+              : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "同線模型 NO DATA"}</small>}
           </div>
           <div className="total-market">
             <span>HKJC 角球 O/U · {match.corners?.line || "—"}</span>
             <div><b>大 {formatOdds(match.corners?.over)}</b><b>細 {formatOdds(match.corners?.under)}</b></div>
-            {match.forebetDetail?.corners95?.avgCorners != null
-              ? <small className={cornersCompare.key === "mismatch" ? "line-warning" : ""}>
-                  Forebet Avg corners {Number(match.forebetDetail.corners95.avgCorners).toFixed(1)} · O9.5 {match.forebetDetail.corners95.over == null ? "—" : (match.forebetDetail.corners95.over * 100).toFixed(0) + "%"}
-                  {cornersCompare.key === "mismatch" ? ` · LINE MISMATCH：不可同 HKJC ${cornersCompare.currentLine} 直接計 Edge` : ""}
+            {cornersLineModel?.over != null
+              ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
+                  {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} O{cornersLineModel.line} {(cornersLineModel.over * 100).toFixed(0)}% ·
+                  U{cornersLineModel.line} {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
                 </small>
-              : <small>Forebet corners NO DATA</small>}
+              : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
           </div>
         </div>
       </section>
