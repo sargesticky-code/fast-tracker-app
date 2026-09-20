@@ -80,17 +80,15 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const sourceCount = modelCoverageCount(match);
   const primaryHome = match.homeZh || match.home;
   const primaryAway = match.awayZh || match.away;
-  const secondaryHome = match.homeZh ? match.home : null;
-  const secondaryAway = match.awayZh ? match.away : null;
   const goals = totalSignal(match);
   const corners = cornerSignal(match);
   const score = predictedScore(match);
   const forebetState = String(match.health?.forebetState || "").toUpperCase();
   const forebetHasModel = score !== "—";
-  const forebetMain = forebetHasModel ? score : (forebetState === "FIXTURE_ONLY" ? "FIXTURE" : "NO MODEL");
+  const forebetMain = forebetHasModel ? score : "—";
   const forebetSub = forebetHasModel
     ? (sourceCount ? `${sourceCount} sources` : "MODEL")
-    : (forebetState || "NO DATA");
+    : (forebetState === "FIXTURE_ONLY" ? "只有賽程" : forebetState === "UNRESOLVED" ? "未配對 Forebet" : "暫無 Forebet 模型");
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const oddsMove = match.oddsMovement;
@@ -132,7 +130,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
         <div className="upcoming-team upcoming-home-team">
           <small>主隊</small>
           <b>{primaryHome}</b>
-          {secondaryHome ? <em>{secondaryHome}</em> : null}
+          <span className="upcoming-side-label">HOME</span>
         </div>
 
         <div className="upcoming-forecast">
@@ -144,7 +142,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
         <div className="upcoming-team upcoming-away-team">
           <small>客隊</small>
           <b>{primaryAway}</b>
-          {secondaryAway ? <em>{secondaryAway}</em> : null}
+          <span className="upcoming-side-label">AWAY</span>
         </div>
       </div>
 
