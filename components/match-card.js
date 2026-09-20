@@ -10,6 +10,7 @@ import {
 } from "@/lib/fast-tracker";
 
 function edgeTone(value) {
+  if (value >= 0.6) return "edge-check";
   if (value >= 0.2) return "edge-strong";
   if (value >= 0.1) return "edge-good";
   if (value >= 0.05) return "edge-watch";
