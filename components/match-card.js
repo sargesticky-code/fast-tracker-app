@@ -27,6 +27,15 @@ function edgeOdds(match, key) {
   return null;
 }
 
+function hdaSource(match) {
+  if (match.multi) return "MULTI";
+  if (match.forebet) return "FB";
+  if (match.dc) return "DC";
+  if (match.pi) return "PI";
+  if (match.form) return "FORM";
+  return "—";
+}
+
 function predictedScore(match) {
   return match.forebetDetail?.predictedScore || match.forebet?.predictedScore || "—";
 }
@@ -141,7 +150,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
 
       <div className="mobile-card-data">
         <div className={`mobile-value ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
-          <span>HDA</span>
+          <span>HDA · {hdaSource(match)}</span>
           <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
           <small>{edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp · ${formatOdds(selectedOdds)}` : "—"}</small>
         </div>
@@ -171,7 +180,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
       <div className="full-card-data">
       <div className={`value-strip ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
         <div>
-          <span>HDA Value</span>
+          <span>HDA Value · {hdaSource(match)}</span>
           <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
         </div>
         <div>
