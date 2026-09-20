@@ -133,8 +133,33 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         </div>
       </section>
 
+      {match.liveNow && match.live && (
+        <section className="panel live-detail-panel">
+          <div className="panel-title">
+            <div><p>HKJC LIVE</p><h2>即場市場</h2></div>
+            <span>{match.live.status || "LIVE"}</span>
+          </div>
+          <div className="big-odds">
+            <div><span>主</span><b>{formatOdds(match.live.odds?.home)}</b></div>
+            <div><span>和</span><b>{formatOdds(match.live.odds?.draw)}</b></div>
+            <div><span>客</span><b>{formatOdds(match.live.odds?.away)}</b></div>
+          </div>
+          <div className="totals-grid live-detail-totals">
+            <div className="total-market">
+              <span>即場入球 O/U · {match.live.goals?.line || "—"}</span>
+              <div><b>大 {formatOdds(match.live.goals?.over)}</b><b>細 {formatOdds(match.live.goals?.under)}</b></div>
+            </div>
+            <div className="total-market">
+              <span>即場角球 O/U · {match.live.corners?.line || "—"}</span>
+              <div><b>大 {formatOdds(match.live.corners?.over)}</b><b>細 {formatOdds(match.live.corners?.under)}</b></div>
+            </div>
+          </div>
+          <p className="fineprint">只顯示 HKJC freshness gate 通過而且仍然 SELLINGSTARTED 嘅 live market。</p>
+        </section>
+      )}
+
       <section className="panel">
-        <div className="panel-title"><div><p>HKJC 1X2</p><h2>市場價格</h2></div></div>
+        <div className="panel-title"><div><p>{match.liveNow ? "PRE-MATCH HKJC 1X2" : "HKJC 1X2"}</p><h2>市場價格</h2></div></div>
         <div className="big-odds">
           <div><span>主</span><b>{formatOdds(match.odds?.home)}</b></div>
           <div><span>和</span><b>{formatOdds(match.odds?.draw)}</b></div>
