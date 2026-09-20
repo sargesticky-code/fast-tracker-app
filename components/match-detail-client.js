@@ -325,6 +325,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <span>Forebet {match.health?.forebetState || "NO DATA"}</span>
           <span>Internal {match.health?.internalModelQuality || "NO DATA"}</span>
         </div>
+        {match.health?.forebetState && match.health.forebetState !== "MODEL" ? (
+          <p className="fineprint">
+            Forebet：{match.health.forebetState}
+            {match.health?.forebetReason ? ` · ${match.health.forebetReason}` : ""}
+          </p>
+        ) : null}
         {missingReason ? <p className="fineprint">缺資料原因：{missingReason}</p> : <p className="fineprint">Canonical evidence channels：{evidenceCount}</p>}
       </section>
 
