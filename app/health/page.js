@@ -23,6 +23,12 @@ export default async function HealthPage(){
   const feed=await getFeed(); const now=Date.now(); const matches=feed.matches||[];
   const missingRows=matches.filter(m=>m.health?.primaryMissingReason);
   const classes=missingRows.reduce((a,m)=>{const k=missingClass(m)||"OTHER";a[k]=(a[k]||0)+1;return a;},{});
+  const coverage={
+    score:matches.filter(m=>m.forebet?.predictedScore).length,
+    goals:matches.filter(m=>m.forebet?.ouPick || m.multi?.over25!=null || m.multi?.under25!=null).length,
+    corners:matches.filter(m=>m.forebet?.cornerPick || m.forebet?.avgCorners!=null).length,
+    multi:matches.filter(m=>m.multi && (m.multi.sourceCount>0 || m.multi.over25!=null || m.multi.bttsYes!=null)).length,
+  };
   const stats={
     total:matches.length,
     modeled:matches.filter(m=>modelCoverageCount(m)>0).length,
@@ -35,6 +41,9 @@ export default async function HealthPage(){
     <div className="detail-top"><Link href="/" className="back">← 賽事</Link><span>Phase 1 · canonical health</span></div>
     <section className="detail-hero"><p className="eyebrow">FAST TRACKER 2026</p><h1>Data Health</h1><p>Canonical database狀態。Source真係冇model，同system未完成capture/matching會分開顯示。</p></section>
     <section className="health-strip"><div><b>{stats.total}</b><span>24H HKJC</span></div><div><b>{stats.modeled}</b><span>有模型</span></div><div><b>{stats.forebet}</b><span>Forebet</span></div><div><b>{stats.multisource}</b><span>Multi-source</span></div></section>
+    <section className="panel"><div className="panel-title"><div><p>MARKETS</p><h2>24H Intelligence Coverage</h2></div><span>{stats.total} matches</span></div>
+      <div className="health-list"><div><span>Forebet predicted score</span><b>{coverage.score}/{stats.total}</b></div><div><span>Goals O/U evidence</span><b>{coverage.goals}/{stats.total}</b></div><div><span>Corners evidence</span><b>{coverage.corners}/{stats.total}</b></div><div><span>Multi-source evidence</span><b>{coverage.multi}/{stats.total}</b></div></div>
+    </section>
     <section className="panel"><div className="panel-title"><div><p>QUALITY</p><h2>Coverage</h2></div><span>{feed.source}</span></div>
       <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
     </section>
