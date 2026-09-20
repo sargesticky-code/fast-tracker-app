@@ -24,10 +24,22 @@ export default async function HealthPage(){
   const missingRows=matches.filter(m=>m.health?.primaryMissingReason);
   const classes=missingRows.reduce((a,m)=>{const k=missingClass(m)||"OTHER";a[k]=(a[k]||0)+1;return a;},{});
   const coverage={
-    score:matches.filter(m=>m.forebet?.predictedScore).length,
-    goals:matches.filter(m=>m.forebet?.ouPick || m.multi?.over25!=null || m.multi?.under25!=null).length,
-    corners:matches.filter(m=>m.forebet?.cornerPick || m.forebet?.avgCorners!=null).length,
-    multi:matches.filter(m=>m.multi && (m.multi.sourceCount>0 || m.multi.over25!=null || m.multi.bttsYes!=null)).length,
+    score:matches.filter(m=>m.forebetDetail?.predictedScore || m.forebet?.predictedScore).length,
+    goals:matches.filter(m=>
+      m.forebetDetail?.ou25?.over!=null ||
+      m.forebetDetail?.ou25?.under!=null ||
+      m.forebetDetail?.ou25?.avgGoals!=null ||
+      m.forebetDetail?.avgGoals!=null ||
+      m.multi?.over25!=null ||
+      m.multi?.under25!=null
+    ).length,
+    corners:matches.filter(m=>
+      m.forebetDetail?.corners95?.over!=null ||
+      m.forebetDetail?.corners95?.under!=null ||
+      m.forebetDetail?.corners95?.avgCorners!=null ||
+      m.forebetDetail?.avgCorners!=null
+    ).length,
+    multi:matches.filter(m=>m.multi && ((m.multi.sources||m.multi.sourceCount||0)>0 || m.multi.over25!=null || m.multi.bttsYes!=null)).length,
   };
   const stats={
     total:matches.length,
