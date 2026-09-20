@@ -120,6 +120,13 @@ function statPairText(pair, digits = 0, suffix = "") {
   return `${h.toFixed(digits)}${suffix}-${a.toFixed(digits)}${suffix}`;
 }
 
+function shadowSideLabel(match, side) {
+  if (side === "H") return match.homeZh || match.home || "主";
+  if (side === "A") return match.awayZh || match.away || "客";
+  if (side === "BALANCED") return "均衡";
+  return "—";
+}
+
 function LiveMatchRow({ match }) {
   const live = match.live || {};
   const score = live.score || {};
@@ -131,6 +138,7 @@ function LiveMatchRow({ match }) {
   const minuteText = Number.isFinite(Number(score.minute)) ? `${score.minute}'` : (score.status || live.status || "LIVE");
   const cornerProgress = liveCornerProgress(live);
   const stats = live.stats || null;
+  const shadow = live.shadow || null;
   return (
     <Link
       className="live-match-row"
@@ -141,6 +149,7 @@ function LiveMatchRow({ match }) {
         <span className="live-dot">LIVE</span>
         <b>{minuteText}</b>
         <strong>{scoreText}</strong>
+        {shadow ? <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span> : null}
         <small>{match.league}</small>
       </div>
       <div className="live-teams">
@@ -148,6 +157,13 @@ function LiveMatchRow({ match }) {
         <span>{scoreText}</span>
         <b>{match.awayZh || match.away}</b>
       </div>
+      {shadow ? (
+        <div className="live-shadow-line">
+          <span>Expected <b>{shadowSideLabel(match, shadow.expectedSide)}</b></span>
+          <span>Live <b>{shadowSideLabel(match, shadow.actualSide)}</b></span>
+          <span>{shadow.metricCount || 0} metrics</span>
+        </div>
+      ) : null}
       {stats ? (
         <div className="live-stat-strip">
           <span>xG <b>{statPairText(stats.xg, 2)}</b></span>
