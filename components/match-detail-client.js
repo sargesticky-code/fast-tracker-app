@@ -257,6 +257,32 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         {match.multi && <ProbabilityRow label={`Multi-source · ${match.multi.sources || match.multi.sourceCount || "—"}`} values={match.multi} strong />}
       </section>
 
+      {match.power && (match.power.home != null || match.power.away != null) && (
+        <section className="panel">
+          <div className="panel-title">
+            <div><p>OPTA POWER</p><h2>獨立球隊實力</h2></div>
+            <span>{match.power.coverage || "—"}</span>
+          </div>
+          <div className="power-grid">
+            <div>
+              <span>{match.homeZh || match.home}</span>
+              <b>{match.power.home == null ? "—" : Number(match.power.home).toFixed(1)}</b>
+              <small>{match.power.homeRank == null ? "" : `Rank #${match.power.homeRank}`}</small>
+              <em>{match.power.homeName || ""}</em>
+            </div>
+            <div>
+              <span>{match.awayZh || match.away}</span>
+              <b>{match.power.away == null ? "—" : Number(match.power.away).toFixed(1)}</b>
+              <small>{match.power.awayRank == null ? "" : `Rank #${match.power.awayRank}`}</small>
+              <em>{match.power.awayName || ""}</em>
+            </div>
+          </div>
+          <p className="fineprint">
+            Opta Power 只作獨立 strength evidence；未經 calibration 前唔會直接轉成 HDA probability。
+          </p>
+        </section>
+      )}
+
       {hasMovement && (
         <section className="panel">
           <div className="panel-title">
