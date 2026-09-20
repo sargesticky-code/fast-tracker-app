@@ -85,12 +85,14 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const score = predictedScore(match);
   const forebetState = String(match.health?.forebetState || "").toUpperCase();
   const forebetHasModel = score !== "—";
-  const forebetMain = forebetHasModel ? score : "—";
+  const forebetMain = forebetHasModel ? score : "VS";
   const forebetSub = forebetHasModel
     ? (sourceCount ? `${sourceCount} sources` : "MODEL")
     : (forebetState === "FIXTURE_ONLY" ? "只有賽程" : forebetState === "UNRESOLVED" ? "未配對 Forebet" : "暫無 Forebet 模型");
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
+  const edgeText = edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp` : "—";
+  const pickText = edge ? sideName(match, edge.key) : "未有模型";
   const oddsMove = match.oddsMovement;
   const rawMove = Number(oddsMove?.rawOddsChangePct);
   const hasBigOddsMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
@@ -126,59 +128,73 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
         </div>
       </div>
 
-      <div className="upcoming-score-hero">
-        <div className="upcoming-team upcoming-home-team">
-          <small>主隊</small>
-          <b>{primaryHome}</b>
-          <span className="upcoming-side-label">HOME</span>
-        </div>
-
-        <div className="upcoming-forecast">
-          <small>FOREBET</small>
-          <strong>{forebetMain}</strong>
-          <span>{forebetSub}</span>
-        </div>
-
-        <div className="upcoming-team upcoming-away-team">
-          <small>客隊</small>
-          <b>{primaryAway}</b>
-          <span className="upcoming-side-label">AWAY</span>
-        </div>
-      </div>
-
-      <div className="upcoming-intel-grid">
-        <div className={`upcoming-value-card ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
-          <small>HDA VALUE · {hdaSource(match)}</small>
-          <div className="upcoming-value-main">
-            <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
-            <strong>{edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp` : "—"}</strong>
+      <div className="upcoming-card-body">
+        <div className="upcoming-score-hero">
+          <div className="upcoming-scoreboard">
+            <b className="upcoming-home-name">{primaryHome}</b>
+            <div className="upcoming-score-main">
+              <small>FOREBET</small>
+              <strong>{forebetMain}</strong>
+              <span>{forebetSub}</span>
+            </div>
+            <b className="upcoming-away-name">{primaryAway}</b>
           </div>
-          <span>HKJC {formatOdds(selectedOdds)}</span>
+
+          <div className="upcoming-context-grid">
+            <div className={hasValue ? edgeTone(edge.value) : "edge-soft"}>
+              <small>HDA PICK</small>
+              <b>{pickText}</b>
+            </div>
+            <div>
+              <small>EDGE</small>
+              <b>{edgeText}</b>
+            </div>
+            <div>
+              <small>MODEL</small>
+              <b>{hdaSource(match)}</b>
+            </div>
+          </div>
         </div>
 
-        <div className={`upcoming-market-card ${goals.status?.key === "mismatch" ? "market-mismatch" : ""}`}>
-          <small>入球 · HKJC {match.goals?.line ?? "—"}</small>
-          <b>{goals.main}</b>
-          <span>{goals.sub}</span>
-        </div>
+        <div className="upcoming-intel">
+          <div className="upcoming-signal-strip">
+            <span className={hasValue ? edgeTone(edge.value) : "edge-soft"}>
+              <small>HDA</small>
+              <b>{pickText}</b>
+              <em>{edge ? `${edgeText} · ${formatOdds(selectedOdds)}` : "未有可比模型"}</em>
+            </span>
+            <span className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
+              <small>入球 {match.goals?.line ?? "—"}</small>
+              <b>{goals.main}</b>
+              <em>{goals.sub}</em>
+            </span>
+            <span className={corners.status?.key === "mismatch" ? "market-mismatch" : ""}>
+              <small>角球 {match.corners?.line ?? "—"}</small>
+              <b>{corners.main}</b>
+              <em>{corners.sub}</em>
+            </span>
+          </div>
 
-        <div className={`upcoming-market-card ${corners.status?.key === "mismatch" ? "market-mismatch" : ""}`}>
-          <small>角球 · HKJC {match.corners?.line ?? "—"}</small>
-          <b>{corners.main}</b>
-          <span>{corners.sub}</span>
+          <div className="upcoming-markets">
+            <div>
+              <span>HAD</span>
+              <b>{formatOdds(match.odds.home)} / {formatOdds(match.odds.draw)} / {formatOdds(match.odds.away)}</b>
+            </div>
+            <div>
+              <span>入球 {match.goals?.line ?? "—"}</span>
+              <b>{formatOdds(match.goals?.over)} / {formatOdds(match.goals?.under)}</b>
+            </div>
+            <div>
+              <span>角球 {match.corners?.line ?? "—"}</span>
+              <b>{formatOdds(match.corners?.over)} / {formatOdds(match.corners?.under)}</b>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="upcoming-bottom-row">
-        <div className="upcoming-had">
-          <span>主 <b>{formatOdds(match.odds.home)}</b></span>
-          <span>和 <b>{formatOdds(match.odds.draw)}</b></span>
-          <span>客 <b>{formatOdds(match.odds.away)}</b></span>
-        </div>
-        <div className="upcoming-card-status">
-          <span className={`coverage coverage-${coverage(match).replaceAll(" ", "-").toLowerCase()}`}>{coverage(match)}</span>
-          <span className="details-link">詳情 →</span>
-        </div>
+      <div className="upcoming-card-footer">
+        <span className={`coverage coverage-${coverage(match).replaceAll(" ", "-").toLowerCase()}`}>{coverage(match)}</span>
+        <span className="details-link">詳情 →</span>
       </div>
     </Link>
   );
