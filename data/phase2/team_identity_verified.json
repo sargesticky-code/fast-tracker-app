@@ -23,7 +23,55 @@
       },
       "confirmed": true,
       "confidence": 1,
-      "verification_note": "HKJC snapshot and Sofascore independently agree on home/away, date and 10:15 UTC kickoff. Team IDs are taken from the Sofascore team URLs. Historical verification fixture; not counted as current-upcoming coverage."
+      "verification_note": "Historical verification fixture; not counted as current-upcoming coverage."
+    },
+    {
+      "hkjc_event_id": "FB5380",
+      "hkjc_kickoff": "2026-09-20T18:45:00Z",
+      "source": "sofascore",
+      "source_event_url": "https://www.sofascore.com/football/match/ac-milan-lecce/OdbsRdb",
+      "source_event_kickoff": "2026-09-20T18:45:00Z",
+      "kickoff_delta_minutes": 0,
+      "home": {
+        "hkjc_name": "AC Milan",
+        "source_team_id": "2692",
+        "source_name": "AC Milan",
+        "source_team_url": "https://www.sofascore.com/football/team/milan/2692"
+      },
+      "away": {
+        "hkjc_name": "Lecce",
+        "source_team_id": "2689",
+        "source_name": "Lecce",
+        "source_team_url": "https://www.sofascore.com/football/team/lecce/2689"
+      },
+      "confirmed": true,
+      "confidence": 1,
+      "verified_at": "2026-09-20T18:31:29Z",
+      "verification_note": "Current HKJC fixture and Sofascore independently agree on home/away and 18:45 UTC kickoff; both Sofascore team IDs verified from team URLs."
+    },
+    {
+      "hkjc_event_id": "FB5440",
+      "hkjc_kickoff": "2026-09-20T18:45:00Z",
+      "source": "sofascore",
+      "source_event_url": "https://www.sofascore.com/football/match/paris-saint-germain-olympique-de-marseille/QHsUH",
+      "source_event_kickoff": "2026-09-20T18:45:00Z",
+      "kickoff_delta_minutes": 0,
+      "home": {
+        "hkjc_name": "Marseille",
+        "source_team_id": "1641",
+        "source_name": "Olympique de Marseille",
+        "source_team_url": "https://www.sofascore.com/football/team/olympique-de-marseille/1641"
+      },
+      "away": {
+        "hkjc_name": "Paris Saint Germain",
+        "source_team_id": "55505",
+        "source_name": "Paris Saint-Germain",
+        "source_team_url": "https://www.sofascore.com/football/team/paris-saint-germain/55505"
+      },
+      "confirmed": true,
+      "confidence": 1,
+      "verified_at": "2026-09-20T18:31:29Z",
+      "verification_note": "Current HKJC fixture and Sofascore independently agree on home/away and 18:45 UTC kickoff; both Sofascore team IDs verified from team URLs."
     }
   ]
 }
