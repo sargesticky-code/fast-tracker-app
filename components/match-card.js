@@ -86,6 +86,12 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const goals = totalSignal(match);
   const corners = cornerSignal(match);
   const score = predictedScore(match);
+  const forebetState = String(match.health?.forebetState || "").toUpperCase();
+  const forebetHasModel = score !== "—";
+  const forebetMain = forebetHasModel ? score : (forebetState === "FIXTURE_ONLY" ? "FIXTURE" : "NO MODEL");
+  const forebetSub = forebetHasModel
+    ? (sourceCount ? `${sourceCount} src` : "MODEL")
+    : (forebetState || "NO DATA");
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const oddsMove = match.oddsMovement;
@@ -141,8 +147,8 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
         </div>
         <div>
           <span>FB</span>
-          <b>{score}</b>
-          <small>{sourceCount ? `${sourceCount} src` : "HKJC"}</small>
+          <b>{forebetMain}</b>
+          <small>{forebetSub}</small>
         </div>
         <div className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
           <span>入球 HKJC{match.goals?.line ? ` ${match.goals.line}` : " —"}</span>
@@ -181,8 +187,8 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
       <div className="market-grid">
         <div>
           <span>Forebet</span>
-          <b>{score}</b>
-          <small>{sourceCount ? `${sourceCount} sources` : "HKJC only"}</small>
+          <b>{forebetMain}</b>
+          <small>{forebetHasModel ? (sourceCount ? `${sourceCount} sources` : "MODEL") : forebetSub}</small>
         </div>
         <div className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
           <span>入球 HKJC {match.goals?.line ? `· ${match.goals.line}` : "· —"}</span>
