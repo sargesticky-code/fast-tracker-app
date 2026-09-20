@@ -239,11 +239,9 @@ export default function DashboardClient({ feed, nowMs }) {
   }, []);
 
   const byFocus = useMemo(() => [...prematchAll].sort((a, b) => {
-    const edgeDelta = (valueEdge(b)?.value || -1) - (valueEdge(a)?.value || -1);
-    if (edgeDelta) return edgeDelta;
-    const scoreDelta = reviewScore(b, clockMs) - reviewScore(a, clockMs);
-    if (scoreDelta) return scoreDelta;
-    return new Date(a.kickoff) - new Date(b.kickoff);
+    const kickoffDelta = new Date(a.kickoff) - new Date(b.kickoff);
+    if (kickoffDelta) return kickoffDelta;
+    return reviewScore(b, clockMs) - reviewScore(a, clockMs);
   }), [prematchAll, clockMs]);
 
   const hdaPicks = useMemo(() => prematchAll
