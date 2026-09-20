@@ -1,11 +1,11 @@
 import MatchCard from "@/components/match-card";
 import {
   dataAgeMinutes,
-  divergence,
   freshness,
   getFeed,
   modelCoverageCount,
   reviewScore,
+  valueEdge,
 } from "@/lib/fast-tracker";
 
 const filters = [
@@ -25,6 +25,8 @@ export default async function Home({ searchParams }) {
   const nowMs = Date.now();
 
   const byFocus = [...all].sort((a, b) => {
+    const edgeDelta = (valueEdge(b)?.value || -1) - (valueEdge(a)?.value || -1);
+    if (edgeDelta) return edgeDelta;
     const scoreDelta = reviewScore(b, nowMs) - reviewScore(a, nowMs);
     if (scoreDelta) return scoreDelta;
     return new Date(a.kickoff) - new Date(b.kickoff);
@@ -33,8 +35,8 @@ export default async function Home({ searchParams }) {
   let matches = byFocus;
   if (filter === "all") matches = [...all].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   if (filter === "gaps") {
-    matches = all.filter((m) => divergence(m))
-      .sort((a, b) => Math.abs(divergence(b).value) - Math.abs(divergence(a).value));
+    matches = all.filter((m) => valueEdge(m))
+      .sort((a, b) => valueEdge(b).value - valueEdge(a).value);
   }
   if (filter === "missing") {
     matches = all.filter((m) => modelCoverageCount(m) === 0)
@@ -48,19 +50,16 @@ export default async function Home({ searchParams }) {
   const modeled = all.filter((m) => modelCoverageCount(m) > 0).length;
   const missing = all.filter((m) => modelCoverageCount(m) === 0).length;
   const stale = all.filter((m) => freshness(m, nowMs).key === "stale").length;
-  const valueCandidates = all.filter((m) => {
-    const gap = divergence(m);
-    return gap && Math.abs(gap.value) >= 0.05;
-  }).length;
+  const valueCandidates = all.filter((m) => (valueEdge(m)?.value || 0) >= 0.05).length;
   const isLive = feed.source === "supabase-canonical-live";
   const focusMatches = byFocus
-    .filter((m) => divergence(m) && modelCoverageCount(m) > 0)
+    .filter((m) => (valueEdge(m)?.value || 0) >= 0.05 && modelCoverageCount(m) > 0)
     .slice(0, 7);
 
   const headings = {
     focus: ["LIVE + NEXT 24H", "先睇 Value，再睇模型細節"],
     all: ["Upcoming 24H", "按開賽時間排序"],
-    gaps: ["Edge 候選", "按模型與 HKJC 市場差異排序"],
+    gaps: ["Edge 候選", "按模型高於 HKJC 市場機率嘅幅度排序"],
     missing: ["缺資料", "HKJC 有盤但暫時未有外部模型"],
     stale: ["過時資料", "超過 6 小時未更新"],
   };
