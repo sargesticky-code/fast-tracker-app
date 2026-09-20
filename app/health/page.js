@@ -3,17 +3,22 @@ import { getFeed, modelCoverageCount, freshness, lineComparisonStatus } from "@/
 
 function missingClass(match){
   const h=match.health||{};
-  if(!h.primaryMissingReason) return null;
+  const reason=String(h.forebetReason||h.primaryMissingReason||"").toLowerCase();
   if(h.forebetState==="FIXTURE_ONLY") return "SOURCE_FIXTURE_ONLY";
+  if(reason.includes("alias_near_miss") || reason.includes("name_candidate") || reason.includes("match_policy_review")) return "MATCHING_REVIEW";
+  if(reason.includes("source_surface_unavailable") || reason.includes("target_missing_from_forebet_scan_output")) return "SOURCE_UNAVAILABLE";
+  if(reason.includes("fixture_absent_from_fetched_model_surfaces") || reason.includes("published_without_usable_model")) return "SOURCE_NO_MODEL";
   if(!h.forebetState || h.forebetCheckFreshness==="STALE") return "CAPTURE_OR_CHECK_PENDING";
   if(h.forebetState==="UNRESOLVED" && h.forebetCheckFreshness==="FRESH") return "SOURCE_NO_MODEL";
   if(h.diagnostics?.some(x=>String(x).includes("ALIAS_NOT_REGISTERED"))) return "MATCHING_REVIEW";
+  if(!h.primaryMissingReason && h.forebetState==="MODEL") return null;
   return "OTHER";
 }
 
 const classMeta={
   SOURCE_FIXTURE_ONLY:["Source有賽事、冇預測","Forebet曾見到賽事，但冇prediction model。"],
-  SOURCE_NO_MODEL:["Source已check、冇model","已完成Forebet檢查；唔會用alias或假數據補洞。"],
+  SOURCE_NO_MODEL:["Source已check、冇model","Forebet可用surface已檢查，但冇見到可用model；唔會用假數據補洞。"],
+  SOURCE_UNAVAILABLE:["Source / scan不可用","Forebet surface被擋、未發布，或target未出現於本輪scan；同alias問題分開。"],
   CAPTURE_OR_CHECK_PENDING:["Capture / check待完成","尚未完成檢查，或者check已過時；屬pipeline待處理。"],
   MATCHING_REVIEW:["Matching需覆核","Source有線索，但球隊alias / matching需要人工驗證。"],
   OTHER:["其他資料缺口","有缺口，但未落入以上分類。"],
@@ -79,7 +84,7 @@ export default async function HealthPage(){
       <div className="health-list"><div><span>Forebet predicted score</span><b>{coverage.score}/{stats.total}</b></div><div><span>Goals O/U evidence</span><b>{coverage.goals}/{stats.total}</b></div><div><span>Corners evidence</span><b>{coverage.corners}/{stats.total}</b></div><div><span>Multi-source evidence</span><b>{coverage.multi}/{stats.total}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>QUALITY</p><h2>Coverage</h2></div><span>{feed.source}</span></div>
-      <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
+      <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Source / scan不可用</span><b>{classes.SOURCE_UNAVAILABLE||0}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
     </section>
     {missingRows.length>0&&<section className="panel"><div className="panel-title"><div><p>GAPS</p><h2>缺資料賽事</h2></div><span>{missingRows.length}</span></div>
       {Object.entries(classMeta).map(([key,[label,note]])=>{const rows=missingRows.filter(m=>missingClass(m)===key);if(!rows.length)return null;return <div key={key} style={{marginTop:"18px"}}><div className="panel-title"><div><p>{key}</p><h2 style={{fontSize:"18px"}}>{label}</h2><small>{note}</small></div><span>{rows.length}</span></div><div className="health-list">{rows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · {m.health?.primaryMissingReason||"NO DATA"}</small></span><b>{m.health?.forebetState||"NOT CHECKED"}</b></div>)}</div></div>})}
