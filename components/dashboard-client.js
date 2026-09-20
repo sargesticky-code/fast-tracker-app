@@ -117,7 +117,7 @@ function statPairText(pair, digits = 0, suffix = "") {
   const h = Number(pair.home);
   const a = Number(pair.away);
   if (!Number.isFinite(h) || !Number.isFinite(a)) return "—";
-  return `${h.toFixed(digits)}-${a.toFixed(digits)}${suffix}`;
+  return `${h.toFixed(digits)}${suffix}-${a.toFixed(digits)}${suffix}`;
 }
 
 function LiveMatchRow({ match }) {
