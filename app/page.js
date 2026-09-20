@@ -9,9 +9,9 @@ import {
 } from "@/lib/fast-tracker";
 
 const filters = [
-  ["focus", "先睇"],
+  ["focus", "焦點"],
   ["all", "全部"],
-  ["gaps", "分歧"],
+  ["gaps", "Edge"],
   ["missing", "缺資料"],
   ["stale", "過時"],
 ];
@@ -46,18 +46,21 @@ export default async function Home({ searchParams }) {
   }
 
   const modeled = all.filter((m) => modelCoverageCount(m) > 0).length;
-  const rich = all.filter((m) => modelCoverageCount(m) >= 6).length;
-  const sourceGaps = all.filter((m) => ["FIXTURE_ONLY", "UNRESOLVED"].includes(m.health?.forebetState) && m.health?.forebetCheckFreshness === "FRESH").length;
-  const pipelinePending = all.filter((m) => m.health?.primaryMissingReason && (!m.health?.forebetState || ["STALE", "UNCHECKED"].includes(m.health?.forebetCheckFreshness))).length;
-  const stale = all.filter((m) => freshness(m, nowMs).key === "stale").length;
   const missing = all.filter((m) => modelCoverageCount(m) === 0).length;
+  const stale = all.filter((m) => freshness(m, nowMs).key === "stale").length;
+  const valueCandidates = all.filter((m) => {
+    const gap = divergence(m);
+    return gap && Math.abs(gap.value) >= 0.05;
+  }).length;
   const isLive = feed.source === "supabase-canonical-live";
-  const focusFive = byFocus.filter((m) => modelCoverageCount(m) > 0).slice(0, 5);
+  const focusMatches = byFocus
+    .filter((m) => divergence(m) && modelCoverageCount(m) > 0)
+    .slice(0, 7);
 
   const headings = {
-    focus: ["先睇呢批", "按資料完整度、模型分歧及新鮮度排序"],
+    focus: ["LIVE + NEXT 24H", "先睇 Value，再睇模型細節"],
     all: ["Upcoming 24H", "按開賽時間排序"],
-    gaps: ["模型與市場分歧", "只比較已有外部模型嘅賽事"],
+    gaps: ["Edge 候選", "按模型與 HKJC 市場差異排序"],
     missing: ["缺資料", "HKJC 有盤但暫時未有外部模型"],
     stale: ["過時資料", "超過 6 小時未更新"],
   };
@@ -66,32 +69,35 @@ export default async function Home({ searchParams }) {
     <main className="shell">
       <header className="hero compact-hero">
         <div>
-          <p className="eyebrow">FAST TRACKER 2026</p>
-          <h1>Match Intelligence</h1>
-          <p className="subtitle">24小時 HKJC universe · 先睇資料，再睇 decision</p>
+          <p className="eyebrow">FAST TRACK 2026</p>
+          <h1>Betting Board</h1>
+          <p className="subtitle">HKJC 24H · HDA / 入球 / 角球 · 先睇 Edge，再睇 evidence</p>
         </div>
         <span className={`preview-badge ${isLive ? "live-badge" : ""}`}>
           {isLive ? "LIVE SQL" : "FALLBACK"}
         </span>
       </header>
 
-      <section className="health-strip">
-        <div><b>{all.length}</b><span>24H賽事</span></div>
-        <div><b>{modeled}</b><span>有模型</span></div>
-        <div><b>{missing}</b><span>缺模型</span></div>
-        <div className={pipelinePending ? "health-warn" : ""}><b>{pipelinePending}</b><span>待Capture</span></div>
-        <div><b>{sourceGaps}</b><span>Source冇Model</span></div>
-        <div className={stale ? "health-warn" : ""}><b>{stale}</b><span>過時</span></div>
+      <section className="board-stats">
+        <div><span>24H 賽事</span><b>{all.length}</b></div>
+        <div><span>Value 候選</span><b>{valueCandidates}</b></div>
+        <div><span>有模型</span><b>{modeled}</b></div>
+        <div className={missing || stale ? "health-warn" : ""}>
+          <span>資料提醒</span><b>{missing + stale}</b>
+        </div>
       </section>
 
-      {filter === "focus" && focusFive.length > 0 ? (
+      {focusMatches.length > 0 ? (
         <section className="focus-zone">
           <div className="focus-zone-head">
-            <div><span>REVIEW FIRST</span><h2>最值得先檢視</h2></div>
-            <p>呢個係資料優先級，唔係投注評分。</p>
+            <div>
+              <span>BEST BETS · VALUE SHORTLIST</span>
+              <h2>最值得先睇</h2>
+            </div>
+            <p>重點：市場 / Edge / Odds / 預測比分 / 入球 / 角球</p>
           </div>
           <div className="focus-list">
-            {focusFive.map((match, index) => (
+            {focusMatches.map((match, index) => (
               <MatchCard key={match.id} match={match} nowMs={nowMs} focusRank={index + 1} />
             ))}
           </div>
