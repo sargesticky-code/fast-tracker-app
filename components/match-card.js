@@ -89,7 +89,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const forebetHasModel = score !== "—";
   const forebetMain = forebetHasModel ? score : (forebetState === "FIXTURE_ONLY" ? "FIXTURE" : "NO MODEL");
   const forebetSub = forebetHasModel
-    ? (sourceCount ? `${sourceCount} src` : "MODEL")
+    ? (sourceCount ? `${sourceCount} sources` : "MODEL")
     : (forebetState || "NO DATA");
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
@@ -108,109 +108,79 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
 
   return (
     <Link
-      className={`match-card ${focusRank ? "focus-card" : ""}`}
+      className={`match-card upcoming-command-card ${focusRank ? "focus-card" : ""}`}
       href={`/match/?id=${encodeURIComponent(match.id)}`}
       onClick={cacheMatch}
     >
       <div className="match-topline">
-        {focusRank ? <span className="focus-rank">#{focusRank}</span> : null}
-        <span>{formatKickoff(match.kickoff)}</span>
-        <span className="league">{match.league}</span>
-        {hasBigOddsMove ? (
-          <span className={`odds-move-badge ${rawMove < 0 ? "odds-steam" : "odds-drift"}`}>
-            賠率{moveArrow} {rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}% {moveSide}
-          </span>
-        ) : null}
-        <span className={`freshness freshness-${fresh.key}`}>{fresh.label}</span>
+        <div className="upcoming-meta-left">
+          {focusRank ? <span className="focus-rank">#{focusRank}</span> : null}
+          <strong className="upcoming-kickoff">{formatKickoff(match.kickoff)}</strong>
+          <span className="league">{match.league}</span>
+        </div>
+        <div className="upcoming-meta-right">
+          {hasBigOddsMove ? (
+            <span className={`odds-move-badge ${rawMove < 0 ? "odds-steam" : "odds-drift"}`}>
+              賠率{moveArrow} {rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}% {moveSide}
+            </span>
+          ) : null}
+          <span className={`freshness freshness-${fresh.key}`}>{fresh.label}</span>
+        </div>
       </div>
 
-      <div className="teams">
-        <div>
+      <div className="upcoming-score-hero">
+        <div className="upcoming-team upcoming-home-team">
+          <small>主隊</small>
           <b>{primaryHome}</b>
-          {secondaryHome && <em>{secondaryHome}</em>}
-          <small>主</small>
+          {secondaryHome ? <em>{secondaryHome}</em> : null}
         </div>
-        <span>vs</span>
-        <div>
+
+        <div className="upcoming-forecast">
+          <small>FOREBET</small>
+          <strong>{forebetMain}</strong>
+          <span>{forebetSub}</span>
+        </div>
+
+        <div className="upcoming-team upcoming-away-team">
+          <small>客隊</small>
           <b>{primaryAway}</b>
-          {secondaryAway && <em>{secondaryAway}</em>}
-          <small>客</small>
+          {secondaryAway ? <em>{secondaryAway}</em> : null}
         </div>
       </div>
 
-      <div className="mobile-card-data">
-        <div className={`mobile-value ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
-          <span>HDA · {hdaSource(match)}</span>
-          <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
-          <small>{edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp · ${formatOdds(selectedOdds)}` : "—"}</small>
+      <div className="upcoming-intel-grid">
+        <div className={`upcoming-value-card ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
+          <small>HDA VALUE · {hdaSource(match)}</small>
+          <div className="upcoming-value-main">
+            <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
+            <strong>{edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp` : "—"}</strong>
+          </div>
+          <span>HKJC {formatOdds(selectedOdds)}</span>
         </div>
-        <div>
-          <span>FB</span>
-          <b>{forebetMain}</b>
-          <small>{forebetSub}</small>
-        </div>
-        <div className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
-          <span>入球 HKJC{match.goals?.line ? ` ${match.goals.line}` : " —"}</span>
+
+        <div className={`upcoming-market-card ${goals.status?.key === "mismatch" ? "market-mismatch" : ""}`}>
+          <small>入球 · HKJC {match.goals?.line ?? "—"}</small>
           <b>{goals.main}</b>
-          <small>{goals.sub}</small>
+          <span>{goals.sub}</span>
         </div>
-        <div className={corners.status?.key === "mismatch" ? "market-mismatch" : ""}>
-          <span>角球 HKJC{match.corners?.line ? ` ${match.corners.line}` : " —"}</span>
+
+        <div className={`upcoming-market-card ${corners.status?.key === "mismatch" ? "market-mismatch" : ""}`}>
+          <small>角球 · HKJC {match.corners?.line ?? "—"}</small>
           <b>{corners.main}</b>
-          <small>{corners.sub}</small>
+          <span>{corners.sub}</span>
         </div>
-        <div className="mobile-odds-line">
+      </div>
+
+      <div className="upcoming-bottom-row">
+        <div className="upcoming-had">
           <span>主 <b>{formatOdds(match.odds.home)}</b></span>
           <span>和 <b>{formatOdds(match.odds.draw)}</b></span>
           <span>客 <b>{formatOdds(match.odds.away)}</b></span>
-          <em>{coverage(match)} · 詳情 →</em>
         </div>
-      </div>
-
-      <div className="full-card-data">
-      <div className={`value-strip ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
-        <div>
-          <span>HDA Value · {hdaSource(match)}</span>
-          <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
+        <div className="upcoming-card-status">
+          <span className={`coverage coverage-${coverage(match).replaceAll(" ", "-").toLowerCase()}`}>{coverage(match)}</span>
+          <span className="details-link">詳情 →</span>
         </div>
-        <div>
-          <span>Edge</span>
-          <strong>{edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp` : "—"}</strong>
-        </div>
-        <div>
-          <span>HKJC Odds</span>
-          <b>{formatOdds(selectedOdds)}</b>
-        </div>
-      </div>
-
-      <div className="market-grid">
-        <div>
-          <span>Forebet</span>
-          <b>{forebetMain}</b>
-          <small>{forebetHasModel ? (sourceCount ? `${sourceCount} sources` : "MODEL") : forebetSub}</small>
-        </div>
-        <div className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
-          <span>入球 HKJC {match.goals?.line ? `· ${match.goals.line}` : "· —"}</span>
-          <b>{goals.main}</b>
-          <small>{goals.sub}</small>
-        </div>
-        <div className={corners.status?.key === "mismatch" ? "market-mismatch" : ""}>
-          <span>角球 HKJC {match.corners?.line ? `· ${match.corners.line}` : "· —"}</span>
-          <b>{corners.main}</b>
-          <small>{corners.sub}</small>
-        </div>
-      </div>
-
-      <div className="odds-strip compact-odds">
-        <div><span>主</span><b>{formatOdds(match.odds.home)}</b></div>
-        <div><span>和</span><b>{formatOdds(match.odds.draw)}</b></div>
-        <div><span>客</span><b>{formatOdds(match.odds.away)}</b></div>
-      </div>
-
-      <div className="card-footer">
-        <span className={`coverage coverage-${coverage(match).replaceAll(" ", "-").toLowerCase()}`}>{coverage(match)}</span>
-        <span className="details-link">詳情 →</span>
-      </div>
       </div>
     </Link>
   );
