@@ -112,6 +112,14 @@ function liveCornerProgress(live) {
   return need === 0 ? `${total}/${line} · 已過大` : `${total}/${line} · 差${need}`;
 }
 
+function statPairText(pair, digits = 0, suffix = "") {
+  if (!pair || pair.home == null || pair.away == null) return "—";
+  const h = Number(pair.home);
+  const a = Number(pair.away);
+  if (!Number.isFinite(h) || !Number.isFinite(a)) return "—";
+  return `${h.toFixed(digits)}-${a.toFixed(digits)}${suffix}`;
+}
+
 function LiveMatchRow({ match }) {
   const live = match.live || {};
   const score = live.score || {};
@@ -122,6 +130,7 @@ function LiveMatchRow({ match }) {
   );
   const minuteText = Number.isFinite(Number(score.minute)) ? `${score.minute}'` : (score.status || live.status || "LIVE");
   const cornerProgress = liveCornerProgress(live);
+  const stats = live.stats || null;
   return (
     <Link
       className="live-match-row"
@@ -139,6 +148,14 @@ function LiveMatchRow({ match }) {
         <span>{scoreText}</span>
         <b>{match.awayZh || match.away}</b>
       </div>
+      {stats ? (
+        <div className="live-stat-strip">
+          <span>xG <b>{statPairText(stats.xg, 2)}</b></span>
+          <span>射門 <b>{statPairText(stats.shots)}</b></span>
+          <span>中框 <b>{statPairText(stats.shotsOnTarget)}</b></span>
+          <span>控球 <b>{statPairText(stats.possession, 0, "%")}</b></span>
+        </div>
+      ) : null}
       <div className="live-markets">
         <div>
           <span>HAD</span>
