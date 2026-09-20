@@ -46,17 +46,17 @@
     {
       "hkjc_event_id": "FB5457",
       "hkjc_kickoff": "2026-09-20T23:00:00Z",
-      "source": "sofascore+official_broadcast",
-      "source_event_url": "https://www.primevideo.com/-/es/detail/0J0VTAWF4SVJ490R7NKE2G9W4X",
-      "source_event_kickoff": "2026-09-20T22:30:00Z",
-      "kickoff_delta_minutes": 30,
+      "source": "sofascore+official_club",
+      "source_event_url": "https://www.intermiamicf.com/news/match-preview-inter-miami-cf-takes-on-san-diego-fc-for-the-first-time-on-sunday",
+      "source_event_kickoff": "2026-09-20T23:00:00Z",
+      "kickoff_delta_minutes": 0,
       "home": {"hkjc_name":"Inter Miami CF","source_team_id":"337602","source_name":"Inter Miami CF","source_team_url":"https://www.sofascore.com/football/team/inter-miami-cf/337602"},
       "away": {"hkjc_name":"San Diego FC","source_team_id":"1043961","source_name":"San Diego FC","source_team_url":"https://www.sofascore.com/football/team/san-diego-fc/1043961"},
-      "confirmed": false,
-      "confidence": 0.8,
-      "verified_at": "2026-09-20T20:33:14Z",
-      "verification_note": "Identity names and both Sofascore team IDs are verified, but Prime Video lists 18:30 EDT (22:30 UTC) while HKJC lists 23:00 UTC. Fail closed: fixture-level identity remains unconfirmed pending a trusted source with matching kickoff.",
-      "raw_context": {"hkjc_fetched_at":"2026-09-20T20:30:02.253Z","hkjc_tournament":"MLS","kickoff_conflict_minutes":30,"identity_status":"UNRESOLVED_KICKOFF_CONFLICT"}
+      "confirmed": true,
+      "confidence": 1,
+      "verified_at": "2026-09-20T21:32:39Z",
+      "verification_note": "Resolved prior 30-minute conflict. Inter Miami official match preview states Sept 20 kickoff at 7 p.m. ET (23:00 UTC), matching HKJC. San Diego FC official news release independently states 4:00 p.m. PT (23:00 UTC). Earlier Prime Video 18:30 EDT listing is treated as stale/incorrect schedule metadata, not identity evidence.",
+      "raw_context": {"hkjc_tournament":"MLS","identity_status":"CONFIRMED_IDENTITY","prior_conflict":"Prime Video previously listed 18:30 EDT; superseded by both clubs' official 19:00 ET / 16:00 PT match previews","evidence_class":"CONFIRMED FACT"}
     }
   ]
 }
