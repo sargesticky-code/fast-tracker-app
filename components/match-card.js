@@ -81,6 +81,11 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const score = predictedScore(match);
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
+  const oddsMove = match.oddsMovement;
+  const rawMove = Number(oddsMove?.rawOddsChangePct);
+  const hasBigOddsMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
+  const moveSide = oddsMove?.side ? sideName(match, oddsMove.side) : "";
+  const moveArrow = rawMove < 0 ? "↓" : "↑";
 
   function cacheMatch() {
     try {
@@ -99,6 +104,11 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
         {focusRank ? <span className="focus-rank">#{focusRank}</span> : null}
         <span>{formatKickoff(match.kickoff)}</span>
         <span className="league">{match.league}</span>
+        {hasBigOddsMove ? (
+          <span className={`odds-move-badge ${rawMove < 0 ? "odds-steam" : "odds-drift"}`}>
+            賠率{moveArrow} {rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}% {moveSide}
+          </span>
+        ) : null}
         <span className={`freshness freshness-${fresh.key}`}>{fresh.label}</span>
       </div>
 
