@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   coverage,
@@ -80,8 +82,18 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
 
+  function cacheMatch() {
+    try {
+      window.sessionStorage.setItem(`ft-match-${match.id}`, JSON.stringify(match));
+    } catch {}
+  }
+
   return (
-    <Link className={`match-card ${focusRank ? "focus-card" : ""}`} href={`/match/${match.id}`}>
+    <Link
+      className={`match-card ${focusRank ? "focus-card" : ""}`}
+      href={`/match/?id=${encodeURIComponent(match.id)}`}
+      onClick={cacheMatch}
+    >
       <div className="match-topline">
         {focusRank ? <span className="focus-rank">#{focusRank}</span> : null}
         <span>{formatKickoff(match.kickoff)}</span>
