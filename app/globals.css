@@ -240,7 +240,8 @@ a{color:inherit;text-decoration:none}
 }
 .market-grid span{display:block;color:var(--muted);font-size:9px;margin-bottom:4px;font-weight:800}
 .market-mismatch{background:#fff8e8!important;border-color:#ead8a7!important}
-.market-mismatch small,.line-warning{color:#966b18!important;font-weight:900}
+.market-mismatch small,.line-derived{color:#8a6a24;font-weight:800}
+.line-warning{color:#966b18!important;font-weight:900}
 .market-grid b{display:block;font-size:13px;color:var(--green-dark)}
 .market-grid small{display:block;color:#8b9991;font-size:9px;margin-top:3px}
 
