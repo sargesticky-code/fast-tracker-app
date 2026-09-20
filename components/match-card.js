@@ -41,47 +41,37 @@ function predictedScore(match) {
 }
 
 function totalSignal(match) {
-  const row = match.forebetDetail?.ou25 || {};
-  const over = row.over;
-  const under = row.under;
-  const avg = row.avgGoals ?? match.forebetDetail?.avgGoals;
+  const row = match.forebetDetail?.goalsCurrentLine;
   const status = lineComparisonStatus(match, "goals");
-  if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA", status };
-  if (over != null || under != null) {
-    const overN = Number(over ?? -1);
-    const underN = Number(under ?? -1);
-    const isOver = overN >= underN;
-    const p = Math.max(overN, underN);
-    const pick = `${isOver ? "大" : "細"} ${Number.isFinite(p) && p >= 0 ? `${(p * 100).toFixed(0)}%` : ""}`.trim();
-    return {
-      main: status.key === "mismatch" ? `FB2.5 ${pick}` : pick,
-      sub: status.key === "mismatch" ? "LINE MISMATCH" : (avg == null ? "FB O/U 2.5" : `Avg ${Number(avg).toFixed(2)}`),
-      status,
-    };
+  if (!row || row.over == null || row.under == null) {
+    return { main: "—", sub: status.label || "NO DATA", status };
   }
-  return { main: status.key === "mismatch" ? "FB2.5 Avg" : "Avg", sub: Number(avg).toFixed(2), status };
+  const overN = Number(row.over);
+  const underN = Number(row.under);
+  const isOver = overN >= underN;
+  const p = Math.max(overN, underN);
+  return {
+    main: `${isOver ? "大" : "細"} ${Number.isFinite(p) ? `${(p * 100).toFixed(0)}%` : ""}`.trim(),
+    sub: `${row.derived ? "DERIVED" : "FOREBET"}${row.avg == null ? "" : ` · Avg ${Number(row.avg).toFixed(2)}`}`,
+    status,
+  };
 }
 
 function cornerSignal(match) {
-  const row = match.forebetDetail?.corners95 || {};
-  const over = row.over;
-  const under = row.under;
-  const avg = row.avgCorners ?? match.forebetDetail?.avgCorners;
+  const row = match.forebetDetail?.cornersCurrentLine;
   const status = lineComparisonStatus(match, "corners");
-  if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA", status };
-  if (over != null || under != null) {
-    const overN = Number(over ?? -1);
-    const underN = Number(under ?? -1);
-    const isOver = overN >= underN;
-    const p = Math.max(overN, underN);
-    const pick = `${isOver ? "大" : "細"} ${Number.isFinite(p) && p >= 0 ? `${(p * 100).toFixed(0)}%` : ""}`.trim();
-    return {
-      main: status.key === "mismatch" ? `FB9.5 ${pick}` : pick,
-      sub: status.key === "mismatch" ? "LINE MISMATCH" : (avg == null ? "FB O/U 9.5" : `Avg ${Number(avg).toFixed(1)}`),
-      status,
-    };
+  if (!row || row.over == null || row.under == null) {
+    return { main: "—", sub: status.label || "NO DATA", status };
   }
-  return { main: status.key === "mismatch" ? "FB9.5 Avg" : "Avg", sub: Number(avg).toFixed(1), status };
+  const overN = Number(row.over);
+  const underN = Number(row.under);
+  const isOver = overN >= underN;
+  const p = Math.max(overN, underN);
+  return {
+    main: `${isOver ? "大" : "細"} ${Number.isFinite(p) ? `${(p * 100).toFixed(0)}%` : ""}`.trim(),
+    sub: `${row.derived ? "DERIVED" : "FOREBET"}${row.avg == null ? "" : ` · Avg ${Number(row.avg).toFixed(1)}`}`,
+    status,
+  };
 }
 
 export default function MatchCard({ match, nowMs, focusRank = null }) {
