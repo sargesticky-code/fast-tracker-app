@@ -10,6 +10,7 @@ import {
   formatOdds,
   formatUpdated,
   freshness,
+  lineComparisonStatus,
   modelCoverageCount,
   modelLabel,
   sideName,
@@ -148,6 +149,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       })()
     : "—";
   const liveStats = match.live?.stats || null;
+  const goalsCompare = lineComparisonStatus(match, "goals");
+  const cornersCompare = lineComparisonStatus(match, "corners");
 
   return (
     <main className="shell detail-shell">
@@ -231,14 +234,20 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <span>HKJC 入球 O/U · {match.goals?.line || "—"}</span>
             <div><b>大 {formatOdds(match.goals?.over)}</b><b>細 {formatOdds(match.goals?.under)}</b></div>
             {match.forebetDetail?.ou25?.over != null
-              ? <small>Forebet O2.5 {(match.forebetDetail.ou25.over * 100).toFixed(0)}% · U2.5 {(match.forebetDetail.ou25.under * 100).toFixed(0)}% · Avg {match.forebetDetail.ou25.avgGoals ?? "—"}</small>
+              ? <small className={goalsCompare.key === "mismatch" ? "line-warning" : ""}>
+                  Forebet O2.5 {(match.forebetDetail.ou25.over * 100).toFixed(0)}% · U2.5 {(match.forebetDetail.ou25.under * 100).toFixed(0)}% · Avg {match.forebetDetail.ou25.avgGoals ?? "—"}
+                  {goalsCompare.key === "mismatch" ? ` · LINE MISMATCH：不可同 HKJC ${goalsCompare.currentLine} 直接計 Edge` : ""}
+                </small>
               : <small>Forebet O/U NO DATA</small>}
           </div>
           <div className="total-market">
             <span>HKJC 角球 O/U · {match.corners?.line || "—"}</span>
             <div><b>大 {formatOdds(match.corners?.over)}</b><b>細 {formatOdds(match.corners?.under)}</b></div>
             {match.forebetDetail?.corners95?.avgCorners != null
-              ? <small>Forebet Avg corners {Number(match.forebetDetail.corners95.avgCorners).toFixed(1)} · O9.5 {match.forebetDetail.corners95.over == null ? "—" : (match.forebetDetail.corners95.over * 100).toFixed(0) + "%"}</small>
+              ? <small className={cornersCompare.key === "mismatch" ? "line-warning" : ""}>
+                  Forebet Avg corners {Number(match.forebetDetail.corners95.avgCorners).toFixed(1)} · O9.5 {match.forebetDetail.corners95.over == null ? "—" : (match.forebetDetail.corners95.over * 100).toFixed(0) + "%"}
+                  {cornersCompare.key === "mismatch" ? ` · LINE MISMATCH：不可同 HKJC ${cornersCompare.currentLine} 直接計 Edge` : ""}
+                </small>
               : <small>Forebet corners NO DATA</small>}
           </div>
         </div>
