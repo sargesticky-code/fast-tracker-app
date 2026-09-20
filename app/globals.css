@@ -916,3 +916,64 @@ a{color:inherit;text-decoration:none}
   .gap-feature small{font-size:7px}
   .gap-feature b{font-size:13px}
 }
+
+/* Production layout guard — keep Next 24H readable at every desktop width */
+.match-list{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:10px!important;
+}
+.upcoming-command-card{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+.upcoming-command-card *{box-sizing:border-box}
+.upcoming-score-hero{
+  grid-template-columns:minmax(0,1fr) 118px minmax(0,1fr);
+}
+.upcoming-side-label{
+  display:block;
+  margin-top:4px;
+  color:#8a9991;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+.upcoming-team b{font-size:18px}
+.upcoming-forecast strong{font-size:22px}
+.upcoming-forecast span{font-size:8.5px;line-height:1.15}
+.upcoming-value-card small,.upcoming-market-card small{font-size:9px}
+.upcoming-value-main b,.upcoming-market-card>b{font-size:14px}
+.upcoming-value-main strong{font-size:15px}
+.upcoming-value-card>span,.upcoming-market-card>span{font-size:8.5px}
+.upcoming-had span{font-size:9.5px}
+.upcoming-had b{font-size:12.5px}
+
+/* Best Bets shortlist readability */
+.market-pick-row{padding:8px 7px}
+.market-pick-match span,.market-pick-selection span,.market-pick-number span{font-size:8.5px}
+.market-pick-match b{font-size:11px}
+.market-pick-selection b,.market-pick-number b{font-size:11.5px}
+.line-value-label{font-size:8px}
+.value-section-head h3{font-size:15px}
+.value-section-head span{font-size:9px}
+
+@media(max-width:680px){
+  .match-list{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:6px!important;
+  }
+  .upcoming-score-hero{
+    grid-template-columns:minmax(0,1fr) 68px minmax(0,1fr);
+  }
+  .upcoming-side-label{font-size:6.5px;margin-top:3px}
+  .upcoming-team b{font-size:15px}
+  .upcoming-forecast strong{font-size:18px}
+  .upcoming-forecast span{font-size:6.8px}
+  .market-pick-match span,.market-pick-selection span,.market-pick-number span{font-size:7px}
+  .market-pick-match b{font-size:9.2px}
+  .market-pick-selection b,.market-pick-number b{font-size:9.5px}
+}
+
