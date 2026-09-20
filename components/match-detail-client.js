@@ -17,6 +17,14 @@ import {
 
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 
+function pairText(pair, digits = 0, suffix = "") {
+  if (!pair || pair.home == null || pair.away == null) return "—";
+  const h = Number(pair.home);
+  const a = Number(pair.away);
+  if (!Number.isFinite(h) || !Number.isFinite(a)) return "—";
+  return `${h.toFixed(digits)}-${a.toFixed(digits)}${suffix}`;
+}
+
 function readCachedMatch(id) {
   if (!id) return null;
   try {
@@ -50,9 +58,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     }
 
     let cancelled = false;
-    fetch(FEED_URL, { cache: "no-store" })
-      .then((res) => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
-      .then((feed) => {
+
+    async function refreshMatch() {
+      try {
+        const res = await fetch(FEED_URL, { cache: "no-store" });
+        if (!res.ok) return;
+        const feed = await res.json();
         if (cancelled) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
@@ -63,13 +74,21 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
           } catch {}
         }
-      })
-      .catch(() => {})
-      .finally(() => {
+      } catch {
+      } finally {
         if (!cancelled) setReady(true);
-      });
+      }
+    }
 
-    return () => { cancelled = true; };
+    refreshMatch();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshMatch();
+    }, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [snapshotMatches]);
 
   if (!id && ready) {
@@ -128,6 +147,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         return need === 0 ? `${liveCornerTotal}/${liveCornerLine} · 已過大` : `${liveCornerTotal}/${liveCornerLine} · 差${need}`;
       })()
     : "—";
+  const liveStats = match.live?.stats || null;
 
   return (
     <main className="shell detail-shell">
@@ -161,6 +181,18 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div><span>角球</span><b>{Number.isFinite(liveCornerTotal) ? liveCornerTotal : "—"}</b></div>
             <div><span>角球進度</span><b>{liveCornerProgress}</b></div>
           </div>
+          {liveStats ? (
+            <div className="live-stats-detail-grid">
+              <div><span>xG</span><b>{pairText(liveStats.xg, 2)}</b></div>
+              <div><span>xGOT</span><b>{pairText(liveStats.xgot, 2)}</b></div>
+              <div><span>射門</span><b>{pairText(liveStats.shots)}</b></div>
+              <div><span>中框</span><b>{pairText(liveStats.shotsOnTarget)}</b></div>
+              <div><span>控球</span><b>{pairText(liveStats.possession, 0, "%")}</b></div>
+              <div><span>Big Chance</span><b>{pairText(liveStats.bigChances)}</b></div>
+              <div><span>禁區觸球</span><b>{pairText(liveStats.boxTouches)}</b></div>
+              <div><span>角球</span><b>{pairText(liveStats.corners)}</b></div>
+            </div>
+          ) : null}
           <div className="big-odds">
             <div><span>主</span><b>{formatOdds(match.live.odds?.home)}</b></div>
             <div><span>和</span><b>{formatOdds(match.live.odds?.draw)}</b></div>
