@@ -49,8 +49,14 @@ function MarketPickRow({ match, edge, type }) {
     odds = binaryOdds(match.corners, edge.key);
   }
 
+  function cacheMatch() {
+    try {
+      window.sessionStorage.setItem(`ft-match-${match.id}`, JSON.stringify(match));
+    } catch {}
+  }
+
   return (
-    <Link className="market-pick-row" href={`/match/${match.id}`}>
+    <Link className="market-pick-row" href={`/match/?id=${encodeURIComponent(match.id)}`} onClick={cacheMatch}>
       <div className="market-pick-match">
         <span>{formatKickoff(match.kickoff)}</span>
         <b>{match.homeZh || match.home} vs {match.awayZh || match.away}</b>
@@ -223,9 +229,9 @@ export default function DashboardClient({ feed, nowMs }) {
       </div>
 
       <footer className="bottom-nav">
-        <button className="selected" type="button" onClick={() => selectFilter("focus")}>賽事</button>
-        <span>Live</span>
-        <span>模型</span>
+        <button className={filter === "focus" ? "selected" : ""} type="button" onClick={() => selectFilter("focus")}>焦點</button>
+        <button className={filter === "all" ? "selected" : ""} type="button" onClick={() => selectFilter("all")}>全部</button>
+        <button className={filter === "gaps" ? "selected" : ""} type="button" onClick={() => selectFilter("gaps")}>Edge</button>
         <a href="/health/">系統</a>
       </footer>
     </main>
