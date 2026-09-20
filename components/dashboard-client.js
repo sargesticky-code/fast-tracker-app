@@ -146,10 +146,48 @@ function LineValueSection({ title, subtitle, groups, type }) {
   );
 }
 
+function cleanLiveToken(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text || /^(null|undefined|nan)$/i.test(text)) return null;
+  return text;
+}
+
+function liveScoreText(score) {
+  const explicit = cleanLiveToken(score?.text);
+  if (explicit && !/(^|[-:\s])null($|[-:\s])/i.test(explicit) && !/undefined/i.test(explicit)) {
+    return explicit;
+  }
+  const homeRaw = cleanLiveToken(score?.home);
+  const awayRaw = cleanLiveToken(score?.away);
+  if (homeRaw == null || awayRaw == null) return "—";
+  const home = Number(homeRaw);
+  const away = Number(awayRaw);
+  if (!Number.isFinite(home) || !Number.isFinite(away)) return "—";
+  return `${Math.trunc(home)}-${Math.trunc(away)}`;
+}
+
+function liveMinuteText(score, live) {
+  const rawMinute = cleanLiveToken(score?.minute);
+  if (rawMinute != null) {
+    const minute = Number(rawMinute);
+    if (Number.isFinite(minute) && minute >= 0) return `${Math.trunc(minute)}'`;
+  }
+  const rawStatus = cleanLiveToken(score?.status) || cleanLiveToken(live?.status);
+  const status = rawStatus ? rawStatus.toUpperCase().replaceAll("_", "").replaceAll(" ", "") : "";
+  if (status.includes("FIRSTHALFCOMPLETED") || status === "HT") return "HT";
+  if (status.includes("SECONDHALF")) return "2H";
+  if (status.includes("FIRSTHALF")) return "1H";
+  return "LIVE";
+}
+
 function liveCornerProgress(live) {
-  const total = Number(live?.score?.totalCorners);
-  const line = Number(live?.corners?.line);
-  if (!Number.isFinite(total) || !Number.isFinite(line)) return "—";
+  const totalRaw = cleanLiveToken(live?.score?.totalCorners);
+  const lineRaw = cleanLiveToken(live?.corners?.line);
+  if (totalRaw == null || lineRaw == null) return "—";
+  const total = Number(totalRaw);
+  const line = Number(lineRaw);
+  if (!Number.isFinite(total) || !Number.isFinite(line) || line <= 0) return "—";
   const target = Math.floor(line) + 1;
   const need = Math.max(0, target - total);
   return need === 0 ? `${total}/${line} · 已過大` : `${total}/${line} · 差${need}`;
@@ -163,6 +201,13 @@ function statPairText(pair, digits = 0, suffix = "") {
   return `${h.toFixed(digits)}${suffix}-${a.toFixed(digits)}${suffix}`;
 }
 
+function hasReadableLiveStats(stats) {
+  if (!stats) return false;
+  return [stats.xg, stats.shots, stats.shotsOnTarget, stats.possession].some((pair) => (
+    pair && Number.isFinite(Number(pair.home)) && Number.isFinite(Number(pair.away))
+  ));
+}
+
 function shadowSideLabel(match, side) {
   if (side === "H") return match.homeZh || match.home || "主";
   if (side === "A") return match.awayZh || match.away || "客";
@@ -173,15 +218,18 @@ function shadowSideLabel(match, side) {
 function LiveMatchRow({ match }) {
   const live = match.live || {};
   const score = live.score || {};
-  const scoreText = score.text || (
-    Number.isFinite(Number(score.home)) && Number.isFinite(Number(score.away))
-      ? `${score.home}-${score.away}`
-      : "—"
-  );
-  const minuteText = Number.isFinite(Number(score.minute)) ? `${score.minute}'` : (score.status || live.status || "LIVE");
+  const scoreText = liveScoreText(score);
+  const minuteText = liveMinuteText(score, live);
   const cornerProgress = liveCornerProgress(live);
   const stats = live.stats || null;
   const shadow = live.shadow || null;
+  const showStats = hasReadableLiveStats(stats);
+  const league = cleanLiveToken(match.league) || "LIVE";
+  const homeName = cleanLiveToken(match.homeZh) || cleanLiveToken(match.home) || "主隊";
+  const awayName = cleanLiveToken(match.awayZh) || cleanLiveToken(match.away) || "客隊";
+  const goalsLine = cleanLiveToken(live.goals?.line) || "—";
+  const cornersLine = cleanLiveToken(live.corners?.line) || "—";
+
   return (
     <Link
       className="live-match-row"
@@ -189,50 +237,56 @@ function LiveMatchRow({ match }) {
       onClick={() => cacheMatch(match)}
     >
       <div className="live-match-head">
-        <span className="live-dot">LIVE</span>
-        <b>{minuteText}</b>
-        <strong>{scoreText}</strong>
-        {shadow ? <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span> : null}
-        <small>{match.league}</small>
+        <div className="live-match-state">
+          <span className="live-dot">LIVE</span>
+          <b>{minuteText}</b>
+          {shadow ? <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span> : null}
+        </div>
+        <small>{league}</small>
       </div>
-      <div className="live-teams">
-        <b>{match.homeZh || match.home}</b>
-        <span>{scoreText}</span>
-        <b>{match.awayZh || match.away}</b>
+
+      <div className="live-scoreboard">
+        <b className="live-home-name">{homeName}</b>
+        <strong className="live-score-main">{scoreText}</strong>
+        <b className="live-away-name">{awayName}</b>
       </div>
+
       {shadow ? (
         <div className="live-shadow-line">
           <span>Expected <b>{shadowSideLabel(match, shadow.expectedSide)}</b></span>
           <span>Live <b>{shadowSideLabel(match, shadow.actualSide)}</b></span>
-          <span>{shadow.metricCount || 0} metrics</span>
+          <span className="live-metric-count">{shadow.metricCount || 0} metrics</span>
         </div>
       ) : null}
-      {stats ? (
+
+      {showStats ? (
         <div className="live-stat-strip">
-          <span>xG <b>{statPairText(stats.xg, 2)}</b></span>
-          <span>射門 <b>{statPairText(stats.shots)}</b></span>
-          <span>中框 <b>{statPairText(stats.shotsOnTarget)}</b></span>
-          <span>控球 <b>{statPairText(stats.possession, 0, "%")}</b></span>
+          <span><small>xG</small><b>{statPairText(stats.xg, 2)}</b></span>
+          <span><small>射門</small><b>{statPairText(stats.shots)}</b></span>
+          <span><small>中框</small><b>{statPairText(stats.shotsOnTarget)}</b></span>
+          <span><small>控球</small><b>{statPairText(stats.possession, 0, "%")}</b></span>
         </div>
       ) : null}
+
       <div className="live-markets">
-        <div>
+        <div className="live-market-had">
           <span>HAD</span>
           <b>{formatOdds(live.odds?.home)} / {formatOdds(live.odds?.draw)} / {formatOdds(live.odds?.away)}</b>
         </div>
         <div>
-          <span>入球 {live.goals?.line || "—"}</span>
+          <span>入球 {goalsLine}</span>
           <b>{formatOdds(live.goals?.over)} / {formatOdds(live.goals?.under)}</b>
         </div>
         <div>
-          <span>角球 {live.corners?.line || "—"}</span>
+          <span>角球 {cornersLine}</span>
           <b>{formatOdds(live.corners?.over)} / {formatOdds(live.corners?.under)}</b>
-          <small>{cornerProgress}</small>
+          {cornerProgress !== "—" ? <small>{cornerProgress}</small> : null}
         </div>
       </div>
     </Link>
   );
 }
+
 
 function heartbeatAgeMinutes(feed, key, nowMs) {
   const t = feed?.systemHealth?.[key]?.observedAt;
