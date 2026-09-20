@@ -13,6 +13,7 @@ import {
   lineComparisonStatus,
   modelCoverageCount,
   modelLabel,
+  sanitizeFallbackMatch,
   sideName,
 } from "@/lib/fast-tracker";
 
@@ -37,7 +38,14 @@ function readCachedMatch(id) {
   if (!id) return null;
   try {
     const raw = window.localStorage.getItem(`ft-match-${id}`) || window.sessionStorage.getItem(`ft-match-${id}`);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const sourceTime = parsed.liveNow
+      ? (parsed.live?.fetchedAt || parsed.health?.hkjcFetchedAt)
+      : parsed.health?.hkjcFetchedAt;
+    const ageMinutes = sourceTime ? (Date.now() - new Date(sourceTime).getTime()) / 60000 : Infinity;
+    const maxAge = parsed.liveNow ? 12 : 30;
+    return Number.isFinite(ageMinutes) && ageMinutes <= maxAge ? parsed : sanitizeFallbackMatch(parsed);
   } catch {
     return null;
   }
