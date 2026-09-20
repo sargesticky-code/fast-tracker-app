@@ -112,6 +112,22 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const movement = match.oddsMovement || null;
   const movementPct = Number(movement?.rawOddsChangePct);
   const hasMovement = movement && Number.isFinite(movementPct);
+  const liveScore = match.live?.score || {};
+  const liveScoreText = liveScore.text || (
+    Number.isFinite(Number(liveScore.home)) && Number.isFinite(Number(liveScore.away))
+      ? `${liveScore.home}-${liveScore.away}`
+      : "—"
+  );
+  const liveMinute = Number.isFinite(Number(liveScore.minute)) ? `${liveScore.minute}'` : (liveScore.status || match.live?.status || "LIVE");
+  const liveCornerTotal = Number(liveScore.totalCorners);
+  const liveCornerLine = Number(match.live?.corners?.line);
+  const liveCornerProgress = Number.isFinite(liveCornerTotal) && Number.isFinite(liveCornerLine)
+    ? (() => {
+        const target = Math.floor(liveCornerLine) + 1;
+        const need = Math.max(0, target - liveCornerTotal);
+        return need === 0 ? `${liveCornerTotal}/${liveCornerLine} · 已過大` : `${liveCornerTotal}/${liveCornerLine} · 差${need}`;
+      })()
+    : "—";
 
   return (
     <main className="shell detail-shell">
@@ -139,6 +155,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div><p>HKJC LIVE</p><h2>即場市場</h2></div>
             <span>{match.live.status || "LIVE"}</span>
           </div>
+          <div className="live-score-summary">
+            <div><span>比分</span><b>{liveScoreText}</b></div>
+            <div><span>時間</span><b>{liveMinute}</b></div>
+            <div><span>角球</span><b>{Number.isFinite(liveCornerTotal) ? liveCornerTotal : "—"}</b></div>
+            <div><span>角球進度</span><b>{liveCornerProgress}</b></div>
+          </div>
           <div className="big-odds">
             <div><span>主</span><b>{formatOdds(match.live.odds?.home)}</b></div>
             <div><span>和</span><b>{formatOdds(match.live.odds?.draw)}</b></div>
@@ -154,7 +176,10 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
               <div><b>大 {formatOdds(match.live.corners?.over)}</b><b>細 {formatOdds(match.live.corners?.under)}</b></div>
             </div>
           </div>
-          <p className="fineprint">只顯示 HKJC freshness gate 通過而且仍然 SELLINGSTARTED 嘅 live market。</p>
+          <p className="fineprint">
+            Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
+            {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
+          </p>
         </section>
       )}
 
