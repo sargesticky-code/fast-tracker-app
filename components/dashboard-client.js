@@ -158,24 +158,52 @@ function LiveMatchRow({ match }) {
   );
 }
 
+const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
+
 export default function DashboardClient({ feed, nowMs }) {
   const [filter, setFilter] = useState("focus");
-  const all = feed.matches || [];
+  const [currentFeed, setCurrentFeed] = useState(feed);
+  const [clockMs, setClockMs] = useState(nowMs || Date.now());
+  const all = currentFeed.matches || [];
   const liveMatches = all.filter((m) => m.liveNow);
   const prematchAll = all.filter((m) => !m.liveNow);
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("filter") || "focus";
     setFilter(filters.some(([key]) => key === requested) ? requested : "focus");
+
+    let cancelled = false;
+    async function refreshFeed() {
+      try {
+        const res = await fetch(FEED_URL, { cache: "no-store" });
+        if (!res.ok) return;
+        const next = await res.json();
+        if (!cancelled && Array.isArray(next?.matches)) {
+          setCurrentFeed(next);
+          setClockMs(Date.now());
+        }
+      } catch {}
+    }
+
+    refreshFeed();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshFeed();
+      setClockMs(Date.now());
+    }, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const byFocus = useMemo(() => [...prematchAll].sort((a, b) => {
     const edgeDelta = (valueEdge(b)?.value || -1) - (valueEdge(a)?.value || -1);
     if (edgeDelta) return edgeDelta;
-    const scoreDelta = reviewScore(b, nowMs) - reviewScore(a, nowMs);
+    const scoreDelta = reviewScore(b, clockMs) - reviewScore(a, clockMs);
     if (scoreDelta) return scoreDelta;
     return new Date(a.kickoff) - new Date(b.kickoff);
-  }), [prematchAll, nowMs]);
+  }), [prematchAll, clockMs]);
 
   const hdaPicks = useMemo(() => prematchAll
     .map((match) => ({ match, edge: valueEdge(match) }))
@@ -211,15 +239,15 @@ export default function DashboardClient({ feed, nowMs }) {
       .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   }
   if (filter === "stale") {
-    matches = prematchAll.filter((m) => freshness(m, nowMs).key === "stale")
-      .sort((a, b) => dataAgeMinutes(b, nowMs) - dataAgeMinutes(a, nowMs));
+    matches = prematchAll.filter((m) => freshness(m, clockMs).key === "stale")
+      .sort((a, b) => dataAgeMinutes(b, clockMs) - dataAgeMinutes(a, clockMs));
   }
 
   const missing = prematchAll.filter((m) => modelCoverageCount(m) === 0).length;
-  const stale = prematchAll.filter((m) => freshness(m, nowMs).key === "stale").length;
+  const stale = prematchAll.filter((m) => freshness(m, clockMs).key === "stale").length;
   const valueCandidates = hdaPicks.length + goalsPicks.length + cornersPicks.length;
   const oddsAlerts = prematchAll.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
-  const isLive = feed.source === "supabase-canonical-live";
+  const isLive = currentFeed.source === "supabase-canonical-live";
 
   const headings = {
     focus: ["NEXT 24H", "先睇 Value，再睇模型細節"],
@@ -315,7 +343,7 @@ export default function DashboardClient({ feed, nowMs }) {
         </div>
       ) : (
         <div className="match-list">
-          {matches.map((match) => <MatchCard key={match.id} match={match} nowMs={nowMs} />)}
+          {matches.map((match) => <MatchCard key={match.id} match={match} nowMs={clockMs} />)}
         </div>
       )}
 
