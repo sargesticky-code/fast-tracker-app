@@ -51,10 +51,10 @@ function MarketPickRow({ match, edge, type }) {
     selection = sideName(match, edge.key);
     odds = hdaOdds(match, edge.key);
   } else if (type === "入球") {
-    selection = `${binarySideName(edge.key)} 2.5`;
+    selection = `${binarySideName(edge.key)} ${match.goals?.line ?? "—"}`;
     odds = binaryOdds(match.goals, edge.key);
   } else {
-    selection = `${binarySideName(edge.key)} 9.5`;
+    selection = `${binarySideName(edge.key)} ${match.corners?.line ?? "—"}`;
     odds = binaryOdds(match.corners, edge.key);
   }
 
@@ -99,6 +99,49 @@ function ValueSection({ title, subtitle, rows, type }) {
           <MarketPickRow key={match.id} match={match} edge={edge} type={type} />
         )) : <div className="market-pick-empty">暫時未有可直接比較嘅 Value</div>}
       </div>
+    </section>
+  );
+}
+
+function groupLineCandidates(rows, marketKey, perLine = 2) {
+  const groups = new Map();
+  for (const row of rows) {
+    const line = Number(row.match?.[marketKey]?.line);
+    if (!Number.isFinite(line)) continue;
+    const key = line.toFixed(1);
+    if (!groups.has(key)) groups.set(key, []);
+    if (groups.get(key).length < perLine) groups.get(key).push(row);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([line, items]) => ({ line, rows: items }));
+}
+
+function LineValueSection({ title, subtitle, groups, type }) {
+  const count = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  return (
+    <section className="value-section">
+      <div className="value-section-head">
+        <div>
+          <span>{subtitle}</span>
+          <h3>{title}</h3>
+        </div>
+        <b>{count}</b>
+      </div>
+      {groups.length ? (
+        <div className="line-value-groups">
+          {groups.map((group) => (
+            <div className="line-value-group" key={group.line}>
+              <div className="line-value-label">{type} {group.line}</div>
+              <div className="market-pick-list">
+                {group.rows.map(({ match, edge }) => (
+                  <MarketPickRow key={match.id} match={match} edge={edge} type={type} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <div className="market-pick-empty">暫時未有同線 Value</div>}
     </section>
   );
 }
@@ -258,8 +301,8 @@ export default function DashboardClient({ feed, nowMs }) {
     .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
 
   const hdaPicks = hdaCandidates.slice(0, 5);
-  const goalsPicks = goalsCandidates.slice(0, 5);
-  const cornersPicks = cornersCandidates.slice(0, 5);
+  const goalsGroups = groupLineCandidates(goalsCandidates, "goals", 2);
+  const cornersGroups = groupLineCandidates(cornersCandidates, "corners", 2);
 
   let matches = byFocus;
   if (filter === "all") matches = [...prematchAll].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
@@ -359,8 +402,8 @@ export default function DashboardClient({ feed, nowMs }) {
         </div>
         <div className="value-columns">
           <ValueSection title="HDA" subtitle="主和客" rows={hdaPicks} type="HDA" />
-          <ValueSection title="入球 2.5" subtitle="GOALS" rows={goalsPicks} type="入球" />
-          <ValueSection title="角球 9.5" subtitle="CORNERS" rows={cornersPicks} type="角球" />
+          <LineValueSection title="入球" subtitle="GOALS · CURRENT LINE" groups={goalsGroups} type="入球" />
+          <LineValueSection title="角球" subtitle="CORNERS · CURRENT LINE" groups={cornersGroups} type="角球" />
         </div>
       </section>
 
