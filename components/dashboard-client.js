@@ -232,19 +232,19 @@ export default function DashboardClient({ feed, nowMs }) {
 
   const hdaPicks = useMemo(() => prematchAll
     .map((match) => ({ match, edge: valueEdge(match) }))
-    .filter((row) => row.edge?.value >= 0.05)
+    .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
     .sort((a, b) => b.edge.value - a.edge.value)
     .slice(0, 5), [prematchAll]);
 
   const goalsPicks = useMemo(() => prematchAll
     .map((match) => ({ match, edge: goalsValueEdge(match) }))
-    .filter((row) => row.edge?.value >= 0.05)
+    .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
     .sort((a, b) => b.edge.value - a.edge.value)
     .slice(0, 5), [prematchAll]);
 
   const cornersPicks = useMemo(() => prematchAll
     .map((match) => ({ match, edge: cornersValueEdge(match) }))
-    .filter((row) => row.edge?.value >= 0.05)
+    .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
     .sort((a, b) => b.edge.value - a.edge.value)
     .slice(0, 5), [prematchAll]);
 
