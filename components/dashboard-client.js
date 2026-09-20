@@ -244,23 +244,22 @@ export default function DashboardClient({ feed, nowMs }) {
     return reviewScore(b, clockMs) - reviewScore(a, clockMs);
   }), [prematchAll, clockMs]);
 
-  const hdaPicks = useMemo(() => prematchAll
+  const hdaCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: valueEdge(match) }))
     .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
-    .sort((a, b) => b.edge.value - a.edge.value)
-    .slice(0, 5), [prematchAll]);
-
-  const goalsPicks = useMemo(() => prematchAll
+    .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
+  const goalsCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: goalsValueEdge(match) }))
     .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
-    .sort((a, b) => b.edge.value - a.edge.value)
-    .slice(0, 5), [prematchAll]);
-
-  const cornersPicks = useMemo(() => prematchAll
+    .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
+  const cornersCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: cornersValueEdge(match) }))
     .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
-    .sort((a, b) => b.edge.value - a.edge.value)
-    .slice(0, 5), [prematchAll]);
+    .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
+
+  const hdaPicks = hdaCandidates.slice(0, 5);
+  const goalsPicks = goalsCandidates.slice(0, 5);
+  const cornersPicks = cornersCandidates.slice(0, 5);
 
   let matches = byFocus;
   if (filter === "all") matches = [...prematchAll].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
@@ -284,7 +283,7 @@ export default function DashboardClient({ feed, nowMs }) {
 
   const missing = prematchAll.filter((m) => modelCoverageCount(m) === 0).length;
   const stale = prematchAll.filter((m) => freshness(m, clockMs).key === "stale").length;
-  const valueCandidates = hdaPicks.length + goalsPicks.length + cornersPicks.length;
+  const valueCandidates = hdaCandidates.length + goalsCandidates.length + cornersCandidates.length;
   const oddsAlerts = prematchAll.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
   const isLive = currentFeed.source === "supabase-canonical-live";
   const pipelineWarnings = [
