@@ -20,7 +20,7 @@ const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phas
 function readCachedMatch(id) {
   if (!id) return null;
   try {
-    const raw = window.sessionStorage.getItem(`ft-match-${id}`);
+    const raw = window.localStorage.getItem(`ft-match-${id}`) || window.sessionStorage.getItem(`ft-match-${id}`);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -59,6 +59,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           setMatch(live);
           setSource("LIVE SQL");
           try {
+            window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
             window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
           } catch {}
         }
