@@ -6,6 +6,7 @@ import {
   formatKickoff,
   formatOdds,
   freshness,
+  lineComparisonStatus,
   modelCoverageCount,
   sideName,
   valueEdge,
@@ -35,18 +36,21 @@ function totalSignal(match) {
   const over = row.over ?? match.multi?.over25;
   const under = row.under ?? match.multi?.under25;
   const avg = row.avgGoals ?? match.forebetDetail?.avgGoals;
-  if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA" };
+  const status = lineComparisonStatus(match, "goals");
+  if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA", status };
   if (over != null || under != null) {
     const overN = Number(over ?? -1);
     const underN = Number(under ?? -1);
     const isOver = overN >= underN;
     const p = Math.max(overN, underN);
+    const pick = `${isOver ? "大" : "細"} ${Number.isFinite(p) && p >= 0 ? `${(p * 100).toFixed(0)}%` : ""}`.trim();
     return {
-      main: `${isOver ? "大" : "細"} ${Number.isFinite(p) && p >= 0 ? `${(p * 100).toFixed(0)}%` : ""}`.trim(),
-      sub: avg == null ? "O/U 2.5" : `Avg ${Number(avg).toFixed(2)}`,
+      main: status.key === "mismatch" ? `FB2.5 ${pick}` : pick,
+      sub: status.key === "mismatch" ? "LINE MISMATCH" : (avg == null ? "FB O/U 2.5" : `Avg ${Number(avg).toFixed(2)}`),
+      status,
     };
   }
-  return { main: "Avg", sub: Number(avg).toFixed(2) };
+  return { main: status.key === "mismatch" ? "FB2.5 Avg" : "Avg", sub: Number(avg).toFixed(2), status };
 }
 
 function cornerSignal(match) {
@@ -54,18 +58,21 @@ function cornerSignal(match) {
   const over = row.over;
   const under = row.under;
   const avg = row.avgCorners ?? match.forebetDetail?.avgCorners;
-  if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA" };
+  const status = lineComparisonStatus(match, "corners");
+  if (over == null && under == null && avg == null) return { main: "—", sub: "NO DATA", status };
   if (over != null || under != null) {
     const overN = Number(over ?? -1);
     const underN = Number(under ?? -1);
     const isOver = overN >= underN;
     const p = Math.max(overN, underN);
+    const pick = `${isOver ? "大" : "細"} ${Number.isFinite(p) && p >= 0 ? `${(p * 100).toFixed(0)}%` : ""}`.trim();
     return {
-      main: `${isOver ? "大" : "細"} ${Number.isFinite(p) && p >= 0 ? `${(p * 100).toFixed(0)}%` : ""}`.trim(),
-      sub: avg == null ? "O/U 9.5" : `Avg ${Number(avg).toFixed(1)}`,
+      main: status.key === "mismatch" ? `FB9.5 ${pick}` : pick,
+      sub: status.key === "mismatch" ? "LINE MISMATCH" : (avg == null ? "FB O/U 9.5" : `Avg ${Number(avg).toFixed(1)}`),
+      status,
     };
   }
-  return { main: "Avg", sub: Number(avg).toFixed(1) };
+  return { main: status.key === "mismatch" ? "FB9.5 Avg" : "Avg", sub: Number(avg).toFixed(1), status };
 }
 
 export default function MatchCard({ match, nowMs, focusRank = null }) {
@@ -137,13 +144,13 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
           <b>{score}</b>
           <small>{sourceCount ? `${sourceCount} src` : "HKJC"}</small>
         </div>
-        <div>
-          <span>入球{match.goals?.line ? ` ${match.goals.line}` : ""}</span>
+        <div className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
+          <span>入球 HKJC{match.goals?.line ? ` ${match.goals.line}` : " —"}</span>
           <b>{goals.main}</b>
           <small>{goals.sub}</small>
         </div>
-        <div>
-          <span>角球{match.corners?.line ? ` ${match.corners.line}` : ""}</span>
+        <div className={corners.status?.key === "mismatch" ? "market-mismatch" : ""}>
+          <span>角球 HKJC{match.corners?.line ? ` ${match.corners.line}` : " —"}</span>
           <b>{corners.main}</b>
           <small>{corners.sub}</small>
         </div>
@@ -177,13 +184,13 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
           <b>{score}</b>
           <small>{sourceCount ? `${sourceCount} sources` : "HKJC only"}</small>
         </div>
-        <div>
-          <span>入球 {match.goals?.line ? `· ${match.goals.line}` : ""}</span>
+        <div className={goals.status?.key === "mismatch" ? "market-mismatch" : ""}>
+          <span>入球 HKJC {match.goals?.line ? `· ${match.goals.line}` : "· —"}</span>
           <b>{goals.main}</b>
           <small>{goals.sub}</small>
         </div>
-        <div>
-          <span>角球 {match.corners?.line ? `· ${match.corners.line}` : ""}</span>
+        <div className={corners.status?.key === "mismatch" ? "market-mismatch" : ""}>
+          <span>角球 HKJC {match.corners?.line ? `· ${match.corners.line}` : "· —"}</span>
           <b>{corners.main}</b>
           <small>{corners.sub}</small>
         </div>
