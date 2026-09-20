@@ -103,8 +103,25 @@ function ValueSection({ title, subtitle, rows, type }) {
   );
 }
 
+function liveCornerProgress(live) {
+  const total = Number(live?.score?.totalCorners);
+  const line = Number(live?.corners?.line);
+  if (!Number.isFinite(total) || !Number.isFinite(line)) return "—";
+  const target = Math.floor(line) + 1;
+  const need = Math.max(0, target - total);
+  return need === 0 ? `${total}/${line} · 已過大` : `${total}/${line} · 差${need}`;
+}
+
 function LiveMatchRow({ match }) {
   const live = match.live || {};
+  const score = live.score || {};
+  const scoreText = score.text || (
+    Number.isFinite(Number(score.home)) && Number.isFinite(Number(score.away))
+      ? `${score.home}-${score.away}`
+      : "—"
+  );
+  const minuteText = Number.isFinite(Number(score.minute)) ? `${score.minute}'` : (score.status || live.status || "LIVE");
+  const cornerProgress = liveCornerProgress(live);
   return (
     <Link
       className="live-match-row"
@@ -113,12 +130,13 @@ function LiveMatchRow({ match }) {
     >
       <div className="live-match-head">
         <span className="live-dot">LIVE</span>
-        <b>{live.status || "IN PLAY"}</b>
+        <b>{minuteText}</b>
+        <strong>{scoreText}</strong>
         <small>{match.league}</small>
       </div>
       <div className="live-teams">
         <b>{match.homeZh || match.home}</b>
-        <span>vs</span>
+        <span>{scoreText}</span>
         <b>{match.awayZh || match.away}</b>
       </div>
       <div className="live-markets">
@@ -133,6 +151,7 @@ function LiveMatchRow({ match }) {
         <div>
           <span>角球 {live.corners?.line || "—"}</span>
           <b>{formatOdds(live.corners?.over)} / {formatOdds(live.corners?.under)}</b>
+          <small>{cornerProgress}</small>
         </div>
       </div>
     </Link>
