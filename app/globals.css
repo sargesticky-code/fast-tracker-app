@@ -98,6 +98,9 @@ a{color:inherit;text-decoration:none}
 .live-teams b{font-size:11px;color:var(--text)}
 .live-teams b:last-child{text-align:right}
 .live-teams span{font-size:7px;color:var(--muted)}
+.live-stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:5px}
+.live-stat-strip span{display:block;background:#f4f8f5;border:1px solid #e0e9e2;border-radius:6px;padding:4px;text-align:center;color:var(--muted);font-size:6.5px}
+.live-stat-strip b{display:block;margin-top:1px;color:var(--green-dark);font-size:8px}
 .live-markets{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 .live-markets>div{background:#f7faf7;border:1px solid #e0e8e1;border-radius:7px;padding:5px}
 .live-markets span{display:block;color:var(--muted);font-size:6.5px;margin-bottom:2px}
@@ -373,6 +376,9 @@ a{color:inherit;text-decoration:none}
   .live-teams{gap:3px;margin-bottom:4px}
   .live-teams b{font-size:9px}
   .live-teams span{font-size:6px}
+  .live-stat-strip{gap:2px;margin-bottom:3px}
+  .live-stat-strip span{padding:3px 2px;border-radius:5px;font-size:5.8px}
+  .live-stat-strip b{font-size:7px}
   .live-markets{gap:3px}
   .live-markets>div{padding:4px 3px;border-radius:5px}
   .live-markets span{font-size:6px;margin-bottom:1px}
