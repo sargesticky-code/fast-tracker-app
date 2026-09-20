@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getFeed, modelCoverageCount, freshness } from "@/lib/fast-tracker";
+import { getFeed, modelCoverageCount, freshness, lineComparisonStatus } from "@/lib/fast-tracker";
 
 function missingClass(match){
   const h=match.health||{};
@@ -41,6 +41,21 @@ export default async function HealthPage(){
     ).length,
     multi:matches.filter(m=>m.multi && ((m.multi.sources||m.multi.sourceCount||0)>0 || m.multi.over25!=null || m.multi.bttsYes!=null)).length,
   };
+  const upcoming=matches.filter(m=>!m.liveNow);
+  const live=matches.filter(m=>m.liveNow);
+  const lineStatus={
+    goalsComparable:upcoming.filter(m=>lineComparisonStatus(m,"goals").comparable).length,
+    goalsMismatch:upcoming.filter(m=>lineComparisonStatus(m,"goals").key==="mismatch").length,
+    cornersComparable:upcoming.filter(m=>lineComparisonStatus(m,"corners").comparable).length,
+    cornersMismatch:upcoming.filter(m=>lineComparisonStatus(m,"corners").key==="mismatch").length,
+  };
+  const heartbeats=feed.systemHealth||{};
+  const heartbeatAge=(key)=>{
+    const t=heartbeats[key]?.observedAt ? new Date(heartbeats[key].observedAt).getTime() : NaN;
+    if(!Number.isFinite(t)) return "—";
+    const mins=Math.max(0,Math.round((now-t)/60000));
+    return mins<2 ? "剛更新" : mins<60 ? `${mins}m` : `${Math.round(mins/60)}h`;
+  };
   const stats={
     total:matches.length,
     modeled:matches.filter(m=>modelCoverageCount(m)>0).length,
@@ -52,9 +67,16 @@ export default async function HealthPage(){
   return <main className="shell detail-shell">
     <div className="detail-top"><Link href="/" className="back">← 賽事</Link><span>Phase 1 · canonical health</span></div>
     <section className="detail-hero"><p className="eyebrow">FAST TRACKER 2026</p><h1>Data Health</h1><p>Canonical database狀態。Source真係冇model，同system未完成capture/matching會分開顯示。</p></section>
-    <section className="health-strip"><div><b>{stats.total}</b><span>24H HKJC</span></div><div><b>{stats.modeled}</b><span>有模型</span></div><div><b>{stats.forebet}</b><span>Forebet</span></div><div><b>{stats.multisource}</b><span>Multi-source</span></div></section>
+    <section className="health-strip"><div><b>{upcoming.length}</b><span>Upcoming</span></div><div><b>{live.length}</b><span>Live</span></div><div><b>{stats.forebet}</b><span>Forebet</span></div><div><b>{stats.multisource}</b><span>Multi-source</span></div></section>
+    <section className="panel"><div className="panel-title"><div><p>HEARTBEAT</p><h2>Direct data pipelines</h2></div><span>自動更新</span></div>
+      <div className="health-list">
+        <div><span>HKJC Upcoming authority<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
+        <div><span>HKJC Live odds<small style={{display:"block"}}>5-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
+        <div><span>Live score / stats<small style={{display:"block"}}>5-min score + xG/stat layer</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
+      </div>
+    </section>
     <section className="panel"><div className="panel-title"><div><p>MARKETS</p><h2>24H Intelligence Coverage</h2></div><span>{stats.total} matches</span></div>
-      <div className="health-list"><div><span>Forebet predicted score</span><b>{coverage.score}/{stats.total}</b></div><div><span>Goals O/U evidence</span><b>{coverage.goals}/{stats.total}</b></div><div><span>Corners evidence</span><b>{coverage.corners}/{stats.total}</b></div><div><span>Multi-source evidence</span><b>{coverage.multi}/{stats.total}</b></div></div>
+      <div className="health-list"><div><span>Forebet predicted score</span><b>{coverage.score}/{stats.total}</b></div><div><span>Goals O/U evidence</span><b>{coverage.goals}/{stats.total}</b></div><div><span>Corners evidence</span><b>{coverage.corners}/{stats.total}</b></div><div><span>Multi-source evidence</span><b>{coverage.multi}/{stats.total}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>QUALITY</p><h2>Coverage</h2></div><span>{feed.source}</span></div>
       <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
