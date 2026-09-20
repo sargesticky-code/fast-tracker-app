@@ -109,6 +109,9 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const evidenceCount = match.health?.evidenceChannelCount ?? modelCoverageCount(match);
   const missingReason = match.health?.primaryMissingReason || match.health?.forebetReason || null;
   const predictedScore = match.forebetDetail?.predictedScore || match.forebet?.predictedScore || null;
+  const movement = match.oddsMovement || null;
+  const movementPct = Number(movement?.rawOddsChangePct);
+  const hasMovement = movement && Number.isFinite(movementPct);
 
   return (
     <main className="shell detail-shell">
@@ -171,6 +174,25 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         {match.form && <ProbabilityRow label="Form" values={match.form} />}
         {match.multi && <ProbabilityRow label={`Multi-source · ${match.multi.sources || match.multi.sourceCount || "—"}`} values={match.multi} strong />}
       </section>
+
+      {hasMovement && (
+        <section className="panel">
+          <div className="panel-title">
+            <div><p>ODDS MOVEMENT</p><h2>HKJC 賠率變動</h2></div>
+            <span>{movement.signal || "COLLECTING"}</span>
+          </div>
+          <div className="movement-detail-grid">
+            <div><span>方向</span><b>{sideName(match, movement.side)} · 賠率{movementPct < 0 ? "↓" : "↑"}</b></div>
+            <div><span>變動</span><b className={Math.abs(movementPct) >= 10 ? "movement-alert-text" : ""}>{movementPct > 0 ? "+" : ""}{movementPct.toFixed(1)}%</b></div>
+            <div><span>Now</span><b>{formatOdds(movement.nowOdds)}</b></div>
+            <div><span>{movement.baselineWindow || "Base"}</span><b>{formatOdds(movement.baselineOdds)}</b></div>
+          </div>
+          <p className="fineprint">
+            Implied probability：24H {movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "pp"} ·
+            Model alignment：{movement.modelAlignment || "—"}
+          </p>
+        </section>
+      )}
 
       {match.multi?.sourceNames?.length > 0 && (
         <section className="panel">
