@@ -172,6 +172,8 @@ a{color:inherit;text-decoration:none}
 }
 .match-card:hover{border-color:#b6d0be;box-shadow:0 12px 32px rgba(53,83,67,.11);transform:translateY(-1px)}
 .focus-card{border-color:#bfd7c5;background:#fff}
+.mobile-card-data{display:none}
+.full-card-data{display:block}
 .match-topline{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px}
 .league{font-weight:900;color:#517064}
 .focus-rank{display:inline-grid;place-items:center;min-width:25px;height:22px;border-radius:8px;background:var(--green);color:#fff;font-weight:900;font-size:10px}
@@ -415,18 +417,97 @@ a{color:inherit;text-decoration:none}
   .section-head>span{max-width:125px;text-align:right;line-height:1.2}
   .focus-list,.match-list{gap:4px}
 
-  .match-card{padding:7px;border-radius:10px;box-shadow:0 3px 10px rgba(53,83,67,.055)}
-  .match-topline{gap:4px;font-size:7.5px;line-height:1}
-  .league{font-size:7.5px}
-  .freshness{padding:3px 4px;font-size:6.5px}
-  .odds-move-badge{padding:3px 4px;font-size:6.5px}
+  .match-card{padding:5px 6px;border-radius:8px;box-shadow:0 2px 7px rgba(53,83,67,.045)}
+  .match-topline{gap:3px;font-size:6.6px;line-height:1;min-width:0}
+  .match-topline>span:not(.freshness):not(.odds-move-badge):not(.focus-rank){white-space:nowrap}
+  .league{font-size:6.6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34%}
+  .freshness{padding:2px 3px;font-size:5.8px}
+  .odds-move-badge{padding:2px 3px;font-size:5.8px}
   .focus-rank{min-width:18px;height:16px;border-radius:5px;font-size:7px}
 
-  .teams{gap:5px;padding:6px 0 5px}
-  .teams b{font-size:11.5px;line-height:1.1}
-  .teams em{font-size:6.8px;margin-top:1px;line-height:1.05}
-  .teams small{font-size:6.5px}
-  .teams>span{font-size:7px}
+  .teams{gap:3px;padding:3px 0 3px}
+  .teams b{font-size:10.5px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .teams em{font-size:5.8px;margin-top:0;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .teams small{font-size:5.8px;line-height:1}
+  .teams>span{font-size:6px}
+  .teams>div{min-width:0}
+
+  .full-card-data{display:none}
+  .mobile-card-data{
+    display:grid;
+    grid-template-columns:1.35fr .62fr .86fr .86fr;
+    gap:2px;
+    align-items:stretch;
+  }
+  .mobile-card-data>div{
+    min-width:0;
+    padding:3px 3px;
+    border:1px solid #e0e8e1;
+    border-radius:5px;
+    background:#fafcf9;
+  }
+  .mobile-card-data>div>span{
+    display:block;
+    color:var(--muted);
+    font-size:5.7px;
+    line-height:1;
+    margin-bottom:1px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .mobile-card-data>div>b{
+    display:block;
+    color:var(--green-dark);
+    font-size:8px;
+    line-height:1.05;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .mobile-card-data>div>small{
+    display:block;
+    color:#84938b;
+    font-size:5.6px;
+    line-height:1.05;
+    margin-top:1px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .mobile-card-data .mobile-value{border-color:#d7e3da}
+  .mobile-card-data .mobile-value.edge-check{background:var(--soft-red);border-color:#e8b9b4}
+  .mobile-card-data .mobile-value.edge-strong{background:var(--soft-green);border-color:#bedfc7}
+  .mobile-card-data .mobile-value.edge-good{background:var(--soft-yellow);border-color:#ead7a1}
+  .mobile-card-data .mobile-value.edge-watch{background:var(--soft-blue);border-color:#c6d8ef}
+  .mobile-card-data .mobile-value.edge-soft{background:#f3f5f2;border-color:#e1e6e1}
+  .mobile-card-data .mobile-odds-line{
+    grid-column:1/-1;
+    display:grid;
+    grid-template-columns:auto auto auto 1fr;
+    gap:6px;
+    align-items:center;
+    padding:3px 4px;
+    background:#f6f9f6;
+  }
+  .mobile-odds-line span{
+    display:inline!important;
+    margin:0!important;
+    overflow:visible!important;
+    font-size:5.8px!important;
+  }
+  .mobile-odds-line span b{
+    color:var(--text);
+    font-size:7.5px;
+  }
+  .mobile-odds-line em{
+    justify-self:end;
+    color:var(--green);
+    font-size:5.8px;
+    font-style:normal;
+    font-weight:800;
+    white-space:nowrap;
+  }
 
   .value-strip{grid-template-columns:1.28fr .68fr .68fr;gap:2px;padding:4px;margin-bottom:4px;border-radius:7px}
   .value-strip>div{padding:1px 2px}
