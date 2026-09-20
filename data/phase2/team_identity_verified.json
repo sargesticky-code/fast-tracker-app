@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Phase 2 team identity evidence only",
+  "records": [
+    {
+      "hkjc_event_id": "FB5355",
+      "hkjc_kickoff": "2026-09-20T10:15:00Z",
+      "source": "sofascore",
+      "source_event_url": "https://www.sofascore.com/football/match/feyenoord-fc-utrecht/Yibsjjb",
+      "source_event_kickoff": "2026-09-20T10:15:00Z",
+      "kickoff_delta_minutes": 0,
+      "home": {
+        "hkjc_name": "Feyenoord",
+        "source_team_id": "2959",
+        "source_name": "Feyenoord",
+        "source_team_url": "https://www.sofascore.com/football/team/feyenoord/2959"
+      },
+      "away": {
+        "hkjc_name": "Utrecht",
+        "source_team_id": "2948",
+        "source_name": "FC Utrecht",
+        "source_team_url": "https://www.sofascore.com/football/team/fc-utrecht/2948"
+      },
+      "confirmed": true,
+      "confidence": 1,
+      "verification_note": "HKJC snapshot and Sofascore independently agree on home/away, date and 10:15 UTC kickoff. Team IDs are taken from the Sofascore team URLs. Historical verification fixture; not counted as current-upcoming coverage."
+    }
+  ]
+}
