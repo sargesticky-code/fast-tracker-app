@@ -16,8 +16,10 @@ const filters = [
   ["stale", "過時"],
 ];
 
-export default async function Home() {
-  const filter = "focus";
+export default async function Home({ searchParams }) {
+  const params = await searchParams;
+  const requestedFilter = params?.filter || "focus";
+  const filter = filters.some(([key]) => key === requestedFilter) ? requestedFilter : "focus";
   const feed = await getFeed();
   const all = feed.matches;
   const nowMs = Date.now();
@@ -45,6 +47,8 @@ export default async function Home() {
 
   const modeled = all.filter((m) => modelCoverageCount(m) > 0).length;
   const rich = all.filter((m) => modelCoverageCount(m) >= 6).length;
+  const sourceGaps = all.filter((m) => ["FIXTURE_ONLY", "UNRESOLVED"].includes(m.health?.forebetState) && m.health?.forebetCheckFreshness === "FRESH").length;
+  const pipelinePending = all.filter((m) => m.health?.primaryMissingReason && (!m.health?.forebetState || ["STALE", "UNCHECKED"].includes(m.health?.forebetCheckFreshness))).length;
   const stale = all.filter((m) => freshness(m, nowMs).key === "stale").length;
   const missing = all.filter((m) => modelCoverageCount(m) === 0).length;
   const isLive = feed.source === "supabase-canonical-live";
@@ -75,6 +79,8 @@ export default async function Home() {
         <div><b>{all.length}</b><span>24H賽事</span></div>
         <div><b>{modeled}</b><span>有模型</span></div>
         <div><b>{missing}</b><span>缺模型</span></div>
+        <div className={pipelinePending ? "health-warn" : ""}><b>{pipelinePending}</b><span>待Capture</span></div>
+        <div><b>{sourceGaps}</b><span>Source冇Model</span></div>
         <div className={stale ? "health-warn" : ""}><b>{stale}</b><span>過時</span></div>
       </section>
 
