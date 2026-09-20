@@ -328,28 +328,32 @@ const DASHBOARD_LAYOUT_V4 = `
 .upcoming-command-card .league{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:900;color:#587268}
 .upcoming-command-card .freshness,.upcoming-command-card .odds-move-badge{margin-left:0;font-size:8.5px;padding:4px 6px}
 
-.upcoming-score-hero{display:grid;grid-template-columns:minmax(0,1fr) 118px minmax(0,1fr);gap:12px;align-items:center;padding:11px 12px;margin-bottom:7px;border-radius:11px;border:1px solid #dce8df;background:linear-gradient(180deg,#fbfdfb,#f2f8f3)}
-.upcoming-team{min-width:0}
-.upcoming-team small,.upcoming-forecast small{display:block;color:#74877c;font-size:8.5px;font-weight:900;letter-spacing:.04em;margin-bottom:4px}
-.upcoming-team b{display:block;color:#13291f;font-size:18px;line-height:1.08;font-weight:900}
-.upcoming-away-team{text-align:right}
-.upcoming-side-label{display:block;margin-top:4px;color:#8a9991;font-size:8px;font-weight:800;letter-spacing:.06em}
-.upcoming-forecast{text-align:center;padding:7px;border-radius:9px;background:#e8f4eb;border:1px solid #cee2d3}
-.upcoming-forecast strong{display:block;color:#245f45;font-size:22px;line-height:1;font-weight:950}
-.upcoming-forecast span{display:block;margin-top:4px;color:#6f8177;font-size:8.5px;line-height:1.15;font-weight:800}
+.upcoming-card-body{display:grid;grid-template-columns:minmax(300px,.92fr) minmax(0,1.38fr);gap:10px;align-items:stretch}
+.upcoming-score-hero{display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-width:0;padding:10px;border-radius:12px;background:linear-gradient(180deg,#f7fbf8,#eef7f0);border:1px solid #dce9df}
+.upcoming-scoreboard{display:grid;grid-template-columns:minmax(0,1fr) 112px minmax(0,1fr);gap:12px;align-items:center;min-height:64px}
+.upcoming-scoreboard>b{min-width:0;font-size:19px;line-height:1.12;color:#13291f;font-weight:900}
+.upcoming-away-name{text-align:right}
+.upcoming-score-main{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:58px;padding:7px 8px;border-radius:12px;background:#dff1e4;border:1px solid #bedbc7;text-align:center}
+.upcoming-score-main small{display:block;color:#6e8177;font-size:8px;font-weight:900;letter-spacing:.05em;margin-bottom:3px}
+.upcoming-score-main strong{display:block;color:#245f45;font-size:27px;line-height:1;font-weight:950}
+.upcoming-score-main span{display:block;margin-top:4px;color:#6f8177;font-size:8px;line-height:1.1;font-weight:800}
+.upcoming-context-grid{display:grid;grid-template-columns:1fr .72fr .72fr;gap:5px}
+.upcoming-context-grid>div{min-width:0;padding:7px 8px;border:1px solid #dfe8e1;border-radius:8px;background:#fff}
+.upcoming-context-grid small{display:block;color:#71847a;font-size:8px;font-weight:800;margin-bottom:3px}
+.upcoming-context-grid b{display:block;color:#245f45;font-size:12px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.upcoming-intel-grid{display:grid;grid-template-columns:1.18fr 1fr 1fr;gap:6px;margin-bottom:7px}
-.upcoming-value-card,.upcoming-market-card{min-width:0;padding:8px 9px;border-radius:9px;border:1px solid #dfe8e1;background:#f8faf8}
-.upcoming-value-card small,.upcoming-market-card small{display:block;color:#71847a;font-size:9px;font-weight:900;margin-bottom:5px}
-.upcoming-value-main{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.upcoming-value-main b,.upcoming-market-card>b{display:block;color:#183326;font-size:14px;line-height:1.05;font-weight:900}
-.upcoming-value-main strong{font-size:15px;line-height:1;color:#245f45;white-space:nowrap}
-.upcoming-value-card>span,.upcoming-market-card>span{display:block;margin-top:4px;color:#819088;font-size:8.5px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.upcoming-bottom-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.upcoming-had{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
-.upcoming-had span{min-width:72px;padding:6px 9px;border:1px solid #e0e8e1;border-radius:8px;background:#f5f8f5;color:#71847a;font-size:9.5px}
-.upcoming-had b{margin-left:4px;color:#15291f;font-size:12.5px}
-.upcoming-card-status{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.upcoming-intel{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-width:0}
+.upcoming-signal-strip{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:6px}
+.upcoming-signal-strip>span{display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:64px;padding:8px 9px;border:1px solid #dde8df;border-radius:9px;background:#f6faf7;min-width:0}
+.upcoming-signal-strip small{display:block;color:#71847a;font-size:9px;font-weight:800}
+.upcoming-signal-strip b{display:block;color:#245f45;font-size:15px;line-height:1;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upcoming-signal-strip em{display:block;color:#7d8d85;font-size:8px;line-height:1.1;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.upcoming-markets{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:6px}
+.upcoming-markets>div{min-width:0;background:#f8faf8;border:1px solid #dfe8e1;border-radius:9px;padding:8px 10px}
+.upcoming-markets span{display:block;color:#71847a;font-size:10px;margin-bottom:4px;font-weight:800}
+.upcoming-markets b{display:block;font-size:15px;line-height:1.12;color:#245f45}
+.upcoming-card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:7px;border-top:1px solid #edf1ee}
 
 .live-zone{padding:12px!important}
 .live-list{display:grid;gap:9px}
@@ -399,27 +403,34 @@ const DASHBOARD_LAYOUT_V4 = `
   .upcoming-kickoff{font-size:10px}
   .upcoming-command-card .league{max-width:116px;font-size:7.5px}
   .upcoming-command-card .freshness,.upcoming-command-card .odds-move-badge{font-size:7px;padding:3px 4px}
-  .upcoming-score-hero{grid-template-columns:minmax(0,1fr) 68px minmax(0,1fr);gap:6px;padding:9px 7px;margin-bottom:6px;border-radius:9px}
-  .upcoming-team small,.upcoming-forecast small{font-size:7px;margin-bottom:3px}
-  .upcoming-team b{font-size:15px;white-space:normal;overflow-wrap:anywhere}
-  .upcoming-side-label{font-size:6.5px;margin-top:3px}
-  .upcoming-forecast{padding:6px 4px;border-radius:8px}
-  .upcoming-forecast strong{font-size:18px}
-  .upcoming-forecast span{font-size:6.8px}
-  .upcoming-intel-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-bottom:5px}
-  .upcoming-value-card{grid-column:1/-1;padding:7px 8px}
-  .upcoming-market-card{padding:7px}
-  .upcoming-value-card small,.upcoming-market-card small{font-size:7.5px}
-  .upcoming-value-main b{font-size:12.5px}
-  .upcoming-value-main strong{font-size:14px}
-  .upcoming-market-card>b{font-size:12px}
-  .upcoming-value-card>span,.upcoming-market-card>span{font-size:7px}
-  .upcoming-bottom-row{display:grid;grid-template-columns:1fr auto;gap:5px}
-  .upcoming-had{gap:3px}
-  .upcoming-had span{flex:1;min-width:0;padding:5px 4px;text-align:center;font-size:7px}
-  .upcoming-had b{display:block;margin:1px 0 0;font-size:10px}
-  .upcoming-card-status .coverage{display:none}
-  .upcoming-card-status .details-link{font-size:8px}
+  .upcoming-card-body{grid-template-columns:1fr;gap:6px}
+  .upcoming-score-hero{padding:8px;gap:7px;border-radius:9px}
+  .upcoming-scoreboard{grid-template-columns:minmax(0,1fr) 76px minmax(0,1fr);gap:7px;min-height:54px}
+  .upcoming-scoreboard>b{font-size:16px;line-height:1.08;white-space:normal;overflow-wrap:anywhere}
+  .upcoming-score-main{min-height:50px;padding:6px 5px;border-radius:9px}
+  .upcoming-score-main small{font-size:6.8px}
+  .upcoming-score-main strong{font-size:21px}
+  .upcoming-score-main span{font-size:6.5px}
+  .upcoming-context-grid{grid-template-columns:1fr .7fr .7fr;gap:4px}
+  .upcoming-context-grid>div{padding:6px}
+  .upcoming-context-grid small{font-size:7px}
+  .upcoming-context-grid b{font-size:10.5px}
+
+  .upcoming-intel{gap:5px}
+  .upcoming-signal-strip{grid-template-columns:1fr;gap:4px}
+  .upcoming-signal-strip>span{min-height:0;padding:6px 7px;border-radius:7px}
+  .upcoming-signal-strip small{font-size:7.5px}
+  .upcoming-signal-strip b{font-size:12.5px}
+  .upcoming-signal-strip em{font-size:7px}
+  .upcoming-markets{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+  .upcoming-markets>div{padding:7px;border-radius:7px}
+  .upcoming-markets>div:first-child{grid-column:1/-1}
+  .upcoming-markets span{font-size:8.5px;margin-bottom:3px}
+  .upcoming-markets b{font-size:12.5px}
+  .upcoming-card-footer{margin-top:6px;padding-top:5px}
+  .upcoming-card-footer .coverage{display:none}
+  .upcoming-card-footer .details-link{font-size:8px}
+
 
   .live-zone{padding:7px!important}
   .live-match-row{padding:8px!important}
