@@ -46,6 +46,9 @@ a{color:inherit;text-decoration:none}
   letter-spacing:.08em;
 }
 .live-badge{background:#e1f3e7;border-color:#b8ddc4;color:#22734c}
+.pipeline-alert{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:7px 9px;border:1px solid #e2baae;border-radius:10px;background:#fff0eb;color:#945043;font-size:8px}
+.pipeline-alert b{font-size:8px;letter-spacing:.06em}
+.pipeline-alert span{color:#9a665d}
 
 .board-stats,.health-strip{
   display:grid;
@@ -370,6 +373,8 @@ a{color:inherit;text-decoration:none}
   .subtitle{font-size:9px;line-height:1.25}
   .preview-badge{font-size:7px;padding:5px 6px}
 
+  .pipeline-alert{gap:5px;margin-bottom:5px;padding:4px 6px;border-radius:7px;font-size:6px}
+  .pipeline-alert b{font-size:6px}
   .board-stats,.health-strip{grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:7px}
   .board-stats div,.health-strip div{padding:5px 2px;border-radius:8px;text-align:center;box-shadow:none}
   .board-stats span,.health-strip span{font-size:6.8px;margin-bottom:1px;white-space:nowrap}
