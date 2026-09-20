@@ -245,42 +245,61 @@ function LiveMatchRow({ match }) {
         <small>{league}</small>
       </div>
 
-      <div className="live-scoreboard">
-        <b className="live-home-name">{homeName}</b>
-        <strong className="live-score-main">{scoreText}</strong>
-        <b className="live-away-name">{awayName}</b>
-      </div>
+      <div className="live-card-body">
+        <div className="live-score-hero">
+          <div className="live-scoreboard">
+            <b className="live-home-name">{homeName}</b>
+            <strong className="live-score-main">{scoreText}</strong>
+            <b className="live-away-name">{awayName}</b>
+          </div>
 
-      {shadow ? (
-        <div className="live-shadow-line">
-          <span>Expected <b>{shadowSideLabel(match, shadow.expectedSide)}</b></span>
-          <span>Live <b>{shadowSideLabel(match, shadow.actualSide)}</b></span>
-          <span className="live-metric-count">{shadow.metricCount || 0} metrics</span>
+          {shadow ? (
+            <div className="live-context-grid">
+              <div>
+                <small>PRE EXPECTED</small>
+                <b>{shadowSideLabel(match, shadow.expectedSide)}</b>
+              </div>
+              <div>
+                <small>LIVE CONTROL</small>
+                <b>{shadowSideLabel(match, shadow.actualSide)}</b>
+              </div>
+              <div>
+                <small>METRICS</small>
+                <b>{shadow.metricCount || 0}</b>
+              </div>
+            </div>
+          ) : (
+            <div className="live-context-empty">Live context building…</div>
+          )}
         </div>
-      ) : null}
 
-      {showStats ? (
-        <div className="live-stat-strip">
-          <span><small>xG</small><b>{statPairText(stats.xg, 2)}</b></span>
-          <span><small>射門</small><b>{statPairText(stats.shots)}</b></span>
-          <span><small>中框</small><b>{statPairText(stats.shotsOnTarget)}</b></span>
-          <span><small>控球</small><b>{statPairText(stats.possession, 0, "%")}</b></span>
-        </div>
-      ) : null}
+        <div className="live-intel">
+          {showStats ? (
+            <div className="live-stat-strip">
+              <span><small>xG</small><b>{statPairText(stats.xg, 2)}</b></span>
+              <span><small>射門</small><b>{statPairText(stats.shots)}</b></span>
+              <span><small>中框</small><b>{statPairText(stats.shotsOnTarget)}</b></span>
+              <span><small>控球</small><b>{statPairText(stats.possession, 0, "%")}</b></span>
+            </div>
+          ) : (
+            <div className="live-stats-empty">LIVE STATS 等待更新</div>
+          )}
 
-      <div className="live-markets">
-        <div className="live-market-had">
-          <span>HAD</span>
-          <b>{formatOdds(live.odds?.home)} / {formatOdds(live.odds?.draw)} / {formatOdds(live.odds?.away)}</b>
-        </div>
-        <div>
-          <span>入球 {goalsLine}</span>
-          <b>{formatOdds(live.goals?.over)} / {formatOdds(live.goals?.under)}</b>
-        </div>
-        <div>
-          <span>角球 {cornersLine}</span>
-          <b>{formatOdds(live.corners?.over)} / {formatOdds(live.corners?.under)}</b>
-          {cornerProgress !== "—" ? <small>{cornerProgress}</small> : null}
+          <div className="live-markets">
+            <div className="live-market-had">
+              <span>HAD</span>
+              <b>{formatOdds(live.odds?.home)} / {formatOdds(live.odds?.draw)} / {formatOdds(live.odds?.away)}</b>
+            </div>
+            <div>
+              <span>入球 {goalsLine}</span>
+              <b>{formatOdds(live.goals?.over)} / {formatOdds(live.goals?.under)}</b>
+            </div>
+            <div>
+              <span>角球 {cornersLine}</span>
+              <b>{formatOdds(live.corners?.over)} / {formatOdds(live.corners?.under)}</b>
+              {cornerProgress !== "—" ? <small>{cornerProgress}</small> : null}
+            </div>
+          </div>
         </div>
       </div>
     </Link>
