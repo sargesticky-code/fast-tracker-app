@@ -105,7 +105,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
 
       <div className={`value-strip ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
         <div>
-          <span>最佳 Value</span>
+          <span>HDA Value</span>
           <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
         </div>
         <div>
@@ -120,17 +120,17 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
 
       <div className="market-grid">
         <div>
-          <span>Forebet 預測</span>
+          <span>Forebet</span>
           <b>{score}</b>
-          <small>{sourceCount ? `${sourceCount} evidence` : "HKJC only"}</small>
+          <small>{sourceCount ? `${sourceCount} sources` : "HKJC only"}</small>
         </div>
         <div>
-          <span>入球</span>
+          <span>入球 {match.goals?.line ? `· ${match.goals.line}` : ""}</span>
           <b>{goals.main}</b>
           <small>{goals.sub}</small>
         </div>
         <div>
-          <span>角球</span>
+          <span>角球 {match.corners?.line ? `· ${match.corners.line}` : ""}</span>
           <b>{corners.main}</b>
           <small>{corners.sub}</small>
         </div>
