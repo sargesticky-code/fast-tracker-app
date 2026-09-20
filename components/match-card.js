@@ -126,6 +126,36 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
         </div>
       </div>
 
+      <div className="mobile-card-data">
+        <div className={`mobile-value ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
+          <span>HDA</span>
+          <b>{edge ? sideName(match, edge.key) : "未有模型"}</b>
+          <small>{edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp · ${formatOdds(selectedOdds)}` : "—"}</small>
+        </div>
+        <div>
+          <span>FB</span>
+          <b>{score}</b>
+          <small>{sourceCount ? `${sourceCount} src` : "HKJC"}</small>
+        </div>
+        <div>
+          <span>入球{match.goals?.line ? ` ${match.goals.line}` : ""}</span>
+          <b>{goals.main}</b>
+          <small>{goals.sub}</small>
+        </div>
+        <div>
+          <span>角球{match.corners?.line ? ` ${match.corners.line}` : ""}</span>
+          <b>{corners.main}</b>
+          <small>{corners.sub}</small>
+        </div>
+        <div className="mobile-odds-line">
+          <span>主 <b>{formatOdds(match.odds.home)}</b></span>
+          <span>和 <b>{formatOdds(match.odds.draw)}</b></span>
+          <span>客 <b>{formatOdds(match.odds.away)}</b></span>
+          <em>{coverage(match)} · 詳情 →</em>
+        </div>
+      </div>
+
+      <div className="full-card-data">
       <div className={`value-strip ${hasValue ? edgeTone(edge.value) : "edge-soft"}`}>
         <div>
           <span>HDA Value</span>
@@ -168,6 +198,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
       <div className="card-footer">
         <span className={`coverage coverage-${coverage(match).replaceAll(" ", "-").toLowerCase()}`}>{coverage(match)}</span>
         <span className="details-link">詳情 →</span>
+      </div>
       </div>
     </Link>
   );
