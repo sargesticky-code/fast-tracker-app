@@ -84,6 +84,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
 
   function cacheMatch() {
     try {
+      window.localStorage.setItem(`ft-match-${match.id}`, JSON.stringify(match));
       window.sessionStorage.setItem(`ft-match-${match.id}`, JSON.stringify(match));
     } catch {}
   }
