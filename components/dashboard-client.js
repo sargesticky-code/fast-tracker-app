@@ -22,6 +22,7 @@ const filters = [
   ["focus", "焦點"],
   ["all", "全部"],
   ["gaps", "Edge"],
+  ["odds", "賠率"],
   ["missing", "缺資料"],
   ["stale", "過時"],
 ];
@@ -138,6 +139,11 @@ export default function DashboardClient({ feed, nowMs }) {
     matches = all.filter((m) => valueEdge(m))
       .sort((a, b) => valueEdge(b).value - valueEdge(a).value);
   }
+  if (filter === "odds") {
+    matches = all
+      .filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10)
+      .sort((a, b) => Math.abs(Number(b.oddsMovement.rawOddsChangePct)) - Math.abs(Number(a.oddsMovement.rawOddsChangePct)));
+  }
   if (filter === "missing") {
     matches = all.filter((m) => modelCoverageCount(m) === 0)
       .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
@@ -151,12 +157,14 @@ export default function DashboardClient({ feed, nowMs }) {
   const missing = all.filter((m) => modelCoverageCount(m) === 0).length;
   const stale = all.filter((m) => freshness(m, nowMs).key === "stale").length;
   const valueCandidates = hdaPicks.length + goalsPicks.length + cornersPicks.length;
+  const oddsAlerts = all.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
   const isLive = feed.source === "supabase-canonical-live";
 
   const headings = {
     focus: ["LIVE + NEXT 24H", "先睇 Value，再睇模型細節"],
     all: ["Upcoming 24H", "按開賽時間排序"],
     gaps: ["HDA Edge 候選", "按模型高於 HKJC 市場機率嘅幅度排序"],
+    odds: ["賠率大幅變動", `${oddsAlerts} 場達 ±10% · 按變動幅度排序`],
     missing: ["缺資料", "HKJC 有盤但暫時未有外部模型"],
     stale: ["過時資料", "超過 6 小時未更新"],
   };
@@ -183,7 +191,7 @@ export default function DashboardClient({ feed, nowMs }) {
       <section className="board-stats">
         <div><span>24H 賽事</span><b>{all.length}</b></div>
         <div><span>Value Picks</span><b>{valueCandidates}</b></div>
-        <div><span>有模型</span><b>{modeled}</b></div>
+        <div className={oddsAlerts ? "odds-stat-alert" : ""}><span>Odds ≥10%</span><b>{oddsAlerts}</b></div>
         <div className={missing || stale ? "health-warn" : ""}>
           <span>資料提醒</span><b>{missing + stale}</b>
         </div>
