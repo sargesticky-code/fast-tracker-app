@@ -26,6 +26,13 @@ function pairText(pair, digits = 0, suffix = "") {
   return `${h.toFixed(digits)}${suffix}-${a.toFixed(digits)}${suffix}`;
 }
 
+function controlSideLabel(match, side) {
+  if (side === "H") return match.homeZh || match.home || "主";
+  if (side === "A") return match.awayZh || match.away || "客";
+  if (side === "BALANCED") return "均衡";
+  return "—";
+}
+
 function readCachedMatch(id) {
   if (!id) return null;
   try {
@@ -149,6 +156,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       })()
     : "—";
   const liveStats = match.live?.stats || null;
+  const shadow = match.live?.shadow || null;
   const goalsCompare = lineComparisonStatus(match, "goals");
   const cornersCompare = lineComparisonStatus(match, "corners");
 
@@ -215,6 +223,26 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
             {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
           </p>
+        </section>
+      )}
+
+      {match.liveNow && shadow && (
+        <section className="panel shadow-detail-panel">
+          <div className="panel-title">
+            <div><p>PHASE 3 SHADOW</p><h2>Expected vs Actual</h2></div>
+            <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span>
+          </div>
+          <div className="shadow-detail-grid">
+            <div><span>Segment</span><b>{shadow.segment || "—"}</b></div>
+            <div><span>Expected control</span><b>{controlSideLabel(match, shadow.expectedSide)}</b></div>
+            <div><span>Live control</span><b>{controlSideLabel(match, shadow.actualSide)}</b></div>
+            <div><span>Evidence</span><b>{shadow.metricCount || 0} metrics</b></div>
+          </div>
+          <p className="fineprint">
+            {shadow.reason || "WAIT"} · control score {shadow.controlScore == null ? "—" : Number(shadow.controlScore).toFixed(0)}
+            {shadow.controlBasis ? ` · expected basis ${shadow.controlBasis}` : ""}
+          </p>
+          <p className="fineprint">Shadow calibration only；暫時唔會由呢個狀態直接產生投注指令。</p>
         </section>
       )}
 
