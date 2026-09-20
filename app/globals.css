@@ -423,41 +423,41 @@ a{color:inherit;text-decoration:none}
   .section-head>span{max-width:125px;text-align:right;line-height:1.2}
   .focus-list,.match-list{gap:4px}
 
-  .match-card{padding:5px 6px;border-radius:8px;box-shadow:0 2px 7px rgba(53,83,67,.045)}
-  .match-topline{gap:3px;font-size:6.6px;line-height:1;min-width:0}
+  .match-card{padding:4px 5px;border-radius:7px;box-shadow:0 1px 5px rgba(53,83,67,.04)}
+  .match-topline{gap:2px;font-size:6px;line-height:1;min-width:0;min-height:11px}
   .match-topline>span:not(.freshness):not(.odds-move-badge):not(.focus-rank){white-space:nowrap}
-  .league{font-size:6.6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34%}
-  .freshness{padding:2px 3px;font-size:5.8px}
-  .odds-move-badge{padding:2px 3px;font-size:5.8px}
-  .focus-rank{min-width:18px;height:16px;border-radius:5px;font-size:7px}
+  .league{font-size:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:31%}
+  .freshness{padding:1px 3px;font-size:5.3px}
+  .odds-move-badge{padding:1px 3px;font-size:5.3px}
+  .focus-rank{min-width:16px;height:14px;border-radius:4px;font-size:6px}
 
-  .teams{gap:3px;padding:3px 0 3px}
-  .teams b{font-size:10.5px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .teams em{font-size:5.8px;margin-top:0;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .teams small{font-size:5.8px;line-height:1}
-  .teams>span{font-size:6px}
+  .teams{gap:2px;padding:2px 0 2px;align-items:center}
+  .teams b{font-size:9.6px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .teams em,.teams small{display:none}
+  .teams>span{font-size:5.4px;line-height:1}
   .teams>div{min-width:0}
 
   .full-card-data{display:none}
   .mobile-card-data{
     display:grid;
-    grid-template-columns:1.35fr .62fr .86fr .86fr;
-    gap:2px;
-    align-items:stretch;
+    grid-template-columns:1.15fr .55fr .82fr .82fr;
+    gap:1px;
+    align-items:start;
   }
   .mobile-card-data>div{
     min-width:0;
-    padding:3px 3px;
+    padding:2px 3px;
     border:1px solid #e0e8e1;
-    border-radius:5px;
+    border-radius:4px;
     background:#fafcf9;
+    min-height:0;
   }
   .mobile-card-data>div>span{
     display:block;
     color:var(--muted);
-    font-size:5.7px;
-    line-height:1;
-    margin-bottom:1px;
+    font-size:5.1px;
+    line-height:.95;
+    margin-bottom:0;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -465,8 +465,8 @@ a{color:inherit;text-decoration:none}
   .mobile-card-data>div>b{
     display:block;
     color:var(--green-dark);
-    font-size:8px;
-    line-height:1.05;
+    font-size:7.4px;
+    line-height:1;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -474,9 +474,9 @@ a{color:inherit;text-decoration:none}
   .mobile-card-data>div>small{
     display:block;
     color:#84938b;
-    font-size:5.6px;
-    line-height:1.05;
-    margin-top:1px;
+    font-size:5px;
+    line-height:1;
+    margin-top:0;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -491,25 +491,25 @@ a{color:inherit;text-decoration:none}
     grid-column:1/-1;
     display:grid;
     grid-template-columns:auto auto auto 1fr;
-    gap:6px;
+    gap:4px;
     align-items:center;
-    padding:3px 4px;
+    padding:2px 3px;
     background:#f6f9f6;
   }
   .mobile-odds-line span{
     display:inline!important;
     margin:0!important;
     overflow:visible!important;
-    font-size:5.8px!important;
+    font-size:5.2px!important;
   }
   .mobile-odds-line span b{
     color:var(--text);
-    font-size:7.5px;
+    font-size:6.8px;
   }
   .mobile-odds-line em{
     justify-self:end;
     color:var(--green);
-    font-size:5.8px;
+    font-size:5.2px;
     font-style:normal;
     font-weight:800;
     white-space:nowrap;
