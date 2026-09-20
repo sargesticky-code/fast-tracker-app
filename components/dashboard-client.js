@@ -175,6 +175,14 @@ function LiveMatchRow({ match }) {
   );
 }
 
+function heartbeatAgeMinutes(feed, key, nowMs) {
+  const t = feed?.systemHealth?.[key]?.observedAt;
+  if (!t) return Infinity;
+  const ms = new Date(t).getTime();
+  if (!Number.isFinite(ms)) return Infinity;
+  return Math.max(0, (nowMs - ms) / 60000);
+}
+
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 
 export default function DashboardClient({ feed, nowMs }) {
@@ -265,6 +273,11 @@ export default function DashboardClient({ feed, nowMs }) {
   const valueCandidates = hdaPicks.length + goalsPicks.length + cornersPicks.length;
   const oddsAlerts = prematchAll.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
   const isLive = currentFeed.source === "supabase-canonical-live";
+  const pipelineWarnings = [
+    heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
+    heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs) > 12 ? "Live odds" : null,
+    heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs) > 12 ? "Live score" : null,
+  ].filter(Boolean);
 
   const headings = {
     focus: ["NEXT 24H", "先睇 Value，再睇模型細節"],
@@ -294,6 +307,13 @@ export default function DashboardClient({ feed, nowMs }) {
           {isLive ? "LIVE SQL" : "FALLBACK"}
         </span>
       </header>
+
+      {pipelineWarnings.length > 0 && (
+        <div className="pipeline-alert">
+          <b>DATA PIPELINE DELAY</b>
+          <span>{pipelineWarnings.join(" · ")}</span>
+        </div>
+      )}
 
       <section className="board-stats">
         <div className={liveMatches.length ? "live-stat" : ""}><span>LIVE</span><b>{liveMatches.length}</b></div>
