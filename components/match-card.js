@@ -147,7 +147,7 @@ export default function MatchCard({ match, nowMs, focusRank = null }) {
   const hero = modelHero(match, sourceCount);
   const hasValue = edge && edge.value >= 0.05;
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
-  const edgeText = edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}pp` : "—";
+  const edgeText = edge ? `${edge.value >= 0 ? "+" : ""}${(edge.value * 100).toFixed(1)}%` : "—";
   const pickText = edge ? sideName(match, edge.key) : "未有模型";
   const oddsMove = match.oddsMovement;
   const rawMove = Number(oddsMove?.rawOddsChangePct);
