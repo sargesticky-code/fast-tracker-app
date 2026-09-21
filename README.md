@@ -193,3 +193,7 @@ Rules:
 - show model H/D/A, model pick, Edge, HKJC H/D/A, goals line and corners line without opening match details
 - mobile collapses each fixture into a compact multi-tier row instead of forcing the desktop table into tiny columns
 - presentation changes must not alter Supabase data contracts, capture cadence, alias logic or the separate Google Sheet workflow
+
+- visual hierarchy: Edge / material odds movement / model disagreement / data-health warnings are primary signals; ordinary market prices are visually quieter
+- MODEL SPLIT is descriptive only: it is shown when at least two independent HDA models (Forebet / Dixon-Coles / Pi / Team-Form) have different dominant outcomes
+- strong Edge currently means HDA model-market edge >= 10%; standard Value highlighting begins at >= 5%
