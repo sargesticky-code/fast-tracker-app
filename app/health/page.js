@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getFeed, modelCoverageCount, freshness, lineComparisonStatus } from "@/lib/fast-tracker";
+import { getFeed, modelCoverageCount, freshness, lineComparisonStatus, unifiedCoverageStatus } from "@/lib/fast-tracker";
 
 function missingClass(match){
   const h=match.health||{};
@@ -26,8 +26,36 @@ const classMeta={
 
 export default async function HealthPage(){
   const feed=await getFeed(); const now=Date.now(); const matches=feed.matches||[];
+  const gapRows=matches.filter(m=>!m.liveNow && unifiedCoverageStatus(m)!=="DATA_RICH");
   const missingRows=matches.filter(m=>m.health?.primaryMissingReason);
   const classes=missingRows.reduce((a,m)=>{const k=missingClass(m)||"OTHER";a[k]=(a[k]||0)+1;return a;},{});
+  const sourceCount=(field,value)=>matches.filter(m=>m.health?.[field]===value).length;
+  const sourceCoverage={
+    forebet:{
+      model:sourceCount("forebetCoverageStatus","MODEL_AVAILABLE"),
+      fixture:sourceCount("forebetCoverageStatus","FIXTURE_ONLY"),
+      absent:sourceCount("forebetCoverageStatus","SOURCE_ABSENT"),
+      unresolved:sourceCount("forebetCoverageStatus","UNRESOLVED"),
+    },
+    dcpi:{
+      model:sourceCount("dcPiCoverageStatus","MODEL_AVAILABLE"),
+      fail:sourceCount("dcPiCoverageStatus","MODEL_FAIL_CLOSED"),
+      identity:sourceCount("dcPiCoverageStatus","IDENTITY_BLOCK"),
+      noRow:sourceCount("dcPiCoverageStatus","NO_SOURCE_ROW"),
+    },
+    form:{
+      model:sourceCount("formCoverageStatus","MODEL_AVAILABLE"),
+      insufficient:sourceCount("formCoverageStatus","FORM_INSUFFICIENT"),
+      identity:sourceCount("formCoverageStatus","IDENTITY_BLOCK"),
+      noRow:sourceCount("formCoverageStatus","NO_SOURCE_ROW"),
+    },
+    multi:{
+      model:sourceCount("multisourceCoverageStatus","MULTISOURCE_AVAILABLE"),
+      noMatch:sourceCount("multisourceCoverageStatus","NO_MATCHED_SOURCE"),
+      noConsensus:sourceCount("multisourceCoverageStatus","NO_CONSENSUS"),
+      noRow:sourceCount("multisourceCoverageStatus","NO_SOURCE_ROW"),
+    },
+  };
   const coverage={
     score:matches.filter(m=>m.forebetDetail?.predictedScore || m.forebet?.predictedScore).length,
     goals:matches.filter(m=>
@@ -83,11 +111,19 @@ export default async function HealthPage(){
     <section className="panel"><div className="panel-title"><div><p>MARKETS</p><h2>24H Intelligence Coverage</h2></div><span>{stats.total} matches</span></div>
       <div className="health-list"><div><span>Forebet predicted score</span><b>{coverage.score}/{stats.total}</b></div><div><span>Goals O/U evidence</span><b>{coverage.goals}/{stats.total}</b></div><div><span>Corners evidence</span><b>{coverage.corners}/{stats.total}</b></div><div><span>Multi-source evidence</span><b>{coverage.multi}/{stats.total}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
     </section>
+    <section className="panel"><div className="panel-title"><div><p>MODEL SOURCES</p><h2>真實 source coverage</h2></div><span>{matches.length} matches</span></div>
+      <div className="health-list">
+        <div><span>Forebet<small style={{display:"block"}}>Model / Fixture only / Source absent</small></span><b>{sourceCoverage.forebet.model} / {sourceCoverage.forebet.fixture} / {sourceCoverage.forebet.absent}</b></div>
+        <div><span>DC / Pi<small style={{display:"block"}}>Model / Fail-closed / Identity block</small></span><b>{sourceCoverage.dcpi.model} / {sourceCoverage.dcpi.fail} / {sourceCoverage.dcpi.identity}</b></div>
+        <div><span>Team-Form<small style={{display:"block"}}>Model / Insufficient / Identity block</small></span><b>{sourceCoverage.form.model} / {sourceCoverage.form.insufficient} / {sourceCoverage.form.identity}</b></div>
+        <div><span>Multi-source<small style={{display:"block"}}>Available / No matched source / No consensus</small></span><b>{sourceCoverage.multi.model} / {sourceCoverage.multi.noMatch} / {sourceCoverage.multi.noConsensus}</b></div>
+      </div>
+    </section>
     <section className="panel"><div className="panel-title"><div><p>QUALITY</p><h2>Coverage</h2></div><span>{feed.source}</span></div>
       <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Source / scan不可用</span><b>{classes.SOURCE_UNAVAILABLE||0}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
     </section>
-    {missingRows.length>0&&<section className="panel"><div className="panel-title"><div><p>GAPS</p><h2>缺資料賽事</h2></div><span>{missingRows.length}</span></div>
-      {Object.entries(classMeta).map(([key,[label,note]])=>{const rows=missingRows.filter(m=>missingClass(m)===key);if(!rows.length)return null;return <div key={key} style={{marginTop:"18px"}}><div className="panel-title"><div><p>{key}</p><h2 style={{fontSize:"18px"}}>{label}</h2><small>{note}</small></div><span>{rows.length}</span></div><div className="health-list">{rows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · {m.health?.primaryMissingReason||"NO DATA"}</small></span><b>{m.health?.forebetState||"NOT CHECKED"}</b></div>)}</div></div>})}
+    {gapRows.length>0&&<section className="panel"><div className="panel-title"><div><p>GAPS</p><h2>Coverage未完整賽事</h2></div><span>{gapRows.length}</span></div>
+      <div className="health-list">{gapRows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · FB {m.health?.forebetCoverageStatus||"—"} · DC/PI {m.health?.dcPiCoverageStatus||"—"} · FORM {m.health?.formCoverageStatus||"—"} · MULTI {m.health?.multisourceCoverageStatus||"—"}</small></span><b>{unifiedCoverageStatus(m)}</b></div>)}</div>
     </section>}
     <section className="panel"><div className="panel-title"><div><p>POLICY</p><h2>Phase 1 safeguards</h2></div></div><p className="fineprint">HKJC係 betting universe。缺 source 就顯示 NO DATA；stale唔當current；未check同source無model唔會混為一談；Decision engine保持validation-gated，未有足夠校準唔輸出正式投注指令。</p></section>
   </main>;
