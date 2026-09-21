@@ -6,6 +6,7 @@ import {
   formatOdds,
   freshness,
   modelCoverageCount,
+  coverageStatusMeta,
   preferredModel,
   sideName,
   valueEdge,
@@ -43,6 +44,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const model = preferredModel(match);
   const fresh = freshness(match, nowMs);
   const coverage = modelCoverageCount(match);
+  const coverageMeta = coverageStatusMeta(match);
   const home = match.homeZh || match.home;
   const away = match.awayZh || match.away;
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
@@ -125,6 +127,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
       <div className="ft5-card-footer">
         <div className="ft5-tags">
+          <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
           <span className="ft5-tag">{coverage ? coverage + " model inputs" : "NO MODEL"}</span>
           {edge?.value >= 0.05 ? <span className="ft5-tag blue">VALUE</span> : null}
           {hasMove ? <span className="ft5-tag alert">賠率 {rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}%</span> : null}
