@@ -631,12 +631,14 @@ export default function DashboardClient({ feed, nowMs }) {
           <button type="button" onClick={() => selectFilter("gaps")}>查看更多 →</button>
         </div>
         {topBets.length ? (
-          <TopBetsHead />
-          <div className="ft5-topbets">
-            {topBets.map((row, index) => (
-              <TopBetCard key={row.match.id + "-" + row.type + "-" + index} row={row} index={index} changeType={changeMap[String(row.match.id)] || null} />
-            ))}
-          </div>
+          <>
+            <TopBetsHead />
+            <div className="ft5-topbets">
+              {topBets.map((row, index) => (
+                <TopBetCard key={row.match.id + "-" + row.type + "-" + index} row={row} index={index} changeType={changeMap[String(row.match.id)] || null} />
+              ))}
+            </div>
+          </>
         ) : <div className="ft5-empty">暫時未有達到 Edge 門檻嘅精選賽事</div>}
       </section>
 
