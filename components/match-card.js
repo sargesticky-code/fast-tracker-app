@@ -12,7 +12,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FORM-20260921-2";
+const UI_BUILD = "FOREBET-ROW-20260922-1";
 
 function pct(value) {
   const n = Number(value);
@@ -20,7 +20,7 @@ function pct(value) {
 }
 
 function modelLabel(match) {
-  if (match.multi) return "Multi-source";
+  if (match.multi) return "Multi";
   if (match.forebet) return "Forebet";
   if (match.dc) return "Dixon-Coles";
   if (match.pi) return "Pi Rating";
@@ -50,7 +50,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
   const hasMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
   const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "%" : "—";
-  const pick = edge ? sideName(match, edge.key) : "未有 Edge";
+  const pick = edge ? sideName(match, edge.key) : "—";
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
 
   function cacheMatch() {
@@ -62,77 +62,68 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
   return (
     <Link
-      className={"ft5-match-card" + (changeType ? " ft5-flash-" + changeType : "")}
+      className={"ft5-match-card ft5-forebet-row" + (changeType ? " ft5-flash-" + changeType : "")}
       prefetch={false}
       href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={cacheMatch}
     >
-      <div className="ft5-match-meta">
-        <div className="ft5-match-meta-left">
-          <strong className="ft5-kickoff">{formatKickoff(match.kickoff)}</strong>
-          <span className="ft5-league">{match.league}</span>
-        </div>
-        <span className="ft5-fresh">{fresh.label}</span>
-      </div>
-
-      <div className="ft5-match-main">
-        <div className="ft5-teams">
-          <b>{home}</b>
-          <span>VS</span>
-          <b>{away}</b>
-        </div>
-
-        <div className="ft5-probs" aria-label="HDA model probability">
-          <div className={selectedClass(edge, "H")}>
-            <span>H</span>
-            <b>{pct(model?.home)}</b>
+      <div className="ft5-row-grid">
+        <div className="ft5-cell ft5-fixture-cell">
+          <div className="ft5-match-meta">
+            <strong className="ft5-kickoff">{formatKickoff(match.kickoff)}</strong>
+            <span className="ft5-league">{match.league}</span>
+            <span className="ft5-fresh">{fresh.label}</span>
           </div>
-          <div className={selectedClass(edge, "D")}>
-            <span>D</span>
-            <b>{pct(model?.draw)}</b>
-          </div>
-          <div className={selectedClass(edge, "A")}>
-            <span>A</span>
-            <b>{pct(model?.away)}</b>
+          <div className="ft5-teams">
+            <b>{home}</b>
+            <span>vs</span>
+            <b>{away}</b>
           </div>
         </div>
 
-        <div className="ft5-signal">
-          <div className="ft5-signal-box">
-            <span>AI MODEL</span>
+        <div className="ft5-cell ft5-model-cell">
+          <div className="ft5-cell-label">
+            <span>MODEL</span>
             <b>{modelLabel(match)}</b>
           </div>
-          <div className="ft5-signal-box edge">
+          <div className="ft5-probs" aria-label="HDA model probability">
+            <div className={selectedClass(edge, "H")}><span>H</span><b>{pct(model?.home)}</b></div>
+            <div className={selectedClass(edge, "D")}><span>D</span><b>{pct(model?.draw)}</b></div>
+            <div className={selectedClass(edge, "A")}><span>A</span><b>{pct(model?.away)}</b></div>
+          </div>
+        </div>
+
+        <div className="ft5-cell ft5-pick-cell">
+          <div className="ft5-pick-main">
+            <span>MODEL PICK</span>
+            <b>{pick}</b>
+            <small>{selectedOdds ? "Odds " + formatOdds(selectedOdds) : "未有可比較賠率"}</small>
+          </div>
+          <div className={"ft5-edge-chip" + (edge?.value >= 0.05 ? " positive" : "")}>
             <span>EDGE</span>
             <b>{edgeText}</b>
           </div>
-          <div className="ft5-signal-box">
-            <span>HDA PICK</span>
-            <b>{pick}</b>
-          </div>
-          <div className="ft5-signal-box">
-            <span>PICK ODDS</span>
-            <b>{formatOdds(selectedOdds)}</b>
+        </div>
+
+        <div className="ft5-cell ft5-market-cell">
+          <div className="ft5-odds ft5-row-odds">
+            <div className="ft5-odd"><span>主</span><b>{formatOdds(match.odds?.home)}</b></div>
+            <div className="ft5-odd"><span>和</span><b>{formatOdds(match.odds?.draw)}</b></div>
+            <div className="ft5-odd"><span>客</span><b>{formatOdds(match.odds?.away)}</b></div>
+            <div className="ft5-odd"><span>入球</span><b>{match.goals?.line ?? "—"}</b></div>
+            <div className="ft5-odd"><span>角球</span><b>{match.corners?.line ?? "—"}</b></div>
           </div>
         </div>
-      </div>
 
-      <div className="ft5-odds">
-        <div className="ft5-odd"><span>主勝</span><b>{formatOdds(match.odds?.home)}</b></div>
-        <div className="ft5-odd"><span>和局</span><b>{formatOdds(match.odds?.draw)}</b></div>
-        <div className="ft5-odd"><span>客勝</span><b>{formatOdds(match.odds?.away)}</b></div>
-        <div className="ft5-odd"><span>入球 O/U</span><b>{match.goals?.line ?? "—"}</b></div>
-        <div className="ft5-odd"><span>角球 O/U</span><b>{match.corners?.line ?? "—"}</b></div>
-      </div>
-
-      <div className="ft5-card-footer">
-        <div className="ft5-tags">
-          <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
-          <span className="ft5-tag">{coverage ? coverage + " model inputs" : "NO MODEL"}</span>
-          {edge?.value >= 0.05 ? <span className="ft5-tag blue">VALUE</span> : null}
-          {hasMove ? <span className="ft5-tag alert">賠率 {rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}%</span> : null}
+        <div className="ft5-cell ft5-status-cell">
+          <div className="ft5-tags">
+            <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
+            <span className="ft5-tag">{coverage ? coverage + " models" : "NO MODEL"}</span>
+            {edge?.value >= 0.05 ? <span className="ft5-tag blue">VALUE</span> : null}
+            {hasMove ? <span className="ft5-tag alert">{rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}%</span> : null}
+          </div>
+          <span className="ft5-details">分析 →</span>
         </div>
-        <span className="ft5-details">查看分析 →</span>
       </div>
     </Link>
   );
