@@ -1539,3 +1539,393 @@ body{
     font-size:5.2px!important;
   }
 }
+
+
+/* V7 — visual cleanup: consistent typography, less blank space, no repeated row labels */
+.ft5-shell{
+  max-width:1280px!important;
+  padding:12px 14px 24px!important;
+  font-size:12px;
+}
+
+/* readable type scale */
+.ft5-commandbar .ft5-brand-copy b{font-size:17px!important}
+.ft5-commandbar .ft5-brand-copy span{font-size:9px!important}
+.ft5-header-stats span{font-size:8px!important}
+.ft5-header-stats b{font-size:15px!important}
+.ft5-header-status small{font-size:9px!important}
+.ft5-commandbar .ft5-live-pill{font-size:9px!important}
+
+.ft5-topbets-title div span,
+.live-zone-head>div>span{font-size:9px!important}
+.ft5-topbets-title h2,
+.live-zone-head h2{font-size:17px!important;line-height:1.1}
+.ft5-topbets-title button,
+.live-zone-head button{font-size:10px!important}
+
+.ft5-section{margin-bottom:10px!important}
+.ft5-topbets-wrap{margin-bottom:10px!important}
+.ft5-live-zone{margin-bottom:10px!important}
+
+/* section bars: compact but readable */
+.ft5-topbets-wrap,
+.ft5-live-zone{
+  padding:0!important;
+  border-radius:5px!important;
+  overflow:hidden;
+}
+.ft5-topbets-title,
+.live-zone-head{
+  min-height:43px;
+  margin:0!important;
+  padding:7px 10px!important;
+}
+.ft5-topbets-title{
+  background:#197548!important;
+}
+.ft5-topbets-title div span,
+.ft5-topbets-title h2,
+.ft5-topbets-title button{
+  color:#fff!important;
+}
+.live-zone-head{
+  background:#197548!important;
+}
+.live-zone-head>div>span,
+.live-zone-head h2,
+.live-zone-head button{
+  color:#fff!important;
+}
+
+/* BEST BETS: one header, then values only */
+.ft5-topbets-head{
+  display:grid;
+  grid-template-columns:42px minmax(280px,1.7fr) minmax(150px,.9fr) minmax(170px,.95fr) 86px 112px;
+  min-height:28px;
+  align-items:center;
+  background:#e5ece7;
+  border-bottom:1px solid var(--ft-border);
+  color:#647269;
+  font-size:9px;
+  font-weight:900;
+}
+.ft5-topbets-head span{padding:0 9px}
+.ft5-topbet-grid{
+  grid-template-columns:42px minmax(280px,1.7fr) minmax(150px,.9fr) minmax(170px,.95fr) 86px 112px!important;
+  min-height:54px!important;
+}
+.ft5-topbet-grid>div{padding:6px 9px!important}
+.ft5-topbet-rank{font-size:11px!important}
+.ft5-topbet-fixture>div{gap:6px;margin-bottom:3px!important}
+.ft5-topbet-fixture>div span{font-size:9px!important}
+.ft5-topbet-fixture>div small{font-size:9px!important}
+.ft5-topbet-fixture>b{font-size:13px!important;line-height:1.15}
+.ft5-topbet-fixture em{font-size:9px!important;margin:0 4px}
+.ft5-topbet-source b,
+.ft5-topbet-choice b,
+.ft5-topbet-price b{
+  margin:0!important;
+  font-size:12px!important;
+  line-height:1.1;
+}
+.ft5-topbet-source{
+  gap:3px;
+}
+.ft5-topbet-meta-line{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  min-width:0;
+}
+.ft5-topbet-meta-line>span{
+  color:#708078;
+  font-size:9px!important;
+  font-weight:800;
+}
+.ft5-topbet-source .ft5-consensus{margin:0!important}
+.ft5-topbet-choice{
+  flex-direction:row!important;
+  align-items:center!important;
+  gap:7px;
+}
+.ft5-topbet-choice small{
+  margin:0!important;
+  font-size:10px!important;
+  color:#75827b!important;
+}
+.ft5-topbet-price b{font-size:13px!important}
+.ft5-topbet-edge b{font-size:15px!important}
+.ft5-topbet-edge{background:#e5f3ea!important}
+
+/* LIVE: remove oversized vertical gaps and tiny labels */
+.ft5-live-table-head{
+  min-height:28px!important;
+  font-size:9px!important;
+}
+.ft5-live-grid{min-height:58px!important}
+.ft5-live-grid>div{padding:6px 8px!important}
+.ft5-live-meta{margin-bottom:3px!important}
+.ft5-live-meta>b{font-size:10px!important}
+.ft5-live-meta>small{font-size:9px!important}
+.ft5-live-meta .shadow-chip{font-size:8px!important}
+.ft5-live-scoreline>b{font-size:13px!important}
+.ft5-live-scoreline .live-score-main{font-size:18px!important}
+.ft5-live-control span,
+.ft5-live-stats span,
+.ft5-live-market-grid span{font-size:8px!important}
+.ft5-live-control b,
+.ft5-live-stats b,
+.ft5-live-market-grid b{font-size:10px!important}
+.ft5-live-market-grid small{font-size:8px!important}
+
+/* NEXT 24H controls */
+.ft5-fixture-controls{
+  min-height:36px!important;
+  padding:4px 7px!important;
+}
+.ft5-fixture-heading b{font-size:12px!important}
+.ft5-fixture-heading span{font-size:9px!important}
+.ft5-fixture-controls .ft5-filter{
+  min-height:26px!important;
+  padding:4px 8px!important;
+  font-size:9px!important;
+}
+.ft5-fixture-controls .ft5-count{font-size:9px!important}
+
+/* fixture table proportions: less empty fixture/status space */
+.ft5-table-head,
+.ft5-row-grid{
+  grid-template-columns:minmax(280px,1.38fr) minmax(185px,.9fr) minmax(190px,.92fr) minmax(300px,1.34fr) minmax(122px,.56fr)!important;
+}
+.ft5-table-head{
+  min-height:30px!important;
+  font-size:9px!important;
+}
+.ft5-table-head span{padding:0 8px!important}
+.ft5-row-grid{
+  min-height:70px!important;
+  align-items:stretch!important;
+}
+.ft5-cell{padding:6px 8px!important}
+
+/* fixture: team names read as one sentence instead of opposite ends */
+.ft5-fixture-cell{
+  justify-content:center!important;
+}
+.ft5-match-meta{
+  justify-content:flex-start!important;
+  gap:6px!important;
+  margin-bottom:5px!important;
+}
+.ft5-kickoff{font-size:10px!important}
+.ft5-league{font-size:9px!important}
+.ft5-fresh{
+  margin-left:auto;
+  padding:2px 5px!important;
+  font-size:8px!important;
+  border-radius:3px!important;
+}
+.ft5-teams{
+  display:flex!important;
+  flex-direction:row!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:0!important;
+}
+.ft5-teams b{
+  flex:0 1 auto;
+  max-width:43%;
+  font-size:13px!important;
+  line-height:1.18!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.ft5-teams span{
+  flex:0 0 auto;
+  font-size:9px!important;
+  color:#9ba59f!important;
+}
+
+/* model: source + consensus share one compact line */
+.ft5-model-cell{
+  justify-content:center!important;
+  gap:5px!important;
+}
+.ft5-model-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:5px;
+  min-width:0;
+}
+.ft5-model-heading>b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#315a47;
+  font-size:10px;
+}
+.ft5-consensus{
+  min-height:16px!important;
+  padding:2px 5px!important;
+  font-size:8px!important;
+}
+.ft5-probs{
+  gap:3px!important;
+  padding:4px!important;
+  border-radius:7px!important;
+}
+.ft5-prob{
+  min-height:30px!important;
+  padding:3px 4px!important;
+  border-radius:4px!important;
+}
+.ft5-prob span{font-size:8px!important}
+.ft5-prob b{margin-top:2px!important;font-size:11px!important}
+.ft5-model-cell .ft5-prob.selected b{font-size:11px!important}
+
+/* pick: one compact horizontal decision line */
+.ft5-pick-cell{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:7px!important;
+}
+.ft5-pick-main{
+  min-width:0;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center;
+  gap:2px!important;
+}
+.ft5-pick-main>b{
+  max-width:105px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px!important;
+  color:#244d39;
+}
+.ft5-pick-main>small{
+  margin:0!important;
+  font-size:9px!important;
+  color:#7f8b84!important;
+}
+.ft5-edge-chip{
+  min-width:58px!important;
+  padding:5px 6px!important;
+}
+.ft5-edge-chip>b{font-size:12px!important}
+.ft5-edge-chip.strong>b{font-size:13px!important}
+.ft5-move-chip{
+  min-width:58px!important;
+  padding:5px 6px!important;
+}
+.ft5-move-chip span{font-size:8px!important}
+.ft5-move-chip b{font-size:11px!important}
+
+/* HKJC cells: compact, no wasted box height */
+.ft5-market-cell{
+  display:flex!important;
+  align-items:center!important;
+}
+.ft5-row-odds{
+  width:100%;
+  gap:3px!important;
+  margin:0!important;
+}
+.ft5-row-odds .ft5-odd{
+  min-height:37px!important;
+  padding:4px 3px!important;
+  border-radius:4px!important;
+  text-align:center;
+}
+.ft5-row-odds .ft5-odd span{font-size:8px!important}
+.ft5-row-odds .ft5-odd b{
+  margin-top:2px!important;
+  font-size:10px!important;
+}
+
+/* status: max three chips + small chevron */
+.ft5-status-cell{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:4px!important;
+}
+.ft5-status-cell .ft5-tags{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-content:center!important;
+  gap:3px!important;
+}
+.ft5-status-cell .ft5-tag{
+  padding:3px 5px!important;
+  border-radius:3px!important;
+  font-size:8px!important;
+  line-height:1!important;
+}
+.ft5-details{
+  font-size:20px!important;
+  line-height:1!important;
+  color:#39805e!important;
+}
+
+/* remove some leftover card-like whitespace */
+.ft5-match-list{gap:0!important}
+.ft5-match-card{
+  border-radius:0!important;
+  border-left:1px solid var(--ft-border)!important;
+  border-right:1px solid var(--ft-border)!important;
+  border-top:0!important;
+  border-bottom:1px solid var(--ft-border)!important;
+}
+.ft5-match-card:hover{transform:none!important}
+
+/* desktop/tablet correction */
+@media (max-width:1050px) and (min-width:681px){
+  .ft5-topbets-head,
+  .ft5-topbet-grid{
+    grid-template-columns:38px minmax(235px,1.45fr) minmax(125px,.8fr) minmax(135px,.82fr) 68px 88px!important;
+  }
+  .ft5-table-head,
+  .ft5-row-grid{
+    grid-template-columns:minmax(240px,1.25fr) minmax(170px,.85fr) minmax(165px,.82fr) minmax(250px,1.2fr) minmax(110px,.55fr)!important;
+  }
+  .ft5-teams b{font-size:12px!important}
+}
+
+/* mobile keeps legibility: no micro-fonts */
+@media (max-width:680px){
+  .ft5-shell{padding:8px 7px 88px!important}
+  .ft5-commandbar .ft5-brand-copy span{font-size:8px!important}
+  .ft5-header-stats span{font-size:7px!important}
+  .ft5-header-stats b{font-size:12px!important}
+  .ft5-topbets-head{display:none!important}
+  .ft5-topbet-fixture>b{font-size:11px!important}
+  .ft5-topbet-fixture>div span,
+  .ft5-topbet-fixture>div small{font-size:8px!important}
+  .ft5-topbet-source b,
+  .ft5-topbet-choice b,
+  .ft5-topbet-price b{font-size:10px!important}
+  .ft5-topbet-meta-line>span,
+  .ft5-topbet-choice small{font-size:8px!important}
+  .ft5-fixture-heading b{font-size:10px!important}
+  .ft5-fixture-controls .ft5-filter{font-size:8px!important}
+  .ft5-fixture-controls .ft5-count{font-size:8px!important}
+  .ft5-teams b{max-width:44%;font-size:12px!important}
+  .ft5-kickoff{font-size:9px!important}
+  .ft5-league,.ft5-fresh{font-size:8px!important}
+  .ft5-model-heading>b{font-size:9px!important}
+  .ft5-consensus{font-size:7px!important}
+  .ft5-prob span{font-size:7px!important}
+  .ft5-prob b{font-size:10px!important}
+  .ft5-pick-main>b{font-size:11px!important}
+  .ft5-pick-main>small{font-size:8px!important}
+  .ft5-status-cell .ft5-tag{font-size:7px!important}
+}
