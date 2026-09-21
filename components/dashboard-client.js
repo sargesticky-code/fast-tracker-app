@@ -61,7 +61,7 @@ function MarketPickRow({ match, edge, type }) {
   return (
     <Link
       className="market-pick-row"
-      href={`/match/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
+      href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
       onClick={() => cacheMatch(match)}
     >
       <div className="market-pick-match">
@@ -234,7 +234,7 @@ function LiveMatchRow({ match, changeType = null }) {
     <Link
       className={"live-match-row" + (changeType ? " ft5-flash-" + changeType : "")}
       prefetch={false}
-      href={`/match/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
+      href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
       onClick={() => cacheMatch(match)}
     >
       <div className="live-match-head">
@@ -368,7 +368,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
       className={"ft5-topbet ft5-enter" + (changeType ? " ft5-flash-" + changeType : "")}
       prefetch={false}
       style={{ animationDelay: Math.min(index, 2) * 70 + "ms" }}
-      href={"/match/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
+      href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={() => cacheMatch(match)}
     >
       <div className="ft5-topbet-meta">
