@@ -9,11 +9,12 @@ import {
   coverageStatusMeta,
   modelAgreement,
   preferredModel,
+  reviewPriority,
   sideName,
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-SIGNALS-20260922-1";
+const UI_BUILD = "FOREBET-PRIORITY-20260922-1";
 
 function pct(value) {
   const n = Number(value);
@@ -47,6 +48,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const coverage = modelCoverageCount(match);
   const coverageMeta = coverageStatusMeta(match);
   const agreement = modelAgreement(match);
+  const priority = reviewPriority(match, nowMs);
   const home = match.homeZh || match.home;
   const away = match.awayZh || match.away;
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
@@ -64,6 +66,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
     hasMove ? "ft5-row-market-move" : "",
     staleRisk ? "ft5-row-data-risk" : "",
     agreement.key === "split" ? "ft5-row-model-split" : "",
+    "ft5-priority-" + priority.band,
     changeType ? "ft5-flash-" + changeType : "",
   ].filter(Boolean).join(" ");
 
@@ -142,6 +145,10 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
         <div className="ft5-cell ft5-status-cell">
           <div className="ft5-tags">
+            <span
+              className={"ft5-tag ft5-review-tag ft5-review-" + priority.band}
+              title={"Review priority " + priority.score + "/100" + (priority.reasons.length ? " · " + priority.reasons.join(" · ") : "")}
+            >REVIEW {priority.score}</span>
             <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
             <span className="ft5-tag">{coverage ? coverage + " models" : "NO MODEL"}</span>
             {strongEdge ? <span className="ft5-tag blue">STRONG EDGE</span> : valueEdgeFlag ? <span className="ft5-tag blue">VALUE</span> : null}
