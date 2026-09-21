@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./forebet-dashboard.css";
 
 export const metadata = {
   title: "Fast Tracker 2026",
