@@ -19,6 +19,34 @@ import {
 
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 
+const CORE_MODEL_DEFS = [
+  { key: "HKJC", label: "HKJC no-vig" },
+  { key: "FOREBET", label: "Forebet" },
+  { key: "DC", label: "Dixon-Coles" },
+  { key: "PI", label: "Pi Rating" },
+  { key: "FORM", label: "Team-Form" },
+  { key: "MULTI", label: "Multi-source" },
+];
+
+const MULTISOURCE_MODEL_DEFS = ["FRB", "ACC", "BCL", "FST", "PRE", "STA"];
+
+function probabilityAvailable(values) {
+  return ["home", "draw", "away"].every((key) => {
+    const value = Number(values?.[key]);
+    return Number.isFinite(value);
+  });
+}
+
+function coreModelValues(match, key, market) {
+  if (key === "HKJC") return market;
+  if (key === "FOREBET") return match.forebet;
+  if (key === "DC") return match.dc;
+  if (key === "PI") return match.pi;
+  if (key === "FORM") return match.form;
+  if (key === "MULTI") return match.multi;
+  return null;
+}
+
 function pairText(pair, digits = 0, suffix = "") {
   if (!pair || pair.home == null || pair.away == null) return "—";
   const h = Number(pair.home);
@@ -170,6 +198,20 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const goalsLineModel = match.forebetDetail?.goalsCurrentLine || null;
   const cornersLineModel = match.forebetDetail?.cornersCurrentLine || null;
 
+  const coreModelRows = CORE_MODEL_DEFS.map((model) => {
+    const values = coreModelValues(match, model.key, market);
+    return { ...model, values, hasData: probabilityAvailable(values) };
+  });
+  const coreModelDataCount = coreModelRows.filter((row) => row.hasData).length;
+  const multisourceNames = new Set(
+    (match.multi?.sourceNames || []).map((name) => String(name).trim().toUpperCase()).filter(Boolean)
+  );
+  const multisourceRows = MULTISOURCE_MODEL_DEFS.map((key) => ({
+    key,
+    hasData: multisourceNames.has(key),
+  }));
+  const multisourceDataCount = multisourceRows.filter((row) => row.hasData).length;
+
   return (
     <main className="shell detail-shell">
       <div className="detail-top">
@@ -293,15 +335,44 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
 
       <section className="panel">
         <div className="panel-title">
-          <div><p>PROBABILITY</p><h2>市場 vs 所有模型</h2></div>
+          <div><p>MODEL COVERAGE</p><h2>6 個主要模型／市場來源</h2></div>
+          <span>{coreModelDataCount}/6 有資料</span>
+        </div>
+        <div className="health-list">
+          {coreModelRows.map((row) => (
+            <div key={row.key}>
+              <span>{row.label}</span>
+              <b>{row.hasData ? "DATA" : "NO DATA"}</b>
+            </div>
+          ))}
+        </div>
+        <p className="fineprint">每場都固定顯示六項，冇資料亦唔會隱藏。</p>
+      </section>
+
+      <section className="panel">
+        <div className="panel-title">
+          <div><p>PROBABILITY</p><h2>市場 vs 所有可用模型</h2></div>
           <span>{modelLabel(match)}</span>
         </div>
-        {market && <ProbabilityRow label="HKJC no-vig" values={market} />}
-        {match.forebet && <ProbabilityRow label="Forebet" values={match.forebet} />}
-        {match.dc && <ProbabilityRow label="DC" values={match.dc} />}
-        {match.pi && <ProbabilityRow label="Pi" values={match.pi} />}
-        {match.form && <ProbabilityRow label="Form" values={match.form} />}
-        {match.multi && <ProbabilityRow label={`Multi-source · ${match.multi.sources || match.multi.sourceCount || "—"}`} values={match.multi} strong />}
+        {coreModelRows.map((row) => (
+          row.hasData
+            ? <ProbabilityRow
+                key={row.key}
+                label={row.key === "MULTI"
+                  ? `${row.label} · ${match.multi?.sources || match.multi?.sourceCount || "—"} source(s)`
+                  : row.label}
+                values={row.values}
+                strong={row.key === "MULTI"}
+              />
+            : <div className="prob-row" key={row.key}>
+                <div className="prob-label">{row.label} · NO DATA</div>
+                <div className="prob-values">
+                  {["H", "D", "A"].map((side) => (
+                    <div className="prob-cell" key={side}><span>{side}</span><b>—</b></div>
+                  ))}
+                </div>
+              </div>
+        ))}
       </section>
 
       {match.power && (match.power.home != null || match.power.away != null) && (
@@ -349,26 +420,51 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         </section>
       )}
 
-      {match.multi?.sourceNames?.length > 0 && (
-        <section className="panel">
-          <div className="panel-title"><div><p>SOURCES</p><h2>Multi-source evidence</h2></div></div>
-          <div className="source-chips">{match.multi.sourceNames.map((s) => <span key={s}>{s}</span>)}</div>
-        </section>
-      )}
+      <section className="panel">
+        <div className="panel-title">
+          <div><p>SIX-SOURCE CONSENSUS</p><h2>FRB / ACC / BCL / FST / PRE / STA</h2></div>
+          <span>{multisourceDataCount}/6 有資料</span>
+        </div>
+        <div className="health-list">
+          {multisourceRows.map((row) => (
+            <div key={row.key}>
+              <span>{row.key}</span>
+              <b>{row.hasData ? "DATA" : "NO DATA"}</b>
+            </div>
+          ))}
+        </div>
+        <div className="source-chips">
+          <span>Consensus count {match.multi?.sources ?? match.health?.multisourceMemberCount ?? 0}</span>
+          <span>Evidence channels {evidenceCount}</span>
+        </div>
+        {match.multi?.sourceNames?.length > 0
+          ? <p className="fineprint">Current consensus inputs：{match.multi.sourceNames.join(" · ")}</p>
+          : <p className="fineprint">Current consensus inputs：NO DATA</p>}
+      </section>
 
       <section className="panel">
-        <div className="panel-title"><div><p>DATA HEALTH</p><h2>資料狀態</h2></div><span>{match.health?.status || "UNKNOWN"}</span></div>
-        <div className="source-chips">
-          <span>HKJC {match.health?.hkjcFreshness || fresh.label}</span>
-          <span>Forebet {match.health?.forebetState || "NO DATA"}</span>
-          <span>Internal {match.health?.internalModelQuality || "NO DATA"}</span>
+        <div className="panel-title"><div><p>DATA HEALTH</p><h2>完整資料狀態</h2></div><span>{match.health?.status || "UNKNOWN"}</span></div>
+        <div className="health-list">
+          <div><span>HKJC freshness</span><b>{match.health?.hkjcFreshness || fresh.label}</b></div>
+          <div><span>HKJC fetched</span><b>{formatUpdated(match.health?.hkjcFetchedAt)}</b></div>
+          <div><span>Forebet</span><b>{match.health?.forebetState || "NO DATA"}</b></div>
+          <div><span>Forebet checked</span><b>{formatUpdated(match.health?.forebetCheckedAt)}</b></div>
+          <div><span>Internal model</span><b>{match.health?.internalModelQuality || "NO DATA"}</b></div>
+          <div><span>Internal source</span><b>{match.health?.internalModelSource || "NO DATA"}</b></div>
+          <div><span>Fallback source</span><b>{match.health?.fallbackSource || "NO DATA"}</b></div>
+          <div><span>Fallback status</span><b>{match.health?.fallbackStatus || "NO DATA"}</b></div>
+          <div><span>Home alias</span><b>{match.health?.homeAliasPresent ? "OK" : "MISSING"}</b></div>
+          <div><span>Away alias</span><b>{match.health?.awayAliasPresent ? "OK" : "MISSING"}</b></div>
+          <div><span>Evidence channels</span><b>{evidenceCount}</b></div>
+          <div><span>Multi-source members</span><b>{match.health?.multisourceMemberCount ?? match.multi?.sources ?? 0}</b></div>
+          <div><span>Decision</span><b>{match.decision || "NO DATA"}</b></div>
+          <div><span>Decision engine</span><b>{match.engineVersion || "NO DATA"}</b></div>
         </div>
-        {match.health?.forebetState && match.health.forebetState !== "MODEL" ? (
-          <p className="fineprint">
-            Forebet：{match.health.forebetState}
-            {match.health?.forebetReason ? ` · ${match.health.forebetReason}` : ""}
-          </p>
-        ) : null}
+        {match.health?.diagnostics?.length
+          ? <p className="fineprint">Diagnostics：{match.health.diagnostics.join(" · ")}</p>
+          : null}
+        {match.health?.forebetReason ? <p className="fineprint">Forebet：{match.health.forebetReason}</p> : null}
+        {match.health?.fallbackRecommendation ? <p className="fineprint">Fallback：{match.health.fallbackRecommendation}</p> : null}
         {missingReason ? <p className="fineprint">缺資料原因：{missingReason}</p> : <p className="fineprint">Canonical evidence channels：{evidenceCount}</p>}
       </section>
 
