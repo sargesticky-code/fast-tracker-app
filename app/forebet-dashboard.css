@@ -1304,3 +1304,167 @@ body{
   }
   .ft5-fixture-controls .ft5-count{font-size:6.5px!important}
 }
+
+
+/* V5 — information hierarchy: edge, move, disagreement, data health */
+.ft5-model-label-stack{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:2px;
+}
+.ft5-model-label-stack>b{
+  max-width:100px;
+}
+.ft5-consensus{
+  display:inline-flex;
+  align-items:center;
+  min-height:13px;
+  padding:1px 4px;
+  border-radius:3px;
+  font-size:5.7px;
+  font-weight:950;
+  letter-spacing:.035em;
+  white-space:nowrap;
+}
+.ft5-consensus-agree{
+  background:#e7f4eb;
+  color:#27744e;
+}
+.ft5-consensus-split{
+  background:#fff1cf;
+  color:#8b6517;
+  border:1px solid #ead59c;
+}
+.ft5-consensus-limited{
+  background:#f0f3f1;
+  color:#7b8881;
+}
+
+.ft5-signal-stack{
+  display:flex;
+  align-items:stretch;
+  gap:3px;
+  flex-shrink:0;
+}
+.ft5-edge-chip.strong{
+  background:#d8f0e1;
+  border-color:#94c8a8;
+  box-shadow:inset 0 0 0 1px rgba(27,107,71,.06);
+}
+.ft5-edge-chip.strong b{
+  color:#0f6a3d;
+  font-size:11.5px;
+}
+.ft5-move-chip{
+  min-width:52px;
+  padding:5px 6px;
+  border:1px solid #ebc8bc;
+  border-radius:4px;
+  background:#fff0eb;
+  text-align:center;
+}
+.ft5-move-chip span{
+  display:block;
+  margin-bottom:1px;
+  color:#9b6658;
+  font-size:6px;
+  font-weight:950;
+}
+.ft5-move-chip b{
+  color:#a14f3f;
+  font-size:10px;
+}
+
+.ft5-tag.split{
+  background:#fff1cf;
+  color:#886216;
+  border:1px solid #ead59c;
+}
+
+/* row-level attention cues stay subtle; important numbers remain the focal point */
+.ft5-row-strong-edge .ft5-row-grid{
+  box-shadow:inset 3px 0 0 #2b8a59;
+}
+.ft5-row-market-move .ft5-row-grid{
+  background-image:linear-gradient(90deg,rgba(248,235,228,.42),rgba(255,255,255,0) 22%);
+}
+.ft5-row-model-split .ft5-model-cell{
+  background:#fffaf0;
+}
+.ft5-row-data-risk .ft5-status-cell{
+  background:#fff6f2;
+}
+
+/* make ordinary market prices deliberately quieter */
+.ft5-row-odds .ft5-odd{
+  background:#fbfcfb!important;
+  border-color:#e8ede9!important;
+}
+.ft5-row-odds .ft5-odd span{
+  color:#9aa49f!important;
+}
+.ft5-row-odds .ft5-odd b{
+  color:#4b5f55!important;
+  font-weight:800!important;
+}
+
+/* selected/model values keep stronger contrast */
+.ft5-model-cell .ft5-prob.selected{
+  background:#dff1e6!important;
+  border:1px solid #a8d2b8!important;
+}
+.ft5-model-cell .ft5-prob.selected b{
+  color:#12683e!important;
+  font-size:10.5px!important;
+}
+
+/* Best Bets: consensus is secondary to pick + edge */
+.ft5-topbet-source .ft5-consensus{
+  margin-top:3px;
+  align-self:flex-start;
+}
+.ft5-topbet-edge b{
+  font-size:14px!important;
+}
+.ft5-topbet-choice b{
+  font-size:11.5px!important;
+}
+
+/* stronger freshness/data warnings */
+.ft5-row-data-risk .ft5-fresh{
+  background:#f9e2dc!important;
+  color:#9b4c40!important;
+}
+.ft5-row-data-risk .health-danger{
+  font-weight:950!important;
+}
+
+/* mobile keeps the hierarchy but reduces decoration */
+@media (max-width:680px){
+  .ft5-model-label-stack{
+    align-items:flex-start;
+  }
+  .ft5-consensus{
+    font-size:5.2px;
+    padding:1px 3px;
+  }
+  .ft5-signal-stack{
+    gap:2px;
+  }
+  .ft5-edge-chip,
+  .ft5-move-chip{
+    min-width:48px;
+    padding:4px;
+  }
+  .ft5-edge-chip.strong b{
+    font-size:10px;
+  }
+  .ft5-move-chip b{
+    font-size:8.5px;
+  }
+  .ft5-row-strong-edge .ft5-row-grid{
+    box-shadow:inset 2px 0 0 #2b8a59;
+  }
+}
