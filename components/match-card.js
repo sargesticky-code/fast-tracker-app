@@ -7,12 +7,13 @@ import {
   freshness,
   modelCoverageCount,
   coverageStatusMeta,
+  modelAgreement,
   preferredModel,
   sideName,
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-ROW-20260922-1";
+const UI_BUILD = "FOREBET-SIGNALS-20260922-1";
 
 function pct(value) {
   const n = Number(value);
@@ -45,6 +46,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const fresh = freshness(match, nowMs);
   const coverage = modelCoverageCount(match);
   const coverageMeta = coverageStatusMeta(match);
+  const agreement = modelAgreement(match);
   const home = match.homeZh || match.home;
   const away = match.awayZh || match.away;
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
@@ -52,6 +54,18 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "%" : "—";
   const pick = edge ? sideName(match, edge.key) : "—";
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
+  const strongEdge = edge?.value >= 0.10;
+  const valueEdgeFlag = edge?.value >= 0.05;
+  const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
+  const rowClass = [
+    "ft5-match-card",
+    "ft5-forebet-row",
+    strongEdge ? "ft5-row-strong-edge" : valueEdgeFlag ? "ft5-row-value-edge" : "",
+    hasMove ? "ft5-row-market-move" : "",
+    staleRisk ? "ft5-row-data-risk" : "",
+    agreement.key === "split" ? "ft5-row-model-split" : "",
+    changeType ? "ft5-flash-" + changeType : "",
+  ].filter(Boolean).join(" ");
 
   function cacheMatch() {
     try {
@@ -62,7 +76,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
   return (
     <Link
-      className={"ft5-match-card ft5-forebet-row" + (changeType ? " ft5-flash-" + changeType : "")}
+      className={rowClass}
       prefetch={false}
       href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={cacheMatch}
@@ -84,7 +98,10 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
         <div className="ft5-cell ft5-model-cell">
           <div className="ft5-cell-label">
             <span>MODEL</span>
-            <b>{modelLabel(match)}</b>
+            <div className="ft5-model-label-stack">
+              <b>{modelLabel(match)}</b>
+              <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
+            </div>
           </div>
           <div className="ft5-probs" aria-label="HDA model probability">
             <div className={selectedClass(edge, "H")}><span>H</span><b>{pct(model?.home)}</b></div>
@@ -99,9 +116,17 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
             <b>{pick}</b>
             <small>{selectedOdds ? "Odds " + formatOdds(selectedOdds) : "未有可比較賠率"}</small>
           </div>
-          <div className={"ft5-edge-chip" + (edge?.value >= 0.05 ? " positive" : "")}>
-            <span>EDGE</span>
-            <b>{edgeText}</b>
+          <div className="ft5-signal-stack">
+            <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
+              <span>EDGE</span>
+              <b>{edgeText}</b>
+            </div>
+            {hasMove ? (
+              <div className="ft5-move-chip">
+                <span>MOVE</span>
+                <b>{rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}%</b>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -119,8 +144,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <div className="ft5-tags">
             <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
             <span className="ft5-tag">{coverage ? coverage + " models" : "NO MODEL"}</span>
-            {edge?.value >= 0.05 ? <span className="ft5-tag blue">VALUE</span> : null}
-            {hasMove ? <span className="ft5-tag alert">{rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}%</span> : null}
+            {strongEdge ? <span className="ft5-tag blue">STRONG EDGE</span> : valueEdgeFlag ? <span className="ft5-tag blue">VALUE</span> : null}
+            {agreement.key === "split" ? <span className="ft5-tag split">MODEL SPLIT</span> : null}
           </div>
           <span className="ft5-details">分析 →</span>
         </div>
