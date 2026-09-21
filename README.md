@@ -179,3 +179,17 @@ Prefer durable system-level fixes over one-off match patches. New features shoul
 6. mobile readability
 7. low-cost automation
 8. isolation from the Google Sheet production workflow
+
+
+## Dashboard design system
+
+The production dashboard uses a Forebet-inspired information-dense layout rather than large app-style cards.
+
+Rules:
+- desktop upcoming fixtures use one-row-per-match table scanning
+- preserve readable team names and key numbers; reduce whitespace before reducing font size
+- use thin borders, light row striping and restrained shadows
+- keep Best Bets prominent but vertically compact
+- show model H/D/A, model pick, Edge, HKJC H/D/A, goals line and corners line without opening match details
+- mobile collapses each fixture into a compact multi-tier row instead of forcing the desktop table into tiny columns
+- presentation changes must not alter Supabase data contracts, capture cadence, alias logic or the separate Google Sheet workflow
