@@ -197,3 +197,26 @@ Rules:
 - visual hierarchy: Edge / material odds movement / model disagreement / data-health warnings are primary signals; ordinary market prices are visually quieter
 - MODEL SPLIT is descriptive only: it is shown when at least two independent HDA models (Forebet / Dixon-Coles / Pi / Team-Form) have different dominant outcomes
 - strong Edge currently means HDA model-market edge >= 10%; standard Value highlighting begins at >= 5%
+
+
+### Review Priority
+
+The default upcoming view is sorted by an explainable Review Priority rather than kickoff time alone.
+
+Review Priority is an inspection-order signal, not a win probability or expected-return model. It combines:
+- model/data coverage
+- absolute model-vs-market divergence
+- positive HDA Edge
+- material raw odds movement
+- cross-model disagreement
+- data freshness
+- kickoff urgency
+
+Bands:
+- P1: 75–100
+- P2: 55–74
+- P3: 35–54
+- P4: 0–34
+- DATA RISK: stale or missing current market data
+
+The dashboard may show REVIEW 0–100 to help decide which match to inspect first. Betting decisions remain based on the underlying evidence shown in the match detail, not the Review Priority number itself.
