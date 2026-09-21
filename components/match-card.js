@@ -36,7 +36,7 @@ function selectedClass(edge, key) {
   return "ft5-prob" + (edge?.key === key ? " selected" : "");
 }
 
-export default function MatchCard({ match, nowMs }) {
+export default function MatchCard({ match, nowMs, changeType = null }) {
   const edge = valueEdge(match);
   const model = preferredModel(match);
   const fresh = freshness(match, nowMs);
@@ -58,7 +58,7 @@ export default function MatchCard({ match, nowMs }) {
 
   return (
     <Link
-      className="ft5-match-card"
+      className={"ft5-match-card" + (changeType ? " ft5-flash-" + changeType : "")}
       href={"/match/?id=" + encodeURIComponent(match.id)}
       onClick={cacheMatch}
     >
