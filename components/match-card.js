@@ -11,6 +11,8 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
+const UI_BUILD = "FORM-20260921-2";
+
 function pct(value) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n * 100) + "%" : "—";
@@ -59,7 +61,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   return (
     <Link
       className={"ft5-match-card" + (changeType ? " ft5-flash-" + changeType : "")}
-      href={"/match/?id=" + encodeURIComponent(match.id)}
+      prefetch={false}
+      href={"/match/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={cacheMatch}
     >
       <div className="ft5-match-meta">
