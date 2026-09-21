@@ -423,3 +423,299 @@ body{
 @media (prefers-reduced-motion:reduce){
   .ft5-match-card,.ft5-topbet,.live-match-row{transition:none!important;animation:none!important}
 }
+
+
+/* V2 — true Forebet-style fixture table */
+.ft5-fixture-table{
+  border:1px solid var(--ft-border);
+  border-top:0;
+  border-radius:0 0 5px 5px;
+  overflow:hidden;
+  background:#fff;
+}
+.ft5-table-head{
+  display:grid;
+  grid-template-columns:minmax(250px,1.65fr) minmax(190px,1.05fr) minmax(170px,.9fr) minmax(320px,1.55fr) minmax(120px,.72fr);
+  align-items:center;
+  min-height:28px;
+  padding:0 9px;
+  background:#e5ece7;
+  border-top:1px solid var(--ft-border);
+  border-bottom:1px solid #cfd9d2;
+  color:#5f6f66;
+  font-size:7.5px;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.ft5-table-head span{padding:0 7px}
+.ft5-match-list{
+  border:0!important;
+  border-radius:0!important;
+}
+.ft5-forebet-row{padding:0!important}
+.ft5-row-grid{
+  display:grid;
+  grid-template-columns:minmax(250px,1.65fr) minmax(190px,1.05fr) minmax(170px,.9fr) minmax(320px,1.55fr) minmax(120px,.72fr);
+  min-height:68px;
+  align-items:stretch;
+}
+.ft5-cell{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  padding:7px 9px;
+  border-right:1px solid #e5ebe7;
+}
+.ft5-cell:last-child{border-right:0}
+.ft5-fixture-cell{
+  display:block;
+  padding-top:6px;
+  padding-bottom:6px;
+}
+.ft5-fixture-cell .ft5-match-meta{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin:0 0 5px!important;
+}
+.ft5-fixture-cell .ft5-fresh{margin-left:auto}
+.ft5-fixture-cell .ft5-teams{
+  grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr)!important;
+  gap:5px!important;
+}
+.ft5-fixture-cell .ft5-teams b{
+  font-size:12.5px!important;
+  font-weight:850!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.ft5-model-cell{
+  display:block;
+}
+.ft5-cell-label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:5px;
+  margin-bottom:4px;
+}
+.ft5-cell-label span{
+  color:#849188;
+  font-size:6.5px;
+  font-weight:900;
+  letter-spacing:.07em;
+}
+.ft5-cell-label b{
+  color:#315a45;
+  font-size:8px;
+  font-weight:900;
+  max-width:100px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.ft5-model-cell .ft5-probs{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.ft5-model-cell .ft5-prob{
+  min-height:29px!important;
+  padding:3px 4px!important;
+}
+.ft5-model-cell .ft5-prob span{font-size:6px!important}
+.ft5-model-cell .ft5-prob b{font-size:9.5px!important}
+
+.ft5-pick-cell{
+  justify-content:space-between;
+  gap:7px;
+}
+.ft5-pick-main{min-width:0}
+.ft5-pick-main span{
+  display:block;
+  margin-bottom:2px;
+  color:#7b8981;
+  font-size:6.5px;
+  font-weight:900;
+}
+.ft5-pick-main b{
+  display:block;
+  max-width:105px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#183f2e;
+  font-size:11px;
+}
+.ft5-pick-main small{
+  display:block;
+  margin-top:2px;
+  color:#87948d;
+  font-size:6.5px;
+}
+.ft5-edge-chip{
+  min-width:54px;
+  padding:5px 6px;
+  border:1px solid #dde5df;
+  border-radius:4px;
+  background:#f6f8f6;
+  text-align:center;
+}
+.ft5-edge-chip span{
+  display:block;
+  margin-bottom:1px;
+  color:#7a8880;
+  font-size:6px;
+  font-weight:900;
+}
+.ft5-edge-chip b{
+  color:#50635a;
+  font-size:10px;
+}
+.ft5-edge-chip.positive{
+  background:#e7f4eb;
+  border-color:#bedec8;
+}
+.ft5-edge-chip.positive b{color:#1f7449}
+
+.ft5-market-cell{padding:6px 7px}
+.ft5-row-odds{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:3px!important;
+  width:100%;
+  margin:0!important;
+}
+.ft5-row-odds .ft5-odd{
+  min-width:0;
+  min-height:39px!important;
+  padding:5px 4px!important;
+  border-radius:3px!important;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:1px;
+}
+.ft5-row-odds .ft5-odd span{
+  font-size:6.5px!important;
+  line-height:1;
+}
+.ft5-row-odds .ft5-odd b{
+  font-size:10px!important;
+  line-height:1.05;
+}
+
+.ft5-status-cell{
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:5px;
+}
+.ft5-status-cell .ft5-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:2px!important;
+}
+.ft5-status-cell .ft5-tag{
+  font-size:5.8px!important;
+  padding:2px 4px!important;
+}
+.ft5-status-cell .ft5-details{
+  color:var(--ft-green);
+  font-size:7.5px!important;
+  font-weight:900;
+}
+
+/* increase scanability with subtle table striping */
+.ft5-match-card:nth-child(odd) .ft5-row-grid{background:#fff}
+.ft5-match-card:nth-child(even) .ft5-row-grid{background:#f8faf8}
+.ft5-match-card:hover .ft5-row-grid{background:#eef6f1}
+
+/* Compact desktop header area further */
+@media (min-width:901px){
+  .ft5-topbar{position:relative}
+  .ft5-hero{min-height:42px}
+  .ft5-topbets-wrap{margin-bottom:8px!important}
+}
+
+@media (max-width:1050px) and (min-width:681px){
+  .ft5-table-head,
+  .ft5-row-grid{
+    grid-template-columns:minmax(220px,1.45fr) minmax(170px,1fr) minmax(150px,.85fr) minmax(260px,1.35fr) minmax(100px,.65fr);
+  }
+  .ft5-cell{padding-left:6px;padding-right:6px}
+  .ft5-fixture-cell .ft5-teams b{font-size:11.5px!important}
+}
+
+/* Mobile becomes two-tier match row rather than a tiny five-column table */
+@media (max-width:680px){
+  .ft5-fixture-table{
+    border-left:1px solid var(--ft-border);
+    border-right:1px solid var(--ft-border);
+  }
+  .ft5-table-head{display:none}
+  .ft5-row-grid{
+    display:grid;
+    grid-template-columns:1fr!important;
+    min-height:0;
+  }
+  .ft5-cell{
+    border-right:0;
+    border-bottom:0;
+    padding:5px 6px;
+  }
+  .ft5-fixture-cell{
+    border-bottom:1px solid #e6ece8;
+    padding-bottom:6px;
+  }
+  .ft5-fixture-cell .ft5-match-meta{margin-bottom:4px!important}
+  .ft5-fixture-cell .ft5-teams b{
+    font-size:12.5px!important;
+    white-space:normal;
+  }
+  .ft5-model-cell{
+    display:grid;
+    grid-template-columns:76px minmax(0,1fr);
+    gap:5px;
+    align-items:center;
+  }
+  .ft5-model-cell .ft5-cell-label{
+    display:block;
+    margin:0;
+  }
+  .ft5-cell-label b{
+    display:block;
+    margin-top:1px;
+    max-width:76px;
+    font-size:7px;
+  }
+  .ft5-model-cell .ft5-prob{min-height:28px!important}
+  .ft5-pick-cell{
+    padding-top:4px;
+    padding-bottom:4px;
+    background:#fbfcfb;
+  }
+  .ft5-pick-main{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:5px;
+    align-items:center;
+    flex:1;
+  }
+  .ft5-pick-main span{margin:0;font-size:6px}
+  .ft5-pick-main b{font-size:9.5px}
+  .ft5-pick-main small{margin:0;font-size:6px;text-align:right}
+  .ft5-edge-chip{min-width:52px;padding:4px}
+  .ft5-market-cell{padding-top:4px;padding-bottom:4px}
+  .ft5-row-odds .ft5-odd{min-height:28px!important;padding:3px!important}
+  .ft5-row-odds .ft5-odd span{font-size:5.5px!important}
+  .ft5-row-odds .ft5-odd b{font-size:8.5px!important}
+  .ft5-status-cell{
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    padding-top:4px;
+    padding-bottom:5px;
+    border-top:1px solid #edf1ee;
+  }
+  .ft5-status-cell .ft5-tag{font-size:5.5px!important}
+}
