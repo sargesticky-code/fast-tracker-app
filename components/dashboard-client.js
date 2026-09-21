@@ -677,10 +677,19 @@ export default function DashboardClient({ feed, nowMs }) {
               : <div className="ft5-empty">暫時冇符合 freshness gate 嘅 HKJC Live 賽事</div>}
           </div>
         ) : (
-          <div className="ft5-match-list ft5-list-enter" key={filter}>
-            {matches.length
-              ? matches.map((match) => <MatchCard key={match.id} match={match} nowMs={clockMs} changeType={changeMap[String(match.id)] || null} />)
-              : <div className="ft5-empty">呢個篩選暫時冇賽事</div>}
+          <div className="ft5-fixture-table">
+            <div className="ft5-table-head" aria-hidden="true">
+              <span>時間 / 賽事</span>
+              <span>模型 H / D / A</span>
+              <span>判斷 / Edge</span>
+              <span>HKJC 市場</span>
+              <span>狀態</span>
+            </div>
+            <div className="ft5-match-list ft5-list-enter" key={filter}>
+              {matches.length
+                ? matches.map((match) => <MatchCard key={match.id} match={match} nowMs={clockMs} changeType={changeMap[String(match.id)] || null} />)
+                : <div className="ft5-empty">呢個篩選暫時冇賽事</div>}
+            </div>
           </div>
         )}
       </section>
