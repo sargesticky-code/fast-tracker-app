@@ -62,7 +62,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
     <Link
       className={"ft5-match-card" + (changeType ? " ft5-flash-" + changeType : "")}
       prefetch={false}
-      href={"/match/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
+      href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={cacheMatch}
     >
       <div className="ft5-match-meta">
