@@ -1468,3 +1468,74 @@ body{
     box-shadow:inset 2px 0 0 #2b8a59;
   }
 }
+
+
+/* V6 — review-priority ordering and badges */
+.ft5-header-stats{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+}
+.ft5-header-stats .priority{
+  background:#edf7f1;
+}
+.ft5-header-stats .priority b{
+  color:#15653f;
+}
+
+.ft5-review-tag{
+  border:1px solid transparent;
+  font-weight:950!important;
+  letter-spacing:.02em;
+}
+.ft5-review-p1{
+  background:#dcefe4!important;
+  color:#145f3b!important;
+  border-color:#a8cfb8!important;
+}
+.ft5-review-p2{
+  background:#e8f2eb!important;
+  color:#2e6d4c!important;
+  border-color:#c9dfd1!important;
+}
+.ft5-review-p3{
+  background:#eef2f0!important;
+  color:#607068!important;
+}
+.ft5-review-p4{
+  background:#f5f6f5!important;
+  color:#89928d!important;
+}
+.ft5-review-risk{
+  background:#f8e5df!important;
+  color:#9a4d40!important;
+  border-color:#ebc4ba!important;
+}
+
+.ft5-priority-p1 .ft5-status-cell{
+  box-shadow:inset -2px 0 0 rgba(42,132,84,.16);
+}
+.ft5-priority-risk .ft5-status-cell{
+  box-shadow:inset -2px 0 0 rgba(169,79,61,.16);
+}
+
+/* review badge is useful context, but never louder than Edge / MOVE */
+.ft5-status-cell .ft5-review-tag{
+  order:-2;
+}
+.ft5-status-cell .health-danger{
+  order:-1;
+}
+
+@media (max-width:900px) and (min-width:681px){
+  .ft5-header-stats>div{padding-left:5px;padding-right:5px}
+  .ft5-header-stats span{font-size:5.5px}
+  .ft5-header-stats b{font-size:12px}
+}
+
+@media (max-width:680px){
+  .ft5-header-stats{
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  }
+  .ft5-review-tag{
+    font-size:5.2px!important;
+  }
+}
