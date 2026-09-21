@@ -5,7 +5,6 @@ import {
   formatKickoff,
   formatOdds,
   freshness,
-  modelCoverageCount,
   coverageStatusMeta,
   modelAgreement,
   preferredModel,
@@ -14,7 +13,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-PRIORITY-20260922-1";
+const UI_BUILD = "FOREBET-CLEAN-20260922-1";
 
 function pct(value) {
   const n = Number(value);
@@ -45,7 +44,6 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const edge = valueEdge(match);
   const model = preferredModel(match);
   const fresh = freshness(match, nowMs);
-  const coverage = modelCoverageCount(match);
   const coverageMeta = coverageStatusMeta(match);
   const agreement = modelAgreement(match);
   const priority = reviewPriority(match, nowMs);
@@ -99,12 +97,9 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
         </div>
 
         <div className="ft5-cell ft5-model-cell">
-          <div className="ft5-cell-label">
-            <span>MODEL</span>
-            <div className="ft5-model-label-stack">
-              <b>{modelLabel(match)}</b>
-              <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
-            </div>
+          <div className="ft5-model-heading">
+            <b>{modelLabel(match)}</b>
+            <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
           </div>
           <div className="ft5-probs" aria-label="HDA model probability">
             <div className={selectedClass(edge, "H")}><span>H</span><b>{pct(model?.home)}</b></div>
@@ -115,13 +110,11 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
-            <span>MODEL PICK</span>
             <b>{pick}</b>
-            <small>{selectedOdds ? "Odds " + formatOdds(selectedOdds) : "未有可比較賠率"}</small>
+            <small>{selectedOdds ? "@" + formatOdds(selectedOdds) : "未有賠率"}</small>
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
-              <span>EDGE</span>
               <b>{edgeText}</b>
             </div>
             {hasMove ? (
@@ -148,13 +141,11 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
             <span
               className={"ft5-tag ft5-review-tag ft5-review-" + priority.band}
               title={"Review priority " + priority.score + "/100" + (priority.reasons.length ? " · " + priority.reasons.join(" · ") : "")}
-            >REVIEW {priority.score}</span>
+            >R {priority.score}</span>
             <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
-            <span className="ft5-tag">{coverage ? coverage + " models" : "NO MODEL"}</span>
-            {strongEdge ? <span className="ft5-tag blue">STRONG EDGE</span> : valueEdgeFlag ? <span className="ft5-tag blue">VALUE</span> : null}
-            {agreement.key === "split" ? <span className="ft5-tag split">MODEL SPLIT</span> : null}
+            {strongEdge ? <span className="ft5-tag blue">STRONG</span> : agreement.key === "split" ? <span className="ft5-tag split">SPLIT</span> : valueEdgeFlag ? <span className="ft5-tag blue">VALUE</span> : null}
           </div>
-          <span className="ft5-details">分析 →</span>
+          <span className="ft5-details" aria-hidden="true">›</span>
         </div>
       </div>
     </Link>
