@@ -64,6 +64,92 @@ function controlSideLabel(match, side) {
   return "—";
 }
 
+
+function formatFormDate(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("zh-HK", {
+    timeZone: "Asia/Hong_Kong",
+    month: "numeric",
+    day: "numeric",
+  }).format(d);
+}
+
+function formQualityLabel(value) {
+  const text = String(value || "");
+  if (!text) return "HISTORY ONLY";
+  if (text.includes("INSUFFICIENT")) return "樣本不足";
+  return text.replaceAll("_", " ");
+}
+
+function TeamFormCard({ title, name, detail }) {
+  const recent = Array.isArray(detail?.recent) ? detail.recent.slice(0, 5) : [];
+  const games = Number(detail?.games || 0);
+  const modelGames = Number(detail?.modelGames || 0);
+  const venueGames = Number(detail?.venueGames || 0);
+  const ppg = Number(detail?.ppg);
+  const xg = Number(detail?.expectedGoals);
+  const wins = Number(detail?.wins || 0);
+  const draws = Number(detail?.draws || 0);
+  const losses = Number(detail?.losses || 0);
+  const gf = Number(detail?.goalsFor || 0);
+  const ga = Number(detail?.goalsAgainst || 0);
+
+  return (
+    <div className="team-form-card">
+      <div className="team-form-card-head">
+        <div>
+          <small>{title}</small>
+          <h3>{name}</h3>
+        </div>
+        <span>{games ? games + " recent" : "NO HISTORY"}</span>
+      </div>
+
+      {recent.length ? (
+        <>
+          <div className="form-sequence" aria-label="最近賽果">
+            {recent.map((row, index) => (
+              <span
+                className={"form-chip form-" + String(row.result || "D").toLowerCase()}
+                key={String(row.kickoff || index) + "-" + index}
+                title={(row.opponent || "Opponent") + " " + (row.gf ?? "—") + "-" + (row.ga ?? "—")}
+              >
+                {row.result || "—"}
+              </span>
+            ))}
+          </div>
+
+          <div className="form-summary-grid">
+            <div><span>戰績</span><b>{wins}W-{draws}D-{losses}L</b></div>
+            <div><span>PPG</span><b>{Number.isFinite(ppg) ? ppg.toFixed(2) : "—"}</b></div>
+            <div><span>入 / 失</span><b>{gf} / {ga}</b></div>
+            <div><span>Form xG</span><b>{Number.isFinite(xg) ? xg.toFixed(2) : "—"}</b></div>
+          </div>
+
+          <div className="form-recent-list">
+            {recent.map((row, index) => (
+              <div className="form-recent-row" key={"recent-" + String(row.kickoff || index) + "-" + index}>
+                <span className={"form-mini-result form-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
+                <span className="form-date">{formatFormDate(row.kickoff)}</span>
+                <span className="form-venue">{row.venue === "H" ? "主" : row.venue === "A" ? "客" : "—"}</span>
+                <b className="form-opponent">{row.opponent || "—"}</b>
+                <strong>{row.gf ?? "—"}-{row.ga ?? "—"}</strong>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="form-no-history">暫時未有已確認近賽結果。</div>
+      )}
+
+      <div className="form-sample-line">
+        Model sample {modelGames || 0} 場 · venue sample {venueGames || 0} 場
+      </div>
+    </div>
+  );
+}
+
 function readCachedMatch(id) {
   if (!id) return null;
   try {
@@ -333,6 +419,30 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
               : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
           </div>
         </div>
+      </section>
+
+
+      <section className="panel team-form-panel">
+        <div className="panel-title">
+          <div><p>TEAM FORM</p><h2>近期表現 · 模型背後實績</h2></div>
+          <span>{formQualityLabel(match.formDetail?.quality)}</span>
+        </div>
+        <div className="team-form-grid">
+          <TeamFormCard
+            title="主隊 HOME"
+            name={match.homeZh || match.home}
+            detail={match.formDetail?.home}
+          />
+          <TeamFormCard
+            title="客隊 AWAY"
+            name={match.awayZh || match.away}
+            detail={match.formDetail?.away}
+          />
+        </div>
+        <p className="fineprint">
+          最近賽果只用已確認 HKJC match results；W=勝、D=和、L=負。Model sample 係 Team-Form 模型可用樣本量，唔等同上面只展示嘅最近 5 場。
+          {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
+        </p>
       </section>
 
       <section className="panel">
