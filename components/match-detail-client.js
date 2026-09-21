@@ -17,6 +17,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
+const UI_BUILD = "FORM-20260921-2";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 
 const CORE_MODEL_DEFS = [
@@ -304,7 +305,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     <main className="shell detail-shell">
       <div className="detail-top">
         <Link href="/" className="back">← 返回</Link>
-        <span>{match.id} · {source} · 更新 {formatUpdated(match.updatedAt)}</span>
+        <span>{match.id} · FORM VIEW {UI_BUILD} · {source} · 更新 {formatUpdated(match.updatedAt)}</span>
       </div>
 
       <section className="detail-hero">
