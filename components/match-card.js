@@ -9,11 +9,10 @@ import {
   modelAgreement,
   preferredModel,
   reviewPriority,
-  sideName,
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-CLEAN-20260922-1";
+const UI_BUILD = "FOREBET-CLEAN-20260922-2";
 
 function pct(value) {
   const n = Number(value);
@@ -40,6 +39,13 @@ function selectedClass(edge, key) {
   return "ft5-prob" + (edge?.key === key ? " selected" : "");
 }
 
+function outcomeLabel(key) {
+  if (key === "H") return "主";
+  if (key === "D") return "和";
+  if (key === "A") return "客";
+  return "—";
+}
+
 export default function MatchCard({ match, nowMs, changeType = null }) {
   const edge = valueEdge(match);
   const model = preferredModel(match);
@@ -52,7 +58,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
   const hasMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
   const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "%" : "—";
-  const pick = edge ? sideName(match, edge.key) : "—";
+  const pick = edge ? outcomeLabel(edge.key) : "—";
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const strongEdge = edge?.value >= 0.10;
   const valueEdgeFlag = edge?.value >= 0.05;
@@ -111,7 +117,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
             <b>{pick}</b>
-            <small>{selectedOdds ? "@" + formatOdds(selectedOdds) : "未有賠率"}</small>
+            <small>{selectedOdds ? "@" + formatOdds(selectedOdds) : "—"}</small>
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
@@ -143,7 +149,6 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
               title={"Review priority " + priority.score + "/100" + (priority.reasons.length ? " · " + priority.reasons.join(" · ") : "")}
             >R {priority.score}</span>
             <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
-            {strongEdge ? <span className="ft5-tag blue">STRONG</span> : agreement.key === "split" ? <span className="ft5-tag split">SPLIT</span> : valueEdgeFlag ? <span className="ft5-tag blue">VALUE</span> : null}
           </div>
           <span className="ft5-details" aria-hidden="true">›</span>
         </div>
