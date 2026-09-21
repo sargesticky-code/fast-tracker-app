@@ -416,7 +416,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div><span>{movement.baselineWindow || "Base"}</span><b>{formatOdds(movement.baselineOdds)}</b></div>
           </div>
           <p className="fineprint">
-            Implied probability：24H {movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "pp"} ·
+            Implied probability：24H {movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "%"} ·
             Model alignment：{movement.modelAlignment || "—"}
           </p>
         </section>
