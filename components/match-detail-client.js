@@ -32,8 +32,10 @@ const MULTISOURCE_MODEL_DEFS = ["FRB", "ACC", "BCL", "FST", "PRE", "STA"];
 
 function probabilityAvailable(values) {
   return ["home", "draw", "away"].every((key) => {
-    const value = Number(values?.[key]);
-    return Number.isFinite(value);
+    const raw = values?.[key];
+    if (raw === null || raw === undefined || raw === "") return false;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 && value <= 1;
   });
 }
 
