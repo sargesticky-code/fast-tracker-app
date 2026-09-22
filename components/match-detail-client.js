@@ -18,7 +18,7 @@ import {
 const UI_BUILD = "SUPABASE-LIVE-20260922-5";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
-const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
+const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";\nconst ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis";
 
 const CORE_MODEL_DEFS = [
   { key: "HKJC", label: "HKJC no-vig" },
@@ -346,6 +346,16 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       } catch {}
     }
 
+    async function refreshAnalysis() {
+      try {
+        const res = await fetch(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&_=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = await res.json();
+        if (cancelled || payload?.error) return;
+        setAnalysis(payload);
+      } catch {}
+    }
+
     async function refreshLive() {
       try {
         const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
@@ -368,7 +378,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       } catch {}
     }
 
-    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail()]).then(() => {
+    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail(), refreshAnalysis()]).then(() => {
       if (cancelled) return;
       if (!resolvedFresh && (cached || fallback)) {
         setMatch(cached || fallback);
@@ -381,6 +391,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       if (document.visibilityState === "visible") {
         refreshMatch();
         refreshDetail();
+        refreshAnalysis();
       }
     }, 45000);
     const liveTimer = window.setInterval(() => {
@@ -392,12 +403,14 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         refreshLive();
         refreshMatch();
         refreshDetail();
+        refreshAnalysis();
       }
     };
     const refreshPageShow = () => {
       refreshLive();
       refreshMatch();
       refreshDetail();
+      refreshAnalysis();
     };
     document.addEventListener("visibilitychange", refreshVisible);
     window.addEventListener("pageshow", refreshPageShow);
@@ -938,6 +951,52 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <p className="fineprint">
             Control basis：{scenarioRows[0]?.control_basis || "—"} · context coverage {scenarioRows[0]?.context_coverage_score == null ? "—" : numText(scenarioRows[0].context_coverage_score, 0) + "%"}
             {scenarioRows[0]?.notes ? " · " + scenarioRows[0].notes : ""}
+          </p>
+        </section>
+      ) : null}
+
+      {analysis ? (
+        <section className="panel analyst-panel">
+          <div className="panel-title">
+            <div><p>FAST TRACKER INTERPRETER · PHASE 9</p><h2>{analysis.story?.headline || "數據解讀中"}</h2></div>
+            <span>{analysis.decision?.action || "WATCH"}</span>
+          </div>
+          <p className="panel-intro">{analysis.story?.summary}</p>
+          <div className="human-summary-grid">
+            <div>
+              <span>候選投注位</span>
+              <b>{analysis.decision?.selectionLabel || "PASS"}</b>
+              <small>{analysis.decision?.currentOdds == null ? "—" : "@ " + Number(analysis.decision.currentOdds).toFixed(2)}</small>
+            </div>
+            <div>
+              <span>模型中心</span>
+              <b>{analysis.decision?.analystConsensusProbability == null ? "—" : (Number(analysis.decision.analystConsensusProbability) * 100).toFixed(1) + "%"}</b>
+              <small>vs 市場 {analysis.decision?.marketFairProbability == null ? "—" : (Number(analysis.decision.marketFairProbability) * 100).toFixed(1) + "%"}</small>
+            </div>
+            <div>
+              <span>Candidate Edge</span>
+              <b>{analysis.decision?.candidateEdgePp == null ? "—" : (Number(analysis.decision.candidateEdgePp) >= 0 ? "+" : "") + Number(analysis.decision.candidateEdgePp).toFixed(1) + "pp"}</b>
+              <small>{analysis.decision?.candidateClass || "—"}</small>
+            </div>
+            <div>
+              <span>Evidence</span>
+              <b>{analysis.decision?.evidenceFamilyCount ?? 0} families</b>
+              <small>value support {analysis.decision?.valueSupportRatio == null ? "—" : Math.round(Number(analysis.decision.valueSupportRatio) * 100) + "%"}</small>
+            </div>
+          </div>
+          <div className="evidence-rows">
+            <div><span>市場</span><b>{analysis.story?.marketRead || "—"}</b></div>
+            <div><span>模型</span><b>{analysis.story?.modelRead || "—"}</b></div>
+            <div><span>人為因素</span><b>{analysis.story?.humanRead || "—"}</b></div>
+            <div><span>Live</span><b>{analysis.story?.liveRead || "—"}</b></div>
+            <div><span>賠率走勢</span><b>{analysis.story?.movementRead || "—"}</b></div>
+          </div>
+          <div className="model-empty-reason">{analysis.story?.advice || "暫未有解讀"}</div>
+          {Array.isArray(analysis.invalidators) && analysis.invalidators.length ? (
+            <p className="fineprint">失效條件 / 風險：{analysis.invalidators.join(" · ")}</p>
+          ) : null}
+          <p className="fineprint">
+            {analysis.engine} · 數字、Edge、選擇由 deterministic engine 計算；文字層不可自行修改 odds、機率、傷停、正選或 live stats。
           </p>
         </section>
       ) : null}
