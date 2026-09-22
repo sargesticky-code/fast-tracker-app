@@ -1125,7 +1125,10 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div><p>WHY THIS BET</p><h2>點解個 Edge 喺呢度</h2></div>
             <span>{analysis.decision?.candidateClass || analysis.decision?.action || "WATCH"}</span>
           </div>
+          {analysis.story?.summary ? <p className="analysis-lead">{analysis.story.summary}</p> : null}
           <div className="evidence-rows">
+            {analysis.story?.supportRead ? <div className="evidence-positive"><span>支持 Edge</span><b>{analysis.story.supportRead}</b></div> : null}
+            {analysis.story?.counterRead ? <div className="evidence-negative"><span>反方 / 風險</span><b>{analysis.story.counterRead}</b></div> : null}
             <div><span>市場</span><b>{analysis.story?.marketRead || ""}</b></div>
             <div><span>模型</span><b>{analysis.story?.modelRead || ""}</b></div>
             <div><span>人為因素</span><b>{analysis.story?.humanRead || ""}</b></div>
