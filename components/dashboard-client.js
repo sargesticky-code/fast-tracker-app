@@ -422,13 +422,17 @@ function mergeLivePayload(feed, payload) {
         inPlay: true,
         liveEligible: true,
         live: fresh.live,
+        updatedAt: fresh.live?.fetchedAt || match.updatedAt,
       };
     }
-    if (match.liveNow) {
-      return { ...match, liveNow: false, inPlay: false, liveEligible: false, live: null };
-    }
+
+    // If a fixture was previously live but disappears from the fresh <=3m
+    // live authority, never recycle it into the prematch list. The next full
+    // feed refresh may confirm the terminal state, but stale live data must
+    // disappear immediately.
+    if (match.liveNow) return null;
     return match;
-  });
+  }).filter(Boolean);
 
   for (const row of payload.matches) {
     const id = String(row.id);
