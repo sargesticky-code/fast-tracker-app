@@ -447,9 +447,20 @@ function mergeLivePayload(feed, payload) {
     });
   }
 
+  const liveHealth = Object.fromEntries(
+    (payload.systemHealth || []).map((row) => [
+      row.source,
+      {
+        status: row.status ?? null,
+        observedAt: row.observed_at ?? row.observedAt ?? null,
+      },
+    ])
+  );
+
   return {
     ...feed,
     generatedAt: payload.generatedAt || feed.generatedAt,
+    systemHealth: { ...(feed.systemHealth || {}), ...liveHealth },
     matches,
   };
 }
@@ -505,6 +516,14 @@ function heartbeatAgeMinutes(feed, key, nowMs) {
   const ms = new Date(t).getTime();
   if (!Number.isFinite(ms)) return Infinity;
   return Math.max(0, (nowMs - ms) / 60000);
+}
+
+function compactAge(minutes) {
+  if (!Number.isFinite(minutes)) return "等待";
+  const seconds = Math.max(0, Math.round(minutes * 60));
+  if (seconds < 60) return seconds + "s";
+  if (seconds < 3600) return Math.round(seconds / 60) + "m";
+  return Math.round(seconds / 3600) + "h";
 }
 
 
@@ -664,10 +683,13 @@ export default function DashboardClient({ feed, nowMs }) {
   const priorityOne = prematchAll.filter((m) => reviewPriority(m, clockMs).band === "p1").length;
   const dataAlerts = missing + stale;
   const isLive = currentFeed.source === "supabase-canonical-live";
+  const liveOddsAge = heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs);
+  const liveScoreAge = heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs);
+  const liveAge = Math.max(liveOddsAge, liveScoreAge);
   const pipelineWarnings = [
     heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
-    heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs) > 3 ? "Live odds" : null,
-    heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs) > 3 ? "Live score" : null,
+    liveOddsAge > 3 ? "Live odds" : null,
+    liveScoreAge > 3 ? "Live score" : null,
   ].filter(Boolean);
 
   const headings = {
@@ -709,7 +731,7 @@ export default function DashboardClient({ feed, nowMs }) {
 
         <div className="ft5-header-status">
           <span className="ft5-live-pill">{isLive ? "Live data" : "Fallback"}</span>
-          <small>更新 {formatDashboardUpdate(currentFeed.generatedAt || currentFeed.updatedAt)}</small>
+          <small>Live age {compactAge(liveAge)} · Feed {formatDashboardUpdate(currentFeed.generatedAt || currentFeed.updatedAt)}</small>
         </div>
       </header>
 
