@@ -2,18 +2,50 @@
 
 Fast Tracker keeps calculation and narration separate.
 
-## Runtime
+## Canonical runtime
 
-- Supabase Edge Function: `app-match-story`
-- Deterministic source: `app-match-analysis`
-- AI framework: `vercel/ai@7.0.109`
-- Provider adapter: `@ai-sdk/openai-compatible@3.0.53`
-- Schema validation: `zod@3.25.76`
+- `app-match-analysis` — deterministic calculation / governance authority
+- `app-match-story` — professional narrative / interpretation layer
+- Story engine: `FT_STORY_INTERPRETER_V4`
 - Cache: `public.match_interpretations`
+- Source of truth: this GitHub repository; deployed Supabase source is mirrored here
+
+## Evidence contract
+
+The story layer can consume verified evidence from:
+
+- HKJC 1X2 prices and no-vig probabilities
+- Forebet H/D/A, predicted score and average goals
+- Forebet corner direction, O/U probabilities and expected corners
+- Dixon-Coles / Pi when validated and available
+- Team Form model and sample quality
+- Opta strength when matched
+- Phase 2 injuries, lineup and manager evidence
+- Phase 3 pre-match scenario and live expected-vs-actual state
+- Phase 4 odds movement
+- Phase 5+ governance status
+
+The cache hash includes deep match-detail evidence. A material data update causes a new interpretation rather than silently reusing an older story.
+
+## Fail-closed behaviour
+
+A match can temporarily disappear from the canonical active feed while other verified rows still exist.
+
+`app-match-analysis` therefore has a direct database fallback. It rebuilds the read-only analysis input from canonical tables such as `matches`, `hkjc_odds_current`, `forebet_predictions`, `model_predictions` and `form_predictions`.
+
+Fallback is deliberately fail-closed:
+
+- candidate class becomes `DATA_RISK`
+- action becomes `NO_BET`
+- source mode is `DB_FALLBACK_FAIL_CLOSED`
+- the story may still explain the available evidence
+- fallback evidence can never auto-promote a match to a production bet
+
+This prevents dead detail pages without turning incomplete data into betting instructions.
 
 ## Governance
 
-The language model is an interpretation layer only. It must not invent or override:
+The story model must never invent or override:
 
 - HKJC odds
 - fair probabilities
@@ -24,33 +56,38 @@ The language model is an interpretation layer only. It must not invent or overri
 - deterministic betting action
 - selected market / side
 
-If AI is disabled or unavailable, the function returns a deterministic story built from `app-match-analysis` so the detail page stays usable.
+The deterministic result from `app-match-analysis` remains authoritative.
 
-## Environment
+## AI mode
 
-AI is opt-in. Configure these Supabase Edge Function secrets before enabling it:
+The V4 runtime is provider-agnostic and uses an OpenAI-compatible HTTP contract when AI is enabled.
+
+Required secrets:
 
 - `AI_INTERPRETER_ENABLED=true`
-- `AI_API_KEY` (or `OPENAI_API_KEY`)
+- `AI_API_KEY` or `OPENAI_API_KEY`
 - `AI_MODEL`
-- optional `AI_BASE_URL`
-- optional `AI_PROVIDER_NAME`
 
-The provider path is OpenAI-compatible, so a compatible hosted provider can be swapped without changing the dashboard contract.
+Optional:
+
+- `AI_BASE_URL`
+- `AI_PROVIDER_NAME`
+
+Without these secrets, V4 remains fully usable in `DETERMINISTIC_FALLBACK` mode and still produces a grounded professional story from verified evidence.
 
 ## API
 
 `GET /functions/v1/app-match-story?id=<HKJC_EVENT_ID>&lang=zh-HK&style=professional`
 
-Supported language:
+Languages:
 - `zh-HK`
 - `en`
 
-Supported style:
+Styles:
 - `professional`
 - `concise`
 - `broadcast`
 
-## Phase 1-10 rule
+## Phase 1–10 rule
 
-The story engine reads `phaseCoverage` from the deterministic analysis. Missing or unvalidated phases must be described as missing / collecting / pending rather than hallucinated into the story.
+Missing, unvalidated or calibration-only phases must be labelled accordingly. The interpreter is not allowed to fill a missing phase with invented information.
