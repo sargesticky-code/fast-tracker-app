@@ -17,7 +17,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V3-STORY-20260922-1";
+const UI_BUILD = "DETAIL-V4-PROVENANCE-20260922-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -761,12 +761,28 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const primaryEdgePp = analysisDecision?.candidateEdgePp != null
     ? Number(analysisDecision.candidateEdgePp)
     : gap?.value != null ? Number(gap.value) * 100 : null;
-  const primaryOdds = analysisDecision?.currentOdds != null
-    ? Number(analysisDecision.currentOdds)
-    : primarySide === "H" ? Number(match.odds?.home)
-      : primarySide === "D" ? Number(match.odds?.draw)
-        : primarySide === "A" ? Number(match.odds?.away)
-          : null;
+  const analysisSourceMode = String(
+    story?.governance?.sourceMode
+      || analysis?.governance?.sourceMode
+      || analysis?.evidence?.phase1Health?.sourceMode
+      || "UNKNOWN"
+  ).toUpperCase();
+  const oddsStatus = String(
+    story?.bettingAdvice?.oddsStatus
+      || analysisDecision?.oddsStatus
+      || (analysisSourceMode.includes("FALLBACK") ? "REFERENCE_STALE" : "CURRENT")
+  ).toUpperCase();
+  const referencePriceOnly = oddsStatus === "REFERENCE_STALE" || analysisSourceMode.includes("FALLBACK");
+  const referenceOddsRaw = story?.bettingAdvice?.referenceOdds ?? analysisDecision?.referenceOdds ?? null;
+  const referenceOdds = referenceOddsRaw == null ? null : Number(referenceOddsRaw);
+  const primaryOdds = referencePriceOnly
+    ? null
+    : analysisDecision?.currentOdds != null
+      ? Number(analysisDecision.currentOdds)
+      : primarySide === "H" ? Number(match.odds?.home)
+        : primarySide === "D" ? Number(match.odds?.draw)
+          : primarySide === "A" ? Number(match.odds?.away)
+            : null;
   const primaryModelSource = match.multi || match.forebet || match.dc || match.pi || match.form || null;
   const primaryModelProbability = analysisDecision?.analystConsensusProbability != null
     ? Number(analysisDecision.analystConsensusProbability)
@@ -798,10 +814,21 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
   const storyContent = story?.story || null;
+  const storyEvidence = story?.evidenceSummary || {};
+  const storyEvidenceTags = [
+    storyEvidence.forebet ? "Forebet" : null,
+    storyEvidence.internalModels ? "Internal" : null,
+    storyEvidence.teamForm ? "Team Form" : null,
+    storyEvidence.optaStrength ? "Opta" : null,
+    Number(storyEvidence.humanFactorRows || 0) > 0 ? "Human Factors" : null,
+    Number(storyEvidence.scenarioRows || 0) > 0 ? "Scenario" : null,
+  ].filter(Boolean);
+  const sourceModeLabel = analysisSourceMode.includes("FALLBACK") ? "DB FALLBACK" : analysisSourceMode.includes("CANONICAL") ? "CANONICAL FEED" : "SOURCE CHECK";
+  const priceStatusLabel = referencePriceOnly ? "REFERENCE ONLY" : "CURRENT";
   const sideRows = [
-    { key: "H", label: match.homeZh || match.home || "主", odds: match.odds?.home, fair: market?.home },
-    { key: "D", label: "和", odds: match.odds?.draw, fair: market?.draw },
-    { key: "A", label: match.awayZh || match.away || "客", odds: match.odds?.away, fair: market?.away },
+    { key: "H", label: match.homeZh || match.home || "主", odds: referencePriceOnly ? null : match.odds?.home, fair: market?.home },
+    { key: "D", label: "和", odds: referencePriceOnly ? null : match.odds?.draw, fair: market?.draw },
+    { key: "A", label: match.awayZh || match.away || "客", odds: referencePriceOnly ? null : match.odds?.away, fair: market?.away },
   ];
 
   return (
@@ -857,12 +884,13 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <div className="betting-primary-pick">
             <span>主要投注位</span>
             <strong>{primarySelectionLabel}</strong>
-            <b>{Number.isFinite(primaryOdds) ? "@ " + primaryOdds.toFixed(2) : " "}</b>
+            <b>{referencePriceOnly ? "CURRENT PRICE —" : Number.isFinite(primaryOdds) ? "@ " + primaryOdds.toFixed(2) : " "}</b>
+            {referencePriceOnly && Number.isFinite(referenceOdds) ? <small>舊價 {referenceOdds.toFixed(2)} 只作 reference</small> : null}
           </div>
           <div className="betting-edge-hero">
-            <span>EDGE</span>
+            <span>{referencePriceOnly ? "REFERENCE GAP" : "EDGE"}</span>
             <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "%"}</strong>
-            <small>Model probability − HKJC fair probability</small>
+            <small>{referencePriceOnly ? "Model probability − reference HKJC fair probability" : "Model probability − HKJC fair probability"}</small>
           </div>
           <div className="betting-prob-compare">
             <div><span>模型</span><b>{Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</b></div>
@@ -880,8 +908,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div className={primarySide === row.key ? "edge-target" : ""} key={row.key}>
               <span>{row.key} · {row.label}</span>
               <b>{formatOdds(row.odds)}</b>
-              <small>{row.fair == null ? " " : "Fair " + (Number(row.fair) * 100).toFixed(1) + "%"}</small>
-              {primarySide === row.key ? <em>EDGE</em> : null}
+              <small>{row.fair == null ? " " : (referencePriceOnly ? "Ref fair " : "Fair ") + (Number(row.fair) * 100).toFixed(1) + "%"}</small>
+              {primarySide === row.key ? <em>{referencePriceOnly ? "REF GAP" : "EDGE"}</em> : null}
             </div>
           ))}
         </div>
@@ -896,6 +924,20 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             </div>
             <span>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI · GROUNDED" : "RULES · GROUNDED"}</span>
           </div>
+
+          <div className={"story-provenance " + (referencePriceOnly ? "is-fallback" : "")}>
+            <span><b>SOURCE</b>{sourceModeLabel}</span>
+            <span><b>PRICE</b>{priceStatusLabel}</span>
+            <span><b>ENGINE</b>{story?.engine?.name || "—"}</span>
+            <span><b>UPDATED</b>{story?.generatedAt ? formatUpdated(story.generatedAt) : "—"}</span>
+          </div>
+
+          {storyEvidenceTags.length ? (
+            <div className="story-evidence-tags">
+              <span>Evidence</span>
+              {storyEvidenceTags.map((tag) => <b key={tag}>{tag}</b>)}
+            </div>
+          ) : null}
 
           {storyContent.executiveSummary ? <p className="match-story-lead">{storyContent.executiveSummary}</p> : null}
 
