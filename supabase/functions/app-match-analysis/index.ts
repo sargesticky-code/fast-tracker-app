@@ -318,7 +318,7 @@ Deno.serve(async (req: Request) => {
   const home = r.home_zh || r.home_en || "主隊";
   const away = r.away_zh || r.away_en || "客隊";
   const selection = sideLabel(bestSide, home, away);
-  const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "pp");
+  const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "%");
   const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
 
   const lineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
@@ -341,7 +341,7 @@ Deno.serve(async (req: Request) => {
 
   const movementData = movement.data;
   const movementText = movementData
-    ? `${movementData.signal || "COLLECTING"} · ${movementData.movement_side || "—"} · 24H ${movementData.move_24h_pp == null ? "—" : Number(movementData.move_24h_pp).toFixed(1) + "pp"} · ${movementData.model_alignment || "—"}`
+    ? `${movementData.signal || "COLLECTING"} · ${movementData.movement_side || "—"} · 24H ${movementData.move_24h_pp == null ? "—" : Number(movementData.move_24h_pp).toFixed(1) + "%"} · ${movementData.model_alignment || "—"}`
     : "未有足夠 odds history";
 
   const modelSentence = families.length
