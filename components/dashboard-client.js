@@ -231,10 +231,25 @@ function liveLane(value, nowMs, warnSeconds, staleSeconds) {
 }
 
 function liveFreshnessDiagnostics(live, nowMs = Date.now()) {
+  const statsLane = liveLane(live?.stats?.capturedAt, nowMs, 180, 600);
+  const detailStatus = String(live?.detail?.detailStatus || live?.stats?.detailStatus || "").toUpperCase();
+
+  if (!Number.isFinite(statsLane.age)) {
+    if (detailStatus === "NOT_APPLICABLE") {
+      Object.assign(statsLane, { state: "unavailable", label: "score-only" });
+    } else if (detailStatus === "DEFERRED_RATE_GUARD") {
+      Object.assign(statsLane, { state: "warn", label: "rate-limit" });
+    } else if (detailStatus === "DETAIL_EMPTY") {
+      Object.assign(statsLane, { state: "warn", label: "empty" });
+    }
+  } else if (detailStatus === "DEFERRED_RATE_GUARD" && statsLane.state === "fresh") {
+    Object.assign(statsLane, { state: "warn", label: statsLane.label + " · guard" });
+  }
+
   const lanes = {
     odds: liveLane(live?.fetchedAt || live?.oddsUpdatedAt, nowMs, 90, 180),
     score: liveLane(live?.score?.capturedAt || live?.score?.sourceUpdatedAt, nowMs, 90, 180),
-    stats: liveLane(live?.stats?.capturedAt, nowMs, 180, 600),
+    stats: statsLane,
     shadow: liveLane(live?.shadow?.capturedAt, nowMs, 180, 600),
   };
   const ranked = Object.entries(lanes)
@@ -242,7 +257,7 @@ function liveFreshnessDiagnostics(live, nowMs = Date.now()) {
     .sort((a, b) => b[1].age - a[1].age);
   const bottleneck = ranked[0] || null;
   const hasLag = Object.values(lanes).some((lane) => lane.state === "stale");
-  return { lanes, bottleneck, hasLag };
+  return { lanes, bottleneck, hasLag, detailStatus };
 }
 
 function shadowSideLabel(match, side) {
