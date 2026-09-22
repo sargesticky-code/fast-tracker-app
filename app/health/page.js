@@ -106,6 +106,7 @@ export default async function HealthPage(){
         <div><span>HKJC Upcoming authority<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
         <div><span>HKJC Live odds<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
         <div><span>Live score / stats<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
+        <div><span>Live layer guard<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
         <div><span>Dashboard routes<small style={{display:"block"}}>root + details + legacy link + health · 5-min guard</small></span><b>{heartbeats.FRONTEND_ROUTE_GUARD?.status || "—"} · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
       </div>
     </section>
