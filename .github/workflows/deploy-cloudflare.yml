@@ -46,4 +46,7 @@ jobs:
 
       - name: Cloudflare credentials not configured
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
-        run: echo "::warning::Build passed, but Cloudflare deploy was skipped because repository secrets are not configured."
+        run: |
+          echo "::error::Cloudflare deploy did not run because CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are missing."
+          echo "::error::Do not treat this workflow as a production deployment. Railway is the current primary frontend."
+          exit 1
