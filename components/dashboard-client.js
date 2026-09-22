@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MatchCard from "@/components/match-card";
 import {
@@ -62,7 +61,7 @@ function MarketPickRow({ match, edge, type }) {
   }
 
   return (
-    <Link
+    <a
       className="market-pick-row"
       href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
       onClick={() => cacheMatch(match)}
@@ -83,7 +82,7 @@ function MarketPickRow({ match, edge, type }) {
         <span>Edge</span>
         <b>+{(edge.value * 100).toFixed(1)}%</b>
       </div>
-    </Link>
+    </a>
   );
 }
 
@@ -234,9 +233,8 @@ function LiveMatchRow({ match, changeType = null }) {
   const cornersLine = cleanLiveToken(live.corners?.line) || "—";
 
   return (
-    <Link
+    <a
       className={"live-match-row ft5-live-row" + (changeType ? " ft5-flash-" + changeType : "")}
-      prefetch={false}
       href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
       onClick={() => cacheMatch(match)}
     >
@@ -296,7 +294,7 @@ function LiveMatchRow({ match, changeType = null }) {
           </div>
         </div>
       </div>
-    </Link>
+    </a>
   );
 }
 
@@ -382,9 +380,8 @@ function TopBetCard({ row, index = 0, changeType = null }) {
   const agreement = modelAgreement(match);
 
   return (
-    <Link
+    <a
       className={"ft5-topbet ft5-topbet-row ft5-enter" + (changeType ? " ft5-flash-" + changeType : "")}
-      prefetch={false}
       style={{ animationDelay: Math.min(index, 2) * 70 + "ms" }}
       href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={() => cacheMatch(match)}
@@ -406,8 +403,51 @@ function TopBetCard({ row, index = 0, changeType = null }) {
         <div className="ft5-topbet-price"><b>{formatOdds(odds)}</b></div>
         <div className="ft5-topbet-edge"><b>+{(edge.value * 100).toFixed(1)}%</b></div>
       </div>
-    </Link>
+    </a>
   );
+}
+
+function mergeLivePayload(feed, payload) {
+  if (!feed || !Array.isArray(feed.matches) || !Array.isArray(payload?.matches)) return feed;
+  const liveMap = new Map(payload.matches.map((row) => [String(row.id), row]));
+  const seen = new Set();
+  const matches = feed.matches.map((match) => {
+    const id = String(match.id);
+    const fresh = liveMap.get(id);
+    if (fresh) {
+      seen.add(id);
+      return {
+        ...match,
+        liveNow: true,
+        inPlay: true,
+        liveEligible: true,
+        live: fresh.live,
+      };
+    }
+    if (match.liveNow) {
+      return { ...match, liveNow: false, inPlay: false, liveEligible: false, live: null };
+    }
+    return match;
+  });
+
+  for (const row of payload.matches) {
+    const id = String(row.id);
+    if (seen.has(id) || matches.some((m) => String(m.id) === id)) continue;
+    matches.push({
+      ...row,
+      odds: { home: null, draw: null, away: null },
+      market: null,
+      goals: { line: null, over: null, under: null },
+      corners: { line: null, over: null, under: null },
+      health: { hkjcFreshness: "FRESH", unifiedCoverageStatus: "HKJC_ONLY" },
+    });
+  }
+
+  return {
+    ...feed,
+    generatedAt: payload.generatedAt || feed.generatedAt,
+    matches,
+  };
 }
 
 function feedMotionSnapshot(matches) {
@@ -468,6 +508,7 @@ const DASHBOARD_LAYOUT_V5 = "\n.ft5-shell{max-width:1120px;margin:0 auto;padding
 
 const UI_BUILD = "FOREBET-CLEAN-20260922-3";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
+const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 
 export default function DashboardClient({ feed, nowMs }) {
   const [filter, setFilter] = useState("focus");
@@ -487,7 +528,7 @@ export default function DashboardClient({ feed, nowMs }) {
     let cancelled = false;
     async function refreshFeed() {
       try {
-        const res = await fetch(FEED_URL, { cache: "no-store" });
+        const res = await fetch(FEED_URL + "&_=" + Date.now(), { cache: "no-store" });
         if (!res.ok) return;
         const next = await res.json();
         if (!cancelled && Array.isArray(next?.matches)) {
@@ -505,15 +546,45 @@ export default function DashboardClient({ feed, nowMs }) {
       } catch {}
     }
 
+    async function refreshLive() {
+      try {
+        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = await res.json();
+        if (!cancelled && Array.isArray(payload?.matches)) {
+          setCurrentFeed((previous) => mergeLivePayload(previous, payload));
+          setClockMs(Date.now());
+        }
+      } catch {}
+    }
+
     refreshFeed();
-    const timer = window.setInterval(() => {
+    refreshLive();
+
+    const fullTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshFeed();
       setClockMs(Date.now());
-    }, 60000);
+    }, 45000);
+
+    const liveTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshLive();
+    }, 10000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        refreshLive();
+        refreshFeed();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", refreshLive);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearInterval(fullTimer);
+      window.clearInterval(liveTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", refreshLive);
       if (motionTimerRef.current) window.clearTimeout(motionTimerRef.current);
     };
   }, []);
