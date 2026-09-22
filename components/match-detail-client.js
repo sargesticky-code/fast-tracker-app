@@ -207,6 +207,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const [match, setMatch] = useState(null);
   const [source, setSource] = useState("LOADING");
   const [ready, setReady] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     const matchId = new URLSearchParams(window.location.search).get("id") || "";
@@ -219,12 +220,9 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
 
     const cached = readCachedMatch(matchId);
     const fallback = snapshotMatches.find((m) => String(m.id) === String(matchId)) || null;
-    if (cached || fallback) {
-      setMatch(cached || fallback);
-      setSource(cached ? "DASHBOARD" : "SNAPSHOT");
-    }
 
     let cancelled = false;
+    let resolvedFresh = false;
 
     async function refreshMatch() {
       try {
@@ -234,6 +232,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         if (cancelled) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
+          resolvedFresh = true;
           setMatch(live);
           setSource("SUPABASE · fresh");
           try {
@@ -241,10 +240,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
           } catch {}
         }
-      } catch {
-      } finally {
-        if (!cancelled) setReady(true);
-      }
+      } catch {}
     }
 
     async function refreshLive() {
@@ -253,6 +249,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;
+        const hasLive = payload.matches.some((row) => String(row.id) === String(matchId));
+        if (hasLive) resolvedFresh = true;
         setMatch((previous) => {
           const merged = mergeLiveMatch(previous, payload, matchId);
           if (merged !== previous && merged) {
@@ -263,14 +261,18 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           }
           return merged;
         });
-        if (payload.matches.some((row) => String(row.id) === String(matchId))) {
-          setSource("SUPABASE LIVE · ≤1m source");
-        }
+        if (hasLive) setSource("SUPABASE LIVE · ≤1m source");
       } catch {}
     }
 
-    refreshMatch();
-    refreshLive();
+    Promise.allSettled([refreshMatch(), refreshLive()]).then(() => {
+      if (cancelled) return;
+      if (!resolvedFresh && (cached || fallback)) {
+        setMatch(cached || fallback);
+        setSource(cached ? "FALLBACK CACHE" : "FALLBACK SNAPSHOT");
+      }
+      setReady(true);
+    });
 
     const fullTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshMatch();
@@ -299,7 +301,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       document.removeEventListener("visibilitychange", refreshVisible);
       window.removeEventListener("pageshow", refreshPageShow);
     };
-  }, [snapshotMatches]);
+  }, [snapshotMatches, refreshNonce]);
 
   if (!id && ready) {
     return (
@@ -383,6 +385,11 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       <div className="detail-top">
         <a href="/" className="back">← 返回</a>
         <span>{match.id} · FORM VIEW {UI_BUILD} · {source} · 更新 {formatUpdated(match.updatedAt)}</span>
+        <button type="button" className="back" onClick={() => {
+          setReady(false);
+          setSource("REFRESHING");
+          setRefreshNonce((n) => n + 1);
+        }}>↻ 最新</button>
       </div>
 
       <section className="detail-hero">
