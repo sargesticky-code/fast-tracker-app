@@ -104,8 +104,8 @@ export default async function HealthPage(){
     <section className="panel"><div className="panel-title"><div><p>HEARTBEAT</p><h2>Direct data pipelines</h2></div><span>自動更新</span></div>
       <div className="health-list">
         <div><span>HKJC Upcoming authority<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
-        <div><span>HKJC Live odds<small style={{display:"block"}}>5-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
-        <div><span>Live score / stats<small style={{display:"block"}}>5-min score + xG/stat layer</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
+        <div><span>HKJC Live odds<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
+        <div><span>Live score / stats<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
       </div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>MARKETS</p><h2>24H Intelligence Coverage</h2></div><span>{stats.total} matches</span></div>
