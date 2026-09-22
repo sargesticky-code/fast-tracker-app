@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ModelEdgeChart from "@/components/model-edge-chart";
+import ModelScoreboard from "@/components/model-scoreboard";
 import {
   divergence,
   fairMarket,
@@ -784,6 +785,33 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         />
       </section>
 
+      {analysis ? (
+        <section className="panel analyst-panel analyst-detail-panel">
+          <div className="panel-title">
+            <div><p>WHY THIS BET</p><h2>點解個 Edge 喺呢度</h2></div>
+            <span>{analysis.decision?.candidateClass || analysis.decision?.action || "WATCH"}</span>
+          </div>
+          {analysis.story?.summary ? <p className="analysis-lead">{analysis.story.summary}</p> : null}
+          <div className="evidence-rows">
+            {analysis.story?.supportRead ? <div className="evidence-positive"><span>支持 Edge</span><b>{analysis.story.supportRead}</b></div> : null}
+            {analysis.story?.counterRead ? <div className="evidence-negative"><span>反方 / 風險</span><b>{analysis.story.counterRead}</b></div> : null}
+            <div><span>市場</span><b>{analysis.story?.marketRead || ""}</b></div>
+            <div><span>模型</span><b>{analysis.story?.modelRead || ""}</b></div>
+            <div><span>人為因素</span><b>{analysis.story?.humanRead || ""}</b></div>
+            <div><span>Live</span><b>{analysis.story?.liveRead || ""}</b></div>
+            <div><span>賠率走勢</span><b>{analysis.story?.movementRead || ""}</b></div>
+          </div>
+          {Array.isArray(analysis.invalidators) && analysis.invalidators.length ? (
+            <div className="betting-risk-box"><span>風險 / 失效條件</span><p>{analysis.invalidators.join(" · ")}</p></div>
+          ) : null}
+        </section>
+      ) : (
+        <section className="panel analyst-panel analyst-detail-panel analyst-loading">
+          <div className="panel-title"><div><p>WHY THIS BET</p><h2>分析資料載入中</h2></div></div>
+          <div className="analysis-placeholder-grid"><span></span><span></span><span></span></div>
+        </section>
+      )}
+
       {match.liveNow && match.live && (
         <section className="panel live-detail-panel">
           <div className="panel-title">
@@ -924,8 +952,11 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <div><p>MODEL INTELLIGENCE</p><h2>模型實際內容</h2></div>
           <span>{modelCardsAvailable}/5 有可用 H/D/A</span>
         </div>
-        <p className="panel-intro">同一組 H / D / A 只顯示一次；每張卡下面只保留該模型獨有資料，避免重覆。</p>
-        <div className="model-intel-grid">
+        <p className="panel-intro">先睇共識，再按需要展開原始模型細節。H / D / A 同 Edge 放埋一行，方便直接比較。</p>
+        <ModelScoreboard rows={coreModelRows} targetSide={primarySide} market={market} />
+        <details className="model-deep-dive">
+          <summary>查看各模型詳細數據</summary>
+          <div className="model-intel-grid">
           <ModelIntelCard
             code="FOREBET"
             title="Forebet prediction"
@@ -1022,7 +1053,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             ]}
             source={(optaData.source || "Opta Power Rankings") + " · strength evidence only; not a direct H/D/A probability model."}
           />
-        </div>
+          </div>
+        </details>
       </section>
 
       {hasMovement && (
@@ -1119,32 +1151,6 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         </section>
       ) : null}
 
-      {analysis ? (
-        <section className="panel analyst-panel analyst-detail-panel">
-          <div className="panel-title">
-            <div><p>WHY THIS BET</p><h2>點解個 Edge 喺呢度</h2></div>
-            <span>{analysis.decision?.candidateClass || analysis.decision?.action || "WATCH"}</span>
-          </div>
-          {analysis.story?.summary ? <p className="analysis-lead">{analysis.story.summary}</p> : null}
-          <div className="evidence-rows">
-            {analysis.story?.supportRead ? <div className="evidence-positive"><span>支持 Edge</span><b>{analysis.story.supportRead}</b></div> : null}
-            {analysis.story?.counterRead ? <div className="evidence-negative"><span>反方 / 風險</span><b>{analysis.story.counterRead}</b></div> : null}
-            <div><span>市場</span><b>{analysis.story?.marketRead || ""}</b></div>
-            <div><span>模型</span><b>{analysis.story?.modelRead || ""}</b></div>
-            <div><span>人為因素</span><b>{analysis.story?.humanRead || ""}</b></div>
-            <div><span>Live</span><b>{analysis.story?.liveRead || ""}</b></div>
-            <div><span>賠率走勢</span><b>{analysis.story?.movementRead || ""}</b></div>
-          </div>
-          {Array.isArray(analysis.invalidators) && analysis.invalidators.length ? (
-            <div className="betting-risk-box"><span>風險 / 失效條件</span><p>{analysis.invalidators.join(" · ")}</p></div>
-          ) : null}
-        </section>
-      ) : (
-        <section className="panel analyst-panel analyst-detail-panel analyst-loading">
-          <div className="panel-title"><div><p>WHY THIS BET</p><h2>分析資料載入中</h2></div></div>
-          <div className="analysis-placeholder-grid"><span></span><span></span><span></span></div>
-        </section>
-      )}
 
       <section className="panel">
         <div className="panel-title"><div><p>DATA HEALTH</p><h2>完整資料狀態</h2></div><span>{match.health?.status || "UNKNOWN"}</span></div>
