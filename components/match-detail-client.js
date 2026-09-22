@@ -543,6 +543,9 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const movement = match.oddsMovement || null;
   const movementPct = Number(movement?.rawOddsChangePct);
   const hasMovement = movement && Number.isFinite(movementPct);
+  const movementMagnitude = hasMovement ? Math.min(100, Math.max(6, Math.abs(movementPct) * 5)) : 0;
+  const movementDirection = !hasMovement ? "FLAT" : movementPct < 0 ? "SHORTENING" : movementPct > 0 ? "DRIFTING" : "FLAT";
+  const movementDirectionZh = movementDirection === "SHORTENING" ? "賠率下壓" : movementDirection === "DRIFTING" ? "賠率上升" : "價格平穩";
   const liveScore = match.live?.score || {};
   const liveScoreText = liveScore.text || (
     Number.isFinite(Number(liveScore.home)) && Number.isFinite(Number(liveScore.away))
@@ -655,6 +658,14 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const injuriesHome = humanSummary?.raw?.injury_count_home ?? playerStatusEvidence.filter((r) => r.team_side === "HOME").length;
   const injuriesAway = humanSummary?.raw?.injury_count_away ?? playerStatusEvidence.filter((r) => r.team_side === "AWAY").length;
   const lineupState = eventMap?.lineup_confirmed_at ? "CONFIRMED" : eventMap ? "PENDING" : "UNMAPPED";
+  const injuryMax = Math.max(Number(injuriesHome) || 0, Number(injuriesAway) || 0, 1);
+  const injuryGap = (Number(injuriesHome) || 0) - (Number(injuriesAway) || 0);
+  const injurySignal = injuryGap === 0
+    ? "傷停數量相若"
+    : injuryGap > 0
+      ? `主隊多 ${Math.abs(injuryGap)} 個缺陣 evidence`
+      : `客隊多 ${Math.abs(injuryGap)} 個缺陣 evidence`;
+  const lineupConfirmed = lineupState === "CONFIRMED";
   const multiSources = match.multi?.sourceNames || multiDeep.sources_consensus || multiDeep.sources_total || [];
   const modelCardsAvailable = [match.forebet, match.dc, match.pi, match.form, match.multi].filter(probabilityAvailable).length;
   const optaData = optaDeep && Object.keys(optaDeep).length ? optaDeep : (match.power || {});
