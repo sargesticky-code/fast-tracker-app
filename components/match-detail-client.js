@@ -261,6 +261,52 @@ function readCachedMatch(id) {
   }
 }
 
+function matchFromDetailPayload(payload, matchId) {
+  const fixture = payload?.fixture;
+  if (!fixture) return null;
+  const n = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const x = Number(value);
+    return Number.isFinite(x) ? x : null;
+  };
+  return {
+    id: String(fixture.hkjc_event_id || matchId),
+    kickoff: fixture.kickoff_hkt || null,
+    league: fixture.tournament || "",
+    home: fixture.home_en || fixture.home_zh || "",
+    away: fixture.away_en || fixture.away_zh || "",
+    homeEn: fixture.home_en || null,
+    awayEn: fixture.away_en || null,
+    homeZh: fixture.home_zh || null,
+    awayZh: fixture.away_zh || null,
+    liveEligible: Boolean(fixture.live_eligible),
+    selling: Boolean(fixture.selling),
+    odds: {
+      home: n(fixture.had_home),
+      draw: n(fixture.had_draw),
+      away: n(fixture.had_away),
+    },
+    goals: {
+      line: fixture.hil_line || null,
+      over: n(fixture.hil_over),
+      under: n(fixture.hil_under),
+    },
+    corners: {
+      line: fixture.chl_line || null,
+      over: n(fixture.chl_over),
+      under: n(fixture.chl_under),
+    },
+    health: {
+      status: "DETAIL_FALLBACK",
+      hkjcFreshness: "FRESH",
+      hkjcFetchedAt: fixture.fetched_at || fixture.updated_at || null,
+      evidenceChannelCount: 0,
+      unifiedCoverageStatus: "HKJC_ONLY",
+    },
+    updatedAt: fixture.fetched_at || fixture.updated_at || null,
+  };
+}
+
 function mergeLiveMatch(base, payload, matchId) {
   if (!Array.isArray(payload?.matches)) return base;
   const live = payload.matches.find((row) => String(row.id) === String(matchId));
@@ -347,6 +393,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         const payload = await res.json();
         if (cancelled || payload?.error) return;
         setDeep(payload);
+        const fixtureFallback = matchFromDetailPayload(payload, matchId);
+        if (fixtureFallback) {
+          setMatch((previous) => previous || fixtureFallback);
+          if (!resolvedFresh) setSource("SUPABASE DETAIL · fixture fallback");
+          resolvedFresh = true;
+        }
       } catch {}
     }
 
