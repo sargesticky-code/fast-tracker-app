@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProbabilityRow from "@/components/probability-row";
 import {
@@ -17,8 +16,9 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FORM-20260921-2";
-const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
+const UI_BUILD = "LIVE-FRESH-20260922-1";
+const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
+const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 
 const CORE_MODEL_DEFS = [
   { key: "HKJC", label: "HKJC no-vig" },
@@ -158,14 +158,32 @@ function readCachedMatch(id) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const sourceTime = parsed.liveNow
-      ? (parsed.live?.fetchedAt || parsed.health?.hkjcFetchedAt)
+      ? (parsed.live?.fetchedAt || parsed.live?.score?.capturedAt || parsed.health?.hkjcFetchedAt)
       : parsed.health?.hkjcFetchedAt;
     const ageMinutes = sourceTime ? (Date.now() - new Date(sourceTime).getTime()) / 60000 : Infinity;
-    const maxAge = parsed.liveNow ? 12 : 30;
-    return Number.isFinite(ageMinutes) && ageMinutes <= maxAge ? parsed : sanitizeFallbackMatch(parsed);
+    const maxAge = parsed.liveNow ? 2 : 10;
+    return Number.isFinite(ageMinutes) && ageMinutes <= maxAge ? parsed : null;
   } catch {
     return null;
   }
+}
+
+function mergeLiveMatch(base, payload, matchId) {
+  if (!base || !Array.isArray(payload?.matches)) return base;
+  const live = payload.matches.find((row) => String(row.id) === String(matchId));
+  if (live) {
+    return {
+      ...base,
+      liveNow: true,
+      inPlay: true,
+      liveEligible: true,
+      live: live.live,
+    };
+  }
+  if (base.liveNow) {
+    return { ...base, liveNow: false, inPlay: false, liveEligible: false, live: null };
+  }
+  return base;
 }
 
 export default function MatchDetailClient({ snapshotMatches = [] }) {
@@ -194,14 +212,14 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
 
     async function refreshMatch() {
       try {
-        const res = await fetch(FEED_URL, { cache: "no-store" });
+        const res = await fetch(FEED_URL + "&_=" + Date.now(), { cache: "no-store" });
         if (!res.ok) return;
         const feed = await res.json();
         if (cancelled) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           setMatch(live);
-          setSource("LIVE SQL");
+          setSource("SUPABASE · fresh");
           try {
             window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
             window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
@@ -213,21 +231,64 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       }
     }
 
+    async function refreshLive() {
+      try {
+        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = await res.json();
+        if (cancelled || !Array.isArray(payload?.matches)) return;
+        setMatch((previous) => {
+          const merged = mergeLiveMatch(previous, payload, matchId);
+          if (merged !== previous && merged) {
+            try {
+              window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(merged));
+              window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(merged));
+            } catch {}
+          }
+          return merged;
+        });
+        if (payload.matches.some((row) => String(row.id) === String(matchId))) {
+          setSource("SUPABASE LIVE · ≤1m source");
+        }
+      } catch {}
+    }
+
     refreshMatch();
-    const timer = window.setInterval(() => {
+    refreshLive();
+
+    const fullTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshMatch();
-    }, 60000);
+    }, 45000);
+    const liveTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshLive();
+    }, 10000);
+
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") {
+        refreshLive();
+        refreshMatch();
+      }
+    };
+    const refreshPageShow = () => {
+      refreshLive();
+      refreshMatch();
+    };
+    document.addEventListener("visibilitychange", refreshVisible);
+    window.addEventListener("pageshow", refreshPageShow);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearInterval(fullTimer);
+      window.clearInterval(liveTimer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      window.removeEventListener("pageshow", refreshPageShow);
     };
   }, [snapshotMatches]);
 
   if (!id && ready) {
     return (
       <main className="shell detail-shell">
-        <div className="detail-top"><Link href="/" className="back">← 返回賽事</Link></div>
+        <div className="detail-top"><a href="/" className="back">← 返回賽事</a></div>
         <section className="panel"><h2>未指定賽事</h2><p className="fineprint">請由 Betting Board 撳入一場賽事。</p></section>
       </main>
     );
@@ -236,7 +297,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   if (!match && !ready) {
     return (
       <main className="shell detail-shell">
-        <div className="detail-top"><Link href="/" className="back">← 返回賽事</Link><span>{id}</span></div>
+        <div className="detail-top"><a href="/" className="back">← 返回賽事</a><span>{id}</span></div>
         <section className="panel"><p className="fineprint">載入賽事資料中…</p></section>
       </main>
     );
@@ -245,7 +306,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   if (!match) {
     return (
       <main className="shell detail-shell">
-        <div className="detail-top"><Link href="/" className="back">← 返回賽事</Link><span>{id}</span></div>
+        <div className="detail-top"><a href="/" className="back">← 返回賽事</a><span>{id}</span></div>
         <section className="panel">
           <div className="panel-title"><div><p>MATCH</p><h2>暫時搵唔到賽事資料</h2></div></div>
           <p className="fineprint">呢個連結唔會再去 404。資料源未提供呢場時，可以直接返回賽事列表再開。</p>
@@ -304,7 +365,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   return (
     <main className="shell detail-shell">
       <div className="detail-top">
-        <Link href="/" className="back">← 返回</Link>
+        <a href="/" className="back">← 返回</a>
         <span>{match.id} · FORM VIEW {UI_BUILD} · {source} · 更新 {formatUpdated(match.updatedAt)}</span>
       </div>
 
