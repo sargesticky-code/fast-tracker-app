@@ -321,7 +321,13 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
               <div><span>METRICS</span><b>{shadow.metricCount || 0}</b></div>
             </>
           ) : (
-            <div className="ft5-live-wait">Context building…</div>
+            <div className="ft5-live-wait">
+              {freshnessDiag.detailStatus === "NOT_APPLICABLE"
+                ? "Score-only source · 無 Live CTRL"
+                : freshnessDiag.detailStatus === "DEFERRED_RATE_GUARD"
+                  ? "Live CTRL 等 detail rate-limit"
+                  : "Context building…"}
+            </div>
           )}
         </div>
 
@@ -334,7 +340,15 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
               <div><span>控球</span><b>{statPairText(stats.possession, 0, "%")}</b></div>
             </>
           ) : (
-            <div className="ft5-live-wait">LIVE STATS 等待更新</div>
+            <div className="ft5-live-wait">
+              {freshnessDiag.detailStatus === "NOT_APPLICABLE"
+                ? "此 source 只提供比分"
+                : freshnessDiag.detailStatus === "DEFERRED_RATE_GUARD"
+                  ? "Stats rate-limit · 等下一個 detail cycle"
+                  : freshnessDiag.detailStatus === "DETAIL_EMPTY"
+                    ? "Detail 暫未有 stats"
+                    : "LIVE STATS 等待更新"}
+            </div>
           )}
         </div>
 
