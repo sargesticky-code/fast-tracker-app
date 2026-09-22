@@ -2125,3 +2125,72 @@ body{
     font-size:9px!important;
   }
 }
+
+
+/* V9 — one-glance betting signal: selected model side = selected HKJC price */
+.ft5-pick-label{
+  display:inline-flex!important;
+  align-items:center;
+  margin:0 1px 0 0!important;
+  padding:2px 4px;
+  border-radius:3px;
+  background:#e7f4eb;
+  color:#1f7449!important;
+  font-size:7px!important;
+  font-weight:950!important;
+  line-height:1!important;
+  white-space:nowrap;
+}
+.ft5-row-strong-edge .ft5-pick-label{
+  background:#cfead9;
+  color:#0f663b!important;
+}
+.ft5-pick-main{
+  flex-wrap:wrap;
+}
+.ft5-row-odds .ft5-odd{
+  position:relative;
+}
+.ft5-row-odds .ft5-odd.edge-target{
+  background:#e3f3e8!important;
+  border-color:#93c9a8!important;
+  box-shadow:inset 0 0 0 1px rgba(25,113,72,.08);
+}
+.ft5-row-odds .ft5-odd.edge-target span{
+  color:#347358!important;
+  font-weight:950!important;
+}
+.ft5-row-odds .ft5-odd.edge-target b{
+  color:#12683e!important;
+  font-weight:950!important;
+  font-size:11px!important;
+}
+.ft5-row-odds .ft5-odd.edge-target-strong{
+  background:#d5eddf!important;
+  border-color:#65ad83!important;
+  box-shadow:inset 0 0 0 1px rgba(18,104,62,.14);
+}
+.ft5-edge-market-mark{
+  position:absolute;
+  top:2px;
+  right:3px;
+  margin:0!important;
+  color:#1a7549!important;
+  font-size:5.5px!important;
+  font-weight:950!important;
+  line-height:1!important;
+  letter-spacing:.02em;
+}
+.ft5-model-cell .ft5-prob.selected{
+  box-shadow:inset 0 0 0 1px rgba(18,104,62,.11)!important;
+}
+.ft5-consensus-multi{
+  background:#e4eefb;
+  color:#466c96;
+  border:1px solid #c8d9ee;
+}
+@media (max-width:680px){
+  .ft5-pick-label{font-size:6.5px!important;padding:2px 3px}
+  .ft5-edge-market-mark{font-size:5px!important}
+  .ft5-row-odds .ft5-odd.edge-target b{font-size:9px!important}
+}
