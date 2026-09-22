@@ -6,8 +6,10 @@ Fast Tracker is a mobile-first football intelligence dashboard built around HKJC
 
 - HKJC naming remains the authoritative fixture/team key.
 - The public dashboard is read-only.
-- The Supabase app/database track is kept separate from the existing Google Sheet automation.
-- Dashboard changes must not modify or destabilize the Google Sheet.
+- Supabase is the canonical production platform for the app, dashboard and long-term data model.
+- The Google Sheet dashboard is frozen legacy and is no longer a development target.
+- Do not add new production dependencies on Google Sheets or Apps Script.
+- Existing Google Sheet automation may remain temporarily available only as rollback reference during cutover validation; it must not be allowed to overwrite fresher Supabase authority.
 - Public clients must never expose Supabase service-role credentials.
 - Data quality, freshness, alias coverage and missing-source states must remain visible.
 
@@ -166,6 +168,26 @@ Phase 1–3 collect intelligence.
 Phase 4–6 interpret intelligence.  
 Phase 7–8 turn intelligence into controlled action.  
 Phase 9–10 add trust, calibration and adaptation.
+
+## Supabase-first cutover
+
+Production direction from 2026-09-22:
+
+- public dashboard reads Supabase only
+- HKJC upcoming/live authority is captured directly into Supabase
+- canonical match/market rows are promoted inside Supabase immediately
+- external model workers may still run on GitHub Actions, but Supabase is the storage and serving authority
+- Google Sheet dashboard work is stopped
+- Google Sheet automation should be disabled only after the Supabase health gate confirms canonical fixture coverage, current HKJC markets, model recovery and dashboard availability
+- rollback must never overwrite a newer Supabase snapshot
+
+Cutover health gate:
+1. upcoming HKJC canonical gap = 0
+2. HKJC direct heartbeat fresh
+3. app Phase 1 feed reachable and non-empty
+4. no unexplained missing Forebet availability for newly discovered canonical targets
+5. model workers recover newly discovered HKJC targets automatically
+6. Railway production deployment healthy
 
 ## Development rule
 
