@@ -1,3 +1,4 @@
+import LegacyRouteRedirect from "@/components/legacy-route-redirect";
 import "./globals.css";
 import "./forebet-dashboard.css";
 
@@ -16,7 +17,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-HK">
-      <body>{children}</body>
+      <body><LegacyRouteRedirect />{children}</body>
     </html>
   );
 }
