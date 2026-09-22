@@ -2234,3 +2234,5 @@ body{
   .ft5-live-freshness{gap:2px}
   .ft5-live-freshness>span,.ft5-live-bottleneck{font-size:6px}
 }
+
+.ft5-live-freshness .lane-unavailable{background:#edf1f4;border-color:#d5dce1;color:#687782}
