@@ -107,6 +107,9 @@ export default async function HealthPage(){
         <div><span>HKJC Live odds<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
         <div><span>Live score / stats<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
         <div><span>Live layer guard<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
+        <div><span>Live upstream deploy<small style={{display:"block"}}>expected build vs production host</small></span><b>{heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
+        <div><span>Supabase live shadow<small style={{display:"block"}}>native fixture identity prewarm · 2-min cadence</small></span><b>{heartbeats.LIVE_SOURCE_SHADOW?.status || "—"} · {heartbeats.LIVE_SOURCE_SHADOW?.value || "—"}</b></div>
+        <div><span>Phase 3 identity<small style={{display:"block"}}>verified source-match registry</small></span><b>{heartbeats.PHASE3_IDENTITY_REGISTRY?.status || "—"} · {heartbeats.PHASE3_IDENTITY_REGISTRY?.value || "—"}</b></div>
         <div><span>Dashboard routes<small style={{display:"block"}}>root + details + legacy link + health · 5-min guard</small></span><b>{heartbeats.FRONTEND_ROUTE_GUARD?.status || "—"} · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
       </div>
     </section>
