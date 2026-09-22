@@ -820,6 +820,19 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     : analysis?.invalidators?.length
       ? analysis.invalidators.slice(0, 3).join(" · ")
       : decisionCleared ? "目前未見主要 data-risk flag" : "等待更多可驗證 evidence";
+  const rawBlockers = Array.isArray(story?.invalidators) && story.invalidators.length
+    ? story.invalidators
+    : Array.isArray(analysis?.invalidators) ? analysis.invalidators : [];
+  const blockerTags = rawBlockers.slice(0, 5).map((item) => {
+    const t = String(item || "");
+    if (/fallback/i.test(t)) return "非 canonical feed";
+    if (/不新鮮|stale|freshness/i.test(t)) return "市場價格未夠新";
+    if (/evidence family|獨立 evidence/i.test(t)) return "模型來源不足";
+    if (/XI|lineup/i.test(t)) return "正選未確認";
+    if (/Phase 5|calibration/i.test(t)) return "Calibration 未過";
+    if (/health/i.test(t)) return "Data health 未過";
+    return t.length > 18 ? t.slice(0, 18) + "…" : t;
+  });
   const fallbackAdvice = primarySide && primaryEdgePp != null
     ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}%`
     : "現時未有足夠資料形成清晰投注位。";
@@ -914,6 +927,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <span>BETTING ADVICE</span>
           <p>{bettingAdvice}</p>
         </div>
+        {!decisionCleared && blockerTags.length ? (
+          <div className="betting-blocker-strip">
+            <span>WHY NOT YET</span>
+            <div>{blockerTags.map((tag, index) => <b key={tag + index}>{tag}</b>)}</div>
+          </div>
+        ) : null}
 
         <div className="detail-market-strip">
           {sideRows.map((row) => (
