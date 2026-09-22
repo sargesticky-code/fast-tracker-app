@@ -1463,3 +1463,154 @@ a{color:inherit;text-decoration:none}
   .story-provenance>span b{font-size:6.5px}
   .story-signal-row p{font-size:8.5px}
 }
+
+
+/* DETAIL V5 — tablet-readable analyst brief + clear decision gate */
+.story-decision-gate{
+  display:grid;
+  grid-template-columns:minmax(150px,.8fr) minmax(0,2.2fr);
+  gap:12px;
+  align-items:center;
+  margin:0 0 14px;
+  padding:12px 14px;
+  border:1px solid #dfe8e2;
+  border-radius:12px;
+  background:#f8fbf9;
+}
+.story-decision-gate>div span{
+  display:block;
+  margin-bottom:3px;
+  color:#7e8d84;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.story-decision-gate>div strong{
+  display:block;
+  color:#234b37;
+  font-size:17px;
+  line-height:1.2;
+}
+.story-decision-gate p{
+  margin:0;
+  color:#52675b;
+  font-size:13px;
+  line-height:1.55;
+}
+.story-decision-gate.is-blocked{
+  border-color:#e8d7b8;
+  background:#fffaf0;
+}
+.story-decision-gate.is-blocked>div strong{color:#8a6426}
+.story-decision-gate.is-cleared{
+  border-color:#cfe3d7;
+  background:#f5fbf7;
+}
+
+.analyst-brief-panel .panel-title p{font-size:10px}
+.analyst-brief-panel .panel-title h2{font-size:22px;line-height:1.2}
+.analyst-brief-panel .panel-title>span{font-size:10px}
+.analyst-brief-panel .match-story-lead{
+  font-size:16px;
+  line-height:1.62;
+  margin-bottom:14px;
+}
+.analyst-brief-panel .story-thesis-grid{
+  gap:10px;
+}
+.analyst-brief-panel .story-thesis-grid>div{
+  padding:14px;
+}
+.analyst-brief-panel .story-thesis-grid span{
+  font-size:10px;
+}
+.analyst-brief-panel .story-thesis-grid strong{
+  font-size:18px;
+  line-height:1.25;
+}
+.analyst-brief-panel .story-thesis-grid p{
+  font-size:13px;
+  line-height:1.6;
+}
+.analyst-brief-panel .story-provenance>span{
+  font-size:11px;
+  padding:8px 10px;
+}
+.analyst-brief-panel .story-provenance>span b{
+  font-size:8px;
+}
+.analyst-brief-panel .story-evidence-tags>span,
+.analyst-brief-panel .story-evidence-tags>b{
+  font-size:9px;
+}
+.analyst-brief-panel .story-signal-row span{
+  font-size:9px;
+}
+.analyst-brief-panel .story-signal-row p{
+  font-size:12px;
+  line-height:1.6;
+}
+.analyst-brief-panel .story-watch-box>span{
+  font-size:9px;
+}
+.analyst-brief-panel .story-watch-box b{
+  font-size:10px;
+  line-height:1.35;
+  padding:6px 8px;
+}
+.analyst-brief-panel .story-deep-dive summary{
+  font-size:11px;
+}
+.analyst-brief-panel .match-story-body{
+  font-size:12px;
+  line-height:1.65;
+}
+.analyst-brief-panel .story-intel-grid span,
+.analyst-brief-panel .story-phase-grid span{
+  font-size:9px;
+}
+.analyst-brief-panel .story-intel-grid p,
+.analyst-brief-panel .story-phase-grid p{
+  font-size:11px;
+  line-height:1.55;
+}
+.analyst-brief-panel .story-phase-grid b{
+  font-size:10px;
+}
+
+/* Betting view: on NO_BET/PASS this is an observed model gap, not an executable edge */
+.betting-command-pass .betting-primary-pick strong{
+  color:#735d2b;
+}
+.betting-command-pass .betting-edge-hero strong{
+  color:#8a6426;
+}
+.betting-command-pass .edge-target{
+  border-color:#e7dcc0!important;
+  background:#fffaf0!important;
+}
+.betting-command-pass .edge-target em{
+  color:#8a6426!important;
+  background:#f6ecd4!important;
+}
+
+@media(max-width:900px){
+  .analyst-brief-panel .panel-title h2{font-size:20px}
+  .analyst-brief-panel .match-story-lead{font-size:15px}
+  .analyst-brief-panel .story-thesis-grid p,
+  .analyst-brief-panel .story-signal-row p{font-size:12px}
+  .story-decision-gate{
+    grid-template-columns:1fr;
+    gap:6px;
+  }
+}
+
+@media(max-width:680px){
+  .analyst-brief-panel .panel-title h2{font-size:18px}
+  .analyst-brief-panel .match-story-lead{font-size:14px}
+  .analyst-brief-panel .story-thesis-grid strong{font-size:16px}
+  .analyst-brief-panel .story-thesis-grid p{font-size:12px}
+  .analyst-brief-panel .story-provenance>span{font-size:10px}
+  .story-decision-gate>div strong{font-size:16px}
+  .story-decision-gate p{font-size:12px}
+}
