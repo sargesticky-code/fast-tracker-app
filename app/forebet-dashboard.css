@@ -3915,3 +3915,132 @@ html{
 @media(max-width:680px){
   .analysis-lead{font-size:11px;padding:10px 11px}
 }
+
+/* DETAIL V4 — compact consensus scoreboard */
+.model-scoreboard{
+  overflow:hidden;
+  margin:2px 0 10px;
+  border:1px solid #e1e7e3;
+  border-radius:11px;
+  background:#fff;
+}
+.model-scoreboard-row{
+  display:grid;
+  grid-template-columns:minmax(120px,1.45fr) 54px 64px 64px 64px 82px;
+  align-items:center;
+  min-height:40px;
+  border-bottom:1px solid #edf0ee;
+}
+.model-scoreboard-row:last-child{border-bottom:0}
+.model-scoreboard-row>*{
+  min-width:0;
+  padding:8px 9px;
+  text-align:center;
+  font-style:normal;
+}
+.model-scoreboard-row>strong{
+  text-align:left;
+  color:#213c30;
+  font-size:10.5px;
+}
+.model-scoreboard-head{
+  min-height:32px;
+  background:#f6f8f7;
+}
+.model-scoreboard-head>span{
+  color:#839087;
+  font-size:7.5px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.model-scoreboard-row>span{
+  color:#4f6659;
+  font-size:10px;
+  font-weight:750;
+}
+.model-pick{
+  display:inline-grid;
+  place-items:center;
+  width:28px;
+  height:24px;
+  margin:auto;
+  border-radius:6px;
+  background:#eef2ef;
+  color:#687970;
+  font-size:10px;
+}
+.model-pick-h{background:#eaf5ed;color:#1c6d43}
+.model-pick-d{background:#f5f0e6;color:#8a681d}
+.model-pick-a{background:#edf1f7;color:#45617e}
+.model-scoreboard-row>em{
+  font-size:10px;
+  font-weight:900;
+}
+.model-scoreboard-row>em.supports{color:#1f7c4b}
+.model-scoreboard-row>em.against{color:#9b6257}
+.model-scoreboard-row.is-empty{
+  background:#fafbfa;
+}
+.model-scoreboard-row.is-empty>*{
+  color:#b2bbb5!important;
+}
+
+.model-deep-dive{
+  overflow:hidden;
+  margin-top:9px;
+  border:1px solid #e1e7e3;
+  border-radius:10px;
+  background:#fafbfa;
+}
+.model-deep-dive>summary{
+  cursor:pointer;
+  list-style:none;
+  padding:11px 13px;
+  color:#3d5a4b;
+  font-size:10px;
+  font-weight:900;
+  user-select:none;
+}
+.model-deep-dive>summary::-webkit-details-marker{display:none}
+.model-deep-dive>summary:after{
+  content:"＋";
+  float:right;
+  color:#87948c;
+  font-size:12px;
+}
+.model-deep-dive[open]>summary{
+  border-bottom:1px solid #e2e8e4;
+  background:#f5f8f6;
+}
+.model-deep-dive[open]>summary:after{content:"−"}
+.model-deep-dive .model-intel-grid{
+  padding:10px;
+}
+
+/* Make the first read sequence feel intentional: verdict > model view > story. */
+.model-visual-panel,
+.analyst-detail-panel{
+  scroll-margin-top:10px;
+}
+.analyst-detail-panel{
+  border-color:#d8e5dd!important;
+}
+.analyst-detail-panel .analysis-lead{
+  border:0!important;
+  background:#f4f8f5!important;
+}
+
+@media(max-width:760px){
+  .model-scoreboard{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .model-scoreboard-row{
+    min-width:560px;
+    grid-template-columns:130px 52px 62px 62px 62px 80px;
+  }
+  .model-scoreboard-row>*{padding:8px 7px}
+  .model-scoreboard-row>strong{font-size:10px}
+  .model-scoreboard-row>span,
+  .model-scoreboard-row>em{font-size:9.5px}
+}
