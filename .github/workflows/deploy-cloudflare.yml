@@ -1,9 +1,6 @@
-name: Deploy Fast Tracker to Cloudflare Workers
+name: Cloudflare Workers (manual standby)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
