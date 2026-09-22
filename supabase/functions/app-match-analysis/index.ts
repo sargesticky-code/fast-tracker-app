@@ -320,6 +320,9 @@ Deno.serve(async (req: Request) => {
   const selection = sideLabel(bestSide, home, away);
   const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "%");
   const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
+  const priceRead = fallbackMode
+    ? (bestOdds === null ? "HKJC current price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
+    : `現價 ${oddsText}`;
 
   const lineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
   const injuryHome = Number(human.data?.raw?.injury_count_home ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="HOME").length ?? 0);
@@ -381,7 +384,7 @@ Deno.serve(async (req: Request) => {
   const strongestSupport = supportingFamilies[0] || null;
   const strongestOpposition = opposingFamilies[0] || null;
   const professionalSummary = bestSide && best.edge !== null
-    ? `HKJC 對 ${selection} 嘅 fair probability 約 ${pct(marketProb)}，跨模型中心約 ${pct(bestProb)}，形成 ${edgeText} 差距。現價 ${oddsText}；${confidenceLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
+    ? `HKJC 對 ${selection} 嘅 fair probability 約 ${pct(marketProb)}，跨模型中心約 ${pct(bestProb)}，形成 ${edgeText} 差距。${priceRead}；${confidenceLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
     : `目前市場與可用模型未形成清晰正 Edge；先以資料完整度同價格變化為主。`;
   const supportRead = bestSide
     ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "%" : "暫無明顯支持"}。`
@@ -408,7 +411,7 @@ Deno.serve(async (req: Request) => {
     phase6: { status: "NOT_PRODUCTION", note: "scenario rows are Phase 3 context, not a validated simulation engine" },
     phase7: { status: "NOT_BUILT" },
     phase8: { status: "NOT_BUILT" },
-    phase9: { status: "ACTIVE_V2", note: "deterministic betting narrative + explainability interpreter" },
+    phase9: { status: "ACTIVE_V4", note: "grounded professional story interpreter + deep evidence contract" },
     phase10: { status: "NOT_BUILT" },
   };
 
@@ -431,7 +434,9 @@ Deno.serve(async (req: Request) => {
       market: "1X2",
       selection: bestSide,
       selectionLabel: selection,
-      currentOdds: bestOdds,
+      currentOdds: fallbackMode ? null : bestOdds,
+      referenceOdds: fallbackMode ? bestOdds : null,
+      oddsStatus: fallbackMode ? "REFERENCE_STALE" : "CURRENT",
       marketFairProbability: marketProb,
       analystConsensusProbability: bestProb,
       candidateEdgePp: best.edge === null ? null : best.edge * 100,
