@@ -17,11 +17,12 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V2-20260922-1";
+const UI_BUILD = "DETAIL-V3-STORY-20260922-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 const ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis";
+const STORY_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-story";
 
 const CORE_MODEL_DEFS = [
   { key: "HKJC", label: "HKJC no-vig" },
@@ -371,12 +372,14 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const [ready, setReady] = useState(false);
   const [deep, setDeep] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [story, setStory] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     const matchId = new URLSearchParams(window.location.search).get("id") || "";
     setId(matchId);
     setAnalysis(null);
+    setStory(null);
     setDeep(null);
 
     if (!matchId) {
@@ -435,6 +438,19 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       } catch {}
     }
 
+    async function refreshStory() {
+      try {
+        const res = await fetch(
+          STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=zh-HK&style=professional&_=" + Date.now(),
+          { cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const payload = await res.json();
+        if (cancelled || payload?.error) return;
+        setStory(payload);
+      } catch {}
+    }
+
     async function refreshLive() {
       try {
         const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
@@ -457,7 +473,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       } catch {}
     }
 
-    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail(), refreshAnalysis()]).then(() => {
+    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail(), refreshAnalysis(), refreshStory()]).then(() => {
       if (cancelled) return;
       if (!resolvedFresh && (cached || fallback)) {
         setMatch(cached || fallback);
@@ -471,6 +487,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         refreshMatch();
         refreshDetail();
         refreshAnalysis();
+        refreshStory();
       }
     }, 45000);
     const liveTimer = window.setInterval(() => {
@@ -483,6 +500,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         refreshMatch();
         refreshDetail();
         refreshAnalysis();
+        refreshStory();
       }
     };
     const refreshPageShow = () => {
@@ -490,6 +508,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       refreshMatch();
       refreshDetail();
       refreshAnalysis();
+      refreshStory();
     };
     document.addEventListener("visibilitychange", refreshVisible);
     window.addEventListener("pageshow", refreshPageShow);
@@ -715,7 +734,9 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const fallbackAdvice = primarySide && primaryEdgePp != null
     ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}%`
     : "現時未有足夠資料形成清晰投注位。";
-  const bettingAdvice = analysis?.story?.advice || fallbackAdvice;
+  const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
+  const storyMode = story?.engine?.mode || null;
+  const storyContent = story?.story || null;
   const sideRows = [
     { key: "H", label: match.homeZh || match.home || "主", odds: match.odds?.home, fair: market?.home },
     { key: "D", label: "和", odds: match.odds?.draw, fair: market?.draw },
@@ -768,7 +789,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <span>BETTING VIEW</span>
             <h2>{actionLabel}</h2>
           </div>
-          <b>{analysis ? "Interpreter ready" : "基於現有 Phase 1 資料"}</b>
+          <b>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI grounded" : story ? "Story engine ready" : analysis ? "Interpreter ready" : "基於現有 Phase 1 資料"}</b>
         </div>
 
         <div className="betting-command-grid">
@@ -804,6 +825,65 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           ))}
         </div>
       </section>
+
+      {storyContent ? (
+        <section className="panel match-story-panel">
+          <div className="panel-title">
+            <div>
+              <p>PROFESSIONAL MATCH STORY</p>
+              <h2>{storyContent.headline || "賽事綜合解讀"}</h2>
+            </div>
+            <span>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI · GROUNDED" : "RULES · GROUNDED"}</span>
+          </div>
+
+          {storyContent.executiveSummary ? <p className="match-story-lead">{storyContent.executiveSummary}</p> : null}
+          {storyContent.matchStory ? <p className="match-story-body">{storyContent.matchStory}</p> : null}
+
+          <div className="story-thesis-grid">
+            <div className="story-thesis-positive">
+              <span>投注論點</span>
+              <strong>{story?.bettingAdvice?.selectionLabel || primarySelectionLabel}</strong>
+              <p>{storyContent.thesis || bettingAdvice}</p>
+            </div>
+            <div className="story-thesis-negative">
+              <span>反方論點</span>
+              <strong>What can go wrong</strong>
+              <p>{storyContent.counterCase || "暫未有額外反方 evidence。"}</p>
+            </div>
+          </div>
+
+          <div className="story-intel-grid">
+            <div><span>市場解讀</span><p>{storyContent.marketInterpretation || "—"}</p></div>
+            <div><span>模型共識</span><p>{storyContent.modelConsensusInterpretation || "—"}</p></div>
+            <div><span>Human Factors</span><p>{storyContent.humanFactorsInterpretation || "—"}</p></div>
+            <div><span>Live / Match State</span><p>{storyContent.liveInterpretation || "—"}</p></div>
+            <div><span>Odds Movement</span><p>{storyContent.movementInterpretation || "—"}</p></div>
+            <div><span>信心點樣理解</span><p>{storyContent.confidenceExplanation || "—"}</p></div>
+          </div>
+
+          {Array.isArray(storyContent.watchNext) && storyContent.watchNext.length ? (
+            <div className="story-watch-box">
+              <span>NEXT CHECK</span>
+              <div>{storyContent.watchNext.map((item, index) => <b key={String(item) + index}>{item}</b>)}</div>
+            </div>
+          ) : null}
+
+          {Array.isArray(storyContent.phaseNarratives) && storyContent.phaseNarratives.length ? (
+            <details className="story-phase-details">
+              <summary>Phase 1–10 interpretation status</summary>
+              <div className="story-phase-grid">
+                {storyContent.phaseNarratives.map((row) => (
+                  <div key={"story-phase-" + row.phase}>
+                    <span>PHASE {row.phase}</span>
+                    <b>{row.status}</b>
+                    <p>{row.interpretation}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="panel model-visual-panel">
         <div className="panel-title">
