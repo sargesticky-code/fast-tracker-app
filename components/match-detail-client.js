@@ -646,7 +646,9 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     const statsLane = liveLaneStatus(liveStats?.capturedAt, 180, 600);
     const detailStatus = String(match.live?.detail?.detailStatus || liveStats?.detailStatus || "").toUpperCase();
     if (!Number.isFinite(statsLane.age)) {
-      if (detailStatus === "NOT_APPLICABLE") Object.assign(statsLane, { state: "unavailable", label: "score-only" });
+      if (detailStatus === "NOT_APPLICABLE" || (!detailStatus && liveScore.source === "HKJC_RUNNING_RESULT")) {
+        Object.assign(statsLane, { state: "unavailable", label: "score-only" });
+      }
       else if (detailStatus === "DEFERRED_RATE_GUARD") Object.assign(statsLane, { state: "warn", label: "rate-limit" });
       else if (detailStatus === "DETAIL_EMPTY") Object.assign(statsLane, { state: "warn", label: "empty" });
     } else if (detailStatus === "DEFERRED_RATE_GUARD" && statsLane.state === "fresh") {
