@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   formatKickoff,
   formatOdds,
@@ -91,9 +90,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   }
 
   return (
-    <Link
+    <a
       className={rowClass}
-      prefetch={false}
       href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
       onClick={cacheMatch}
     >
@@ -172,6 +170,6 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <span className="ft5-details" aria-hidden="true">›</span>
         </div>
       </div>
-    </Link>
+    </a>
   );
 }
