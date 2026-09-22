@@ -1152,8 +1152,13 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       ) : null}
 
 
-      <section className="panel">
-        <div className="panel-title"><div><p>DATA HEALTH</p><h2>完整資料狀態</h2></div><span>{match.health?.status || "UNKNOWN"}</span></div>
+      <details className="panel technical-health-panel">
+        <summary>
+          <span>TECHNICAL</span>
+          <strong>Data health / diagnostics</strong>
+          <b>{match.health?.status || "UNKNOWN"}</b>
+        </summary>
+        <div className="technical-health-body">
         <div className="health-list">
           <div><span>HKJC freshness</span><b>{match.health?.hkjcFreshness || fresh.label}</b></div>
           <div><span>HKJC fetched</span><b>{formatUpdated(match.health?.hkjcFetchedAt)}</b></div>
@@ -1176,7 +1181,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         {match.health?.forebetReason ? <p className="fineprint">Forebet：{match.health.forebetReason}</p> : null}
         {match.health?.fallbackRecommendation ? <p className="fineprint">Fallback：{match.health.fallbackRecommendation}</p> : null}
         {missingReason ? <p className="fineprint">缺資料原因：{missingReason}</p> : <p className="fineprint">Canonical evidence channels：{evidenceCount}</p>}
-      </section>
+        </div>
+      </details>
 
     </main>
   );
