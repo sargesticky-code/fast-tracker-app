@@ -293,6 +293,14 @@ function matchFromDetailPayload(payload, matchId) {
     const x = Number(value);
     return Number.isFinite(x) ? x : null;
   };
+  const fixtureFetchedAt = fixture.fetched_at || fixture.updated_at || null;
+  const fixtureAgeMinutes = fixtureFetchedAt ? (Date.now() - new Date(fixtureFetchedAt).getTime()) / 60000 : Infinity;
+  const fixtureFreshness = Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 90
+    ? "FRESH"
+    : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 360
+      ? "AGING"
+      : "STALE";
+  const allowCurrentPrice = fixtureFreshness === "FRESH";
   return {
     id: String(fixture.hkjc_event_id || matchId),
     kickoff: fixture.kickoff_hkt || null,
@@ -306,28 +314,28 @@ function matchFromDetailPayload(payload, matchId) {
     liveEligible: Boolean(fixture.live_eligible),
     selling: Boolean(fixture.selling),
     odds: {
-      home: n(fixture.had_home),
-      draw: n(fixture.had_draw),
-      away: n(fixture.had_away),
+      home: allowCurrentPrice ? n(fixture.had_home) : null,
+      draw: allowCurrentPrice ? n(fixture.had_draw) : null,
+      away: allowCurrentPrice ? n(fixture.had_away) : null,
     },
     goals: {
       line: fixture.hil_line || null,
-      over: n(fixture.hil_over),
-      under: n(fixture.hil_under),
+      over: allowCurrentPrice ? n(fixture.hil_over) : null,
+      under: allowCurrentPrice ? n(fixture.hil_under) : null,
     },
     corners: {
       line: fixture.chl_line || null,
-      over: n(fixture.chl_over),
-      under: n(fixture.chl_under),
+      over: allowCurrentPrice ? n(fixture.chl_over) : null,
+      under: allowCurrentPrice ? n(fixture.chl_under) : null,
     },
     health: {
-      status: "DETAIL_FALLBACK",
-      hkjcFreshness: "FRESH",
-      hkjcFetchedAt: fixture.fetched_at || fixture.updated_at || null,
+      status: fixtureFreshness === "FRESH" ? "DETAIL_FALLBACK" : "DETAIL_FALLBACK_STALE",
+      hkjcFreshness: fixtureFreshness,
+      hkjcFetchedAt: fixtureFetchedAt,
       evidenceChannelCount: 0,
       unifiedCoverageStatus: "HKJC_ONLY",
     },
-    updatedAt: fixture.fetched_at || fixture.updated_at || null,
+    updatedAt: fixtureFetchedAt,
   };
 }
 
