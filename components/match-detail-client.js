@@ -62,6 +62,47 @@ function pairText(pair, digits = 0, suffix = "") {
   return `${h.toFixed(digits)}${suffix}-${a.toFixed(digits)}${suffix}`;
 }
 
+function pairShare(pair) {
+  if (!pair || pair.home == null || pair.away == null) return null;
+  const home = Number(pair.home);
+  const away = Number(pair.away);
+  if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+  const total = Math.max(0, home) + Math.max(0, away);
+  if (total <= 0) return { home, away, homePct: 50, awayPct: 50 };
+  return {
+    home,
+    away,
+    homePct: Math.round(Math.max(0, home) / total * 100),
+    awayPct: Math.round(Math.max(0, away) / total * 100),
+  };
+}
+
+function visualControlSide(stats) {
+  if (!stats) return null;
+  const signals = [
+    [stats.xg, 3],
+    [stats.shotsOnTarget, 2],
+    [stats.bigChances, 2],
+    [stats.boxTouches, 1],
+    [stats.corners, 1],
+    [stats.possession, 0.5],
+  ];
+  let score = 0;
+  let used = 0;
+  for (const [pair, weight] of signals) {
+    const share = pairShare(pair);
+    if (!share) continue;
+    const total = Math.abs(share.home) + Math.abs(share.away);
+    if (total <= 0) continue;
+    score += ((share.home - share.away) / total) * weight;
+    used += weight;
+  }
+  if (!used) return null;
+  const normalized = score / used;
+  if (Math.abs(normalized) < 0.08) return "BALANCED";
+  return normalized > 0 ? "H" : "A";
+}
+
 function liveAgeSeconds(value) {
   if (!value) return Infinity;
   const ms = new Date(value).getTime();
@@ -591,6 +632,16 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     : "—";
   const liveStats = match.live?.stats || null;
   const shadow = match.live?.shadow || null;
+  const liveControlSide = shadow?.actualSide || visualControlSide(liveStats);
+  const liveControlLabel = controlSideLabel(match, liveControlSide);
+  const liveSignalRows = liveStats ? [
+    { key: "xg", label: "xG", pair: liveStats.xg, digits: 2 },
+    { key: "sot", label: "中框", pair: liveStats.shotsOnTarget, digits: 0 },
+    { key: "shots", label: "射門", pair: liveStats.shots, digits: 0 },
+    { key: "box", label: "禁區觸球", pair: liveStats.boxTouches, digits: 0 },
+    { key: "possession", label: "控球", pair: liveStats.possession, digits: 0, suffix: "%" },
+    { key: "corners", label: "角球", pair: liveStats.corners, digits: 0 },
+  ].map((row) => ({ ...row, share: pairShare(row.pair) })).filter((row) => row.share) : [];
   const liveLanes = match.live ? (() => {
     const statsLane = liveLaneStatus(liveStats?.capturedAt, 180, 600);
     const detailStatus = String(match.live?.detail?.detailStatus || liveStats?.detailStatus || "").toUpperCase();
@@ -935,87 +986,127 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       ) : null}
 
       {match.liveNow && match.live && (
-        <section className="panel live-detail-panel">
+        <section className="panel live-detail-panel live-trading-panel">
           <div className="panel-title">
-            <div><p>HKJC LIVE</p><h2>即場市場</h2></div>
+            <div><p>LIVE TRADING VIEW</p><h2>即場比賽訊號</h2></div>
             <span>{match.live.status || "LIVE"}</span>
           </div>
+
+          <div className="live-scoreboard-hero">
+            <div className="live-team-block home">
+              <span>HOME</span>
+              <strong>{match.homeZh || match.home}</strong>
+            </div>
+            <div className="live-score-centre">
+              <small>{liveMinute}</small>
+              <b>{liveScoreText}</b>
+              <em>{liveStats ? "FULL LIVE DATA" : liveScore.source ? "SCORE FEED" : "HKJC LIVE"}</em>
+            </div>
+            <div className="live-team-block away">
+              <span>AWAY</span>
+              <strong>{match.awayZh || match.away}</strong>
+            </div>
+          </div>
+
           {liveLanes ? (
-            <div className="live-freshness-strip">
-              <span className={"lane-" + liveLanes.odds.state}>賠率 <b>{liveLanes.odds.label}</b></span>
-              <span className={"lane-" + liveLanes.score.state}>比分 <b>{liveLanes.score.label}</b></span>
-              <span className={"lane-" + liveLanes.stats.state}>Stats <b>{liveLanes.stats.label}</b></span>
-              <span className={"lane-" + liveLanes.shadow.state}>Shadow <b>{liveLanes.shadow.label}</b></span>
+            <div className="live-lane-bar">
+              <span className={"lane-" + liveLanes.odds.state}>ODDS <b>{liveLanes.odds.label}</b></span>
+              <span className={"lane-" + liveLanes.score.state}>SCORE <b>{liveLanes.score.label}</b></span>
+              <span className={"lane-" + liveLanes.stats.state}>STATS <b>{liveLanes.stats.label}</b></span>
+              <span className={"lane-" + liveLanes.shadow.state}>MODEL <b>{liveLanes.shadow.label}</b></span>
               {liveBottleneck && liveBottleneck[1].state !== "fresh"
-                ? <strong>目前最慢：{liveBottleneck[0]} {liveBottleneck[1].label}</strong>
-                : <strong className="fresh">四層同步正常</strong>}
+                ? <strong>最慢：{liveBottleneck[0]} {liveBottleneck[1].label}</strong>
+                : <strong className="fresh">同步正常</strong>}
             </div>
           ) : null}
-          <div className="live-score-summary">
-            <div><span>比分</span><b>{liveScoreText}</b></div>
-            <div><span>時間</span><b>{liveMinute}</b></div>
-            <div><span>角球</span><b>{Number.isFinite(liveCornerTotal) ? liveCornerTotal : "—"}</b></div>
-            <div><span>角球進度</span><b>{liveCornerProgress}</b></div>
-          </div>
-          {!liveStats && String(match.live?.detail?.detailStatus || "").toUpperCase() === "NOT_APPLICABLE" ? (
-            <div className="live-detail-source-note">目前比分來源只提供 score / minute；今場未有可用 xG、射門、控球 detail。</div>
-          ) : null}
-          {!liveStats && String(match.live?.detail?.detailStatus || "").toUpperCase() === "DEFERRED_RATE_GUARD" ? (
-            <div className="live-detail-source-note warn">Detail source 正受 rate guard；會保留 last-good stats，下一 cycle 再更新。</div>
-          ) : null}
-          {liveStats ? (
-            <div className="live-stats-detail-grid">
-              <div><span>xG</span><b>{pairText(liveStats.xg, 2)}</b></div>
-              <div><span>xGOT</span><b>{pairText(liveStats.xgot, 2)}</b></div>
-              <div><span>射門</span><b>{pairText(liveStats.shots)}</b></div>
-              <div><span>中框</span><b>{pairText(liveStats.shotsOnTarget)}</b></div>
-              <div><span>控球</span><b>{pairText(liveStats.possession, 0, "%")}</b></div>
-              <div><span>Big Chance</span><b>{pairText(liveStats.bigChances)}</b></div>
-              <div><span>禁區觸球</span><b>{pairText(liveStats.boxTouches)}</b></div>
-              <div><span>角球</span><b>{pairText(liveStats.corners)}</b></div>
+
+          <div className="live-command-row">
+            <div className="live-control-card">
+              <span>LIVE CONTROL</span>
+              <strong>{liveControlLabel}</strong>
+              <small>{shadow?.actualSide ? "Expected-vs-Actual engine" : liveStats ? "visual stats signal" : "等待 detail stats"}</small>
             </div>
-          ) : null}
-          <div className="big-odds">
-            <div><span>主</span><b>{formatOdds(match.live.odds?.home)}</b></div>
-            <div><span>和</span><b>{formatOdds(match.live.odds?.draw)}</b></div>
-            <div><span>客</span><b>{formatOdds(match.live.odds?.away)}</b></div>
+            <div>
+              <span>角球進度</span>
+              <strong>{liveCornerProgress}</strong>
+              <small>{Number.isFinite(liveCornerTotal) ? "目前 " + liveCornerTotal + " 個" : "等待 running result"}</small>
+            </div>
+            <div>
+              <span>Expected control</span>
+              <strong>{shadow ? controlSideLabel(match, shadow.expectedSide) : "—"}</strong>
+              <small>{shadow?.segment || "model segment pending"}</small>
+            </div>
+            <div className={shadow?.status === "ALIGNED" ? "is-positive" : shadow?.status && shadow.status !== "WAIT" ? "is-warning" : ""}>
+              <span>Expected vs Actual</span>
+              <strong>{shadow?.status || "WAIT"}</strong>
+              <small>{shadow?.metricCount ? shadow.metricCount + " live metrics" : "等待 evidence"}</small>
+            </div>
           </div>
-          <div className="totals-grid live-detail-totals">
-            <div className="total-market">
-              <span>即場入球 O/U · {match.live.goals?.line || "—"}</span>
+
+          {liveSignalRows.length ? (
+            <div className="live-pressure-board">
+              {liveSignalRows.map((row) => (
+                <div className="live-pressure-row" key={row.key}>
+                  <span>{row.label}</span>
+                  <b>{row.pair?.home == null ? "—" : Number(row.pair.home).toFixed(row.digits)}{row.suffix || ""}</b>
+                  <div className="live-pressure-track">
+                    <i className="home" style={{ width: row.share.homePct + "%" }}></i>
+                    <i className="away" style={{ width: row.share.awayPct + "%" }}></i>
+                  </div>
+                  <b>{row.pair?.away == null ? "—" : Number(row.pair.away).toFixed(row.digits)}{row.suffix || ""}</b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="live-score-only-state">
+              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "HKJC running result 已連接" : "目前只有市場 / 比分層"}</strong>
+              <p>未有可靠 xG、射門或控球 detail 時，畫面唔會用空值製造假訊號；有 stats 先自動展開 pressure board。</p>
+            </div>
+          )}
+
+          <div className="live-market-board">
+            <div className="live-1x2-market">
+              <span>HKJC LIVE 1X2</span>
+              <div>
+                <b>主 <strong>{formatOdds(match.live.odds?.home)}</strong></b>
+                <b>和 <strong>{formatOdds(match.live.odds?.draw)}</strong></b>
+                <b>客 <strong>{formatOdds(match.live.odds?.away)}</strong></b>
+              </div>
+            </div>
+            <div className="live-ou-market">
+              <span>入球 O/U · {match.live.goals?.line || "—"}</span>
               <div><b>大 {formatOdds(match.live.goals?.over)}</b><b>細 {formatOdds(match.live.goals?.under)}</b></div>
             </div>
-            <div className="total-market">
-              <span>即場角球 O/U · {match.live.corners?.line || "—"}</span>
+            <div className="live-ou-market">
+              <span>角球 O/U · {match.live.corners?.line || "—"}</span>
               <div><b>大 {formatOdds(match.live.corners?.over)}</b><b>細 {formatOdds(match.live.corners?.under)}</b></div>
             </div>
           </div>
+
+          {(liveStats || shadow) ? (
+            <details className="live-raw-details">
+              <summary>完整 Live evidence</summary>
+              {liveStats ? (
+                <div className="live-stats-detail-grid">
+                  <div><span>xG</span><b>{pairText(liveStats.xg, 2)}</b></div>
+                  <div><span>xGOT</span><b>{pairText(liveStats.xgot, 2)}</b></div>
+                  <div><span>射門</span><b>{pairText(liveStats.shots)}</b></div>
+                  <div><span>中框</span><b>{pairText(liveStats.shotsOnTarget)}</b></div>
+                  <div><span>控球</span><b>{pairText(liveStats.possession, 0, "%")}</b></div>
+                  <div><span>Big Chance</span><b>{pairText(liveStats.bigChances)}</b></div>
+                  <div><span>禁區觸球</span><b>{pairText(liveStats.boxTouches)}</b></div>
+                  <div><span>角球</span><b>{pairText(liveStats.corners)}</b></div>
+                </div>
+              ) : null}
+              {shadow ? <p className="fineprint">{shadow.reason || "WAIT"} · control score {shadow.controlScore == null ? "—" : Number(shadow.controlScore).toFixed(0)}{shadow.controlBasis ? ` · expected basis ${shadow.controlBasis}` : ""}</p> : null}
+            </details>
+          ) : null}
+
           <p className="fineprint">
             Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
             {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
             {liveStats?.source ? ` · Stats source：${liveStats.source}` : ""}
-            {match.live?.detail?.detailStatus ? ` · Detail：${match.live.detail.detailStatus}` : ""}
           </p>
-        </section>
-      )}
-
-      {match.liveNow && shadow && (
-        <section className="panel shadow-detail-panel">
-          <div className="panel-title">
-            <div><p>PHASE 3 SHADOW</p><h2>Expected vs Actual</h2></div>
-            <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span>
-          </div>
-          <div className="shadow-detail-grid">
-            <div><span>Segment</span><b>{shadow.segment || "—"}</b></div>
-            <div><span>Expected control</span><b>{controlSideLabel(match, shadow.expectedSide)}</b></div>
-            <div><span>Live control</span><b>{controlSideLabel(match, shadow.actualSide)}</b></div>
-            <div><span>Evidence</span><b>{shadow.metricCount || 0} metrics</b></div>
-          </div>
-          <p className="fineprint">
-            {shadow.reason || "WAIT"} · control score {shadow.controlScore == null ? "—" : Number(shadow.controlScore).toFixed(0)}
-            {shadow.controlBasis ? ` · expected basis ${shadow.controlBasis}` : ""}
-          </p>
-          <p className="fineprint">Shadow calibration only；暫時唔會由呢個狀態直接產生投注指令。</p>
         </section>
       )}
 
