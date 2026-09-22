@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ProbabilityRow from "@/components/probability-row";
 import {
   divergence,
   fairMarket,
@@ -19,6 +18,7 @@ import {
 const UI_BUILD = "SUPABASE-LIVE-20260922-5";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
+const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 
 const CORE_MODEL_DEFS = [
   { key: "HKJC", label: "HKJC no-vig" },
@@ -102,6 +102,78 @@ function formQualityLabel(value) {
   if (!text) return "HISTORY ONLY";
   if (text.includes("INSUFFICIENT")) return "樣本不足";
   return text.replaceAll("_", " ");
+}
+
+function pct(value, digits = 0) {
+  if (value === null || value === undefined || value === "") return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const p = Math.abs(n) <= 1 ? n * 100 : n;
+  return p.toFixed(digits) + "%";
+}
+
+function numText(value, digits = 2) {
+  if (value === null || value === undefined || value === "") return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits) : "—";
+}
+
+function hdaText(values) {
+  if (!probabilityAvailable(values)) return null;
+  return [
+    { key: "H", value: values.home },
+    { key: "D", value: values.draw },
+    { key: "A", value: values.away },
+  ];
+}
+
+function modelStateLabel(available, reason) {
+  if (available) return "AVAILABLE";
+  const r = String(reason || "").toUpperCase();
+  if (r.includes("SPARSE")) return "歷史樣本不足";
+  if (r.includes("INSUFFICIENT")) return "近期樣本不足";
+  if (r.includes("UNSUPPORTED")) return "未支援聯賽歷史";
+  if (r.includes("FIXTURE_ONLY")) return "只有賽程";
+  if (r.includes("SOURCE_ABSENT")) return "來源無此場";
+  return reason ? String(reason).replaceAll("_", " ") : "NO DATA";
+}
+
+function ModelIntelCard({ code, title, values, state, stateReason, metrics = [], chips = [], source }) {
+  const probs = hdaText(values);
+  const available = Boolean(probs);
+  return (
+    <article className={"model-intel-card " + (available ? "model-intel-ready" : "model-intel-missing")}>
+      <div className="model-intel-head">
+        <div>
+          <span>{code}</span>
+          <h3>{title}</h3>
+        </div>
+        <b>{state || modelStateLabel(available, stateReason)}</b>
+      </div>
+      {probs ? (
+        <div className="model-hda-strip">
+          {probs.map((row) => (
+            <div key={row.key}><span>{row.key}</span><strong>{pct(row.value, 1)}</strong></div>
+          ))}
+        </div>
+      ) : (
+        <div className="model-empty-reason">{modelStateLabel(false, stateReason)}</div>
+      )}
+      {metrics.length ? (
+        <div className="model-metric-grid">
+          {metrics.map((m) => (
+            <div key={m.label}><span>{m.label}</span><b>{m.value ?? "—"}</b></div>
+          ))}
+        </div>
+      ) : null}
+      {chips.length ? (
+        <div className="model-source-chips">
+          {chips.map((chip) => <span key={chip}>{chip}</span>)}
+        </div>
+      ) : null}
+      {source ? <p className="model-source-note">{source}</p> : null}
+    </article>
+  );
 }
 
 function TeamFormCard({ title, name, detail }) {
@@ -227,6 +299,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const [match, setMatch] = useState(null);
   const [source, setSource] = useState("LOADING");
   const [ready, setReady] = useState(false);
+  const [deep, setDeep] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
@@ -263,6 +336,16 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       } catch {}
     }
 
+    async function refreshDetail() {
+      try {
+        const res = await fetch(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&_=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = await res.json();
+        if (cancelled || payload?.error) return;
+        setDeep(payload);
+      } catch {}
+    }
+
     async function refreshLive() {
       try {
         const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
@@ -285,7 +368,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       } catch {}
     }
 
-    Promise.allSettled([refreshMatch(), refreshLive()]).then(() => {
+    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail()]).then(() => {
       if (cancelled) return;
       if (!resolvedFresh && (cached || fallback)) {
         setMatch(cached || fallback);
@@ -295,7 +378,10 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     });
 
     const fullTimer = window.setInterval(() => {
-      if (document.visibilityState === "visible") refreshMatch();
+      if (document.visibilityState === "visible") {
+        refreshMatch();
+        refreshDetail();
+      }
     }, 45000);
     const liveTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshLive();
@@ -305,11 +391,13 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       if (document.visibilityState === "visible") {
         refreshLive();
         refreshMatch();
+        refreshDetail();
       }
     };
     const refreshPageShow = () => {
       refreshLive();
       refreshMatch();
+      refreshDetail();
     };
     document.addEventListener("visibilitychange", refreshVisible);
     window.addEventListener("pageshow", refreshPageShow);
@@ -421,6 +509,62 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     hasData: multisourceNames.has(key),
   }));
   const multisourceDataCount = multisourceRows.filter((row) => row.hasData).length;
+
+  const deepModels = deep?.models || {};
+  const internalDeep = deepModels.internal || {};
+  const forebetDeep = deepModels.forebet || {};
+  const formDeep = deepModels.form || {};
+  const optaDeep = deepModels.opta || match.power || {};
+  const multiDeep = deepModels.multisource || {};
+  const dcDetail = match.dcDetail || {
+    quality: internalDeep.quality,
+    source: internalDeep.model_source,
+    league: internalDeep.model_league,
+    trainingMatches: internalDeep.training_matches,
+    teamMatchQuality: internalDeep.team_match_quality,
+    probabilities: {
+      home: internalDeep.dc_prob_home,
+      draw: internalDeep.dc_prob_draw,
+      away: internalDeep.dc_prob_away,
+    },
+    expectedGoals: { home: internalDeep.dc_xg_home, away: internalDeep.dc_xg_away },
+    over25: internalDeep.dc_prob_over25,
+    available: internalDeep.quality === "MODELED" && internalDeep.dc_prob_home != null,
+    missingReason: internalDeep.quality,
+  };
+  const piDetail = match.piDetail || {
+    quality: internalDeep.quality,
+    source: internalDeep.model_source,
+    league: internalDeep.model_league,
+    trainingMatches: internalDeep.training_matches,
+    teamMatchQuality: internalDeep.team_match_quality,
+    probabilities: {
+      home: internalDeep.pi_prob_home,
+      draw: internalDeep.pi_prob_draw,
+      away: internalDeep.pi_prob_away,
+    },
+    ratings: {
+      home: internalDeep.pi_home_rating,
+      away: internalDeep.pi_away_rating,
+      difference: internalDeep.pi_diff,
+    },
+    available: internalDeep.quality === "MODELED" && internalDeep.pi_prob_home != null,
+    missingReason: internalDeep.quality,
+  };
+  const humanSummary = deep?.humanFactors?.summary || null;
+  const eventMap = deep?.humanFactors?.eventMap || null;
+  const playerStatusEvidence = Array.isArray(deep?.humanFactors?.playerStatus) ? deep.humanFactors.playerStatus : [];
+  const lineupEvidence = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
+  const managerEvidence = Array.isArray(deep?.humanFactors?.managers) ? deep.humanFactors.managers : [];
+  const scenarioRows = Array.isArray(deep?.scenario) ? deep.scenario : [];
+  const homeStarters = lineupEvidence.filter((r) => r.team_side === "HOME" && r.starter).map((r) => r.player_name).filter(Boolean);
+  const awayStarters = lineupEvidence.filter((r) => r.team_side === "AWAY" && r.starter).map((r) => r.player_name).filter(Boolean);
+  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : "NO DATA");
+  const injuriesHome = humanSummary?.raw?.injury_count_home ?? playerStatusEvidence.filter((r) => r.team_side === "HOME").length;
+  const injuriesAway = humanSummary?.raw?.injury_count_away ?? playerStatusEvidence.filter((r) => r.team_side === "AWAY").length;
+  const lineupState = eventMap?.lineup_confirmed_at ? "CONFIRMED" : eventMap ? "PENDING" : "UNMAPPED";
+  const multiSources = match.multi?.sourceNames || multiDeep.sources_consensus || multiDeep.sources_total || [];
+  const modelCardsAvailable = [match.forebet, match.dc, match.pi, match.form, match.multi].filter(probabilityAvailable).length;
 
   return (
     <main className="shell detail-shell">
@@ -591,46 +735,95 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         </p>
       </section>
 
-      <section className="panel">
+      <section className="panel model-intelligence-panel">
         <div className="panel-title">
-          <div><p>MODEL COVERAGE</p><h2>6 個主要模型／市場來源</h2></div>
-          <span>{coreModelDataCount}/6 有資料</span>
+          <div><p>MODEL INTELLIGENCE</p><h2>模型實際內容</h2></div>
+          <span>{modelCardsAvailable}/5 有可用 H/D/A</span>
         </div>
-        <div className="health-list">
-          {coreModelRows.map((row) => (
-            <div key={row.key}>
-              <span>{row.label}</span>
-              <b>{row.hasData ? "DATA" : "NO DATA"}</b>
-            </div>
-          ))}
-        </div>
-        <p className="fineprint">每場都固定顯示六項，冇資料亦唔會隱藏。</p>
-      </section>
+        <p className="panel-intro">同一組 H / D / A 只顯示一次；每張卡下面只保留該模型獨有資料，避免重覆。</p>
+        <div className="model-intel-grid">
+          <ModelIntelCard
+            code="FOREBET"
+            title="Forebet prediction"
+            values={match.forebet}
+            state={probabilityAvailable(match.forebet) ? "MODEL" : null}
+            stateReason={match.health?.forebetCoverageStatus || match.health?.forebetState}
+            metrics={[
+              { label: "預測比分", value: forebetDeep.predicted_score || match.forebetDetail?.predictedScore || "—" },
+              { label: "平均入球", value: forebetDeep.avg_goals == null ? "—" : numText(forebetDeep.avg_goals, 2) },
+              { label: "O2.5 / U2.5", value: `${pct(forebetDeep.prob_over25 ?? match.forebetDetail?.ou25?.over, 0)} / ${pct(forebetDeep.prob_under25 ?? match.forebetDetail?.ou25?.under, 0)}` },
+              { label: "角球預測", value: forebetDeep.corner_predicted_score || forebetDeep.corner_prediction || "—" },
+              { label: "O9.5 / U9.5", value: `${pct(forebetDeep.corner_prob_over95 ?? match.forebetDetail?.corners95?.over, 0)} / ${pct(forebetDeep.corner_prob_under95 ?? match.forebetDetail?.corners95?.under, 0)}` },
+              { label: "平均角球", value: forebetDeep.avg_corners == null ? "—" : numText(forebetDeep.avg_corners, 2) },
+            ]}
+            source={forebetDeep.forebet_detail_url ? "Forebet detail · " + (forebetDeep.forebet_league_short || "") : null}
+          />
 
-      <section className="panel">
-        <div className="panel-title">
-          <div><p>PROBABILITY</p><h2>市場 vs 所有可用模型</h2></div>
-          <span>{modelLabel(match)}</span>
+          <ModelIntelCard
+            code="DC"
+            title="Dixon-Coles goals model"
+            values={match.dc || dcDetail?.probabilities}
+            state={dcDetail?.available ? "MODELED" : null}
+            stateReason={dcDetail?.missingReason || dcDetail?.quality}
+            metrics={[
+              { label: "xG 主 / 客", value: `${numText(dcDetail?.expectedGoals?.home, 2)} / ${numText(dcDetail?.expectedGoals?.away, 2)}` },
+              { label: "Over 2.5", value: pct(dcDetail?.over25, 1) },
+              { label: "Training", value: dcDetail?.trainingMatches ? `${dcDetail.trainingMatches} matches` : "—" },
+              { label: "League", value: dcDetail?.league || "—" },
+              { label: "Match quality", value: dcDetail?.teamMatchQuality == null ? "—" : numText(dcDetail.teamMatchQuality, 2) },
+              { label: "Quality gate", value: dcDetail?.quality || "—" },
+            ]}
+            source={dcDetail?.source}
+          />
+
+          <ModelIntelCard
+            code="PI"
+            title="Pi strength rating"
+            values={match.pi || piDetail?.probabilities}
+            state={piDetail?.available ? "MODELED" : null}
+            stateReason={piDetail?.missingReason || piDetail?.quality}
+            metrics={[
+              { label: "Rating 主 / 客", value: `${numText(piDetail?.ratings?.home, 3)} / ${numText(piDetail?.ratings?.away, 3)}` },
+              { label: "Rating diff", value: numText(piDetail?.ratings?.difference, 3) },
+              { label: "Training", value: piDetail?.trainingMatches ? `${piDetail.trainingMatches} matches` : "—" },
+              { label: "League", value: piDetail?.league || "—" },
+              { label: "Match quality", value: piDetail?.teamMatchQuality == null ? "—" : numText(piDetail.teamMatchQuality, 2) },
+              { label: "Quality gate", value: piDetail?.quality || "—" },
+            ]}
+            source={piDetail?.source}
+          />
+
+          <ModelIntelCard
+            code="FORM"
+            title="Recent team-form Poisson"
+            values={match.form}
+            state={probabilityAvailable(match.form) ? "MODELED" : null}
+            stateReason={formDeep.quality || match.formDetail?.quality}
+            metrics={[
+              { label: "Form xG 主 / 客", value: `${numText(formDeep.form_xg_home ?? match.formDetail?.home?.expectedGoals, 2)} / ${numText(formDeep.form_xg_away ?? match.formDetail?.away?.expectedGoals, 2)}` },
+              { label: "有效樣本 主 / 客", value: `${formDeep.home_games ?? match.formDetail?.home?.modelGames ?? 0} / ${formDeep.away_games ?? match.formDetail?.away?.modelGames ?? 0}` },
+              { label: "主客場樣本", value: `${formDeep.home_venue_games ?? match.formDetail?.home?.venueGames ?? 0} / ${formDeep.away_venue_games ?? match.formDetail?.away?.venueGames ?? 0}` },
+              { label: "Quality", value: formDeep.quality || match.formDetail?.quality || "—" },
+            ]}
+            source={formDeep.model_source || match.formDetail?.source}
+          />
+
+          <ModelIntelCard
+            code="MULTI"
+            title="Multi-source consensus"
+            values={match.multi}
+            state={probabilityAvailable(match.multi) ? `${multiSources.length || match.multi?.sources || 0} SOURCES` : null}
+            stateReason={match.health?.multisourceCoverageStatus}
+            metrics={[
+              { label: "O2.5 / U2.5", value: `${pct(match.multisourceDetail?.ou25?.over ?? multiDeep.consensus_over25, 0)} / ${pct(match.multisourceDetail?.ou25?.under ?? multiDeep.consensus_under25, 0)}` },
+              { label: "BTTS Yes / No", value: `${pct(match.multisourceDetail?.btts?.yes ?? multiDeep.consensus_btts_yes, 0)} / ${pct(match.multisourceDetail?.btts?.no ?? multiDeep.consensus_btts_no, 0)}` },
+              { label: "Matched sources", value: String(multiSources.length || match.multi?.sources || 0) },
+              { label: "Match status", value: multiDeep.match_status || match.health?.multisourceMatchStatus || "—" },
+            ]}
+            chips={multiSources}
+            source={multiSources.length ? "Consensus built from the source set shown above; individual source probabilities are not yet persisted in the canonical table." : null}
+          />
         </div>
-        {coreModelRows.map((row) => (
-          row.hasData
-            ? <ProbabilityRow
-                key={row.key}
-                label={row.key === "MULTI"
-                  ? `${row.label} · ${match.multi?.sources || match.multi?.sourceCount || "—"} source(s)`
-                  : row.label}
-                values={row.values}
-                strong={row.key === "MULTI"}
-              />
-            : <div className="prob-row" key={row.key}>
-                <div className="prob-label">{row.label} · NO DATA</div>
-                <div className="prob-values">
-                  {["H", "D", "A"].map((side) => (
-                    <div className="prob-cell" key={side}><span>{side}</span><b>—</b></div>
-                  ))}
-                </div>
-              </div>
-        ))}
       </section>
 
       {match.power && (match.power.home != null || match.power.away != null) && (
@@ -678,27 +871,80 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         </section>
       )}
 
-      <section className="panel">
+      <section className="panel human-factor-panel">
         <div className="panel-title">
-          <div><p>SIX-SOURCE CONSENSUS</p><h2>FRB / ACC / BCL / FST / PRE / STA</h2></div>
-          <span>{multisourceDataCount}/6 有資料</span>
+          <div><p>PHASE 2 · HUMAN FACTORS</p><h2>球員 / 正選 / 教練 / 缺陣</h2></div>
+          <span>{humanQuality}</span>
         </div>
-        <div className="health-list">
-          {multisourceRows.map((row) => (
-            <div key={row.key}>
-              <span>{row.key}</span>
-              <b>{row.hasData ? "DATA" : "NO DATA"}</b>
+        <div className="human-summary-grid">
+          <div><span>API fixture</span><b>{eventMap?.api_fixture_id || "—"}</b><small>{eventMap ? `match ${numText(eventMap.match_quality, 3)}` : "not mapped"}</small></div>
+          <div><span>傷停 主 / 客</span><b>{injuriesHome} / {injuriesAway}</b><small>{playerStatusEvidence.length ? `${playerStatusEvidence.length} evidence rows` : "no active evidence rows"}</small></div>
+          <div><span>Official XI</span><b>{lineupState}</b><small>{lineupEvidence.length ? `${lineupEvidence.length} player rows` : "waiting for publication"}</small></div>
+          <div><span>Referee</span><b>{humanSummary?.referee || "—"}</b><small>{humanSummary?.source || "API_FOOTBALL"}</small></div>
+        </div>
+
+        {(homeStarters.length || awayStarters.length) ? (
+          <div className="lineup-columns">
+            <div>
+              <span>HOME XI</span>
+              <b>{match.homeZh || match.home}</b>
+              <p>{homeStarters.join(" · ") || "—"}</p>
             </div>
-          ))}
-        </div>
-        <div className="source-chips">
-          <span>Consensus count {match.multi?.sources ?? match.health?.multisourceMemberCount ?? 0}</span>
-          <span>Evidence channels {evidenceCount}</span>
-        </div>
-        {match.multi?.sourceNames?.length > 0
-          ? <p className="fineprint">Current consensus inputs：{match.multi.sourceNames.join(" · ")}</p>
-          : <p className="fineprint">Current consensus inputs：NO DATA</p>}
+            <div>
+              <span>AWAY XI</span>
+              <b>{match.awayZh || match.away}</b>
+              <p>{awayStarters.join(" · ") || "—"}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="model-empty-reason">Official lineup 尚未發布；系統會在開賽前窗口再抓取，唔會用 projected XI 冒充 confirmed lineup。</div>
+        )}
+
+        {managerEvidence.length ? (
+          <div className="evidence-rows">
+            {managerEvidence.map((row) => (
+              <div key={row.id}><span>{row.team_side} COACH</span><b>{row.evidence_value || row.manager_key || "—"}</b><small>{row.confirmed ? "confirmed" : "reported"} · {row.source_name}</small></div>
+            ))}
+          </div>
+        ) : null}
+
+        {playerStatusEvidence.length ? (
+          <div className="evidence-rows">
+            {playerStatusEvidence.map((row) => (
+              <div key={row.id}><span>{row.team_side} · {row.status_type}</span><b>{row.raw?.player?.name || row.raw?.player_name || row.player_key}</b><small>{row.status_value || "—"} · {row.source_name}</small></div>
+            ))}
+          </div>
+        ) : null}
+        <p className="fineprint">
+          {humanSummary?.coach_rotation ? `Coach：${humanSummary.coach_rotation} · ` : ""}
+          Phase 2 source：{humanSummary?.source || "API_FOOTBALL"} · quality：{humanSummary?.quality || "PENDING"}
+        </p>
       </section>
+
+      {scenarioRows.length ? (
+        <section className="panel scenario-panel">
+          <div className="panel-title">
+            <div><p>PHASE 3 · MATCH SCENARIO</p><h2>分段比賽腳本</h2></div>
+            <span>{scenarioRows[0]?.segment_prediction_status || "CALIBRATING"}</span>
+          </div>
+          <div className="scenario-strip">
+            {scenarioRows.map((row) => (
+              <div key={row.segment}>
+                <span>{row.segment}</span>
+                <b>{controlSideLabel(match, row.macro_control_side)}</b>
+                <small>
+                  Goal H {pct(row.p_home_goal_segment, 0)} · A {pct(row.p_away_goal_segment, 0)}
+                  <br/>Corners {numText(row.expected_home_corners_segment, 1)} / {numText(row.expected_away_corners_segment, 1)}
+                </small>
+              </div>
+            ))}
+          </div>
+          <p className="fineprint">
+            Control basis：{scenarioRows[0]?.control_basis || "—"} · context coverage {scenarioRows[0]?.context_coverage_score == null ? "—" : numText(scenarioRows[0].context_coverage_score, 0) + "%"}
+            {scenarioRows[0]?.notes ? " · " + scenarioRows[0].notes : ""}
+          </p>
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel-title"><div><p>DATA HEALTH</p><h2>完整資料狀態</h2></div><span>{match.health?.status || "UNKNOWN"}</span></div>
