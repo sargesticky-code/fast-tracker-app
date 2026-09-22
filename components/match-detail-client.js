@@ -169,8 +169,23 @@ function readCachedMatch(id) {
 }
 
 function mergeLiveMatch(base, payload, matchId) {
-  if (!base || !Array.isArray(payload?.matches)) return base;
+  if (!Array.isArray(payload?.matches)) return base;
   const live = payload.matches.find((row) => String(row.id) === String(matchId));
+
+  if (live && !base) {
+    return {
+      ...live,
+      odds: { home: null, draw: null, away: null },
+      market: null,
+      goals: { line: null, over: null, under: null },
+      corners: { line: null, over: null, under: null },
+      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "HKJC_ONLY" },
+      updatedAt: live.live?.fetchedAt || payload.generatedAt || null,
+    };
+  }
+
+  if (!base) return base;
+
   if (live) {
     return {
       ...base,
@@ -178,6 +193,7 @@ function mergeLiveMatch(base, payload, matchId) {
       inPlay: true,
       liveEligible: true,
       live: live.live,
+      updatedAt: live.live?.fetchedAt || base.updatedAt,
     };
   }
   if (base.liveNow) {
