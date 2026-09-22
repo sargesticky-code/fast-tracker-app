@@ -686,10 +686,13 @@ export default function DashboardClient({ feed, nowMs }) {
   const liveOddsAge = heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs);
   const liveScoreAge = heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs);
   const liveAge = Math.max(liveOddsAge, liveScoreAge);
+  const frontendGuardAge = heartbeatAgeMinutes(currentFeed, "FRONTEND_ROUTE_GUARD", clockMs);
+  const frontendGuard = currentFeed?.systemHealth?.FRONTEND_ROUTE_GUARD;
   const pipelineWarnings = [
     heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
     liveOddsAge > 3 ? "Live odds" : null,
     liveScoreAge > 3 ? "Live score" : null,
+    frontendGuard?.status === "FAIL" || frontendGuardAge > 10 ? "Dashboard links" : null,
   ].filter(Boolean);
 
   const headings = {
