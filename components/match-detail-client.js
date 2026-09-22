@@ -17,7 +17,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V4-PROVENANCE-20260922-1";
+const UI_BUILD = "DETAIL-V5-ANALYST-READABILITY-20260922-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -808,6 +808,18 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const actionTone = rawAction === "NO_BET" || rawAction === "PASS" ? "pass"
     : rawAction.includes("STRONG") || rawAction.includes("VALUE") ? "value"
       : "watch";
+  const decisionCleared = !["NO_BET", "PASS"].includes(rawAction);
+  const pickLabel = decisionCleared ? "主要投注位" : "研究方向";
+  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : decisionCleared ? "EDGE" : "MODEL GAP";
+  const gateLabel = rawAction === "NO_BET" ? "未通過投注 Gate"
+    : rawAction === "PASS" ? "目前無投注需要"
+      : rawAction.includes("WATCH") ? "觀察中"
+        : "候選已形成";
+  const gateDetail = story?.invalidators?.length
+    ? story.invalidators.slice(0, 3).join(" · ")
+    : analysis?.invalidators?.length
+      ? analysis.invalidators.slice(0, 3).join(" · ")
+      : decisionCleared ? "目前未見主要 data-risk flag" : "等待更多可驗證 evidence";
   const fallbackAdvice = primarySide && primaryEdgePp != null
     ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}%`
     : "現時未有足夠資料形成清晰投注位。";
@@ -882,13 +894,13 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
 
         <div className="betting-command-grid">
           <div className="betting-primary-pick">
-            <span>主要投注位</span>
+            <span>{pickLabel}</span>
             <strong>{primarySelectionLabel}</strong>
             <b>{referencePriceOnly ? "CURRENT PRICE —" : Number.isFinite(primaryOdds) ? "@ " + primaryOdds.toFixed(2) : " "}</b>
             {referencePriceOnly && Number.isFinite(referenceOdds) ? <small>舊價 {referenceOdds.toFixed(2)} 只作 reference</small> : null}
           </div>
           <div className="betting-edge-hero">
-            <span>{referencePriceOnly ? "REFERENCE GAP" : "EDGE"}</span>
+            <span>{gapLabel}</span>
             <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "%"}</strong>
             <small>{referencePriceOnly ? "Model probability − reference HKJC fair probability" : "Model probability − HKJC fair probability"}</small>
           </div>
@@ -909,7 +921,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
               <span>{row.key} · {row.label}</span>
               <b>{formatOdds(row.odds)}</b>
               <small>{row.fair == null ? " " : (referencePriceOnly ? "Ref fair " : "Fair ") + (Number(row.fair) * 100).toFixed(1) + "%"}</small>
-              {primarySide === row.key ? <em>{referencePriceOnly ? "REF GAP" : "EDGE"}</em> : null}
+              {primarySide === row.key ? <em>{referencePriceOnly ? "REF GAP" : decisionCleared ? "EDGE" : "MODEL GAP"}</em> : null}
             </div>
           ))}
         </div>
@@ -930,6 +942,14 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <span><b>PRICE</b>{priceStatusLabel}</span>
             <span><b>ENGINE</b>{story?.engine?.name || "—"}</span>
             <span><b>UPDATED</b>{story?.generatedAt ? formatUpdated(story.generatedAt) : "—"}</span>
+          </div>
+
+          <div className={"story-decision-gate " + (decisionCleared ? "is-cleared" : "is-blocked")}>
+            <div>
+              <span>DECISION GATE</span>
+              <strong>{gateLabel}</strong>
+            </div>
+            <p>{gateDetail}</p>
           </div>
 
           {storyEvidenceTags.length ? (
