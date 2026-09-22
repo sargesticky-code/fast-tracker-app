@@ -12,7 +12,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-CLEAN-20260922-2";
+const UI_BUILD = "FOREBET-CLEAN-20260922-3";
 
 function pct(value) {
   const n = Number(value);
@@ -39,6 +39,13 @@ function selectedClass(edge, key) {
   return "ft5-prob" + (edge?.key === key ? " selected" : "");
 }
 
+function marketOddsClass(edge, key) {
+  const classes = ["ft5-odd"];
+  if (edge?.key === key && edge?.value > 0) classes.push("edge-target");
+  if (edge?.key === key && edge?.value >= 0.10) classes.push("edge-target-strong");
+  return classes.join(" ");
+}
+
 function outcomeLabel(key) {
   if (key === "H") return "主";
   if (key === "D") return "和";
@@ -62,6 +69,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const strongEdge = edge?.value >= 0.10;
   const valueEdgeFlag = edge?.value >= 0.05;
+  const positiveEdge = edge?.value > 0;
+  const actionLabel = strongEdge ? "重點投注" : valueEdgeFlag ? "投注位" : positiveEdge ? "觀察位" : "未有 Edge";
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
   const rowClass = [
     "ft5-match-card",
@@ -116,6 +125,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
+            <span className="ft5-pick-label">{actionLabel}</span>
             <b>{pick}</b>
             <small>{selectedOdds ? "@" + formatOdds(selectedOdds) : "—"}</small>
           </div>
@@ -134,9 +144,18 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
         <div className="ft5-cell ft5-market-cell">
           <div className="ft5-odds ft5-row-odds">
-            <div className="ft5-odd"><span>主</span><b>{formatOdds(match.odds?.home)}</b></div>
-            <div className="ft5-odd"><span>和</span><b>{formatOdds(match.odds?.draw)}</b></div>
-            <div className="ft5-odd"><span>客</span><b>{formatOdds(match.odds?.away)}</b></div>
+            <div className={marketOddsClass(edge, "H")}>
+              <span>主</span><b>{formatOdds(match.odds?.home)}</b>
+              {edge?.key === "H" && positiveEdge ? <small className="ft5-edge-market-mark">{strongEdge ? "重點" : "EDGE"}</small> : null}
+            </div>
+            <div className={marketOddsClass(edge, "D")}>
+              <span>和</span><b>{formatOdds(match.odds?.draw)}</b>
+              {edge?.key === "D" && positiveEdge ? <small className="ft5-edge-market-mark">{strongEdge ? "重點" : "EDGE"}</small> : null}
+            </div>
+            <div className={marketOddsClass(edge, "A")}>
+              <span>客</span><b>{formatOdds(match.odds?.away)}</b>
+              {edge?.key === "A" && positiveEdge ? <small className="ft5-edge-market-mark">{strongEdge ? "重點" : "EDGE"}</small> : null}
+            </div>
             <div className="ft5-odd"><span>入球</span><b>{match.goals?.line ?? "—"}</b></div>
             <div className="ft5-odd"><span>角球</span><b>{match.corners?.line ?? "—"}</b></div>
           </div>
