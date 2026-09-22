@@ -242,3 +242,14 @@ Bands:
 - DATA RISK: stale or missing current market data
 
 The dashboard may show REVIEW 0–100 to help decide which match to inspect first. Betting decisions remain based on the underlying evidence shown in the match detail, not the Review Priority number itself.
+
+## App Core deployment guard (2026-09-22)
+
+- GitHub `main` is the canonical source of truth for `supabase/functions/app-match-analysis/index.ts` and `supabase/functions/app-match-story/index.ts`.
+- Any automation or manual run that changes these functions must re-read the current GitHub source first. Never redeploy an older server-only copy over a newer GitHub version.
+- `app-match-analysis` owns deterministic probabilities, Edge, selection and action.
+- `app-match-story` may interpret verified evidence but must not override deterministic selection, Edge, odds, action, score, lineup or injury facts.
+- Missing canonical-active-feed rows use `DB_FALLBACK_FAIL_CLOSED`: analysis may explain available evidence but action is forced to `NO_BET`.
+- Fallback HKJC prices are reference only: `currentOdds=null`, `referenceOdds=<stored price>`, `oddsStatus=REFERENCE_STALE`. Never display fallback prices as current HKJC odds.
+- Phase 9 story contract is V4 and includes deep-detail evidence plus provenance/freshness metadata. Preserve backward-compatible response fields used by the production detail page.
+- After changing either Edge Function, smoke-test at least one canonical-active match and one DB-fallback match, then sync the deployed source back to GitHub if the deployed copy changed.
