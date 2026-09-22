@@ -11,7 +11,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-CLEAN-20260922-3";
+const UI_BUILD = "FOREBET-BOARD-20260922-1";
 
 function pct(value) {
   const n = Number(value);
@@ -100,7 +100,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <div className="ft5-match-meta">
             <strong className="ft5-kickoff">{formatKickoff(match.kickoff)}</strong>
             <span className="ft5-league">{match.league}</span>
-            <span className="ft5-fresh">{fresh.label}</span>
+            <span className="ft5-meta-sep">·</span>
+            <span className={"ft5-fresh-text ft5-fresh-" + fresh.key}>{fresh.label}</span>
           </div>
           <div className="ft5-teams">
             <b>{home}</b>
@@ -112,7 +113,14 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
         <div className="ft5-cell ft5-model-cell">
           <div className="ft5-model-heading">
             <b>{modelLabel(match)}</b>
-            <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
+            <div className="ft5-model-badges">
+              <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
+              <small
+                className={"ft5-review-inline ft5-review-" + priority.band}
+                title={"Review priority " + priority.score + "/100" + (priority.reasons.length ? " · " + priority.reasons.join(" · ") : "")}
+              >R {priority.score}</small>
+              <small className={"ft5-health-inline health-" + coverageMeta.tone}>{coverageMeta.label}</small>
+            </div>
           </div>
           <div className="ft5-probs" aria-label="HDA model probability">
             <div className={selectedClass(edge, "H")}><span>H</span><b>{pct(model?.home)}</b></div>
@@ -157,17 +165,6 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
             <div className="ft5-odd"><span>入球</span><b>{match.goals?.line ?? "—"}</b></div>
             <div className="ft5-odd"><span>角球</span><b>{match.corners?.line ?? "—"}</b></div>
           </div>
-        </div>
-
-        <div className="ft5-cell ft5-status-cell">
-          <div className="ft5-tags">
-            <span
-              className={"ft5-tag ft5-review-tag ft5-review-" + priority.band}
-              title={"Review priority " + priority.score + "/100" + (priority.reasons.length ? " · " + priority.reasons.join(" · ") : "")}
-            >R {priority.score}</span>
-            <span className={"ft5-tag health-" + coverageMeta.tone}>{coverageMeta.label}</span>
-          </div>
-          <span className="ft5-details" aria-hidden="true">›</span>
         </div>
       </div>
     </a>
