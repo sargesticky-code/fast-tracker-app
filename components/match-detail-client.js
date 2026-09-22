@@ -381,12 +381,23 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     : "—";
   const liveStats = match.live?.stats || null;
   const shadow = match.live?.shadow || null;
-  const liveLanes = match.live ? {
-    odds: liveLaneStatus(match.live.fetchedAt || match.live.oddsUpdatedAt, 90, 180),
-    score: liveLaneStatus(liveScore.capturedAt || liveScore.sourceUpdatedAt, 90, 180),
-    stats: liveLaneStatus(liveStats?.capturedAt, 180, 600),
-    shadow: liveLaneStatus(shadow?.capturedAt, 180, 600),
-  } : null;
+  const liveLanes = match.live ? (() => {
+    const statsLane = liveLaneStatus(liveStats?.capturedAt, 180, 600);
+    const detailStatus = String(match.live?.detail?.detailStatus || liveStats?.detailStatus || "").toUpperCase();
+    if (!Number.isFinite(statsLane.age)) {
+      if (detailStatus === "NOT_APPLICABLE") Object.assign(statsLane, { state: "unavailable", label: "score-only" });
+      else if (detailStatus === "DEFERRED_RATE_GUARD") Object.assign(statsLane, { state: "warn", label: "rate-limit" });
+      else if (detailStatus === "DETAIL_EMPTY") Object.assign(statsLane, { state: "warn", label: "empty" });
+    } else if (detailStatus === "DEFERRED_RATE_GUARD" && statsLane.state === "fresh") {
+      Object.assign(statsLane, { state: "warn", label: statsLane.label + " · guard" });
+    }
+    return {
+      odds: liveLaneStatus(match.live.fetchedAt || match.live.oddsUpdatedAt, 90, 180),
+      score: liveLaneStatus(liveScore.capturedAt || liveScore.sourceUpdatedAt, 90, 180),
+      stats: statsLane,
+      shadow: liveLaneStatus(shadow?.capturedAt, 180, 600),
+    };
+  })() : null;
   const liveBottleneck = liveLanes
     ? Object.entries(liveLanes)
         .filter(([, lane]) => Number.isFinite(lane.age))
@@ -490,6 +501,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
             {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
             {liveStats?.source ? ` · Stats source：${liveStats.source}` : ""}
+            {match.live?.detail?.detailStatus ? ` · Detail：${match.live.detail.detailStatus}` : ""}
           </p>
         </section>
       )}
