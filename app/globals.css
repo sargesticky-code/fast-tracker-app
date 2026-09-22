@@ -1614,3 +1614,43 @@ a{color:inherit;text-decoration:none}
   .story-decision-gate>div strong{font-size:16px}
   .story-decision-gate p{font-size:12px}
 }
+
+
+.betting-blocker-strip{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:8px 0 12px;
+  padding:10px 12px;
+  border:1px solid #eadcc4;
+  border-radius:11px;
+  background:#fffaf1;
+}
+.betting-blocker-strip>span{
+  flex:0 0 auto;
+  padding-top:4px;
+  color:#8c692b;
+  font-size:9px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.betting-blocker-strip>div{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+.betting-blocker-strip b{
+  padding:5px 8px;
+  border:1px solid #eadcc4;
+  border-radius:999px;
+  background:#fff;
+  color:#6f5a31;
+  font-size:10px;
+  font-weight:850;
+  line-height:1.25;
+}
+@media(max-width:680px){
+  .betting-blocker-strip{display:block}
+  .betting-blocker-strip>span{display:block;margin-bottom:6px}
+  .betting-blocker-strip b{font-size:9px}
+}
