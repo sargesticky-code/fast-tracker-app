@@ -765,6 +765,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const liveLayerGuard = currentFeed?.systemHealth?.LIVE_LAYER_GUARD;
   const upstreamDeploy = currentFeed?.systemHealth?.LIVE_UPSTREAM_DEPLOY;
   const nativeLiveShadow = currentFeed?.systemHealth?.LIVE_SOURCE_SHADOW;
+  const liveShadowCompare = currentFeed?.systemHealth?.LIVE_SHADOW_COMPARE;
   const pipelineWarnings = [
     heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
     liveOddsAge > 3 ? "Live odds" : null,
@@ -773,6 +774,7 @@ export default function DashboardClient({ feed, nowMs }) {
     liveLayerGuard?.status === "WARN" ? "Live stats / shadow" : null,
     upstreamDeploy?.status === "WARN" || upstreamDeploy?.status === "FAIL" ? "Live upstream build" : null,
     nativeLiveShadow?.status === "FAIL" ? "Native live shadow" : null,
+    liveShadowCompare?.status === "WARN" && Number(liveShadowCompare?.raw?.live || 0) > 0 ? "Native live compare" : null,
     frontendGuard?.status === "FAIL" || frontendGuardAge > 10 ? "Dashboard links" : null,
   ].filter(Boolean);
 
