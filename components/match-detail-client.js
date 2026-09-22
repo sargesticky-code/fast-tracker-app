@@ -470,6 +470,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div><span>角球</span><b>{Number.isFinite(liveCornerTotal) ? liveCornerTotal : "—"}</b></div>
             <div><span>角球進度</span><b>{liveCornerProgress}</b></div>
           </div>
+          {!liveStats && String(match.live?.detail?.detailStatus || "").toUpperCase() === "NOT_APPLICABLE" ? (
+            <div className="live-detail-source-note">目前比分來源只提供 score / minute；今場未有可用 xG、射門、控球 detail。</div>
+          ) : null}
+          {!liveStats && String(match.live?.detail?.detailStatus || "").toUpperCase() === "DEFERRED_RATE_GUARD" ? (
+            <div className="live-detail-source-note warn">Detail source 正受 rate guard；會保留 last-good stats，下一 cycle 再更新。</div>
+          ) : null}
           {liveStats ? (
             <div className="live-stats-detail-grid">
               <div><span>xG</span><b>{pairText(liveStats.xg, 2)}</b></div>
