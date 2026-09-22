@@ -18,7 +18,8 @@ import {
 const UI_BUILD = "SUPABASE-LIVE-20260922-5";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
-const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";\nconst ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis";
+const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
+const ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis";
 
 const CORE_MODEL_DEFS = [
   { key: "HKJC", label: "HKJC no-vig" },
