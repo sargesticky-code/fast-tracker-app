@@ -565,6 +565,13 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const lineupState = eventMap?.lineup_confirmed_at ? "CONFIRMED" : eventMap ? "PENDING" : "UNMAPPED";
   const multiSources = match.multi?.sourceNames || multiDeep.sources_consensus || multiDeep.sources_total || [];
   const modelCardsAvailable = [match.forebet, match.dc, match.pi, match.form, match.multi].filter(probabilityAvailable).length;
+  const optaData = optaDeep && Object.keys(optaDeep).length ? optaDeep : (match.power || {});
+  const optaHasAny = optaData.home_rating != null || optaData.away_rating != null || optaData.home != null || optaData.away != null;
+  const optaHomeRating = optaData.home_rating ?? optaData.home;
+  const optaAwayRating = optaData.away_rating ?? optaData.away;
+  const optaHomeRank = optaData.home_rank ?? optaData.homeRank;
+  const optaAwayRank = optaData.away_rank ?? optaData.awayRank;
+  const optaCoverage = optaData.coverage || (optaHasAny ? "PARTIAL" : "NONE");
 
   return (
     <main className="shell detail-shell">
@@ -823,34 +830,23 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             chips={multiSources}
             source={multiSources.length ? "Consensus built from the source set shown above; individual source probabilities are not yet persisted in the canonical table." : null}
           />
+
+          <ModelIntelCard
+            code="OPTA"
+            title="Opta Power strength"
+            values={null}
+            state={optaCoverage}
+            stateReason={optaHasAny ? optaCoverage : "SOURCE_ABSENT"}
+            metrics={[
+              { label: "Power 主 / 客", value: `${numText(optaHomeRating, 1)} / ${numText(optaAwayRating, 1)}` },
+              { label: "Rank 主 / 客", value: `${optaHomeRank == null ? "—" : "#" + optaHomeRank} / ${optaAwayRank == null ? "—" : "#" + optaAwayRank}` },
+              { label: "Coverage", value: optaCoverage },
+              { label: "Match confidence", value: `${numText(optaData.home_match_confidence ?? optaData.homeConfidence, 2)} / ${numText(optaData.away_match_confidence ?? optaData.awayConfidence, 2)}` },
+            ]}
+            source={(optaData.source || "Opta Power Rankings") + " · strength evidence only; not a direct H/D/A probability model."}
+          />
         </div>
       </section>
-
-      {match.power && (match.power.home != null || match.power.away != null) && (
-        <section className="panel">
-          <div className="panel-title">
-            <div><p>OPTA POWER</p><h2>獨立球隊實力</h2></div>
-            <span>{match.power.coverage || "—"}</span>
-          </div>
-          <div className="power-grid">
-            <div>
-              <span>{match.homeZh || match.home}</span>
-              <b>{match.power.home == null ? "—" : Number(match.power.home).toFixed(1)}</b>
-              <small>{match.power.homeRank == null ? "" : `Rank #${match.power.homeRank}`}</small>
-              <em>{match.power.homeName || ""}</em>
-            </div>
-            <div>
-              <span>{match.awayZh || match.away}</span>
-              <b>{match.power.away == null ? "—" : Number(match.power.away).toFixed(1)}</b>
-              <small>{match.power.awayRank == null ? "" : `Rank #${match.power.awayRank}`}</small>
-              <em>{match.power.awayName || ""}</em>
-            </div>
-          </div>
-          <p className="fineprint">
-            Opta Power 只作獨立 strength evidence；未經 calibration 前唔會直接轉成 HDA probability。
-          </p>
-        </section>
-      )}
 
       {hasMovement && (
         <section className="panel">
