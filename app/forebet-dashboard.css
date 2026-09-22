@@ -2533,3 +2533,316 @@ body{
   .scenario-strip b{font-size:8px}
   .scenario-strip small{font-size:6px}
 }
+/* V7 — tablet/mobile readability hard floor
+   Tablet is a real layout, not a scaled desktop table. */
+html{
+  -webkit-text-size-adjust:100%!important;
+  text-size-adjust:100%!important;
+}
+
+@media (max-width:1050px){
+  .ft5-shell{
+    width:100%!important;
+    max-width:100%!important;
+    padding:10px 10px 82px!important;
+    overflow-x:hidden!important;
+  }
+
+  .ft5-commandbar{
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:8px!important;
+    min-height:0!important;
+    padding:9px 10px!important;
+  }
+  .ft5-brand-copy b{font-size:18px!important}
+  .ft5-brand-copy span{font-size:10px!important;line-height:1.25!important}
+  .ft5-live-pill{font-size:10px!important;padding:6px 8px!important}
+  .ft5-header-stats{
+    grid-column:1/-1!important;
+    grid-row:2!important;
+    grid-template-columns:repeat(5,minmax(72px,1fr))!important;
+    gap:5px!important;
+  }
+  .ft5-header-stats>div{padding:6px 7px!important;min-height:42px!important}
+  .ft5-header-stats span{font-size:9px!important;line-height:1.15!important}
+  .ft5-header-stats b{font-size:15px!important;line-height:1!important}
+  .ft5-header-status{grid-column:2!important;grid-row:1!important}
+  .ft5-header-status small{font-size:9px!important;line-height:1.3!important}
+  .ft5-pipeline{font-size:10px!important;line-height:1.35!important;padding:7px 9px!important}
+
+  .ft5-topbets-title{min-height:42px!important;padding:8px 10px!important}
+  .ft5-topbets-title div span{font-size:9px!important}
+  .ft5-topbets-title h2{font-size:18px!important}
+  .ft5-topbets-title button{font-size:10px!important}
+
+  /* Table headings do not help once the rows become tablet cards. */
+  .ft5-topbets-head,
+  .ft5-live-table-head,
+  .ft5-table-head{display:none!important}
+
+  /* Best bets: keep one clear row with readable text on tablet. */
+  .ft5-topbet-grid{
+    grid-template-columns:36px minmax(190px,1.7fr) minmax(90px,.78fr) minmax(96px,.86fr) 58px 76px!important;
+    min-height:72px!important;
+  }
+  .ft5-topbet-grid>div{padding:9px 8px!important}
+  .ft5-topbet-rank{font-size:11px!important}
+  .ft5-topbet-fixture>div span,
+  .ft5-topbet-fixture>div small{font-size:9px!important}
+  .ft5-topbet-fixture>b{font-size:13px!important;line-height:1.3!important}
+  .ft5-topbet-source b,
+  .ft5-topbet-choice b{font-size:11px!important}
+  .ft5-topbet-source span,
+  .ft5-topbet-choice span{font-size:9px!important}
+  .ft5-topbet-choice small{font-size:9px!important}
+  .ft5-topbet-price b{font-size:13px!important}
+  .ft5-topbet-edge b{font-size:14px!important}
+  .ft5-consensus{font-size:9px!important;min-height:18px!important;padding:2px 5px!important}
+
+  /* Fixture list: two-tier tablet card instead of five squeezed columns. */
+  .ft5-row-grid{
+    grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)!important;
+    min-height:0!important;
+  }
+  .ft5-row-grid>.ft5-cell{
+    padding:9px 10px!important;
+    border-right:0!important;
+  }
+  .ft5-fixture-cell{
+    grid-column:1/-1!important;
+    border-bottom:1px solid #e2e9e4!important;
+  }
+  .ft5-model-cell{grid-column:1!important;display:block!important}
+  .ft5-pick-cell{grid-column:2!important}
+  .ft5-market-cell{
+    grid-column:1/-1!important;
+    border-top:1px solid #edf1ee!important;
+  }
+  .ft5-status-cell{
+    grid-column:1/-1!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:8px!important;
+    border-top:1px solid #edf1ee!important;
+  }
+
+  .ft5-fixture-cell .ft5-match-meta{margin-bottom:7px!important}
+  .ft5-kickoff{font-size:10px!important}
+  .ft5-league{font-size:9px!important}
+  .ft5-fresh{font-size:9px!important}
+  .ft5-fixture-cell .ft5-teams b{
+    font-size:15px!important;
+    line-height:1.25!important;
+    white-space:normal!important;
+  }
+  .ft5-cell-label span{font-size:9px!important}
+  .ft5-cell-label b{font-size:10px!important;max-width:none!important}
+  .ft5-model-label-stack{align-items:flex-start!important}
+  .ft5-model-label-stack>b{font-size:10px!important;max-width:none!important}
+  .ft5-prob{min-height:38px!important;padding:6px!important}
+  .ft5-prob span{font-size:9px!important}
+  .ft5-prob b{font-size:12px!important}
+  .ft5-pick-main span{font-size:9px!important}
+  .ft5-pick-main b{font-size:13px!important}
+  .ft5-pick-main small{font-size:9px!important}
+  .ft5-edge-chip,
+  .ft5-move-chip{min-width:58px!important;padding:6px!important}
+  .ft5-edge-chip b{font-size:12px!important}
+  .ft5-move-chip b{font-size:10px!important}
+  .ft5-row-odds{gap:5px!important}
+  .ft5-row-odds .ft5-odd{min-height:40px!important;padding:6px 4px!important}
+  .ft5-row-odds .ft5-odd span{font-size:9px!important}
+  .ft5-row-odds .ft5-odd b{font-size:12px!important}
+  .ft5-tag,
+  .ft5-status-cell .ft5-tag,
+  .ft5-review-tag{font-size:9px!important;padding:3px 5px!important}
+  .ft5-details{font-size:10px!important}
+
+  /* Live: fixture full width, stats and control side-by-side, market full width. */
+  .ft5-live-grid{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    min-height:0!important;
+  }
+  .ft5-live-grid>div{
+    padding:9px 10px!important;
+    border-right:0!important;
+  }
+  .ft5-live-fixture{
+    grid-column:1/-1!important;
+    border-bottom:1px solid #e2e9e4!important;
+  }
+  .ft5-live-grid>div:last-child{grid-column:1/-1!important}
+  .ft5-live-meta,
+  .ft5-live-meta small,
+  .ft5-live-freshness>span,
+  .ft5-live-bottleneck{font-size:9px!important}
+  .ft5-live-scoreline>b{font-size:15px!important;line-height:1.25!important}
+  .ft5-live-scoreline .live-score-main{font-size:24px!important}
+  .ft5-live-control>div span,
+  .ft5-live-stats>div span,
+  .ft5-live-market-grid span{font-size:9px!important}
+  .ft5-live-control>div b,
+  .ft5-live-stats>div b,
+  .ft5-live-market-grid b{font-size:11px!important}
+  .ft5-live-wait{font-size:10px!important}
+
+  /* Filters and section controls are touch-readable. */
+  .ft5-fixture-controls{
+    grid-template-columns:auto minmax(0,1fr) auto!important;
+    gap:7px!important;
+    padding:6px 7px!important;
+    min-height:40px!important;
+  }
+  .ft5-fixture-heading b{font-size:11px!important}
+  .ft5-fixture-heading span{font-size:9px!important}
+  .ft5-fixture-controls .ft5-filter{font-size:10px!important;padding:6px 9px!important}
+  .ft5-fixture-controls .ft5-count{font-size:10px!important}
+}
+
+@media (max-width:680px){
+  .ft5-shell{padding:7px 7px 72px!important}
+
+  .ft5-commandbar{
+    grid-template-columns:minmax(0,1fr) auto!important;
+    padding:7px 8px!important;
+  }
+  .ft5-logo{width:32px!important;height:32px!important;font-size:11px!important}
+  .ft5-commandbar .ft5-brand-copy b{font-size:16px!important}
+  .ft5-commandbar .ft5-brand-copy span{font-size:9px!important}
+  .ft5-live-pill{font-size:9px!important}
+  .ft5-header-stats{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    overflow:visible!important;
+  }
+  .ft5-header-stats>div{min-height:38px!important;padding:5px 6px!important}
+  .ft5-header-stats span{font-size:8.5px!important}
+  .ft5-header-stats b{font-size:14px!important}
+  .ft5-header-status small{display:none!important}
+  .ft5-pipeline{font-size:9.5px!important}
+
+  .ft5-topbets-title div span{font-size:9px!important}
+  .ft5-topbets-title h2{font-size:17px!important}
+  .ft5-topbets-title button{font-size:9.5px!important}
+
+  /* Mobile Best Bets: vertical information stack; no overlapping tiny labels. */
+  .ft5-topbet-grid{
+    grid-template-columns:34px minmax(0,1fr) 72px!important;
+    grid-template-rows:auto auto auto auto!important;
+    min-height:0!important;
+  }
+  .ft5-topbet-grid>div{padding:6px 7px!important}
+  .ft5-topbet-rank{
+    grid-column:1!important;
+    grid-row:1/5!important;
+    font-size:10px!important;
+    border-right:1px solid #e5ebe7!important;
+  }
+  .ft5-topbet-fixture{
+    grid-column:2!important;
+    grid-row:1!important;
+    border-bottom:1px solid #edf1ee!important;
+  }
+  .ft5-topbet-edge{
+    grid-column:3!important;
+    grid-row:1/5!important;
+    border-left:1px solid #e5ebe7!important;
+  }
+  .ft5-topbet-source{
+    grid-column:2!important;
+    grid-row:2!important;
+    width:auto!important;
+    justify-self:stretch!important;
+    padding-right:7px!important;
+  }
+  .ft5-topbet-choice{
+    grid-column:2!important;
+    grid-row:3!important;
+    width:auto!important;
+    justify-self:stretch!important;
+    padding-left:7px!important;
+  }
+  .ft5-topbet-price{
+    grid-column:2!important;
+    grid-row:4!important;
+    width:auto!important;
+    justify-self:stretch!important;
+  }
+  .ft5-topbet-source,
+  .ft5-topbet-choice,
+  .ft5-topbet-price{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:7px!important;
+  }
+  .ft5-topbet-fixture>div span,
+  .ft5-topbet-fixture>div small{font-size:8.5px!important}
+  .ft5-topbet-fixture>b{font-size:12px!important}
+  .ft5-topbet-source span,
+  .ft5-topbet-choice span{font-size:9px!important}
+  .ft5-topbet-source b,
+  .ft5-topbet-choice b{font-size:11px!important}
+  .ft5-topbet-choice small{display:inline!important;font-size:9px!important}
+  .ft5-topbet-price b{font-size:12px!important}
+  .ft5-topbet-edge b{font-size:13px!important}
+
+  /* Phone: each fixture cell gets its own readable row. */
+  .ft5-row-grid{grid-template-columns:1fr!important}
+  .ft5-fixture-cell,
+  .ft5-model-cell,
+  .ft5-pick-cell,
+  .ft5-market-cell,
+  .ft5-status-cell{grid-column:1!important}
+  .ft5-row-grid>.ft5-cell{padding:8px!important}
+  .ft5-fixture-cell .ft5-teams b{font-size:14px!important}
+  .ft5-model-cell{
+    display:grid!important;
+    grid-template-columns:92px minmax(0,1fr)!important;
+    gap:8px!important;
+    align-items:center!important;
+  }
+  .ft5-cell-label span{font-size:8.5px!important}
+  .ft5-cell-label b,
+  .ft5-model-label-stack>b{font-size:9.5px!important}
+  .ft5-consensus{font-size:8.5px!important}
+  .ft5-prob span{font-size:8.5px!important}
+  .ft5-prob b{font-size:11px!important}
+  .ft5-pick-main span{font-size:8.5px!important}
+  .ft5-pick-main b{font-size:12px!important}
+  .ft5-pick-main small{font-size:8.5px!important}
+  .ft5-row-odds .ft5-odd span{font-size:8.5px!important}
+  .ft5-row-odds .ft5-odd b{font-size:11px!important}
+  .ft5-status-cell .ft5-tag{font-size:8.5px!important}
+  .ft5-details{font-size:9.5px!important}
+
+  .ft5-live-grid{grid-template-columns:1fr!important}
+  .ft5-live-fixture,
+  .ft5-live-grid>div:last-child{grid-column:1!important}
+  .ft5-live-grid>div{padding:8px!important}
+  .ft5-live-scoreline>b{font-size:14px!important}
+  .ft5-live-scoreline .live-score-main{font-size:22px!important}
+  .ft5-live-freshness>span{font-size:8.5px!important;padding:3px 5px!important}
+  .ft5-live-control>div span,
+  .ft5-live-stats>div span,
+  .ft5-live-market-grid span{font-size:8.5px!important}
+  .ft5-live-control>div b,
+  .ft5-live-stats>div b,
+  .ft5-live-market-grid b{font-size:10.5px!important}
+
+  .ft5-fixture-controls{
+    grid-template-columns:1fr auto!important;
+    gap:5px!important;
+    padding:5px!important;
+  }
+  .ft5-fixture-heading{grid-column:1!important;grid-row:1!important}
+  .ft5-fixture-heading b{font-size:10px!important}
+  .ft5-fixture-controls .ft5-count{grid-column:2!important;grid-row:1!important;font-size:9px!important}
+  .ft5-fixture-controls .ft5-filters{grid-column:1/-1!important;grid-row:2!important}
+  .ft5-fixture-controls .ft5-filter{font-size:10px!important;padding:6px 9px!important}
+
+  .ft5-bottom-nav{min-height:50px!important}
+  .ft5-bottom-nav button,
+  .ft5-bottom-nav a{font-size:11px!important}
+}
