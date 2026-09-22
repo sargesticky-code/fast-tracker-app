@@ -253,3 +253,5 @@ The dashboard may show REVIEW 0–100 to help decide which match to inspect firs
 - Fallback HKJC prices are reference only: `currentOdds=null`, `referenceOdds=<stored price>`, `oddsStatus=REFERENCE_STALE`. Never display fallback prices as current HKJC odds.
 - Phase 9 story contract is V4 and includes deep-detail evidence plus provenance/freshness metadata. Preserve backward-compatible response fields used by the production detail page.
 - After changing either Edge Function, smoke-test at least one canonical-active match and one DB-fallback match, then sync the deployed source back to GitHub if the deployed copy changed.
+
+<!-- railway-production-watch: all-files -->
