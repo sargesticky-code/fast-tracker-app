@@ -58,6 +58,26 @@ function pairText(pair, digits = 0, suffix = "") {
   return `${h.toFixed(digits)}${suffix}-${a.toFixed(digits)}${suffix}`;
 }
 
+function liveAgeSeconds(value) {
+  if (!value) return Infinity;
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return Infinity;
+  return Math.max(0, Math.round((Date.now() - ms) / 1000));
+}
+
+function liveAgeLabel(seconds) {
+  if (!Number.isFinite(seconds)) return "等待";
+  if (seconds < 60) return seconds + "s";
+  if (seconds < 3600) return Math.round(seconds / 60) + "m";
+  return Math.round(seconds / 3600) + "h";
+}
+
+function liveLaneStatus(value, warnSeconds, staleSeconds) {
+  const age = liveAgeSeconds(value);
+  const state = !Number.isFinite(age) ? "missing" : age > staleSeconds ? "stale" : age > warnSeconds ? "warn" : "fresh";
+  return { age, state, label: liveAgeLabel(age) };
+}
+
 function controlSideLabel(match, side) {
   if (side === "H") return match.homeZh || match.home || "主";
   if (side === "A") return match.awayZh || match.away || "客";
@@ -361,6 +381,17 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     : "—";
   const liveStats = match.live?.stats || null;
   const shadow = match.live?.shadow || null;
+  const liveLanes = match.live ? {
+    odds: liveLaneStatus(match.live.fetchedAt || match.live.oddsUpdatedAt, 90, 180),
+    score: liveLaneStatus(liveScore.capturedAt || liveScore.sourceUpdatedAt, 90, 180),
+    stats: liveLaneStatus(liveStats?.capturedAt, 180, 600),
+    shadow: liveLaneStatus(shadow?.capturedAt, 180, 600),
+  } : null;
+  const liveBottleneck = liveLanes
+    ? Object.entries(liveLanes)
+        .filter(([, lane]) => Number.isFinite(lane.age))
+        .sort((a, b) => b[1].age - a[1].age)[0] || null
+    : null;
   const goalsCompare = lineComparisonStatus(match, "goals");
   const cornersCompare = lineComparisonStatus(match, "corners");
   const goalsLineModel = match.forebetDetail?.goalsCurrentLine || null;
@@ -411,6 +442,17 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div><p>HKJC LIVE</p><h2>即場市場</h2></div>
             <span>{match.live.status || "LIVE"}</span>
           </div>
+          {liveLanes ? (
+            <div className="live-freshness-strip">
+              <span className={"lane-" + liveLanes.odds.state}>賠率 <b>{liveLanes.odds.label}</b></span>
+              <span className={"lane-" + liveLanes.score.state}>比分 <b>{liveLanes.score.label}</b></span>
+              <span className={"lane-" + liveLanes.stats.state}>Stats <b>{liveLanes.stats.label}</b></span>
+              <span className={"lane-" + liveLanes.shadow.state}>Shadow <b>{liveLanes.shadow.label}</b></span>
+              {liveBottleneck && liveBottleneck[1].state !== "fresh"
+                ? <strong>目前最慢：{liveBottleneck[0]} {liveBottleneck[1].label}</strong>
+                : <strong className="fresh">四層同步正常</strong>}
+            </div>
+          ) : null}
           <div className="live-score-summary">
             <div><span>比分</span><b>{liveScoreText}</b></div>
             <div><span>時間</span><b>{liveMinute}</b></div>
@@ -447,6 +489,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <p className="fineprint">
             Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
             {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
+            {liveStats?.source ? ` · Stats source：${liveStats.source}` : ""}
           </p>
         </section>
       )}
