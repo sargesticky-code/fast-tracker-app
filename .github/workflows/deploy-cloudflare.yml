@@ -34,7 +34,11 @@ jobs:
           CF_PAGES: "1"
 
       - name: Verify static output
-        run: test -f out/index.html
+        run: |
+          test -f out/index.html
+          test -f out/details/index.html
+          test -f out/health/index.html
+          test -f out/match/index.html
 
       - name: Deploy to Cloudflare Workers
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
