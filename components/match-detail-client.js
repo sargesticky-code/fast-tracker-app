@@ -15,7 +15,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "SUPABASE-LIVE-20260922-5";
+const UI_BUILD = "DETAIL-V2-20260922-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -149,7 +149,7 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
           <span>{code}</span>
           <h3>{title}</h3>
         </div>
-        <b>{state || modelStateLabel(available, stateReason)}</b>
+        <b>{available ? (state || "AVAILABLE") : ""}</b>
       </div>
       {probs ? (
         <div className="model-hda-strip">
@@ -158,7 +158,7 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
           ))}
         </div>
       ) : (
-        <div className="model-empty-reason">{modelStateLabel(false, stateReason)}</div>
+        <div className="model-empty-reason model-empty-slot" aria-label={modelStateLabel(false, stateReason)}>&nbsp;</div>
       )}
       {metrics.length ? (
         <div className="model-metric-grid">
@@ -301,11 +301,14 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const [source, setSource] = useState("LOADING");
   const [ready, setReady] = useState(false);
   const [deep, setDeep] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     const matchId = new URLSearchParams(window.location.search).get("id") || "";
     setId(matchId);
+    setAnalysis(null);
+    setDeep(null);
 
     if (!matchId) {
       setReady(true);
@@ -587,6 +590,52 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
   const optaAwayRank = optaData.away_rank ?? optaData.awayRank;
   const optaCoverage = optaData.coverage || (optaHasAny ? "PARTIAL" : "NONE");
 
+  const analysisDecision = analysis?.decision || null;
+  const primarySide = analysisDecision?.selection || gap?.key || null;
+  const primaryEdgePp = analysisDecision?.candidateEdgePp != null
+    ? Number(analysisDecision.candidateEdgePp)
+    : gap?.value != null ? Number(gap.value) * 100 : null;
+  const primaryOdds = analysisDecision?.currentOdds != null
+    ? Number(analysisDecision.currentOdds)
+    : primarySide === "H" ? Number(match.odds?.home)
+      : primarySide === "D" ? Number(match.odds?.draw)
+        : primarySide === "A" ? Number(match.odds?.away)
+          : null;
+  const primaryModelSource = match.multi || match.forebet || match.dc || match.pi || match.form || null;
+  const primaryModelProbability = analysisDecision?.analystConsensusProbability != null
+    ? Number(analysisDecision.analystConsensusProbability)
+    : primarySide === "H" ? Number(primaryModelSource?.home)
+      : primarySide === "D" ? Number(primaryModelSource?.draw)
+        : primarySide === "A" ? Number(primaryModelSource?.away)
+          : null;
+  const primaryMarketProbability = analysisDecision?.marketFairProbability != null
+    ? Number(analysisDecision.marketFairProbability)
+    : primarySide === "H" ? Number(market?.home)
+      : primarySide === "D" ? Number(market?.draw)
+        : primarySide === "A" ? Number(market?.away)
+          : null;
+  const primarySelectionLabel = analysisDecision?.selectionLabel
+    || (primarySide ? sideName(match, primarySide) : "暫無明確投注位");
+  const rawAction = String(analysisDecision?.action || (primaryEdgePp != null && primaryEdgePp >= 2.5 ? "WATCH" : "PASS")).toUpperCase();
+  const actionLabel = rawAction === "NO_BET" ? "暫不下注"
+    : rawAction === "PASS" ? "暫時跳過"
+      : rawAction.includes("STRONG") ? "強 Edge 候選"
+        : rawAction.includes("VALUE") ? "Value 候選"
+          : rawAction.includes("LEAN") ? "輕微傾向"
+            : "觀察";
+  const actionTone = rawAction === "NO_BET" || rawAction === "PASS" ? "pass"
+    : rawAction.includes("STRONG") || rawAction.includes("VALUE") ? "value"
+      : "watch";
+  const fallbackAdvice = primarySide && primaryEdgePp != null
+    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}%`
+    : "現時未有足夠資料形成清晰投注位。";
+  const bettingAdvice = analysis?.story?.advice || fallbackAdvice;
+  const sideRows = [
+    { key: "H", label: match.homeZh || match.home || "主", odds: match.odds?.home, fair: market?.home },
+    { key: "D", label: "和", odds: match.odds?.draw, fair: market?.draw },
+    { key: "A", label: match.awayZh || match.away || "客", odds: match.odds?.away, fair: market?.away },
+  ];
+
   return (
     <main className="shell detail-shell">
       <div className="detail-top">
@@ -599,16 +648,74 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         }}>↻ 最新</button>
       </div>
 
-      <section className="detail-hero">
-        <div className="detail-meta">{formatKickoff(match.kickoff)} · {match.league}</div>
-        {zhTitle && <div className="zh-teams">{zhTitle}</div>}
-        <h1>{match.homeZh || match.home}</h1>
-        <p>vs</p>
-        <h1>{match.awayZh || match.away}</h1>
-        {predictedScore ? <div className="predicted-score">Forebet 預測 <b>{predictedScore}</b></div> : null}
+      <section className="detail-hero detail-v2-hero">
+        <div className="detail-v2-meta">
+          <span>{formatKickoff(match.kickoff)}</span>
+          <b>{match.league}</b>
+          <span>{match.id}</span>
+        </div>
+        <div className="detail-v2-fixture">
+          <div className="detail-v2-team home">
+            <small>HOME</small>
+            <h1>{match.homeZh || match.home}</h1>
+            {match.homeEn && match.homeZh ? <span>{match.homeEn}</span> : null}
+          </div>
+          <div className="detail-v2-centre">
+            <strong>VS</strong>
+            {predictedScore ? <span>Forebet <b>{predictedScore}</b></span> : <span>&nbsp;</span>}
+          </div>
+          <div className="detail-v2-team away">
+            <small>AWAY</small>
+            <h1>{match.awayZh || match.away}</h1>
+            {match.awayEn && match.awayZh ? <span>{match.awayEn}</span> : null}
+          </div>
+        </div>
         <div className="detail-status-row">
           <span className={`freshness freshness-${fresh.key}`}>{fresh.label}</span>
           <span className="evidence-count">{evidenceCount} evidence inputs</span>
+        </div>
+      </section>
+
+      <section className={`betting-command betting-command-${actionTone}`}>
+        <div className="betting-command-head">
+          <div>
+            <span>BETTING VIEW</span>
+            <h2>{actionLabel}</h2>
+          </div>
+          <b>{analysis ? "Interpreter ready" : "基於現有 Phase 1 資料"}</b>
+        </div>
+
+        <div className="betting-command-grid">
+          <div className="betting-primary-pick">
+            <span>主要投注位</span>
+            <strong>{primarySelectionLabel}</strong>
+            <b>{Number.isFinite(primaryOdds) ? "@ " + primaryOdds.toFixed(2) : " "}</b>
+          </div>
+          <div className="betting-edge-hero">
+            <span>EDGE</span>
+            <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "%"}</strong>
+            <small>Model probability − HKJC fair probability</small>
+          </div>
+          <div className="betting-prob-compare">
+            <div><span>模型</span><b>{Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</b></div>
+            <div><span>市場</span><b>{Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</b></div>
+          </div>
+        </div>
+
+        <div className="betting-advice-copy">
+          <span>BETTING ADVICE</span>
+          <p>{bettingAdvice}</p>
+        </div>
+
+        <div className="detail-market-strip">
+          {sideRows.map((row) => (
+            <div className={primarySide === row.key ? "edge-target" : ""} key={row.key}>
+              <span>{row.key} · {row.label}</span>
+              <b>{formatOdds(row.odds)}</b>
+              <small>{row.fair == null ? " " : "Fair " + (Number(row.fair) * 100).toFixed(1) + "%"}</small>
+              {primarySide === row.key ? <em>EDGE</em> : null}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -957,50 +1064,28 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       ) : null}
 
       {analysis ? (
-        <section className="panel analyst-panel">
+        <section className="panel analyst-panel analyst-detail-panel">
           <div className="panel-title">
-            <div><p>FAST TRACKER INTERPRETER · PHASE 9</p><h2>{analysis.story?.headline || "數據解讀中"}</h2></div>
-            <span>{analysis.decision?.action || "WATCH"}</span>
-          </div>
-          <p className="panel-intro">{analysis.story?.summary}</p>
-          <div className="human-summary-grid">
-            <div>
-              <span>候選投注位</span>
-              <b>{analysis.decision?.selectionLabel || "PASS"}</b>
-              <small>{analysis.decision?.currentOdds == null ? "—" : "@ " + Number(analysis.decision.currentOdds).toFixed(2)}</small>
-            </div>
-            <div>
-              <span>模型中心</span>
-              <b>{analysis.decision?.analystConsensusProbability == null ? "—" : (Number(analysis.decision.analystConsensusProbability) * 100).toFixed(1) + "%"}</b>
-              <small>vs 市場 {analysis.decision?.marketFairProbability == null ? "—" : (Number(analysis.decision.marketFairProbability) * 100).toFixed(1) + "%"}</small>
-            </div>
-            <div>
-              <span>Candidate Edge</span>
-              <b>{analysis.decision?.candidateEdgePp == null ? "—" : (Number(analysis.decision.candidateEdgePp) >= 0 ? "+" : "") + Number(analysis.decision.candidateEdgePp).toFixed(1) + "pp"}</b>
-              <small>{analysis.decision?.candidateClass || "—"}</small>
-            </div>
-            <div>
-              <span>Evidence</span>
-              <b>{analysis.decision?.evidenceFamilyCount ?? 0} families</b>
-              <small>value support {analysis.decision?.valueSupportRatio == null ? "—" : Math.round(Number(analysis.decision.valueSupportRatio) * 100) + "%"}</small>
-            </div>
+            <div><p>WHY THIS BET</p><h2>點解個 Edge 喺呢度</h2></div>
+            <span>{analysis.decision?.candidateClass || analysis.decision?.action || "WATCH"}</span>
           </div>
           <div className="evidence-rows">
-            <div><span>市場</span><b>{analysis.story?.marketRead || "—"}</b></div>
-            <div><span>模型</span><b>{analysis.story?.modelRead || "—"}</b></div>
-            <div><span>人為因素</span><b>{analysis.story?.humanRead || "—"}</b></div>
-            <div><span>Live</span><b>{analysis.story?.liveRead || "—"}</b></div>
-            <div><span>賠率走勢</span><b>{analysis.story?.movementRead || "—"}</b></div>
+            <div><span>市場</span><b>{analysis.story?.marketRead || ""}</b></div>
+            <div><span>模型</span><b>{analysis.story?.modelRead || ""}</b></div>
+            <div><span>人為因素</span><b>{analysis.story?.humanRead || ""}</b></div>
+            <div><span>Live</span><b>{analysis.story?.liveRead || ""}</b></div>
+            <div><span>賠率走勢</span><b>{analysis.story?.movementRead || ""}</b></div>
           </div>
-          <div className="model-empty-reason">{analysis.story?.advice || "暫未有解讀"}</div>
           {Array.isArray(analysis.invalidators) && analysis.invalidators.length ? (
-            <p className="fineprint">失效條件 / 風險：{analysis.invalidators.join(" · ")}</p>
+            <div className="betting-risk-box"><span>風險 / 失效條件</span><p>{analysis.invalidators.join(" · ")}</p></div>
           ) : null}
-          <p className="fineprint">
-            {analysis.engine} · 數字、Edge、選擇由 deterministic engine 計算；文字層不可自行修改 odds、機率、傷停、正選或 live stats。
-          </p>
         </section>
-      ) : null}
+      ) : (
+        <section className="panel analyst-panel analyst-detail-panel analyst-loading">
+          <div className="panel-title"><div><p>WHY THIS BET</p><h2>分析資料載入中</h2></div></div>
+          <div className="analysis-placeholder-grid"><span></span><span></span><span></span></div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-title"><div><p>DATA HEALTH</p><h2>完整資料狀態</h2></div><span>{match.health?.status || "UNKNOWN"}</span></div>
