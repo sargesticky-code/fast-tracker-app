@@ -755,7 +755,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     <main className="shell detail-shell">
       <div className="detail-top">
         <a href="/" className="back">← 返回</a>
-        <span>{match.id} · FORM VIEW {UI_BUILD} · {source} · 更新 {formatUpdated(match.updatedAt)}</span>
+        <span className="detail-top-updated">更新 {formatUpdated(match.updatedAt)}</span>
         <button type="button" className="back" onClick={() => {
           setReady(false);
           setSource("REFRESHING");
@@ -1332,6 +1332,11 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <b>{match.health?.status || "UNKNOWN"}</b>
         </summary>
         <div className="technical-health-body">
+        <div className="technical-build-line">
+          <span>{match.id}</span>
+          <b>{UI_BUILD}</b>
+          <small>{source}</small>
+        </div>
         <div className="health-list">
           <div><span>HKJC freshness</span><b>{match.health?.hkjcFreshness || fresh.label}</b></div>
           <div><span>HKJC fetched</span><b>{formatUpdated(match.health?.hkjcFetchedAt)}</b></div>
