@@ -5062,3 +5062,245 @@ html{
     margin-left:0;
   }
 }
+
+
+/* V9 — four-column bookmaker board */
+.ft5-table-head,
+.ft5-row-grid{
+  grid-template-columns:26% 23% 18% 33%!important;
+}
+.ft5-table-head{
+  min-height:28px!important;
+  font-size:9px!important;
+}
+.ft5-row-grid{
+  min-height:56px!important;
+}
+.ft5-cell{
+  padding:5px 7px!important;
+}
+
+/* fixture meta is one readable line, not three separate chips */
+.ft5-match-meta{
+  display:flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  margin-bottom:3px!important;
+  white-space:nowrap;
+}
+.ft5-kickoff{
+  font-size:10px!important;
+}
+.ft5-league,
+.ft5-meta-sep,
+.ft5-fresh-text{
+  font-size:9px!important;
+}
+.ft5-meta-sep{
+  color:#a2ada7;
+}
+.ft5-fresh-text{
+  color:#718078;
+  font-weight:800;
+}
+.ft5-fresh-text.ft5-fresh-stale,
+.ft5-fresh-text.ft5-fresh-missing{
+  color:#a15145;
+}
+.ft5-teams{
+  gap:5px!important;
+}
+.ft5-teams b{
+  max-width:47%!important;
+  font-size:14px!important;
+}
+
+/* model + health + review become one compact header line */
+.ft5-model-cell{
+  gap:3px!important;
+}
+.ft5-model-heading{
+  display:flex!important;
+  align-items:center!important;
+  gap:5px!important;
+}
+.ft5-model-heading>b{
+  flex:0 0 auto;
+  font-size:11px!important;
+}
+.ft5-model-badges{
+  min-width:0;
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:3px;
+  overflow:hidden;
+}
+.ft5-model-badges small{
+  flex:0 0 auto;
+  min-height:15px;
+  padding:2px 4px;
+  border-radius:3px;
+  font-size:7.5px!important;
+  line-height:1.15;
+  white-space:nowrap;
+}
+.ft5-review-inline{
+  font-weight:950;
+  border:1px solid transparent;
+}
+.ft5-health-inline{
+  font-weight:900;
+}
+.ft5-health-inline.health-rich{
+  background:#e3f3e7;
+  color:#27734d;
+}
+.ft5-health-inline.health-partial{
+  background:#e9f1fb;
+  color:#466c96;
+}
+.ft5-health-inline.health-warn{
+  background:#fff2cf;
+  color:#946514;
+}
+.ft5-health-inline.health-danger{
+  background:#f7e4e1;
+  color:#9c4c46;
+}
+
+/* HDA probabilities use width, not height */
+.ft5-probs{
+  min-height:28px!important;
+  padding:3px!important;
+  gap:3px!important;
+}
+.ft5-prob{
+  min-height:25px!important;
+  padding:2px 3px!important;
+}
+.ft5-prob span{
+  font-size:7.5px!important;
+}
+.ft5-prob b{
+  margin-top:1px!important;
+  font-size:11px!important;
+}
+
+/* pick/edge stays on one visual line */
+.ft5-pick-cell{
+  gap:5px!important;
+}
+.ft5-pick-main{
+  flex:0 1 auto!important;
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  gap:4px!important;
+}
+.ft5-pick-label{
+  padding:2px 4px;
+  border-radius:3px;
+  background:#eef3ef;
+  color:#597066;
+  font-size:8px!important;
+  font-weight:900;
+  white-space:nowrap;
+}
+.ft5-pick-main>b{
+  font-size:13px!important;
+}
+.ft5-pick-main>small{
+  font-size:9px!important;
+}
+.ft5-signal-stack{
+  margin-left:auto;
+  gap:3px!important;
+}
+.ft5-edge-chip,
+.ft5-move-chip{
+  min-width:50px!important;
+  padding:4px 5px!important;
+}
+.ft5-edge-chip>b{
+  font-size:12px!important;
+}
+.ft5-edge-chip.strong>b{
+  font-size:13px!important;
+}
+
+/* give real market data the space released by deleting Status */
+.ft5-market-cell{
+  padding-left:8px!important;
+  padding-right:8px!important;
+}
+.ft5-row-odds{
+  gap:4px!important;
+}
+.ft5-row-odds .ft5-odd{
+  min-height:34px!important;
+  padding:3px 4px!important;
+}
+.ft5-row-odds .ft5-odd span{
+  font-size:8px!important;
+}
+.ft5-row-odds .ft5-odd b{
+  font-size:10.5px!important;
+}
+.ft5-edge-market-mark{
+  display:block;
+  margin-top:1px;
+  font-size:7px!important;
+  line-height:1;
+}
+
+/* obsolete fifth-column styles should not consume layout */
+.ft5-status-cell{
+  display:none!important;
+}
+
+/* slightly cleaner row separators */
+.ft5-match-card{
+  background:#fff!important;
+}
+.ft5-match-card:nth-child(even){
+  background:#f8faf8!important;
+}
+.ft5-row-model-split .ft5-model-cell{
+  background:#fffaf2!important;
+}
+
+/* tablet keeps same four-column language */
+@media (max-width:1050px) and (min-width:681px){
+  .ft5-table-head,
+  .ft5-row-grid{
+    grid-template-columns:27% 24% 19% 30%!important;
+  }
+  .ft5-model-badges .ft5-health-inline{
+    display:none;
+  }
+  .ft5-teams b{
+    font-size:13px!important;
+  }
+}
+
+/* mobile remains stacked; status information stays inside model header */
+@media (max-width:680px){
+  .ft5-row-grid{
+    grid-template-columns:1fr!important;
+  }
+  .ft5-status-cell{
+    display:none!important;
+  }
+  .ft5-model-badges{
+    overflow:visible;
+    flex-wrap:wrap;
+  }
+  .ft5-model-badges small{
+    font-size:7px!important;
+  }
+  .ft5-match-meta{
+    flex-wrap:wrap;
+  }
+}
