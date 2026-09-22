@@ -5304,3 +5304,351 @@ html{
     flex-wrap:wrap;
   }
 }
+
+
+/* V10 — compact ranked Best Bets + three-column Live scoreboard */
+
+/* BEST BETS: 4 useful columns, no empty model/odds boxes */
+.ft5-topbets-head,
+.ft5-topbet-grid{
+  grid-template-columns:42px minmax(360px,1fr) minmax(260px,.72fr) 112px!important;
+}
+.ft5-topbets-head{
+  min-height:27px!important;
+  font-size:9px!important;
+}
+.ft5-topbets-head span{
+  padding:0 9px!important;
+}
+.ft5-topbet-grid{
+  min-height:50px!important;
+}
+.ft5-topbet-grid>div{
+  padding:5px 9px!important;
+}
+.ft5-topbet-rank{
+  font-size:11px!important;
+}
+.ft5-topbet-fixture{
+  gap:2px!important;
+}
+.ft5-topbet-fixture>div{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  margin-bottom:2px!important;
+  min-width:0;
+}
+.ft5-topbet-fixture>div span,
+.ft5-topbet-fixture>div small{
+  font-size:8.5px!important;
+  white-space:nowrap;
+}
+.ft5-topbet-fixture>div small:not(.ft5-consensus){
+  color:#74827a!important;
+}
+.ft5-topbet-fixture .ft5-consensus{
+  min-height:14px!important;
+  padding:1px 4px!important;
+  margin:0!important;
+  font-size:7px!important;
+}
+.ft5-topbet-fixture>b{
+  font-size:13px!important;
+  line-height:1.15!important;
+}
+.ft5-topbet-choice{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+  min-width:0;
+}
+.ft5-topbet-type{
+  padding:2px 5px;
+  border-radius:3px;
+  background:#eef3ef;
+  color:#607168!important;
+  font-size:8px!important;
+  font-weight:900;
+  white-space:nowrap;
+}
+.ft5-topbet-choice>b{
+  margin:0!important;
+  color:#214d38!important;
+  font-size:13px!important;
+  white-space:nowrap;
+}
+.ft5-topbet-choice>small{
+  margin:0!important;
+  color:#74827a!important;
+  font-size:10px!important;
+  white-space:nowrap;
+}
+.ft5-topbet-choice>strong{
+  color:#51665b;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.ft5-topbet-edge{
+  display:grid!important;
+  place-items:center!important;
+  padding:5px 8px!important;
+  background:#e4f2e9!important;
+}
+.ft5-topbet-edge>b{
+  margin:0!important;
+  color:#10683e!important;
+  font-size:15px!important;
+  line-height:1!important;
+}
+
+/* LIVE: fixture / readout / market */
+.ft5-live-table-head,
+.ft5-live-grid{
+  grid-template-columns:32% 39% 29%!important;
+}
+.ft5-live-table-head{
+  min-height:27px!important;
+  padding:0 7px!important;
+  font-size:9px!important;
+}
+.ft5-live-table-head span{
+  padding:0 7px!important;
+}
+.ft5-live-grid{
+  min-height:54px!important;
+}
+.ft5-live-grid>div{
+  padding:5px 7px!important;
+}
+.ft5-live-fixture{
+  justify-content:center!important;
+}
+.ft5-live-meta{
+  gap:5px!important;
+  margin-bottom:3px!important;
+}
+.ft5-live-meta>b{
+  font-size:10px!important;
+}
+.ft5-live-meta>small{
+  font-size:8.5px!important;
+}
+.ft5-live-meta .shadow-chip{
+  margin-left:0!important;
+  font-size:7.5px!important;
+  padding:2px 4px!important;
+}
+.ft5-live-health-note{
+  margin-left:auto;
+  padding:2px 4px;
+  border-radius:3px;
+  background:#fff1cf;
+  color:#8c6416;
+  font-size:7.5px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.ft5-live-scoreline{
+  grid-template-columns:minmax(0,1fr) 52px minmax(0,1fr)!important;
+  gap:5px!important;
+}
+.ft5-live-scoreline>b{
+  font-size:13px!important;
+}
+.ft5-live-scoreline .live-score-main{
+  min-width:50px!important;
+  padding:4px 5px!important;
+  font-size:18px!important;
+}
+
+/* one dense live evidence strip */
+.ft5-live-readout{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:3px;
+}
+.ft5-live-readout-grid{
+  display:grid;
+  grid-template-columns:1.15fr 1.15fr .55fr .9fr .8fr .8fr 1fr;
+  gap:3px;
+  min-width:0;
+}
+.ft5-live-readout-grid>div{
+  min-width:0;
+  padding:4px 3px;
+  border:1px solid #e1e8e3;
+  border-radius:3px;
+  background:#f8faf8;
+  text-align:center;
+}
+.ft5-live-readout-grid span{
+  display:block;
+  color:#7b8981;
+  font-size:7px;
+  font-weight:900;
+  line-height:1;
+}
+.ft5-live-readout-grid b{
+  display:block;
+  margin-top:2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#214e39;
+  font-size:9px;
+  line-height:1.1;
+}
+.ft5-live-data-note{
+  display:block;
+  color:#8a958f;
+  font-size:7.5px;
+  font-weight:750;
+  line-height:1.1;
+}
+
+/* market stays compact, with no unused height */
+.ft5-live-market-grid{
+  display:grid!important;
+  grid-template-columns:1.15fr 1fr 1fr!important;
+  align-items:center!important;
+  gap:3px!important;
+}
+.ft5-live-market-grid>div{
+  padding:4px 5px!important;
+  border-radius:3px!important;
+}
+.ft5-live-market-grid span{
+  font-size:7.5px!important;
+}
+.ft5-live-market-grid b{
+  margin-top:2px!important;
+  font-size:9.5px!important;
+}
+.ft5-live-market-grid small{
+  margin-top:1px!important;
+  font-size:7px!important;
+}
+
+/* old split Live panels are obsolete in V10 */
+.ft5-live-control,
+.ft5-live-stats,
+.ft5-live-freshness{
+  display:none!important;
+}
+
+@media (max-width:1050px) and (min-width:681px){
+  .ft5-topbets-head,
+  .ft5-topbet-grid{
+    grid-template-columns:38px minmax(290px,1fr) minmax(210px,.72fr) 92px!important;
+  }
+  .ft5-live-table-head,
+  .ft5-live-grid{
+    grid-template-columns:34% 38% 28%!important;
+  }
+  .ft5-live-readout-grid{
+    grid-template-columns:1fr 1fr .5fr .8fr .72fr .72fr .9fr;
+    gap:2px;
+  }
+  .ft5-live-readout-grid>div{
+    padding:4px 2px;
+  }
+  .ft5-live-readout-grid span{
+    font-size:6.5px;
+  }
+  .ft5-live-readout-grid b{
+    font-size:8px;
+  }
+}
+
+/* mobile: compact stacked scoreboards, still readable */
+@media (max-width:680px){
+  .ft5-topbets-head{
+    display:none!important;
+  }
+  .ft5-topbet-grid{
+    grid-template-columns:34px minmax(0,1fr) 66px!important;
+    min-height:58px!important;
+  }
+  .ft5-topbet-rank{
+    grid-column:1;
+    grid-row:1/3;
+    border-right:1px solid #e5ebe7!important;
+  }
+  .ft5-topbet-fixture{
+    grid-column:2;
+    grid-row:1;
+    border-bottom:1px solid #edf1ee;
+  }
+  .ft5-topbet-fixture>div{
+    gap:4px!important;
+    overflow:hidden;
+  }
+  .ft5-topbet-fixture>div span,
+  .ft5-topbet-fixture>div small{
+    font-size:7.5px!important;
+  }
+  .ft5-topbet-fixture>b{
+    font-size:11px!important;
+  }
+  .ft5-topbet-choice{
+    grid-column:2;
+    grid-row:2;
+    gap:5px!important;
+  }
+  .ft5-topbet-type{
+    font-size:7px!important;
+  }
+  .ft5-topbet-choice>b{
+    font-size:10px!important;
+  }
+  .ft5-topbet-choice>small,
+  .ft5-topbet-choice>strong{
+    font-size:8px!important;
+  }
+  .ft5-topbet-edge{
+    grid-column:3;
+    grid-row:1/3;
+    border-left:1px solid #e5ebe7!important;
+  }
+  .ft5-topbet-edge>b{
+    font-size:12px!important;
+  }
+
+  .ft5-live-table-head{
+    display:none!important;
+  }
+  .ft5-live-grid{
+    grid-template-columns:1fr!important;
+  }
+  .ft5-live-grid>div{
+    border-right:0!important;
+  }
+  .ft5-live-fixture{
+    border-bottom:1px solid #e6ece8;
+  }
+  .ft5-live-readout{
+    border-bottom:1px solid #edf1ee;
+  }
+  .ft5-live-readout-grid{
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:2px;
+  }
+  .ft5-live-readout-grid>div{
+    padding:4px 2px;
+  }
+  .ft5-live-readout-grid span{
+    font-size:6.5px;
+  }
+  .ft5-live-readout-grid b{
+    font-size:7.5px;
+  }
+  .ft5-live-market-grid{
+    grid-template-columns:1.15fr 1fr 1fr!important;
+  }
+}
