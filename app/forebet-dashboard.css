@@ -4467,3 +4467,30 @@ html{
     grid-row:2;
   }
 }
+
+/* DETAIL V5.1 — clean visible header */
+.detail-top-updated{
+  justify-self:center;
+  align-self:center;
+  color:#8a958e!important;
+  font-size:8.5px!important;
+  letter-spacing:.01em;
+}
+.technical-build-line{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+  margin-bottom:9px;
+  padding:8px 9px;
+  border:1px solid #e5e9e6;
+  border-radius:8px;
+  background:#f8faf9;
+}
+.technical-build-line span,
+.technical-build-line b,
+.technical-build-line small{
+  color:#75827a;
+  font-size:8px;
+}
+.technical-build-line b{color:#52655a}
