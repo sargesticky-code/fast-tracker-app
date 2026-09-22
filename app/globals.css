@@ -1186,3 +1186,5 @@ a{color:inherit;text-decoration:none}
   .live-freshness-strip>span b{font-size:9px}
   .live-freshness-strip>strong{width:100%;margin-left:0;font-size:8px}
 }
+
+.live-freshness-strip .lane-unavailable{background:#edf1f4;border-color:#d5dce1;color:#687782}
