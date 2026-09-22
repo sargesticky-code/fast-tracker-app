@@ -191,19 +191,37 @@ function TeamFormCard({ title, name, detail }) {
   const losses = Number(detail?.losses || 0);
   const gf = Number(detail?.goalsFor || 0);
   const ga = Number(detail?.goalsAgainst || 0);
+  const points = recent.reduce((sum, row) => sum + (row.result === "W" ? 3 : row.result === "D" ? 1 : 0), 0);
+  const momentum = recent.length ? Math.round((points / (recent.length * 3)) * 100) : null;
+  const momentumLabel = momentum == null ? "NO HISTORY" : momentum >= 67 ? "HOT FORM" : momentum >= 40 ? "STEADY" : "WEAK FORM";
+  const goalDiff = gf - ga;
 
   return (
-    <div className="team-form-card">
+    <div className="team-form-card form-signal-card">
       <div className="team-form-card-head">
         <div>
           <small>{title}</small>
           <h3>{name}</h3>
         </div>
-        <span>{games ? games + " recent" : "NO HISTORY"}</span>
+        <span className={"form-signal-label " + (momentum == null ? "" : momentum >= 67 ? "is-hot" : momentum >= 40 ? "is-steady" : "is-weak")}>{momentumLabel}</span>
       </div>
 
       {recent.length ? (
         <>
+          <div className="form-momentum-row">
+            <div className="form-momentum-score">
+              <span>FORM MOMENTUM</span>
+              <strong>{momentum}%</strong>
+            </div>
+            <div className="form-momentum-track" aria-label={"Form momentum " + momentum + "%"}>
+              <i style={{ width: momentum + "%" }}></i>
+            </div>
+            <div className={"form-goal-balance " + (goalDiff > 0 ? "positive" : goalDiff < 0 ? "negative" : "")}>
+              <span>GOAL DIFF</span>
+              <b>{goalDiff > 0 ? "+" : ""}{goalDiff}</b>
+            </div>
+          </div>
+
           <div className="form-sequence" aria-label="最近賽果">
             {recent.map((row, index) => (
               <span
@@ -223,17 +241,20 @@ function TeamFormCard({ title, name, detail }) {
             <div><span>Form xG</span><b>{Number.isFinite(xg) ? xg.toFixed(2) : "—"}</b></div>
           </div>
 
-          <div className="form-recent-list">
-            {recent.map((row, index) => (
-              <div className="form-recent-row" key={"recent-" + String(row.kickoff || index) + "-" + index}>
-                <span className={"form-mini-result form-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
-                <span className="form-date">{formatFormDate(row.kickoff)}</span>
-                <span className="form-venue">{row.venue === "H" ? "主" : row.venue === "A" ? "客" : "—"}</span>
-                <b className="form-opponent">{row.opponent || "—"}</b>
-                <strong>{row.gf ?? "—"}-{row.ga ?? "—"}</strong>
-              </div>
-            ))}
-          </div>
+          <details className="form-match-details">
+            <summary>最近比賽明細</summary>
+            <div className="form-recent-list">
+              {recent.map((row, index) => (
+                <div className="form-recent-row" key={"recent-" + String(row.kickoff || index) + "-" + index}>
+                  <span className={"form-mini-result form-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
+                  <span className="form-date">{formatFormDate(row.kickoff)}</span>
+                  <span className="form-venue">{row.venue === "H" ? "主" : row.venue === "A" ? "客" : "—"}</span>
+                  <b className="form-opponent">{row.opponent || "—"}</b>
+                  <strong>{row.gf ?? "—"}-{row.ga ?? "—"}</strong>
+                </div>
+              ))}
+            </div>
+          </details>
         </>
       ) : (
         <div className="form-no-history">暫時未有已確認近賽結果。</div>
