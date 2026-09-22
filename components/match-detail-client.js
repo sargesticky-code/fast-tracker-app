@@ -1090,72 +1090,125 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       </section>
 
       {hasMovement && (
-        <section className="panel">
+        <section className="panel odds-signal-panel">
           <div className="panel-title">
-            <div><p>ODDS MOVEMENT</p><h2>HKJC 賠率變動</h2></div>
+            <div><p>ODDS MOVEMENT</p><h2>HKJC 價格訊號</h2></div>
             <span>{movement.signal || "COLLECTING"}</span>
           </div>
-          <div className="movement-detail-grid">
-            <div><span>方向</span><b>{sideName(match, movement.side)} · 賠率{movementPct < 0 ? "↓" : "↑"}</b></div>
-            <div><span>變動</span><b className={Math.abs(movementPct) >= 10 ? "movement-alert-text" : ""}>{movementPct > 0 ? "+" : ""}{movementPct.toFixed(1)}%</b></div>
-            <div><span>Now</span><b>{formatOdds(movement.nowOdds)}</b></div>
-            <div><span>{movement.baselineWindow || "Base"}</span><b>{formatOdds(movement.baselineOdds)}</b></div>
+
+          <div className={"odds-signal-hero " + (movementPct < 0 ? "is-shortening" : movementPct > 0 ? "is-drifting" : "is-flat")}>
+            <div className="odds-signal-side">
+              <span>市場方向</span>
+              <strong>{sideName(match, movement.side)}</strong>
+              <small>{movementDirectionZh}</small>
+            </div>
+
+            <div className="odds-signal-arrow" aria-label={movementDirection}>
+              <span>{formatOdds(movement.baselineOdds)}</span>
+              <div className="odds-signal-track"><i style={{ width: movementMagnitude + "%" }}></i></div>
+              <b>{movementPct < 0 ? "↓" : movementPct > 0 ? "↑" : "→"}</b>
+              <span>{formatOdds(movement.nowOdds)}</span>
+            </div>
+
+            <div className="odds-signal-change">
+              <span>PRICE MOVE</span>
+              <strong className={Math.abs(movementPct) >= 10 ? "movement-alert-text" : ""}>
+                {movementPct > 0 ? "+" : ""}{movementPct.toFixed(1)}%
+              </strong>
+              <small>{Math.abs(movementPct) >= 10 ? "重大變動" : "一般變動"}</small>
+            </div>
           </div>
-          <p className="fineprint">
-            Implied probability：24H {movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "%"} ·
-            Model alignment：{movement.modelAlignment || "—"}
-          </p>
+
+          <div className="odds-context-strip">
+            <div><span>Implied probability</span><b>{movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "%"}</b></div>
+            <div><span>Model alignment</span><b>{movement.modelAlignment || "—"}</b></div>
+            <div><span>Baseline</span><b>{movement.baselineWindow || "Base"}</b></div>
+          </div>
         </section>
       )}
 
       <section className="panel human-factor-panel">
         <div className="panel-title">
-          <div><p>PHASE 2 · HUMAN FACTORS</p><h2>球員 / 正選 / 教練 / 缺陣</h2></div>
+          <div><p>PHASE 2 · HUMAN FACTORS</p><h2>人為因素訊號</h2></div>
           <span>{humanQuality}</span>
         </div>
-        <div className="human-summary-grid">
-          <div><span>API fixture</span><b>{eventMap?.api_fixture_id || "—"}</b><small>{eventMap ? `match ${numText(eventMap.match_quality, 3)}` : "not mapped"}</small></div>
-          <div><span>傷停 主 / 客</span><b>{injuriesHome} / {injuriesAway}</b><small>{playerStatusEvidence.length ? `${playerStatusEvidence.length} evidence rows` : "no active evidence rows"}</small></div>
-          <div><span>Official XI</span><b>{lineupState}</b><small>{lineupEvidence.length ? `${lineupEvidence.length} player rows` : "waiting for publication"}</small></div>
+
+        <div className="human-signal-strip">
+          <div className="human-signal-card">
+            <span>傷停壓力</span>
+            <strong>{injurySignal}</strong>
+            <div className="injury-pressure">
+              <div>
+                <small>主 {injuriesHome}</small>
+                <i><b style={{ width: ((Number(injuriesHome) || 0) / injuryMax * 100) + "%" }}></b></i>
+              </div>
+              <div>
+                <small>客 {injuriesAway}</small>
+                <i><b style={{ width: ((Number(injuriesAway) || 0) / injuryMax * 100) + "%" }}></b></i>
+              </div>
+            </div>
+          </div>
+
+          <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
+            <span>Official XI</span>
+            <strong>{lineupConfirmed ? "已確認" : lineupState === "PENDING" ? "等待公布" : "未配對"}</strong>
+            <small>{lineupEvidence.length ? `${lineupEvidence.length} player rows` : "未有 confirmed lineup"}</small>
+          </div>
+
+          <div className="human-signal-card">
+            <span>Evidence quality</span>
+            <strong>{humanQuality}</strong>
+            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : "fixture 未配對"}</small>
+          </div>
+        </div>
+
+        <div className="human-summary-grid compact-human-grid">
           <div><span>Referee</span><b>{humanSummary?.referee || "—"}</b><small>{humanSummary?.source || "API_FOOTBALL"}</small></div>
+          <div><span>Coach rotation</span><b>{humanSummary?.coach_rotation || "—"}</b><small>reported context</small></div>
+          <div><span>Player evidence</span><b>{playerStatusEvidence.length}</b><small>active status rows</small></div>
+          <div><span>Manager evidence</span><b>{managerEvidence.length}</b><small>coach rows</small></div>
         </div>
 
         {(homeStarters.length || awayStarters.length) ? (
-          <div className="lineup-columns">
-            <div>
-              <span>HOME XI</span>
-              <b>{match.homeZh || match.home}</b>
-              <p>{homeStarters.join(" · ") || "—"}</p>
+          <details className="human-deep-dive" open={lineupConfirmed}>
+            <summary>Official lineup</summary>
+            <div className="lineup-columns">
+              <div>
+                <span>HOME XI</span>
+                <b>{match.homeZh || match.home}</b>
+                <p>{homeStarters.join(" · ") || "—"}</p>
+              </div>
+              <div>
+                <span>AWAY XI</span>
+                <b>{match.awayZh || match.away}</b>
+                <p>{awayStarters.join(" · ") || "—"}</p>
+              </div>
             </div>
-            <div>
-              <span>AWAY XI</span>
-              <b>{match.awayZh || match.away}</b>
-              <p>{awayStarters.join(" · ") || "—"}</p>
-            </div>
-          </div>
+          </details>
         ) : (
-          <div className="model-empty-reason">Official lineup 尚未發布；系統會在開賽前窗口再抓取，唔會用 projected XI 冒充 confirmed lineup。</div>
+          <div className="human-wait-state">Official lineup 尚未發布；只顯示 confirmed evidence，唔用 projected XI 冒充正選。</div>
         )}
 
-        {managerEvidence.length ? (
-          <div className="evidence-rows">
-            {managerEvidence.map((row) => (
-              <div key={row.id}><span>{row.team_side} COACH</span><b>{row.evidence_value || row.manager_key || "—"}</b><small>{row.confirmed ? "confirmed" : "reported"} · {row.source_name}</small></div>
-            ))}
-          </div>
-        ) : null}
+        {(managerEvidence.length || playerStatusEvidence.length) ? (
+          <details className="human-deep-dive">
+            <summary>查看球員 / 教練 evidence</summary>
+            {managerEvidence.length ? (
+              <div className="evidence-rows">
+                {managerEvidence.map((row) => (
+                  <div key={row.id}><span>{row.team_side} COACH</span><b>{row.evidence_value || row.manager_key || "—"}</b><small>{row.confirmed ? "confirmed" : "reported"} · {row.source_name}</small></div>
+                ))}
+              </div>
+            ) : null}
 
-        {playerStatusEvidence.length ? (
-          <div className="evidence-rows">
-            {playerStatusEvidence.map((row) => (
-              <div key={row.id}><span>{row.team_side} · {row.status_type}</span><b>{row.raw?.player?.name || row.raw?.player_name || row.player_key}</b><small>{row.status_value || "—"} · {row.source_name}</small></div>
-            ))}
-          </div>
+            {playerStatusEvidence.length ? (
+              <div className="evidence-rows">
+                {playerStatusEvidence.map((row) => (
+                  <div key={row.id}><span>{row.team_side} · {row.status_type}</span><b>{row.raw?.player?.name || row.raw?.player_name || row.player_key}</b><small>{row.status_value || "—"} · {row.source_name}</small></div>
+                ))}
+              </div>
+            ) : null}
+          </details>
         ) : null}
-        <p className="fineprint">
-          {humanSummary?.coach_rotation ? `Coach：${humanSummary.coach_rotation} · ` : ""}
-          Phase 2 source：{humanSummary?.source || "API_FOOTBALL"} · quality：{humanSummary?.quality || "PENDING"}
-        </p>
       </section>
 
       {scenarioRows.length ? (
