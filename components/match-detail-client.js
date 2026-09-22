@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ModelEdgeChart from "@/components/model-edge-chart";
 import {
   divergence,
   fairMarket,
@@ -771,6 +772,18 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         </div>
       </section>
 
+      <section className="panel model-visual-panel">
+        <div className="panel-title">
+          <div><p>MODEL CONSENSUS</p><h2>邊個模型支持呢個投注位</h2></div>
+          <span>{primarySide || "—"} · {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "% fair" : "market pending"}</span>
+        </div>
+        <ModelEdgeChart
+          rows={coreModelRows}
+          side={primarySide}
+          marketProbability={primaryMarketProbability}
+        />
+      </section>
+
       {match.liveNow && match.live && (
         <section className="panel live-detail-panel">
           <div className="panel-title">
@@ -855,15 +868,6 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
           <p className="fineprint">Shadow calibration only；暫時唔會由呢個狀態直接產生投注指令。</p>
         </section>
       )}
-
-      <section className="panel">
-        <div className="panel-title"><div><p>{match.liveNow ? "PRE-MATCH HKJC 1X2" : "HKJC 1X2"}</p><h2>市場價格</h2></div></div>
-        <div className="big-odds">
-          <div><span>主</span><b>{formatOdds(match.odds?.home)}</b></div>
-          <div><span>和</span><b>{formatOdds(match.odds?.draw)}</b></div>
-          <div><span>客</span><b>{formatOdds(match.odds?.away)}</b></div>
-        </div>
-      </section>
 
       <section className="panel">
         <div className="panel-title"><div><p>HKJC TOTALS</p><h2>入球及角球</h2></div></div>
@@ -1165,15 +1169,6 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         {missingReason ? <p className="fineprint">缺資料原因：{missingReason}</p> : <p className="fineprint">Canonical evidence channels：{evidenceCount}</p>}
       </section>
 
-      <section className="panel">
-        <div className="panel-title"><div><p>DIVERGENCE</p><h2>值得留意嘅差異</h2></div></div>
-        {gap ? (
-          <div className="gap-feature">
-            <span>{gap.key}</span>
-            <div><small>{sideName(match, gap.key)}</small><b>{gap.value > 0 ? "+" : ""}{(gap.value * 100).toFixed(1)}pp</b></div>
-          </div>
-        ) : <p className="empty">未有足夠外部模型資料。</p>}
-      </section>
     </main>
   );
 }
