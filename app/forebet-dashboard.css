@@ -4044,3 +4044,59 @@ html{
   .model-scoreboard-row>span,
   .model-scoreboard-row>em{font-size:9.5px}
 }
+
+/* DETAIL V4.1 — hide technical diagnostics until needed */
+.technical-health-panel{
+  padding:0!important;
+  overflow:hidden;
+}
+.technical-health-panel>summary{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:11px 13px;
+  cursor:pointer;
+  list-style:none;
+  background:#f8faf9;
+  user-select:none;
+}
+.technical-health-panel>summary::-webkit-details-marker{display:none}
+.technical-health-panel>summary>span{
+  color:#89958e;
+  font-size:7.5px;
+  font-weight:950;
+  letter-spacing:.12em;
+}
+.technical-health-panel>summary>strong{
+  color:#41584c;
+  font-size:10px;
+}
+.technical-health-panel>summary>b{
+  padding:4px 7px;
+  border-radius:999px;
+  background:#edf2ef;
+  color:#617168;
+  font-size:8px;
+}
+.technical-health-panel>summary:after{
+  content:"＋";
+  grid-column:3;
+  grid-row:1;
+  margin-right:50px;
+  color:#8d9992;
+  font-size:12px;
+}
+.technical-health-panel[open]>summary{
+  border-bottom:1px solid #e2e8e4;
+}
+.technical-health-panel[open]>summary:after{content:"−"}
+.technical-health-body{padding:12px}
+@media(max-width:680px){
+  .technical-health-panel>summary{
+    grid-template-columns:auto minmax(0,1fr) auto;
+    padding:10px;
+  }
+  .technical-health-panel>summary:after{display:none}
+  .technical-health-panel>summary>strong{font-size:9.5px}
+}
