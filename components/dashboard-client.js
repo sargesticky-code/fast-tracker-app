@@ -210,6 +210,41 @@ function hasReadableLiveStats(stats) {
   ));
 }
 
+function sourceAgeSeconds(value, nowMs = Date.now()) {
+  if (!value) return Infinity;
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return Infinity;
+  return Math.max(0, Math.round((nowMs - ms) / 1000));
+}
+
+function sourceAgeLabel(seconds) {
+  if (!Number.isFinite(seconds)) return "等待";
+  if (seconds < 60) return seconds + "s";
+  if (seconds < 3600) return Math.round(seconds / 60) + "m";
+  return Math.round(seconds / 3600) + "h";
+}
+
+function liveLane(value, nowMs, warnSeconds, staleSeconds) {
+  const age = sourceAgeSeconds(value, nowMs);
+  const state = !Number.isFinite(age) ? "missing" : age > staleSeconds ? "stale" : age > warnSeconds ? "warn" : "fresh";
+  return { age, state, label: sourceAgeLabel(age) };
+}
+
+function liveFreshnessDiagnostics(live, nowMs = Date.now()) {
+  const lanes = {
+    odds: liveLane(live?.fetchedAt || live?.oddsUpdatedAt, nowMs, 90, 180),
+    score: liveLane(live?.score?.capturedAt || live?.score?.sourceUpdatedAt, nowMs, 90, 180),
+    stats: liveLane(live?.stats?.capturedAt, nowMs, 180, 600),
+    shadow: liveLane(live?.shadow?.capturedAt, nowMs, 180, 600),
+  };
+  const ranked = Object.entries(lanes)
+    .filter(([, lane]) => Number.isFinite(lane.age))
+    .sort((a, b) => b[1].age - a[1].age);
+  const bottleneck = ranked[0] || null;
+  const hasLag = Object.values(lanes).some((lane) => lane.state === "stale");
+  return { lanes, bottleneck, hasLag };
+}
+
 function shadowSideLabel(match, side) {
   if (side === "H") return match.homeZh || match.home || "主";
   if (side === "A") return match.awayZh || match.away || "客";
@@ -217,8 +252,9 @@ function shadowSideLabel(match, side) {
   return "—";
 }
 
-function LiveMatchRow({ match, changeType = null }) {
+function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
   const live = match.live || {};
+  const freshnessDiag = liveFreshnessDiagnostics(live, nowMs);
   const score = live.score || {};
   const scoreText = liveScoreText(score);
   const minuteText = liveMinuteText(score, live);
@@ -234,7 +270,7 @@ function LiveMatchRow({ match, changeType = null }) {
 
   return (
     <a
-      className={"live-match-row ft5-live-row" + (changeType ? " ft5-flash-" + changeType : "")}
+      className={"live-match-row ft5-live-row" + (freshnessDiag.hasLag ? " ft5-live-row-lag" : "") + (changeType ? " ft5-flash-" + changeType : "")}
       href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
       onClick={() => cacheMatch(match)}
     >
@@ -245,6 +281,15 @@ function LiveMatchRow({ match, changeType = null }) {
             <b>{minuteText}</b>
             <small>{league}</small>
             {shadow ? <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span> : null}
+          </div>
+          <div className="ft5-live-freshness">
+            <span className={"lane-" + freshnessDiag.lanes.odds.state}>賠率 {freshnessDiag.lanes.odds.label}</span>
+            <span className={"lane-" + freshnessDiag.lanes.score.state}>比分 {freshnessDiag.lanes.score.label}</span>
+            <span className={"lane-" + freshnessDiag.lanes.stats.state}>Stats {freshnessDiag.lanes.stats.label}</span>
+            <span className={"lane-" + freshnessDiag.lanes.shadow.state}>Shadow {freshnessDiag.lanes.shadow.label}</span>
+            {freshnessDiag.bottleneck && freshnessDiag.bottleneck[1].state !== "fresh"
+              ? <b className="ft5-live-bottleneck">慢：{freshnessDiag.bottleneck[0]} {freshnessDiag.bottleneck[1].label}</b>
+              : null}
           </div>
           <div className="ft5-live-scoreline">
             <b>{homeName}</b>
@@ -769,7 +814,7 @@ export default function DashboardClient({ feed, nowMs }) {
           </div>
           <LiveTableHead />
           <div className="live-list">
-            {liveMatches.slice(0, 3).map((match) => <LiveMatchRow key={match.id} match={match} changeType={changeMap[String(match.id)] || null} />)}
+            {liveMatches.slice(0, 3).map((match) => <LiveMatchRow key={match.id} match={match} nowMs={clockMs} changeType={changeMap[String(match.id)] || null} />)}
           </div>
         </section>
       )}
@@ -800,7 +845,7 @@ export default function DashboardClient({ feed, nowMs }) {
             <LiveTableHead />
             <div className="live-list">
             {liveMatches.length
-              ? liveMatches.map((match) => <LiveMatchRow key={match.id} match={match} changeType={changeMap[String(match.id)] || null} />)
+              ? liveMatches.map((match) => <LiveMatchRow key={match.id} match={match} nowMs={clockMs} changeType={changeMap[String(match.id)] || null} />)
               : <div className="ft5-empty">暫時冇符合 freshness gate 嘅 HKJC Live 賽事</div>}
             </div>
           </div>
