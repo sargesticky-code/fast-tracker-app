@@ -835,50 +835,52 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       </section>
 
       {storyContent ? (
-        <section className="panel match-story-panel">
+        <section className="panel match-story-panel analyst-brief-panel">
           <div className="panel-title">
             <div>
-              <p>PROFESSIONAL MATCH STORY</p>
+              <p>ANALYST BRIEF</p>
               <h2>{storyContent.headline || "賽事綜合解讀"}</h2>
             </div>
             <span>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI · GROUNDED" : "RULES · GROUNDED"}</span>
           </div>
 
           {storyContent.executiveSummary ? <p className="match-story-lead">{storyContent.executiveSummary}</p> : null}
-          {storyContent.matchStory ? <p className="match-story-body">{storyContent.matchStory}</p> : null}
 
           <div className="story-thesis-grid">
             <div className="story-thesis-positive">
-              <span>投注論點</span>
+              <span>主要論點</span>
               <strong>{story?.bettingAdvice?.selectionLabel || primarySelectionLabel}</strong>
               <p>{storyContent.thesis || bettingAdvice}</p>
             </div>
             <div className="story-thesis-negative">
-              <span>反方論點</span>
+              <span>最大反方</span>
               <strong>What can go wrong</strong>
               <p>{storyContent.counterCase || "暫未有額外反方 evidence。"}</p>
             </div>
           </div>
 
-          <div className="story-intel-grid">
-            <div><span>市場解讀</span><p>{storyContent.marketInterpretation || "—"}</p></div>
-            <div><span>模型共識</span><p>{storyContent.modelConsensusInterpretation || "—"}</p></div>
-            <div><span>Human Factors</span><p>{storyContent.humanFactorsInterpretation || "—"}</p></div>
-            <div><span>Live / Match State</span><p>{storyContent.liveInterpretation || "—"}</p></div>
-            <div><span>Odds Movement</span><p>{storyContent.movementInterpretation || "—"}</p></div>
-            <div><span>信心點樣理解</span><p>{storyContent.confidenceExplanation || "—"}</p></div>
+          <div className="story-signal-row">
+            <div><span>MARKET</span><p>{storyContent.marketInterpretation || "—"}</p></div>
+            <div><span>MODELS</span><p>{storyContent.modelConsensusInterpretation || "—"}</p></div>
+            <div><span>HUMAN</span><p>{storyContent.humanFactorsInterpretation || "—"}</p></div>
           </div>
 
           {Array.isArray(storyContent.watchNext) && storyContent.watchNext.length ? (
             <div className="story-watch-box">
               <span>NEXT CHECK</span>
-              <div>{storyContent.watchNext.map((item, index) => <b key={String(item) + index}>{item}</b>)}</div>
+              <div>{storyContent.watchNext.slice(0,4).map((item, index) => <b key={String(item) + index}>{item}</b>)}</div>
             </div>
           ) : null}
 
-          {Array.isArray(storyContent.phaseNarratives) && storyContent.phaseNarratives.length ? (
-            <details className="story-phase-details">
-              <summary>Phase 1–10 interpretation status</summary>
+          <details className="story-deep-dive">
+            <summary>完整分析 / Phase interpretation</summary>
+            {storyContent.matchStory ? <p className="match-story-body">{storyContent.matchStory}</p> : null}
+            <div className="story-intel-grid">
+              <div><span>Live / Match State</span><p>{storyContent.liveInterpretation || "—"}</p></div>
+              <div><span>Odds Movement</span><p>{storyContent.movementInterpretation || "—"}</p></div>
+              <div><span>信心點樣理解</span><p>{storyContent.confidenceExplanation || "—"}</p></div>
+            </div>
+            {Array.isArray(storyContent.phaseNarratives) && storyContent.phaseNarratives.length ? (
               <div className="story-phase-grid">
                 {storyContent.phaseNarratives.map((row) => (
                   <div key={"story-phase-" + row.phase}>
@@ -888,8 +890,8 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
                   </div>
                 ))}
               </div>
-            </details>
-          ) : null}
+            ) : null}
+          </details>
         </section>
       ) : null}
 
@@ -905,7 +907,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
         />
       </section>
 
-      {analysis ? (
+      {!storyContent && analysis ? (
         <section className="panel analyst-panel analyst-detail-panel">
           <div className="panel-title">
             <div><p>WHY THIS BET</p><h2>點解個 Edge 喺呢度</h2></div>
@@ -925,12 +927,12 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
             <div className="betting-risk-box"><span>風險 / 失效條件</span><p>{analysis.invalidators.join(" · ")}</p></div>
           ) : null}
         </section>
-      ) : (
+      ) : !storyContent ? (
         <section className="panel analyst-panel analyst-detail-panel analyst-loading">
           <div className="panel-title"><div><p>WHY THIS BET</p><h2>分析資料載入中</h2></div></div>
           <div className="analysis-placeholder-grid"><span></span><span></span><span></span></div>
         </section>
-      )}
+      ) : null}
 
       {match.liveNow && match.live && (
         <section className="panel live-detail-panel">
@@ -1300,27 +1302,34 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       </section>
 
       {scenarioRows.length ? (
-        <section className="panel scenario-panel">
+        <section className="panel scenario-panel scenario-timeline-panel">
           <div className="panel-title">
-            <div><p>PHASE 3 · MATCH SCENARIO</p><h2>分段比賽腳本</h2></div>
+            <div><p>PHASE 3 · MATCH SCENARIO</p><h2>比賽走勢時間軸</h2></div>
             <span>{scenarioRows[0]?.segment_prediction_status || "CALIBRATING"}</span>
           </div>
-          <div className="scenario-strip">
-            {scenarioRows.map((row) => (
-              <div key={row.segment}>
-                <span>{row.segment}</span>
-                <b>{controlSideLabel(match, row.macro_control_side)}</b>
-                <small>
-                  Goal H {pct(row.p_home_goal_segment, 0)} · A {pct(row.p_away_goal_segment, 0)}
-                  <br/>Corners {numText(row.expected_home_corners_segment, 1)} / {numText(row.expected_away_corners_segment, 1)}
-                </small>
+          <div className="scenario-timeline">
+            {scenarioRows.map((row, index) => (
+              <div className="scenario-step" key={row.segment}>
+                <div className="scenario-node"><i></i><span>{row.segment}</span></div>
+                <div className="scenario-card">
+                  <small>預期控制</small>
+                  <strong>{controlSideLabel(match, row.macro_control_side)}</strong>
+                  <div className="scenario-prob-row">
+                    <span>主隊入球 <b>{pct(row.p_home_goal_segment, 0)}</b></span>
+                    <span>客隊入球 <b>{pct(row.p_away_goal_segment, 0)}</b></span>
+                  </div>
+                  <div className="scenario-corner-row">
+                    <span>角球預期</span>
+                    <b>{numText(row.expected_home_corners_segment, 1)} / {numText(row.expected_away_corners_segment, 1)}</b>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
-          <p className="fineprint">
-            Control basis：{scenarioRows[0]?.control_basis || "—"} · context coverage {scenarioRows[0]?.context_coverage_score == null ? "—" : numText(scenarioRows[0].context_coverage_score, 0) + "%"}
-            {scenarioRows[0]?.notes ? " · " + scenarioRows[0].notes : ""}
-          </p>
+          <div className="scenario-footer">
+            <span>Control basis · {scenarioRows[0]?.control_basis || "—"}</span>
+            <b>Context {scenarioRows[0]?.context_coverage_score == null ? "—" : numText(scenarioRows[0].context_coverage_score, 0) + "%"}</b>
+          </div>
         </section>
       ) : null}
 
