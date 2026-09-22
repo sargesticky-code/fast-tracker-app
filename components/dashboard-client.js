@@ -662,8 +662,8 @@ export default function DashboardClient({ feed, nowMs }) {
   const isLive = currentFeed.source === "supabase-canonical-live";
   const pipelineWarnings = [
     heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
-    heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs) > 12 ? "Live odds" : null,
-    heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs) > 12 ? "Live score" : null,
+    heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs) > 3 ? "Live odds" : null,
+    heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs) > 3 ? "Live score" : null,
   ].filter(Boolean);
 
   const headings = {
