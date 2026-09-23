@@ -473,6 +473,7 @@ Deno.serve(async (req: Request) => {
       } catch {}
     }
     const packForHash = {
+      cacheSchema:"FT_STORY_V4_2",
       match:analysis?.match,
       decision:analysis?.decision,
       story:analysis?.story,
