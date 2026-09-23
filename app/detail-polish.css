@@ -1219,3 +1219,266 @@
     gap:2px!important;
   }
 }
+
+
+/* V3 — compact movement + human evidence */
+
+/* Odds movement becomes one dense signal row */
+.detail-shell .odds-signal-panel .panel-title{
+  margin-bottom:6px!important;
+}
+.detail-shell .odds-signal-hero{
+  min-height:58px!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-columns:minmax(170px,1fr) minmax(320px,1.8fr) 120px!important;
+  align-items:stretch!important;
+  gap:0!important;
+  border:1px solid #dfe7e1!important;
+  border-radius:4px!important;
+  overflow:hidden!important;
+  background:#fff!important;
+}
+.detail-shell .odds-signal-hero>div{
+  min-width:0!important;
+  padding:7px 8px!important;
+  border-right:1px solid #e8eeea!important;
+}
+.detail-shell .odds-signal-hero>div:last-child{
+  border-right:0!important;
+}
+.detail-shell .odds-signal-side{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+.detail-shell .odds-signal-side span,
+.detail-shell .odds-signal-change span{
+  font-size:8px!important;
+}
+.detail-shell .odds-signal-side strong{
+  margin-top:3px!important;
+  font-size:13px!important;
+}
+.detail-shell .odds-signal-side small,
+.detail-shell .odds-signal-change small{
+  margin-top:2px!important;
+  font-size:8px!important;
+}
+.detail-shell .odds-signal-arrow{
+  display:grid!important;
+  grid-template-columns:55px minmax(0,1fr) 24px 55px!important;
+  align-items:center!important;
+  gap:5px!important;
+}
+.detail-shell .odds-signal-arrow>span{
+  font-size:11px!important;
+  font-weight:900!important;
+}
+.detail-shell .odds-signal-arrow>b{
+  font-size:15px!important;
+}
+.detail-shell .odds-signal-track{
+  height:6px!important;
+  border-radius:3px!important;
+}
+.detail-shell .odds-signal-change{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  align-items:center!important;
+  text-align:center!important;
+}
+.detail-shell .odds-signal-change strong{
+  margin-top:3px!important;
+  font-size:15px!important;
+}
+.detail-shell .odds-context-strip{
+  margin-top:5px!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,1fr)!important;
+  gap:0!important;
+  border:1px solid #e4ebe6!important;
+  border-radius:4px!important;
+  overflow:hidden!important;
+}
+.detail-shell .odds-context-strip>div{
+  min-height:34px!important;
+  padding:5px 7px!important;
+  border-right:1px solid #edf1ee!important;
+}
+.detail-shell .odds-context-strip>div:last-child{
+  border-right:0!important;
+}
+.detail-shell .odds-context-strip span{
+  font-size:8px!important;
+}
+.detail-shell .odds-context-strip b{
+  font-size:10px!important;
+}
+
+/* Human factors: signal strip + evidence table */
+.detail-shell .human-signal-strip{
+  display:grid!important;
+  grid-template-columns:1.25fr .9fr .9fr!important;
+  gap:0!important;
+  border:1px solid #dfe7e1!important;
+  border-radius:4px!important;
+  overflow:hidden!important;
+}
+.detail-shell .human-signal-card{
+  min-height:64px!important;
+  padding:7px 8px!important;
+  border:0!important;
+  border-right:1px solid #e8eeea!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:#fff!important;
+}
+.detail-shell .human-signal-card:last-child{
+  border-right:0!important;
+}
+.detail-shell .human-signal-card>span{
+  font-size:8px!important;
+}
+.detail-shell .human-signal-card>strong{
+  margin-top:3px!important;
+  font-size:12px!important;
+  line-height:1.15!important;
+}
+.detail-shell .human-signal-card>small{
+  margin-top:3px!important;
+  font-size:8px!important;
+}
+.detail-shell .injury-pressure{
+  margin-top:5px!important;
+  gap:4px!important;
+}
+.detail-shell .injury-pressure small{
+  font-size:8px!important;
+}
+.detail-shell .injury-pressure i{
+  height:5px!important;
+}
+.detail-shell .human-summary-grid.compact-human-grid{
+  margin-top:5px!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,1fr)!important;
+  gap:0!important;
+  border:1px solid #e4ebe6!important;
+  border-radius:4px!important;
+  overflow:hidden!important;
+}
+.detail-shell .human-summary-grid.compact-human-grid>div{
+  min-height:46px!important;
+  padding:6px 7px!important;
+  border-right:1px solid #edf1ee!important;
+  background:#fafcfa!important;
+}
+.detail-shell .human-summary-grid.compact-human-grid>div:last-child{
+  border-right:0!important;
+}
+.detail-shell .human-summary-grid.compact-human-grid span{
+  font-size:8px!important;
+}
+.detail-shell .human-summary-grid.compact-human-grid b{
+  margin-top:3px!important;
+  font-size:10px!important;
+}
+.detail-shell .human-summary-grid.compact-human-grid small{
+  margin-top:2px!important;
+  font-size:8px!important;
+}
+.detail-shell .human-wait-state{
+  margin-top:5px!important;
+  min-height:0!important;
+  padding:6px 8px!important;
+  border-radius:4px!important;
+  font-size:9px!important;
+}
+.detail-shell .human-deep-dive{
+  margin-top:6px!important;
+}
+.detail-shell .human-deep-dive summary{
+  padding:5px 0!important;
+  color:#316248!important;
+  font-size:9px!important;
+  font-weight:900!important;
+}
+.detail-shell .lineup-columns{
+  gap:5px!important;
+}
+.detail-shell .lineup-columns>div{
+  padding:7px!important;
+  border-radius:4px!important;
+}
+.detail-shell .lineup-columns span{
+  font-size:8px!important;
+}
+.detail-shell .lineup-columns b{
+  font-size:10px!important;
+}
+.detail-shell .lineup-columns p{
+  margin:4px 0 0!important;
+  font-size:9px!important;
+  line-height:1.4!important;
+}
+
+/* Technical block should stay visually last and quiet */
+.detail-shell .technical-health-panel{
+  margin-top:2px!important;
+  padding:0!important;
+  border-color:#e4ebe6!important;
+  background:#fafcfa!important;
+}
+.detail-shell .technical-health-panel>summary{
+  min-height:34px!important;
+  padding:6px 8px!important;
+  font-size:9px!important;
+}
+.detail-shell .technical-health-body{
+  padding:7px!important;
+}
+.detail-shell .health-list{
+  gap:0!important;
+  border:1px solid #e6ece8!important;
+  border-radius:4px!important;
+  overflow:hidden!important;
+}
+.detail-shell .health-list>div{
+  min-height:30px!important;
+  padding:5px 7px!important;
+  border-bottom:1px solid #edf1ee!important;
+}
+.detail-shell .health-list span,
+.detail-shell .health-list b{
+  font-size:8.5px!important;
+}
+
+@media(max-width:680px){
+  .detail-shell .odds-signal-hero{
+    grid-template-columns:1fr 86px!important;
+  }
+  .detail-shell .odds-signal-arrow{
+    grid-column:1/-1;
+    grid-row:2;
+    border-top:1px solid #edf1ee;
+  }
+  .detail-shell .human-signal-strip{
+    grid-template-columns:1fr!important;
+  }
+  .detail-shell .human-signal-card{
+    border-right:0!important;
+    border-bottom:1px solid #e8eeea!important;
+  }
+  .detail-shell .human-signal-card:last-child{
+    border-bottom:0!important;
+  }
+  .detail-shell .human-summary-grid.compact-human-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .detail-shell .human-summary-grid.compact-human-grid>div:nth-child(even){
+    border-right:0!important;
+  }
+}
