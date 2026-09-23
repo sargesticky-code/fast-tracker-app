@@ -17,7 +17,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V5-ANALYST-READABILITY-20260922-1";
+const UI_BUILD = "DETAIL-V6-PHASE4-MARKET-INTELLIGENCE-20260923-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -855,6 +855,29 @@ export default function MatchDetailClient() {
     { key: "A", label: match.awayZh || match.away || "客", odds: referencePriceOnly ? null : match.odds?.away, fair: market?.away },
   ];
 
+  const marketIntel = deep?.marketIntelligence || {};
+  const phase4Values = Array.isArray(marketIntel.value) ? marketIntel.value : [];
+  const phase4Arbs = Array.isArray(marketIntel.arbitrage) ? marketIntel.arbitrage : [];
+  const bestValue = marketIntel.bestValue || phase4Values[0] || null;
+  const phase4SelectionLabel = (selection) => {
+    if (selection === "HOME") return match.homeZh || match.home || "主勝";
+    if (selection === "DRAW") return "和";
+    if (selection === "AWAY") return match.awayZh || match.away || "客勝";
+    return selection || "—";
+  };
+  const phase4Sources = Number(bestValue?.model_source_count || 0);
+  const phase4Coverage = phase4Sources >= 3 ? "MULTI-SOURCE"
+    : phase4Sources === 2 ? "2 SOURCES"
+      : phase4Sources === 1 ? "LOW COVERAGE · 1 SOURCE"
+        : "NO MODEL";
+  const phase4Ev = Number(bestValue?.expected_roi_pct);
+  const phase4Edge = Number(bestValue?.probability_edge_pct);
+  const phase4QuoteAge = Number(bestValue?.quote_age_seconds);
+  const phase4Fresh = Number.isFinite(phase4QuoteAge) && phase4QuoteAge <= 300;
+  const phase4Status = bestValue
+    ? (!phase4Fresh ? "STALE QUOTE" : phase4Sources < 2 ? "WATCH · LOW COVERAGE" : String(bestValue.status || "WATCH"))
+    : "NO VALUE SIGNAL";
+
   return (
     <main className="shell detail-shell">
       <div className="detail-top">
@@ -1216,6 +1239,103 @@ export default function MatchDetailClient() {
               : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
           </div>
         </div>
+      </section>
+
+
+      <section className="panel model-intelligence-panel">
+        <div className="panel-title">
+          <div><p>PHASE 4 · MARKET INTELLIGENCE</p><h2>Value / Arbitrage 市場掃描</h2></div>
+          <span>{String(marketIntel.mode || "DETECT_ONLY").replaceAll("_", " ")}</span>
+        </div>
+        <p className="panel-intro">
+          將模型機率同去水後市場機率分開比較；Arbitrage 只會計入已驗證同一 settlement rule、仍然新鮮嘅跨平台價格。現階段只偵測，不會自動落注。
+        </p>
+
+        {bestValue ? (
+          <>
+            <div className="human-summary-grid compact-human-grid">
+              <div>
+                <span>最佳 Value Signal</span>
+                <b>{phase4SelectionLabel(bestValue.selection_key)}</b>
+                <small>{bestValue.provider_id || "—"} @ {formatOdds(bestValue.odds_decimal)}</small>
+              </div>
+              <div>
+                <span>Expected ROI</span>
+                <b>{Number.isFinite(phase4Ev) ? (phase4Ev >= 0 ? "+" : "") + phase4Ev.toFixed(1) + "%" : "—"}</b>
+                <small>{phase4Status}</small>
+              </div>
+              <div>
+                <span>模型 vs 市場</span>
+                <b>{pct(bestValue.model_prob, 1)} / {pct(bestValue.market_prob_devig, 1)}</b>
+                <small>Probability edge {Number.isFinite(phase4Edge) ? (phase4Edge >= 0 ? "+" : "") + phase4Edge.toFixed(1) + "%" : "—"}</small>
+              </div>
+              <div>
+                <span>Evidence Coverage</span>
+                <b>{phase4Coverage}</b>
+                <small>{Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote age" : "quote age —"}</small>
+              </div>
+            </div>
+
+            <details className="model-deep-dive">
+              <summary>查看 Phase 4 全部 H / D / A 訊號</summary>
+              <div className="evidence-rows">
+                {phase4Values.slice(0, 6).map((row, index) => (
+                  <div key={(row.provider_id || "provider") + "-" + (row.selection_key || index)}>
+                    <span>{row.provider_id || "—"} · {phase4SelectionLabel(row.selection_key)}</span>
+                    <b>@ {formatOdds(row.odds_decimal)} · EV {Number(row.expected_roi_pct) >= 0 ? "+" : ""}{numText(row.expected_roi_pct, 1)}%</b>
+                    <small>
+                      Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source
+                    </small>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </>
+        ) : (
+          <div className="human-wait-state">暫時未有可比較嘅 model + market value signal。</div>
+        )}
+
+        <div className="human-summary-grid compact-human-grid">
+          <div>
+            <span>Verified Arbitrage</span>
+            <b>{phase4Arbs.length ? phase4Arbs.length + " FOUND" : "0"}</b>
+            <small>{phase4Arbs.length ? "已通過 market compatibility gate" : "等待第二個已驗證價格來源"}</small>
+          </div>
+          <div>
+            <span>Best Net Arb ROI</span>
+            <b>{phase4Arbs.length ? "+" + numText(phase4Arbs[0]?.net_roi_pct, 2) + "%" : "—"}</b>
+            <small>fees / effective odds 後</small>
+          </div>
+          <div>
+            <span>Execution</span>
+            <b>OFF</b>
+            <small>DETECT ONLY</small>
+          </div>
+          <div>
+            <span>Compatibility Gate</span>
+            <b>FAIL-CLOSED</b>
+            <small>market / period / line / settlement 必須一致</small>
+          </div>
+        </div>
+
+        {phase4Arbs.length ? (
+          <details className="model-deep-dive">
+            <summary>查看 Arbitrage legs</summary>
+            <div className="evidence-rows">
+              {phase4Arbs.slice(0, 5).map((arb) => (
+                <div key={arb.opportunity_key}>
+                  <span>{arb.market_key} · {arb.settlement_key}</span>
+                  <b>NET +{numText(arb.net_roi_pct, 2)}%</b>
+                  <small>{arb.leg_count} legs · inverse sum {numText(arb.inverse_sum, 4)} · {arb.status}</small>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
+
+        <p className="fineprint">
+          Value 唔等於 arbitrage：Value 依賴模型機率；Arbitrage 只依賴可同時成交、settlement 相容嘅跨平台價格。低於 2 個 model sources 只列作 WATCH。
+        </p>
       </section>
 
 
