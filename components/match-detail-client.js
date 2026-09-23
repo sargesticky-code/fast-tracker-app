@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-EVIDENCE-BOARD-20260923-2";
+const UI_BUILD = "DETAIL-FINAL-BOARD-20260923-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -1212,28 +1212,31 @@ export default function MatchDetailClient() {
         </section>
       )}
 
-      <section className="panel">
+      <section className="panel totals-board-panel">
         <div className="panel-title"><div><p>HKJC TOTALS</p><h2>入球及角球</h2></div></div>
-        <div className="totals-grid">
-          <div className="total-market">
-            <span>HKJC 入球 O/U · {match.goals?.line || "—"}</span>
-            <div><b>大 {formatOdds(match.goals?.over)}</b><b>細 {formatOdds(match.goals?.under)}</b></div>
-            {goalsLineModel?.over != null
-              ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
-                  {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} O{goalsLineModel.line} {(goalsLineModel.over * 100).toFixed(0)}% ·
-                  U{goalsLineModel.line} {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
-                </small>
-              : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "同線模型 NO DATA"}</small>}
+        <div className="totals-board">
+          <div className="totals-row">
+            <div className="totals-name"><span>入球 O/U</span><b>{match.goals?.line || "—"}</b></div>
+            <div className="totals-prices"><b>大 {formatOdds(match.goals?.over)}</b><b>細 {formatOdds(match.goals?.under)}</b></div>
+            <div className="totals-model-note">
+              {goalsLineModel?.over != null
+                ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
+                    {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · O {(goalsLineModel.over * 100).toFixed(0)}% · U {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
+                  </small>
+                : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "同線模型 NO DATA"}</small>}
+            </div>
           </div>
-          <div className="total-market">
-            <span>HKJC 角球 O/U · {match.corners?.line || "—"}</span>
-            <div><b>大 {formatOdds(match.corners?.over)}</b><b>細 {formatOdds(match.corners?.under)}</b></div>
-            {cornersLineModel?.over != null
-              ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
-                  {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} O{cornersLineModel.line} {(cornersLineModel.over * 100).toFixed(0)}% ·
-                  U{cornersLineModel.line} {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
-                </small>
-              : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
+
+          <div className="totals-row">
+            <div className="totals-name"><span>角球 O/U</span><b>{match.corners?.line || "—"}</b></div>
+            <div className="totals-prices"><b>大 {formatOdds(match.corners?.over)}</b><b>細 {formatOdds(match.corners?.under)}</b></div>
+            <div className="totals-model-note">
+              {cornersLineModel?.over != null
+                ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
+                    {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · O {(cornersLineModel.over * 100).toFixed(0)}% · U {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
+                  </small>
+                : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
+            </div>
           </div>
         </div>
       </section>
@@ -1573,31 +1576,33 @@ export default function MatchDetailClient() {
       </section>
 
       {scenarioRows.length ? (
-        <section className="panel scenario-panel scenario-timeline-panel">
+        <section className="panel scenario-panel scenario-board-panel">
           <div className="panel-title">
-            <div><p>PHASE 3 · MATCH SCENARIO</p><h2>比賽走勢時間軸</h2></div>
+            <div><p>PHASE 3 · MATCH SCENARIO</p><h2>比賽走勢時間段</h2></div>
             <span>{scenarioRows[0]?.segment_prediction_status || "CALIBRATING"}</span>
           </div>
-          <div className="scenario-timeline">
-            {scenarioRows.map((row, index) => (
-              <div className="scenario-step" key={row.segment}>
-                <div className="scenario-node"><i></i><span>{row.segment}</span></div>
-                <div className="scenario-card">
-                  <small>預期控制</small>
-                  <strong>{controlSideLabel(match, row.macro_control_side)}</strong>
-                  <div className="scenario-prob-row">
-                    <span>主隊入球 <b>{pct(row.p_home_goal_segment, 0)}</b></span>
-                    <span>客隊入球 <b>{pct(row.p_away_goal_segment, 0)}</b></span>
-                  </div>
-                  <div className="scenario-corner-row">
-                    <span>角球預期</span>
-                    <b>{numText(row.expected_home_corners_segment, 1)} / {numText(row.expected_away_corners_segment, 1)}</b>
-                  </div>
-                </div>
+
+          <div className="scenario-board-head" aria-hidden="true">
+            <span>時段</span>
+            <span>預期控制</span>
+            <span>主隊入球</span>
+            <span>客隊入球</span>
+            <span>角球 主 / 客</span>
+          </div>
+
+          <div className="scenario-board">
+            {scenarioRows.map((row) => (
+              <div className="scenario-board-row" key={row.segment}>
+                <b>{row.segment}</b>
+                <strong>{controlSideLabel(match, row.macro_control_side)}</strong>
+                <span>{pct(row.p_home_goal_segment, 0)}</span>
+                <span>{pct(row.p_away_goal_segment, 0)}</span>
+                <span>{numText(row.expected_home_corners_segment, 1)} / {numText(row.expected_away_corners_segment, 1)}</span>
               </div>
             ))}
           </div>
-          <div className="scenario-footer">
+
+          <div className="scenario-board-footer">
             <span>Control basis · {scenarioRows[0]?.control_basis || "—"}</span>
             <b>Context {scenarioRows[0]?.context_coverage_score == null ? "—" : numText(scenarioRows[0].context_coverage_score, 0) + "%"}</b>
           </div>
