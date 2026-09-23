@@ -2,6 +2,7 @@ import LegacyRouteRedirect from "@/components/legacy-route-redirect";
 import "./globals.css";
 import "./forebet-dashboard.css";
 import "./dashboard-polish.css";
+import "./detail-polish.css";
 
 export const metadata = {
   title: "Fast Tracker 2026",
