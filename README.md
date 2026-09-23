@@ -272,3 +272,8 @@ The dashboard may show REVIEW 0–100 to help decide which match to inspect firs
 - Avoid repeating team names, normal health states, EDGE labels, or price context in multiple adjacent cards.
 - Detail desktop density target: compact match header, one-row decision board, readable 8–18px hierarchy, 5px–9px internal spacing, thin separators rather than large card gaps.
 - Existing deeper evidence panels can remain expandable/detailed, but their typography and panel rhythm should follow `detail-polish.css`.
+
+- Lower detail evidence boards should stay compact: Analyst Brief keeps only gate / summary / thesis / counter-case above the fold; repeated Market / Models / Human interpretations belong in the expandable deep dive.
+- Team Form uses horizontal comparison rows, not two large standalone cards.
+- Phase 4 uses one compact market-intelligence board; detailed value/arbitrage rows remain expandable.
+- Model Consensus visual height should scale tightly with actual model count and should not reserve large empty chart space.
