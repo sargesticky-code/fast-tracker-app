@@ -873,9 +873,10 @@ export default function MatchDetailClient() {
   const phase4Ev = Number(bestValue?.expected_roi_pct);
   const phase4Edge = Number(bestValue?.probability_edge_pct);
   const phase4QuoteAge = Number(bestValue?.quote_age_seconds);
-  const phase4Fresh = Number.isFinite(phase4QuoteAge) && phase4QuoteAge <= 300;
+  const phase4BackendStatus = String(bestValue?.status || "").toUpperCase();
+  const phase4Fresh = bestValue ? phase4BackendStatus !== "STALE" : false;
   const phase4Status = bestValue
-    ? (!phase4Fresh ? "STALE QUOTE" : phase4Sources < 2 ? "WATCH · LOW COVERAGE" : String(bestValue.status || "WATCH"))
+    ? (!phase4Fresh ? "STALE QUOTE" : phase4Sources < 2 ? "WATCH · LOW COVERAGE" : phase4BackendStatus || "WATCH")
     : "NO VALUE SIGNAL";
 
   return (
@@ -1255,7 +1256,7 @@ export default function MatchDetailClient() {
           <>
             <div className="human-summary-grid compact-human-grid">
               <div>
-                <span>最佳 Value Signal</span>
+                <span>Top Model-Market Signal</span>
                 <b>{phase4SelectionLabel(bestValue.selection_key)}</b>
                 <small>{bestValue.provider_id || "—"} @ {formatOdds(bestValue.odds_decimal)}</small>
               </div>
