@@ -541,7 +541,7 @@ Deno.serve(async (req: Request) => {
         internalModels:Boolean(detail?.models?.internal),
         teamForm:Boolean(detail?.models?.form),
         optaStrength:Boolean(detail?.models?.opta),
-        multisource:Boolean(detail?.models?.multisource),
+        multisource:Boolean(detail?.models?.multisource) || Boolean(analysis?.evidence?.families?.some((x:any)=>x?.key==="MULTI")),
         humanFactorRows:(detail?.humanFactors?.playerStatus?.length||0)+(detail?.humanFactors?.lineup?.length||0)+(detail?.humanFactors?.managers?.length||0),
         scenarioRows:detail?.scenario?.length||0,
       },
