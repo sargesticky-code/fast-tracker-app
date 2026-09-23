@@ -84,7 +84,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
       </div>
 
       <div className="model-edge-chart-frame">
-        <ResponsiveContainer width="100%" height={Math.max(210, data.length * 42)}>
+        <ResponsiveContainer width="100%" height={Math.max(150, data.length * 30)}>
           <BarChart
             data={data}
             layout="vertical"
@@ -102,7 +102,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
             <YAxis
               type="category"
               dataKey="model"
-              width={92}
+              width={82}
               tick={{ fontSize: 10, fill: "#314d40", fontWeight: 700 }}
               axisLine={false}
               tickLine={false}
@@ -116,7 +116,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
                 label={{ value: "HKJC fair", position: "insideTopRight", fill: "#596960", fontSize: 9 }}
               />
             ) : null}
-            <Bar dataKey="probability" barSize={18} radius={[0, 5, 5, 0]}>
+            <Bar dataKey="probability" barSize={14} radius={[0, 5, 5, 0]}>
               {data.map((row) => (
                 <Cell
                   key={row.model}
