@@ -17,7 +17,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V6-PHASE4-MARKET-INTELLIGENCE-20260923-1";
+const UI_BUILD = "DETAIL-V6-PHASE4-MARKET-INTELLIGENCE-20260923-2";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
