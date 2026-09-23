@@ -11,13 +11,15 @@ import {
   formatUpdated,
   freshness,
   lineComparisonStatus,
+  modelAgreement,
   modelCoverageCount,
   modelLabel,
+  reviewPriority,
   sanitizeFallbackMatch,
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V7-PHASE4-NEAR-ARB-20260923-1";
+const UI_BUILD = "DETAIL-BOARD-20260923-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -605,6 +607,8 @@ export default function MatchDetailClient() {
   const zhTitle = match.homeZh && match.awayZh ? `${match.homeZh} vs ${match.awayZh}` : null;
   const fresh = freshness(match);
   const evidenceCount = match.health?.evidenceChannelCount ?? modelCoverageCount(match);
+  const detailAgreement = modelAgreement(match);
+  const detailPriority = reviewPriority(match);
   const missingReason = match.health?.primaryMissingReason || match.health?.forebetReason || null;
   const predictedScore = match.forebetDetail?.predictedScore || match.forebet?.predictedScore || null;
   const movement = match.oddsMovement || null;
@@ -901,82 +905,83 @@ export default function MatchDetailClient() {
         }}>↻ 最新</button>
       </div>
 
-      <section className="detail-hero detail-v2-hero">
-        <div className="detail-v2-meta">
+      <section className="detail-board-hero">
+        <div className="detail-board-meta">
           <span>{formatKickoff(match.kickoff)}</span>
           <b>{match.league}</b>
-          <span>{match.id}</span>
+          <small>{match.id}</small>
+          <span className={"detail-board-fresh detail-board-fresh-" + fresh.key}>{fresh.label}</span>
         </div>
-        <div className="detail-v2-fixture">
-          <div className="detail-v2-team home">
-            <small>HOME</small>
-            <h1>{match.homeZh || match.home}</h1>
-            {match.homeEn && match.homeZh ? <span>{match.homeEn}</span> : null}
+
+        <div className="detail-board-fixture">
+          <div className="detail-board-team">
+            <strong>{match.homeZh || match.home}</strong>
+            {match.homeEn && match.homeZh ? <small>{match.homeEn}</small> : null}
           </div>
-          <div className="detail-v2-centre">
-            <strong>VS</strong>
-            {predictedScore ? <span>Forebet <b>{predictedScore}</b></span> : <span>&nbsp;</span>}
+          <span className="detail-board-vs">VS</span>
+          <div className="detail-board-team away">
+            <strong>{match.awayZh || match.away}</strong>
+            {match.awayEn && match.awayZh ? <small>{match.awayEn}</small> : null}
           </div>
-          <div className="detail-v2-team away">
-            <small>AWAY</small>
-            <h1>{match.awayZh || match.away}</h1>
-            {match.awayEn && match.awayZh ? <span>{match.awayEn}</span> : null}
-          </div>
+          {predictedScore ? <div className="detail-board-score"><span>FOREBET</span><b>{predictedScore}</b></div> : null}
         </div>
-        <div className="detail-status-row">
-          <span className={`freshness freshness-${fresh.key}`}>{fresh.label}</span>
-          <span className="evidence-count">{evidenceCount} evidence inputs</span>
+
+        <div className="detail-board-status">
+          {detailAgreement.key !== "limited" ? <span className={"detail-status-chip detail-status-" + detailAgreement.key}>{detailAgreement.label}</span> : null}
+          <span className={"detail-status-chip detail-review-" + detailPriority.band}>R {detailPriority.score}</span>
+          <span className="detail-status-chip">{evidenceCount} inputs</span>
+          <span className="detail-status-source">{source}</span>
         </div>
       </section>
 
-      <section className={`betting-command betting-command-${actionTone}`}>
-        <div className="betting-command-head">
+      <section className={`detail-decision-board betting-command-${actionTone}`}>
+        <div className="detail-decision-head">
           <div>
             <span>BETTING VIEW</span>
             <h2>{actionLabel}</h2>
           </div>
-          <b>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI grounded" : story ? "Story engine ready" : analysis ? "Interpreter ready" : "基於現有 Phase 1 資料"}</b>
+          <b>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI GROUNDED" : story ? "STORY READY" : analysis ? "INTERPRETER READY" : "PHASE 1"}</b>
         </div>
 
-        <div className="betting-command-grid">
-          <div className="betting-primary-pick">
+        <div className="detail-decision-grid">
+          <div className="detail-decision-pick">
             <span>{pickLabel}</span>
             <strong>{primarySelectionLabel}</strong>
-            <b>{referencePriceOnly ? "CURRENT PRICE —" : Number.isFinite(primaryOdds) ? "@ " + primaryOdds.toFixed(2) : " "}</b>
-            {referencePriceOnly && Number.isFinite(referenceOdds) ? <small>舊價 {referenceOdds.toFixed(2)} 只作 reference</small> : null}
+            <small>{referencePriceOnly ? (Number.isFinite(referenceOdds) ? "舊價 @" + referenceOdds.toFixed(2) + " · reference only" : "CURRENT PRICE —") : Number.isFinite(primaryOdds) ? "@" + primaryOdds.toFixed(2) : "—"}</small>
           </div>
-          <div className="betting-edge-hero">
+
+          <div className="detail-decision-edge">
             <span>{gapLabel}</span>
             <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "%"}</strong>
-            <small>{referencePriceOnly ? "Model probability − reference HKJC fair probability" : "Model probability − HKJC fair probability"}</small>
           </div>
-          <div className="betting-prob-compare">
+
+          <div className="detail-decision-prob">
             <div><span>模型</span><b>{Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</b></div>
             <div><span>市場</span><b>{Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</b></div>
           </div>
+
+          <div className="detail-decision-market">
+            {sideRows.map((row) => (
+              <div className={primarySide === row.key ? "is-selected" : ""} key={row.key}>
+                <span>{row.key}</span>
+                <b>{formatOdds(row.odds)}</b>
+                <small>{row.fair == null ? "—" : (Number(row.fair) * 100).toFixed(1) + "% fair"}</small>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="betting-advice-copy">
-          <span>BETTING ADVICE</span>
+        <div className="detail-advice-line">
+          <span>分析</span>
           <p>{bettingAdvice}</p>
         </div>
+
         {!decisionCleared && blockerTags.length ? (
-          <div className="betting-blocker-strip">
-            <span>WHY NOT YET</span>
+          <div className="detail-blocker-line">
+            <span>未通過</span>
             <div>{blockerTags.map((tag, index) => <b key={tag + index}>{tag}</b>)}</div>
           </div>
         ) : null}
-
-        <div className="detail-market-strip">
-          {sideRows.map((row) => (
-            <div className={primarySide === row.key ? "edge-target" : ""} key={row.key}>
-              <span>{row.key} · {row.label}</span>
-              <b>{formatOdds(row.odds)}</b>
-              <small>{row.fair == null ? " " : (referencePriceOnly ? "Ref fair " : "Fair ") + (Number(row.fair) * 100).toFixed(1) + "%"}</small>
-              {primarySide === row.key ? <em>{referencePriceOnly ? "REF GAP" : decisionCleared ? "EDGE" : "MODEL GAP"}</em> : null}
-            </div>
-          ))}
-        </div>
       </section>
 
       {storyContent ? (
