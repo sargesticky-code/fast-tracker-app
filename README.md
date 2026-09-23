@@ -277,3 +277,6 @@ The dashboard may show REVIEW 0–100 to help decide which match to inspect firs
 - Team Form uses horizontal comparison rows, not two large standalone cards.
 - Phase 4 uses one compact market-intelligence board; detailed value/arbitrage rows remain expandable.
 - Model Consensus visual height should scale tightly with actual model count and should not reserve large empty chart space.
+
+- Final detail-board rhythm: HKJC totals use two compact market rows; Phase 3 scenario uses table rows rather than timeline cards; Live Trading uses contiguous scoreboard/control/pressure/market boards; Technical diagnostics remain collapsed and visually quiet.
+- Avoid restoring large standalone cards for these sections unless the information cannot be represented as a compact evidence row.
