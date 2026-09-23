@@ -745,6 +745,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const modelReady = prematchAll.filter((m) => modelCoverageCount(m) > 0).length;
   const priorityOne = prematchAll.filter((m) => reviewPriority(m, clockMs).band === "p1").length;
   const dataAlerts = missing + stale;
+  const booting = currentFeed.source === "boot-empty";
   const isLive = currentFeed.source === "supabase-canonical-live";
   const liveOddsAge = heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs);
   const liveScoreAge = heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs);
@@ -755,7 +756,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const upstreamDeploy = currentFeed?.systemHealth?.LIVE_UPSTREAM_DEPLOY;
   const nativeLiveShadow = currentFeed?.systemHealth?.LIVE_SOURCE_SHADOW;
   const liveShadowCompare = currentFeed?.systemHealth?.LIVE_SHADOW_COMPARE;
-  const pipelineWarnings = [
+  const pipelineWarnings = booting ? [] : [
     heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
     liveOddsAge > 3 ? "Live odds" : null,
     liveScoreAge > 3 ? "Live score" : null,
@@ -781,6 +782,37 @@ export default function DashboardClient({ feed, nowMs }) {
     setFilter(key);
     const nextUrl = key === "focus" ? "/" : `/?filter=${key}`;
     window.history.replaceState({}, "", nextUrl);
+  }
+
+  if (booting) {
+    return (
+      <main className="ft5-shell">
+        <style data-dashboard-layout="v5">{DASHBOARD_LAYOUT_V5}</style>
+        <header className="ft5-topbar ft5-commandbar">
+          <div className="ft5-brand">
+            <div className="ft5-logo">FT</div>
+            <div className="ft5-brand-copy">
+              <b>Fast Track</b>
+              <span>HKJC × Multi-model Football Intelligence</span>
+            </div>
+          </div>
+          <div className="ft5-header-status">
+            <span className="ft5-live-pill">Syncing</span>
+            <small>正在讀取 Supabase 最新 HKJC / Models / Live data</small>
+          </div>
+        </header>
+        <div className="ft5-pipeline">同步最新資料中 · 不顯示 build-time 舊賠率</div>
+        <section className="ft5-section">
+          <div className="ft5-fixture-controls">
+            <div className="ft5-fixture-heading">
+              <b>NEXT 24H</b>
+              <span>正在建立最新 Betting Board</span>
+            </div>
+          </div>
+          <div className="ft5-empty">讀取最新 HKJC 市場及模型 evidence…</div>
+        </section>
+      </main>
+    );
   }
 
   return (
