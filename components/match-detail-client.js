@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-BOARD-20260923-1";
+const UI_BUILD = "DETAIL-EVIDENCE-BOARD-20260923-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -225,7 +225,6 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
 
 function TeamFormCard({ title, name, detail }) {
   const recent = Array.isArray(detail?.recent) ? detail.recent.slice(0, 5) : [];
-  const games = Number(detail?.games || 0);
   const modelGames = Number(detail?.modelGames || 0);
   const venueGames = Number(detail?.venueGames || 0);
   const ppg = Number(detail?.ppg);
@@ -237,76 +236,59 @@ function TeamFormCard({ title, name, detail }) {
   const ga = Number(detail?.goalsAgainst || 0);
   const points = recent.reduce((sum, row) => sum + (row.result === "W" ? 3 : row.result === "D" ? 1 : 0), 0);
   const momentum = recent.length ? Math.round((points / (recent.length * 3)) * 100) : null;
-  const momentumLabel = momentum == null ? "NO HISTORY" : momentum >= 67 ? "HOT FORM" : momentum >= 40 ? "STEADY" : "WEAK FORM";
+  const momentumLabel = momentum == null ? "NO HISTORY" : momentum >= 67 ? "HOT" : momentum >= 40 ? "STEADY" : "WEAK";
   const goalDiff = gf - ga;
 
   return (
-    <div className="team-form-card form-signal-card">
-      <div className="team-form-card-head">
-        <div>
-          <small>{title}</small>
-          <h3>{name}</h3>
-        </div>
+    <div className="team-form-row">
+      <div className="team-form-identity">
+        <small>{title}</small>
+        <strong>{name}</strong>
         <span className={"form-signal-label " + (momentum == null ? "" : momentum >= 67 ? "is-hot" : momentum >= 40 ? "is-steady" : "is-weak")}>{momentumLabel}</span>
       </div>
 
-      {recent.length ? (
-        <>
-          <div className="form-momentum-row">
-            <div className="form-momentum-score">
-              <span>FORM MOMENTUM</span>
-              <strong>{momentum}%</strong>
-            </div>
-            <div className="form-momentum-track" aria-label={"Form momentum " + momentum + "%"}>
-              <i style={{ width: momentum + "%" }}></i>
-            </div>
-            <div className={"form-goal-balance " + (goalDiff > 0 ? "positive" : goalDiff < 0 ? "negative" : "")}>
-              <span>GOAL DIFF</span>
-              <b>{goalDiff > 0 ? "+" : ""}{goalDiff}</b>
-            </div>
-          </div>
+      <div className="team-form-sequence">
+        {recent.length ? recent.map((row, index) => (
+          <span
+            className={"form-chip form-" + String(row.result || "D").toLowerCase()}
+            key={String(row.kickoff || index) + "-" + index}
+            title={(row.opponent || "Opponent") + " " + (row.gf ?? "—") + "-" + (row.ga ?? "—")}
+          >
+            {row.result || "—"}
+          </span>
+        )) : <small>NO HISTORY</small>}
+      </div>
 
-          <div className="form-sequence" aria-label="最近賽果">
+      <div className="team-form-metrics">
+        <div><span>Form</span><b>{momentum == null ? "—" : momentum + "%"}</b></div>
+        <div><span>W-D-L</span><b>{wins}-{draws}-{losses}</b></div>
+        <div><span>PPG</span><b>{Number.isFinite(ppg) ? ppg.toFixed(2) : "—"}</b></div>
+        <div><span>GF-GA</span><b>{gf}-{ga}</b></div>
+        <div><span>xG</span><b>{Number.isFinite(xg) ? xg.toFixed(2) : "—"}</b></div>
+        <div className={goalDiff > 0 ? "positive" : goalDiff < 0 ? "negative" : ""}><span>GD</span><b>{goalDiff > 0 ? "+" : ""}{goalDiff}</b></div>
+      </div>
+
+      <div className="team-form-sample">
+        <span>MODEL {modelGames}</span>
+        <span>VENUE {venueGames}</span>
+      </div>
+
+      {recent.length ? (
+        <details className="form-match-details">
+          <summary>明細</summary>
+          <div className="form-recent-list">
             {recent.map((row, index) => (
-              <span
-                className={"form-chip form-" + String(row.result || "D").toLowerCase()}
-                key={String(row.kickoff || index) + "-" + index}
-                title={(row.opponent || "Opponent") + " " + (row.gf ?? "—") + "-" + (row.ga ?? "—")}
-              >
-                {row.result || "—"}
-              </span>
+              <div className="form-recent-row" key={"recent-" + String(row.kickoff || index) + "-" + index}>
+                <span className={"form-mini-result form-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
+                <span className="form-date">{formatFormDate(row.kickoff)}</span>
+                <span className="form-venue">{row.venue === "H" ? "主" : row.venue === "A" ? "客" : "—"}</span>
+                <b className="form-opponent">{row.opponent || "—"}</b>
+                <strong>{row.gf ?? "—"}-{row.ga ?? "—"}</strong>
+              </div>
             ))}
           </div>
-
-          <div className="form-summary-grid">
-            <div><span>戰績</span><b>{wins}W-{draws}D-{losses}L</b></div>
-            <div><span>PPG</span><b>{Number.isFinite(ppg) ? ppg.toFixed(2) : "—"}</b></div>
-            <div><span>入 / 失</span><b>{gf} / {ga}</b></div>
-            <div><span>Form xG</span><b>{Number.isFinite(xg) ? xg.toFixed(2) : "—"}</b></div>
-          </div>
-
-          <details className="form-match-details">
-            <summary>最近比賽明細</summary>
-            <div className="form-recent-list">
-              {recent.map((row, index) => (
-                <div className="form-recent-row" key={"recent-" + String(row.kickoff || index) + "-" + index}>
-                  <span className={"form-mini-result form-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
-                  <span className="form-date">{formatFormDate(row.kickoff)}</span>
-                  <span className="form-venue">{row.venue === "H" ? "主" : row.venue === "A" ? "客" : "—"}</span>
-                  <b className="form-opponent">{row.opponent || "—"}</b>
-                  <strong>{row.gf ?? "—"}-{row.ga ?? "—"}</strong>
-                </div>
-              ))}
-            </div>
-          </details>
-        </>
-      ) : (
-        <div className="form-no-history">暫時未有已確認近賽結果。</div>
-      )}
-
-      <div className="form-sample-line">
-        Model sample {modelGames || 0} 場 · venue sample {venueGames || 0} 場
-      </div>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -1258,106 +1240,87 @@ export default function MatchDetailClient() {
       </section>
 
 
-      <section className="panel model-intelligence-panel">
+      <section className="panel model-intelligence-panel phase4-board-panel">
         <div className="panel-title">
           <div><p>PHASE 4 · MARKET INTELLIGENCE</p><h2>Value / Arbitrage 市場掃描</h2></div>
           <span>{String(marketIntel.mode || "DETECT_ONLY").replaceAll("_", " ")}</span>
         </div>
-        <p className="panel-intro">
-          將模型機率同去水後市場機率分開比較；Arbitrage 只會計入已驗證同一 settlement rule、仍然新鮮嘅跨平台價格。現階段只偵測，不會自動落注。
-        </p>
 
-        {bestValue ? (
-          <>
-            <div className="human-summary-grid compact-human-grid">
-              <div>
-                <span>Top Model-Market Signal</span>
-                <b>{phase4SelectionLabel(bestValue.selection_key)}</b>
-                <small>{bestValue.provider_id || "—"} @ {formatOdds(bestValue.odds_decimal)}</small>
-              </div>
-              <div>
-                <span>Expected ROI</span>
-                <b>{Number.isFinite(phase4Ev) ? (phase4Ev >= 0 ? "+" : "") + phase4Ev.toFixed(1) + "%" : "—"}</b>
-                <small>{phase4Status}</small>
-              </div>
-              <div>
-                <span>模型 vs 市場</span>
-                <b>{pct(bestValue.model_prob, 1)} / {pct(bestValue.market_prob_devig, 1)}</b>
-                <small>Probability edge {Number.isFinite(phase4Edge) ? (phase4Edge >= 0 ? "+" : "") + phase4Edge.toFixed(1) + "%" : "—"}</small>
-              </div>
-              <div>
-                <span>Evidence Coverage</span>
-                <b>{phase4Coverage}</b>
-                <small>{Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote age" : "quote age —"}</small>
-              </div>
-            </div>
+        <div className="phase4-board">
+          <div className="phase4-value-cell">
+            <span>TOP SIGNAL</span>
+            <strong>{bestValue ? phase4SelectionLabel(bestValue.selection_key) : "—"}</strong>
+            <small>{bestValue ? (bestValue.provider_id || "—") + " @" + formatOdds(bestValue.odds_decimal) : "未有可比較 value"}</small>
+          </div>
 
-            <details className="model-deep-dive">
-              <summary>查看 Phase 4 全部 H / D / A 訊號</summary>
+          <div className="phase4-metric-cell">
+            <span>EV</span>
+            <strong>{Number.isFinite(phase4Ev) ? (phase4Ev >= 0 ? "+" : "") + phase4Ev.toFixed(1) + "%" : "—"}</strong>
+            <small>{phase4Status}</small>
+          </div>
+
+          <div className="phase4-metric-cell">
+            <span>MODEL / MARKET</span>
+            <strong>{bestValue ? pct(bestValue.model_prob, 1) + " / " + pct(bestValue.market_prob_devig, 1) : "—"}</strong>
+            <small>{Number.isFinite(phase4Edge) ? "Edge " + (phase4Edge >= 0 ? "+" : "") + phase4Edge.toFixed(1) + "%" : "Probability edge —"}</small>
+          </div>
+
+          <div className="phase4-metric-cell">
+            <span>COVERAGE</span>
+            <strong>{bestValue ? phase4Coverage : "NO MODEL"}</strong>
+            <small>{Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —"}</small>
+          </div>
+
+          <div className="phase4-metric-cell">
+            <span>ARBITRAGE</span>
+            <strong>{phase4Arbs.length ? phase4Arbs.length + " FOUND" : "0"}</strong>
+            <small>{phase4Arbs.length ? "compatibility gate passed" : "no inverse sum < 1"}</small>
+          </div>
+
+          <div className="phase4-metric-cell">
+            <span>NEAR-ARB</span>
+            <strong>{Number.isFinite(nearArbDistance) ? nearArbDistance.toFixed(2) + "%" : "—"}</strong>
+            <small>{nearArbStatus}</small>
+          </div>
+        </div>
+
+        {nearArbBestLegs.length ? <div className="phase4-leg-line"><span>Best legs</span><b>{nearArbBestLegs.join(" · ")}</b></div> : null}
+
+        {(phase4Values.length || phase4Arbs.length) ? (
+          <details className="model-deep-dive phase4-deep-dive">
+            <summary>完整 Phase 4 signals</summary>
+            {phase4Values.length ? (
               <div className="evidence-rows">
                 {phase4Values.slice(0, 6).map((row, index) => (
                   <div key={(row.provider_id || "provider") + "-" + (row.selection_key || index)}>
                     <span>{row.provider_id || "—"} · {phase4SelectionLabel(row.selection_key)}</span>
                     <b>@ {formatOdds(row.odds_decimal)} · EV {Number(row.expected_roi_pct) >= 0 ? "+" : ""}{numText(row.expected_roi_pct, 1)}%</b>
-                    <small>
-                      Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source
-                    </small>
+                    <small>Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source</small>
                   </div>
                 ))}
               </div>
-            </details>
-          </>
-        ) : (
-          <div className="human-wait-state">暫時未有可比較嘅 model + market value signal。</div>
-        )}
-
-        <div className="human-summary-grid compact-human-grid">
-          <div>
-            <span>Verified Arbitrage</span>
-            <b>{phase4Arbs.length ? phase4Arbs.length + " FOUND" : "0"}</b>
-            <small>{phase4Arbs.length ? "已通過 market compatibility gate" : "目前未有 inverse sum < 1"}</small>
-          </div>
-          <div>
-            <span>Near-Arb Gap</span>
-            <b>{Number.isFinite(nearArbDistance) ? nearArbDistance.toFixed(2) + "%" : "—"}</b>
-            <small>{nearArbStatus} · inverse {Number.isFinite(nearArbInverse) ? nearArbInverse.toFixed(4) : "—"}</small>
-          </div>
-          <div>
-            <span>Best Gross Arb ROI</span>
-            <b>{Number.isFinite(nearArbGross) ? (nearArbGross >= 0 ? "+" : "") + nearArbGross.toFixed(2) + "%" : "—"}</b>
-            <small>{nearArbBestLegs.length ? nearArbBestLegs.join(" · ") : "未有完整 H/D/A"}</small>
-          </div>
-          <div>
-            <span>Execution / Gate</span>
-            <b>OFF · FAIL-CLOSED</b>
-            <small>{Number(nearArb?.currency_count || 0) > 1 ? "跨幣種仍需 FX gate" : "只偵測；未自動落注"}</small>
-          </div>
-        </div>
-
-        {phase4Arbs.length ? (
-          <details className="model-deep-dive">
-            <summary>查看 Arbitrage legs</summary>
-            <div className="evidence-rows">
-              {phase4Arbs.slice(0, 5).map((arb) => (
-                <div key={arb.opportunity_key}>
-                  <span>{arb.market_key} · {arb.settlement_key}</span>
-                  <b>NET +{numText(arb.net_roi_pct, 2)}%</b>
-                  <small>{arb.leg_count} legs · inverse sum {numText(arb.inverse_sum, 4)} · {arb.status}</small>
-                </div>
-              ))}
-            </div>
+            ) : null}
+            {phase4Arbs.length ? (
+              <div className="evidence-rows">
+                {phase4Arbs.slice(0, 5).map((arb) => (
+                  <div key={arb.opportunity_key}>
+                    <span>{arb.market_key} · {arb.settlement_key}</span>
+                    <b>NET +{numText(arb.net_roi_pct, 2)}%</b>
+                    <small>{arb.leg_count} legs · inverse sum {numText(arb.inverse_sum, 4)} · {arb.status}</small>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </details>
         ) : null}
 
-        <p className="fineprint">
-          Value 唔等於 arbitrage：Value 依賴模型機率；Arbitrage 只依賴可同時成交、settlement 相容嘅跨平台價格。低於 2 個 model sources 只列作 WATCH。
-        </p>
+        <p className="fineprint">Value 依賴模型機率；Arbitrage 只依賴可同時成交、settlement 相容嘅跨平台價格。Execution 維持 OFF / fail-closed。</p>
       </section>
 
 
       <section className="panel team-form-panel">
         <div className="panel-title">
-          <div><p>TEAM FORM</p><h2>近期表現 · 模型背後實績</h2></div>
+          <div><p>TEAM FORM</p><h2>近期表現比較</h2></div>
           <span>{formQualityLabel(match.formDetail?.quality)}</span>
         </div>
         <div className="team-form-grid">
