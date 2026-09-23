@@ -255,3 +255,11 @@ The dashboard may show REVIEW 0–100 to help decide which match to inspect firs
 - After changing either Edge Function, smoke-test at least one canonical-active match and one DB-fallback match, then sync the deployed source back to GitHub if the deployed copy changed.
 
 <!-- railway-production-watch: all-files -->
+
+
+### Dashboard visual source of truth
+
+- `app/dashboard-polish.css` is the final authoritative visual layer for the public dashboard and is imported after `forebet-dashboard.css`.
+- New homepage typography, spacing, row-height, column-width and badge decisions should be made in `dashboard-polish.css` rather than appending another legacy override block.
+- Normal healthy states should stay visually quiet: do not repeat `DATA RICH`, `EDGE`, or equivalent labels when the same meaning is already communicated by selection, value and highlighting.
+- Desktop information density target: readable 9–14px hierarchy, compact 48–53px data rows, four-column upcoming board, four-column Best Bets board, three-column Live board.
