@@ -11,7 +11,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-BOARD-20260922-1";
+const UI_BUILD = "FOREBET-POLISH-20260923-1";
 
 function pct(value) {
   const n = Number(value);
@@ -68,8 +68,6 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const strongEdge = edge?.value >= 0.10;
   const valueEdgeFlag = edge?.value >= 0.05;
-  const positiveEdge = edge?.value > 0;
-  const actionLabel = strongEdge ? "重點投注" : valueEdgeFlag ? "投注位" : positiveEdge ? "觀察位" : "未有 Edge";
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
   const rowClass = [
     "ft5-match-card",
@@ -114,12 +112,12 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <div className="ft5-model-heading">
             <b>{modelLabel(match)}</b>
             <div className="ft5-model-badges">
-              <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
+              {agreement.key !== "limited" ? <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small> : null}
               <small
                 className={"ft5-review-inline ft5-review-" + priority.band}
                 title={"Review priority " + priority.score + "/100" + (priority.reasons.length ? " · " + priority.reasons.join(" · ") : "")}
               >R {priority.score}</small>
-              <small className={"ft5-health-inline health-" + coverageMeta.tone}>{coverageMeta.label}</small>
+              {coverageMeta.tone !== "rich" ? <small className={"ft5-health-inline health-" + coverageMeta.tone}>{coverageMeta.label}</small> : null}
             </div>
           </div>
           <div className="ft5-probs" aria-label="HDA model probability">
@@ -131,7 +129,6 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
-            <span className="ft5-pick-label">{actionLabel}</span>
             <b>{pick}</b>
             <small>{selectedOdds ? "@" + formatOdds(selectedOdds) : "—"}</small>
           </div>
@@ -152,15 +149,12 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <div className="ft5-odds ft5-row-odds">
             <div className={marketOddsClass(edge, "H")}>
               <span>主</span><b>{formatOdds(match.odds?.home)}</b>
-              {edge?.key === "H" && positiveEdge ? <small className="ft5-edge-market-mark">{strongEdge ? "重點" : "EDGE"}</small> : null}
             </div>
             <div className={marketOddsClass(edge, "D")}>
               <span>和</span><b>{formatOdds(match.odds?.draw)}</b>
-              {edge?.key === "D" && positiveEdge ? <small className="ft5-edge-market-mark">{strongEdge ? "重點" : "EDGE"}</small> : null}
             </div>
             <div className={marketOddsClass(edge, "A")}>
               <span>客</span><b>{formatOdds(match.odds?.away)}</b>
-              {edge?.key === "A" && positiveEdge ? <small className="ft5-edge-market-mark">{strongEdge ? "重點" : "EDGE"}</small> : null}
             </div>
             <div className="ft5-odd"><span>入球</span><b>{match.goals?.line ?? "—"}</b></div>
             <div className="ft5-odd"><span>角球</span><b>{match.corners?.line ?? "—"}</b></div>
