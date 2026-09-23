@@ -263,3 +263,12 @@ The dashboard may show REVIEW 0–100 to help decide which match to inspect firs
 - New homepage typography, spacing, row-height, column-width and badge decisions should be made in `dashboard-polish.css` rather than appending another legacy override block.
 - Normal healthy states should stay visually quiet: do not repeat `DATA RICH`, `EDGE`, or equivalent labels when the same meaning is already communicated by selection, value and highlighting.
 - Desktop information density target: readable 9–14px hierarchy, compact 48–53px data rows, four-column upcoming board, four-column Best Bets board, three-column Live board.
+
+
+### Match detail visual source of truth
+
+- `app/detail-polish.css` is the final authoritative visual layer for the public match-detail page and is imported after `dashboard-polish.css`.
+- The first screen should answer, in order: fixture → decision/pick → current/reference odds → Edge/model gap → model-vs-market probability → concise advice/blockers.
+- Avoid repeating team names, normal health states, EDGE labels, or price context in multiple adjacent cards.
+- Detail desktop density target: compact match header, one-row decision board, readable 8–18px hierarchy, 5px–9px internal spacing, thin separators rather than large card gaps.
+- Existing deeper evidence panels can remain expandable/detailed, but their typography and panel rhythm should follow `detail-polish.css`.
