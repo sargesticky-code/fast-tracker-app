@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-EVIDENCE-BOARD-20260923-1";
+const UI_BUILD = "DETAIL-EVIDENCE-BOARD-20260923-2";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -1013,12 +1013,6 @@ export default function MatchDetailClient() {
             </div>
           </div>
 
-          <div className="story-signal-row">
-            <div><span>MARKET</span><p>{storyContent.marketInterpretation || "—"}</p></div>
-            <div><span>MODELS</span><p>{storyContent.modelConsensusInterpretation || "—"}</p></div>
-            <div><span>HUMAN</span><p>{storyContent.humanFactorsInterpretation || "—"}</p></div>
-          </div>
-
           {Array.isArray(storyContent.watchNext) && storyContent.watchNext.length ? (
             <div className="story-watch-box">
               <span>NEXT CHECK</span>
@@ -1028,6 +1022,11 @@ export default function MatchDetailClient() {
 
           <details className="story-deep-dive">
             <summary>完整分析 / Phase interpretation</summary>
+            <div className="story-signal-row">
+              <div><span>MARKET</span><p>{storyContent.marketInterpretation || "—"}</p></div>
+              <div><span>MODELS</span><p>{storyContent.modelConsensusInterpretation || "—"}</p></div>
+              <div><span>HUMAN</span><p>{storyContent.humanFactorsInterpretation || "—"}</p></div>
+            </div>
             {storyContent.matchStory ? <p className="match-story-body">{storyContent.matchStory}</p> : null}
             <div className="story-intel-grid">
               <div><span>Live / Match State</span><p>{storyContent.liveInterpretation || "—"}</p></div>
