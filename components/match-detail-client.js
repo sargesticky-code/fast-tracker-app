@@ -17,7 +17,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-V6-PHASE4-MARKET-INTELLIGENCE-20260923-2";
+const UI_BUILD = "DETAIL-V7-PHASE4-NEAR-ARB-20260923-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -878,6 +878,16 @@ export default function MatchDetailClient() {
   const phase4Status = bestValue
     ? (!phase4Fresh ? "STALE QUOTE" : phase4Sources < 2 ? "WATCH · LOW COVERAGE" : phase4BackendStatus || "WATCH")
     : "NO VALUE SIGNAL";
+  const nearArb = marketIntel.nearArbitrage || null;
+  const nearArbInverse = Number(nearArb?.inverse_sum);
+  const nearArbGross = Number(nearArb?.gross_roi_pct);
+  const nearArbDistance = Number(nearArb?.distance_to_arb_pct);
+  const nearArbStatus = String(nearArb?.status || "NO WATCH").replaceAll("_", " ");
+  const nearArbBestLegs = [
+    nearArb?.best_home_provider ? `${nearArb.best_home_provider} H @ ${formatOdds(nearArb.best_home_odds)}` : null,
+    nearArb?.best_draw_provider ? `${nearArb.best_draw_provider} D @ ${formatOdds(nearArb.best_draw_odds)}` : null,
+    nearArb?.best_away_provider ? `${nearArb.best_away_provider} A @ ${formatOdds(nearArb.best_away_odds)}` : null,
+  ].filter(Boolean);
 
   return (
     <main className="shell detail-shell">
@@ -1300,22 +1310,22 @@ export default function MatchDetailClient() {
           <div>
             <span>Verified Arbitrage</span>
             <b>{phase4Arbs.length ? phase4Arbs.length + " FOUND" : "0"}</b>
-            <small>{phase4Arbs.length ? "已通過 market compatibility gate" : "等待第二個已驗證價格來源"}</small>
+            <small>{phase4Arbs.length ? "已通過 market compatibility gate" : "目前未有 inverse sum < 1"}</small>
           </div>
           <div>
-            <span>Best Net Arb ROI</span>
-            <b>{phase4Arbs.length ? "+" + numText(phase4Arbs[0]?.net_roi_pct, 2) + "%" : "—"}</b>
-            <small>fees / effective odds 後</small>
+            <span>Near-Arb Gap</span>
+            <b>{Number.isFinite(nearArbDistance) ? nearArbDistance.toFixed(2) + "%" : "—"}</b>
+            <small>{nearArbStatus} · inverse {Number.isFinite(nearArbInverse) ? nearArbInverse.toFixed(4) : "—"}</small>
           </div>
           <div>
-            <span>Execution</span>
-            <b>OFF</b>
-            <small>DETECT ONLY</small>
+            <span>Best Gross Arb ROI</span>
+            <b>{Number.isFinite(nearArbGross) ? (nearArbGross >= 0 ? "+" : "") + nearArbGross.toFixed(2) + "%" : "—"}</b>
+            <small>{nearArbBestLegs.length ? nearArbBestLegs.join(" · ") : "未有完整 H/D/A"}</small>
           </div>
           <div>
-            <span>Compatibility Gate</span>
-            <b>FAIL-CLOSED</b>
-            <small>market / period / line / settlement 必須一致</small>
+            <span>Execution / Gate</span>
+            <b>OFF · FAIL-CLOSED</b>
+            <small>{Number(nearArb?.currency_count || 0) > 1 ? "跨幣種仍需 FX gate" : "只偵測；未自動落注"}</small>
           </div>
         </div>
 
