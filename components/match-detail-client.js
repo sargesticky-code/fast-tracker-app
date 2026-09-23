@@ -414,7 +414,7 @@ function mergeLiveMatch(base, payload, matchId) {
   return base;
 }
 
-export default function MatchDetailClient({ snapshotMatches = [] }) {
+export default function MatchDetailClient() {
   const [id, setId] = useState("");
   const [match, setMatch] = useState(null);
   const [source, setSource] = useState("LOADING");
@@ -437,7 +437,6 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
     }
 
     const cached = readCachedMatch(matchId);
-    const fallback = snapshotMatches.find((m) => String(m.id) === String(matchId)) || null;
 
     let cancelled = false;
     let resolvedFresh = false;
@@ -524,9 +523,9 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
 
     Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail(), refreshAnalysis(), refreshStory()]).then(() => {
       if (cancelled) return;
-      if (!resolvedFresh && (cached || fallback)) {
-        setMatch(cached || fallback);
-        setSource(cached ? "FALLBACK CACHE" : "FALLBACK SNAPSHOT");
+      if (!resolvedFresh && cached) {
+        setMatch(cached);
+        setSource("FALLBACK CACHE");
       }
       setReady(true);
     });
@@ -569,7 +568,7 @@ export default function MatchDetailClient({ snapshotMatches = [] }) {
       document.removeEventListener("visibilitychange", refreshVisible);
       window.removeEventListener("pageshow", refreshPageShow);
     };
-  }, [snapshotMatches, refreshNonce]);
+  }, [refreshNonce]);
 
   if (!id && ready) {
     return (
