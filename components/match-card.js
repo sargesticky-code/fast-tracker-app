@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  binaryFair,
   binaryOdds,
   binarySideName,
   cornersValueEdge,
@@ -15,7 +16,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "MATCH-SCRIPT-CARDS-20260924-1";
+const UI_BUILD = "QUANT-EDGE-CARDS-20260924-1";
 
 function pct(value) {
   const n = Number(value);
@@ -63,10 +64,16 @@ function totalMarketSummary(match, edge, market, label) {
     return { label, text: "PASS · " + line, detail: "未見正 Edge", positive: false };
   }
   const odds = binaryOdds(market, edge.key);
+  const fair = binaryFair(market?.over, market?.under);
+  const modelP = edge.key === "O" ? Number(edge.model?.over) : Number(edge.model?.under);
+  const fairP = edge.key === "O" ? Number(fair?.over) : Number(fair?.under);
+  const formula = Number.isFinite(modelP) && Number.isFinite(fairP)
+    ? "模型 " + (modelP * 100).toFixed(1) + "% − fair " + (fairP * 100).toFixed(1) + "%"
+    : "精算 Edge";
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "Edge +" + (Number(edge.value) * 100).toFixed(1) + "pp",
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + formula + " = +" + (Number(edge.value) * 100).toFixed(1) + "pp",
     positive: Number(edge.value) >= 0.025,
   };
 }
@@ -87,6 +94,18 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "pp" : "—";
   const pick = edge ? outcomeLabel(edge.key) : "—";
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
+  const selectedModelProbability = edge?.key === "H" ? Number(model?.home)
+    : edge?.key === "D" ? Number(model?.draw)
+      : edge?.key === "A" ? Number(model?.away)
+        : null;
+  const selectedFairProbability = edge?.key === "H" ? Number(match.market?.home)
+    : edge?.key === "D" ? Number(match.market?.draw)
+      : edge?.key === "A" ? Number(match.market?.away)
+        : null;
+  const edgeFormula = Number.isFinite(selectedModelProbability) && Number.isFinite(selectedFairProbability)
+    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + "% − fair " + (selectedFairProbability * 100).toFixed(1) + "%"
+    : "模型概率 − HKJC fair";
+  const quantBand = edge?.value >= 0.10 ? "強 VALUE" : edge?.value >= 0.05 ? "VALUE" : edge?.value >= 0.025 ? "WATCH" : "PASS";
   const strongEdge = edge?.value >= 0.10;
   const valueEdgeFlag = edge?.value >= 0.05;
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
@@ -191,7 +210,9 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
+              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>精算 EDGE · {quantBand}</span>
               <b>{edgeText}</b>
+              <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
             </div>
             {hasMove ? (
               <div className="ft5-move-chip">
