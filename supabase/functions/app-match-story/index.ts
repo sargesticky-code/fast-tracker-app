@@ -256,6 +256,98 @@ function compareEditorialSignals(a:any, commentary:any[]) {
   };
 }
 
+
+function buildMatchScript(a:any, detail:any, language:string, editorialAlignment:any){
+  const deep=compactDetail(detail);
+  const fb=deep?.forebet || null;
+  const goals=a?.marketAdvice?.goals || null;
+  const corners=a?.marketAdvice?.corners || null;
+  const decision=a?.decision || null;
+  const phase2=a?.evidence?.phase2 || {};
+  const predictedScore=fb?.predictedScore || null;
+  const avgGoals=num(fb?.avgGoals);
+  const h=num(fb?.hda?.home), d=num(fb?.hda?.draw), aw=num(fb?.hda?.away);
+  const maxSide=Math.max(h??-1,d??-1,aw??-1);
+
+  let shapeKey="BALANCED";
+  if(goals?.selection==="OVER" && num(goals?.analystConsensusProbability)!==null && Number(goals.analystConsensusProbability)>=0.55) shapeKey="OPEN";
+  else if(goals?.selection==="UNDER" && num(goals?.analystConsensusProbability)!==null && Number(goals.analystConsensusProbability)>=0.55) shapeKey="CONTROLLED";
+  else if(avgGoals!==null && avgGoals>=3) shapeKey="OPEN";
+  else if(avgGoals!==null && avgGoals<=2.2) shapeKey="CONTROLLED";
+
+  const sideLabel=decision?.selection==="H" ? (a?.match?.home || "主隊")
+    : decision?.selection==="A" ? (a?.match?.away || "客隊")
+      : decision?.selection==="D" ? (language==="en" ? "draw/balanced outcome" : "和局／均衡結果")
+        : null;
+
+  let opening="";
+  if(d!==null && d===maxSide){
+    opening=language==="en"
+      ? "Opening phase inference: the available pre-match model is relatively balanced, with no strong evidence that either side should dominate immediately."
+      : "開局推演：現有賽前模型較均衡，未有足夠 evidence 顯示其中一方應該一開始就明顯壓住對手。";
+  } else if(sideLabel){
+    opening=language==="en"
+      ? `Opening phase inference: the model leans toward ${sideLabel}, but the current evidence supports a gradual advantage rather than assuming an early goal.`
+      : `開局推演：模型整體偏向 ${sideLabel}，但現有 evidence 較適合解讀為優勢逐步建立，而唔係直接假設早段一定有入球。`;
+  } else {
+    opening=language==="en"
+      ? "Opening phase inference: balanced until stronger lineup or market evidence appears."
+      : "開局推演：暫時以均衡開局處理，等 lineup 或市場再提供更強方向。";
+  }
+
+  let middle="";
+  if(shapeKey==="OPEN"){
+    middle=language==="en"
+      ? "Middle-game shape: the evidence leans toward a more open scoring environment; once the match state breaks, transitions and repeat attacks become more relevant."
+      : "中段走勢：現有 evidence 偏向較開放嘅入球環境；一旦比分打開，攻守轉換同連續攻勢會更值得留意。";
+  } else if(shapeKey==="CONTROLLED"){
+    middle=language==="en"
+      ? "Middle-game shape: the evidence points to a more controlled scoring environment, so long scoreless stretches remain plausible unless the first goal changes the state."
+      : "中段走勢：現有 evidence 偏向較受控嘅入球環境，長時間維持低比分係合理情境；首個入球會係最重要嘅 regime change。";
+  } else {
+    middle=language==="en"
+      ? "Middle-game shape: neither a clearly open nor clearly suppressed scoring regime is established yet."
+      : "中段走勢：暫時未形成明顯大開大合或者極低節奏 regime，要靠首個入球、lineup 同 live stats 再分流。";
+  }
+
+  const goalEnvironment=goals?.selection
+    ? (language==="en"
+      ? `Goals market: ${goals.selectionLabel || goals.selection} at line ${goals.line ?? "—"}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.`
+      : `入球環境：現時模型偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 HKJC fair ${pctText(goals.marketFairProbability,1)}。`)
+    : (language==="en" ? "Goals market: no reliable Phase 1 direction yet." : "入球環境：Phase 1 暫未有可靠方向。");
+
+  const cornerEnvironment=corners?.selection
+    ? (language==="en"
+      ? `Corners market: ${corners.selectionLabel || corners.selection} at line ${corners.line ?? "—"}; treat single-family evidence as watch-level until independently confirmed.`
+      : `角球環境：現時偏 ${corners.selectionLabel || corners.selection}，盤口 ${corners.line ?? "—"}；如果仍然只得單一 evidence family，就維持 WATCH 級。`)
+    : fb?.corners?.avg!==null
+      ? (language==="en"
+        ? `Corners context: Forebet average ${Number(fb.corners.avg).toFixed(1)}, reference lean ${fb.corners.pick || "—"} 9.5; HKJC-comparable direction is not yet reliable.`
+        : `角球環境：Forebet 平均約 ${Number(fb.corners.avg).toFixed(1)} 個，reference 偏 ${fb.corners.pick || "—"} 9.5；但同 HKJC 可直接比較嘅方向暫未夠可靠。`)
+      : (language==="en" ? "Corners market: insufficient comparable evidence." : "角球環境：可比較 evidence 暫時不足。");
+
+  const turningPoints:any[]=[];
+  if(predictedScore) turningPoints.push(language==="en" ? `Forebet reference score: ${predictedScore}` : `Forebet 參考比分：${predictedScore}`);
+  if(phase2?.lineupConfirmed===false || phase2?.lineupStatus==="UNCONFIRMED") turningPoints.push(language==="en" ? "Official XI can materially change the pre-match script." : "Official XI 未確認，正選可以明顯改變賽前 script。");
+  if(editorialAlignment?.contradict) turningPoints.push(language==="en" ? `${editorialAlignment.contradict} editorial signal(s) currently contradict a model direction.` : `目前有 ${editorialAlignment.contradict} 個球評 signal 同模型方向相反。`);
+  if(Array.isArray(a?.invalidators)) turningPoints.push(...a.invalidators.slice(0,3).map(String));
+
+  return {
+    shapeKey,
+    headline: language==="en"
+      ? `${shapeKey} match script${predictedScore ? " · "+predictedScore : ""}`
+      : `${shapeKey==="OPEN"?"偏開放":shapeKey==="CONTROLLED"?"偏受控":"均衡"} Match Script${predictedScore ? " · "+predictedScore : ""}`,
+    opening,
+    middle,
+    goalEnvironment,
+    cornerEnvironment,
+    predictedScore,
+    avgGoals,
+    turningPoints:[...new Set(turningPoints)].slice(0,6),
+    basis:["Phase 1 model consensus","HKJC market","Forebet shape","Editorial alignment"].filter((x)=>x!=="Editorial alignment" || editorialAlignment?.totalSignals),
+  };
+}
+
 function fallbackStory(a: any, detail: any, language: string, commentary: any[] = [], editorialAlignment:any = null) {
   const s = a?.story || {};
   const deep = compactDetail(detail);
@@ -628,13 +720,14 @@ Deno.serve(async (req: Request) => {
     const editorialAlignment = compareEditorialSignals(analysis, commentary);
 
     const packForHash = {
-      cacheSchema:"FT_STORY_V5_3_EDITORIAL_ALIGNMENT",
+      cacheSchema:"FT_STORY_V5_4_MATCH_SCRIPT",
       match:analysis?.match,
       decision:analysis?.decision,
       marketAdvice:analysis?.marketAdvice,
       story:analysis?.story,
       commentary,
       editorialAlignment,
+      matchScript,
       phaseCoverage:analysis?.phaseCoverage,
       invalidators:analysis?.invalidators,
       evidence:analysis?.evidence,
@@ -656,6 +749,7 @@ Deno.serve(async (req: Request) => {
       }, { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
     }
 
+    const matchScript = buildMatchScript(analysis, detail, language, editorialAlignment);
     const deterministic = fallbackStory(analysis, detail, language, commentary, editorialAlignment);
     const ai = await createAiStory(analysis, detail, deterministic, language, style, commentary, editorialAlignment);
     const story = ai.output || deterministic;
@@ -694,6 +788,7 @@ Deno.serve(async (req: Request) => {
       marketAdvice:analysis?.marketAdvice ?? null,
       commentary,
       editorialAlignment,
+      matchScript,
       story,
       phaseCoverage:analysis.phaseCoverage ?? null,
       evidenceSummary:{
