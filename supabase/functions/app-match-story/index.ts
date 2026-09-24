@@ -718,6 +718,7 @@ Deno.serve(async (req: Request) => {
     }));
 
     const editorialAlignment = compareEditorialSignals(analysis, commentary);
+    const matchScript = buildMatchScript(analysis, detail, language, editorialAlignment);
 
     const packForHash = {
       cacheSchema:"FT_STORY_V5_4_MATCH_SCRIPT",
@@ -749,7 +750,6 @@ Deno.serve(async (req: Request) => {
       }, { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
     }
 
-    const matchScript = buildMatchScript(analysis, detail, language, editorialAlignment);
     const deterministic = fallbackStory(analysis, detail, language, commentary, editorialAlignment);
     const ai = await createAiStory(analysis, detail, deterministic, language, style, commentary, editorialAlignment);
     const story = ai.output || deterministic;
