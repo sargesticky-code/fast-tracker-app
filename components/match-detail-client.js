@@ -842,6 +842,7 @@ export default function MatchDetailClient() {
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
   const storyContent = story?.story || null;
+  const commentaryRows = Array.isArray(story?.commentary) ? story.commentary.slice(0, 4) : [];
   const storyEvidence = story?.evidenceSummary || {};
   const storyEvidenceTags = [
     storyEvidence.forebet ? "Forebet" : null,
@@ -850,6 +851,7 @@ export default function MatchDetailClient() {
     storyEvidence.optaStrength ? "Opta" : null,
     Number(storyEvidence.humanFactorRows || 0) > 0 ? "Human Factors" : null,
     Number(storyEvidence.scenarioRows || 0) > 0 ? "Scenario" : null,
+    Number(storyEvidence.commentaryRows || 0) > 0 ? "球評" : null,
   ].filter(Boolean);
   const sourceModeLabel = analysisSourceMode.includes("FALLBACK") ? "DB FALLBACK" : analysisSourceMode.includes("CANONICAL") ? "CANONICAL FEED" : "SOURCE CHECK";
   const priceStatusLabel = referencePriceOnly ? "REFERENCE ONLY" : "CURRENT";
@@ -1063,6 +1065,31 @@ export default function MatchDetailClient() {
               </div>
             ) : null}
           </details>
+        </section>
+      ) : null}
+
+      {commentaryRows.length ? (
+        <section className="panel commentary-panel">
+          <div className="panel-title">
+            <div><p>EDITORIAL EVIDENCE</p><h2>外部球評 / Match Preview</h2></div>
+            <span>{commentaryRows.length} sources · context only</span>
+          </div>
+          <div className="commentary-board">
+            {commentaryRows.map((row, index) => (
+              <a
+                className="commentary-row"
+                href={row.sourceUrl || "#"}
+                target={row.sourceUrl ? "_blank" : undefined}
+                rel={row.sourceUrl ? "noreferrer" : undefined}
+                key={(row.source || "source") + (row.headline || index)}
+              >
+                <span>{row.source || "外部來源"}</span>
+                <strong>{row.headline || row.summary || "Preview"}</strong>
+                <small>{row.publishedAt ? formatUpdated(row.publishedAt) : "時間未提供"}</small>
+              </a>
+            ))}
+          </div>
+          <p className="fineprint">球評只作 contextual evidence；唔會直接改模型 probability、Edge 或 betting gate。</p>
         </section>
       ) : null}
 
