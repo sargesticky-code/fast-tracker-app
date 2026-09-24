@@ -1554,6 +1554,81 @@
   color:#9a4d40!important;
 }
 
+.detail-shell .totals-model-note{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.detail-shell .totals-suggestion{
+  min-height:24px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 5px;
+  border:1px solid #dfe7e1;
+  border-radius:3px;
+  background:#f8faf8;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.detail-shell .totals-suggestion>span{
+  color:#77857e;
+  font-size:7.5px;
+  font-weight:900;
+}
+.detail-shell .totals-suggestion>strong{
+  color:#244d39;
+  font-size:11px;
+  font-weight:950;
+}
+.detail-shell .totals-suggestion>em{
+  color:#4b6256;
+  font-size:9px;
+  font-style:normal;
+  font-weight:850;
+}
+.detail-shell .totals-suggestion>b{
+  margin-left:auto;
+  color:#316247;
+  font-size:10px;
+}
+.detail-shell .totals-suggestion>small{
+  flex:0 1 auto;
+  color:#77857e!important;
+  font-size:7.5px!important;
+}
+.detail-shell .totals-suggestion.value{
+  background:#e6f4eb;
+  border-color:#a8d2b8;
+}
+.detail-shell .totals-suggestion.watch{
+  background:#fff8e8;
+  border-color:#e6d5a6;
+}
+.detail-shell .totals-suggestion.pass{
+  background:#f4f6f4;
+  border-color:#dfe5e1;
+}
+@media (max-width:680px){
+  .detail-shell .totals-row{
+    grid-template-columns:1fr!important;
+  }
+  .detail-shell .totals-row>div{
+    border-right:0!important;
+    border-bottom:1px solid #edf1ee;
+  }
+  .detail-shell .totals-row>div:last-child{
+    border-bottom:0;
+  }
+  .detail-shell .totals-suggestion{
+    flex-wrap:wrap;
+    white-space:normal;
+  }
+  .detail-shell .totals-suggestion>b{
+    margin-left:0;
+  }
+}
+
 /* Model Intelligence should feel like a board, not a narrative block */
 .detail-shell .model-intelligence-panel>.panel-intro{
   display:none!important;
