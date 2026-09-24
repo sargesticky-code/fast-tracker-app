@@ -134,6 +134,78 @@ function entityHit(text,name){
   const hay=String(text??"").toLowerCase();
   return entityVariants(name).some(v=>v.length>=2 && hay.includes(v));
 }
+
+function escapeRegex(v){
+  return String(v??"").replace(/[.*+?^$()|[\]{}\\]/g,"\\function entityHit(text,name){
+  const hay=String(text??"").toLowerCase();
+  return entityVariants(name).some(v=>v.length>=2 && hay.includes(v));
+}
+");
+}
+function editorialSignals(text,home,away){
+  const raw=String(text??"").replace(/\s+/g," ").trim();
+  const t=raw.toLowerCase();
+  const topics=[];
+  const add=(x)=>{if(!topics.includes(x))topics.push(x);};
+  if(/team news|lineups?|starting xi|squad/i.test(raw)) add("LINEUP");
+  if(/injur|suspend|doubt|fitness/i.test(raw)) add("AVAILABILITY");
+  if(/form|streak|unbeaten|winless/i.test(raw)) add("FORM");
+  if(/head[- ]?to[- ]?head|\bh2h\b/i.test(raw)) add("H2H");
+  if(/odds|betting|best bet|tips?/i.test(raw)) add("BETTING");
+  if(/defen[cs]e|clean sheet|concede/i.test(raw)) add("DEFENCE");
+  if(/attack|scor|goals?/i.test(raw)) add("ATTACK");
+
+  const make=(selection,line,confidence,basis)=>({selection,line:line??null,confidence,basis});
+  let outcome=null,goals=null,corners=null,btts=null;
+
+  const overGoals=t.match(/\bover\s*(\d+(?:\.\d+)?)?\s*(?:total\s*)?goals?\b/i);
+  const underGoals=t.match(/\bunder\s*(\d+(?:\.\d+)?)?\s*(?:total\s*)?goals?\b/i);
+  if(overGoals) goals=make("OVER",overGoals[1]?Number(overGoals[1]):null,.9,"explicit over goals wording");
+  else if(underGoals) goals=make("UNDER",underGoals[1]?Number(underGoals[1]):null,.9,"explicit under goals wording");
+  else if(/goals? to come at a premium|low[- ]scoring|few goals|cagey|tight affair/i.test(raw)) goals=make("UNDER",null,.66,"qualitative low-scoring wording");
+  else if(/high[- ]scoring|goal[- ]?fest|goals galore|plenty of goals/i.test(raw)) goals=make("OVER",null,.66,"qualitative high-scoring wording");
+
+  const overCorners=t.match(/\bover\s*(\d+(?:\.\d+)?)\s*corners?\b/i);
+  const underCorners=t.match(/\bunder\s*(\d+(?:\.\d+)?)\s*corners?\b/i);
+  if(overCorners) corners=make("OVER",Number(overCorners[1]),.92,"explicit over corners wording");
+  else if(underCorners) corners=make("UNDER",Number(underCorners[1]),.92,"explicit under corners wording");
+
+  if(/both teams to score|\bbtts\b/i.test(raw)){
+    if(/btts\s*no|both teams not to score/i.test(raw)) btts=make("NO",null,.86,"explicit BTTS no wording");
+    else btts=make("YES",null,.82,"explicit BTTS wording");
+  }
+
+  const homeLower=String(home??"").toLowerCase();
+  const awayLower=String(away??"").toLowerCase();
+  const hasHome=homeLower&&t.includes(homeLower);
+  const hasAway=awayLower&&t.includes(awayLower);
+  if(hasHome && new RegExp(escapeRegex(homeLower)+"[^.]{0,32}(?:to win|win prediction|victory|to beat)","i").test(t)){
+    outcome=make("H",null,.82,"explicit home-win wording");
+  } else if(hasAway && new RegExp(escapeRegex(awayLower)+"[^.]{0,32}(?:to win|win prediction|victory|to beat)","i").test(t)){
+    outcome=make("A",null,.82,"explicit away-win wording");
+  } else if(/(?:prediction|tip)[^.:]{0,30}:?\s*(?:a\s+)?draw\b|draw\s+(?:prediction|tip|tipped)/i.test(raw)){
+    outcome=make("D",null,.78,"explicit draw wording");
+  }
+
+  const candidates=[
+    outcome?{market:"1X2",signal:outcome}:null,
+    goals?{market:"GOALS_OU",signal:goals}:null,
+    corners?{market:"CORNERS_OU",signal:corners}:null,
+  ].filter(Boolean).sort((a,b)=>b.signal.confidence-a.signal.confidence);
+  const primary=candidates[0]||null;
+  let relevance=.70;
+  if(primary) relevance+=.12;
+  if(topics.includes("LINEUP")||topics.includes("AVAILABILITY")) relevance+=.05;
+  if(topics.includes("BETTING")) relevance+=.04;
+  relevance=Math.min(.95,relevance);
+
+  return {
+    outcome,goals,corners,btts,topics,
+    primary:primary?{market:primary.market,selection:primary.signal.selection,confidence:primary.signal.confidence}:null,
+    relevance,
+    parserVersion:"EDITORIAL_RULES_V1"
+  };
+}
 async function fetchCommentary(home,away,kickoff){
   const query=`"${home}" "${away}" football preview prediction tips lineup odds`;
   const url=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
@@ -285,6 +357,7 @@ Deno.serve(async (req)=>{
         if(items.length) commentaryMatches++;
         for(const item of items){
           const fingerprint=await sha256([p.eventId,item.publisher,item.title,item.link].join("|"));
+          const signalPack=editorialSignals([item.title,item.excerpt].filter(Boolean).join(" "),p.homeName,p.awayName);
           const row={
             hkjc_event_id:p.eventId,
             source:item.publisher,
@@ -297,10 +370,18 @@ Deno.serve(async (req)=>{
             headline:item.title,
             excerpt:item.excerpt,
             summary:item.excerpt,
-            lean_market:null,
-            lean_selection:null,
-            confidence:null,
-            topics:["PREMATCH","EDITORIAL"],
+            lean_market:signalPack.primary?.market||null,
+            lean_selection:signalPack.primary?.selection||null,
+            confidence:signalPack.primary?.confidence||null,
+            topics:["PREMATCH","EDITORIAL",...signalPack.topics],
+            opinion_signals:{
+              outcome:signalPack.outcome,
+              goals:signalPack.goals,
+              corners:signalPack.corners,
+              btts:signalPack.btts
+            },
+            relevance_score:signalPack.relevance,
+            parser_version:signalPack.parserVersion,
             provenance:{aggregator:item.aggregator,query:item.query,collector:"phase15-source-scout"},
             content_fingerprint:fingerprint,
             updated_at:new Date().toISOString()
