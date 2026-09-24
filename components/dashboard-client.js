@@ -920,7 +920,7 @@ export default function DashboardClient({ feed, nowMs }) {
     if (key === "odds") return oddsAlerts;
     if (key === "missing") return missing;
     if (key === "stale") return stale;
-    if (key === "focus") return byFocus.length;
+    if (key === "focus") return null;
     return 0;
   }
 
@@ -1048,12 +1048,11 @@ export default function DashboardClient({ feed, nowMs }) {
                   aria-pressed={filter === key}
                 >
                   <span className="ft5-filter-label">{label}</span>
-                  <b className="ft5-filter-count">{count}</b>
+                  {count != null ? <b className="ft5-filter-count">{count}</b> : null}
                 </button>
               );
             })}
           </nav>
-          <span className="ft5-count">{filter === "live" ? liveMatches.length : matches.length} 場</span>
         </div>
 
         {filter === "live" ? (
