@@ -2094,3 +2094,95 @@
     white-space:normal;
   }
 }
+
+
+/* Editorial signal alignment */
+.detail-shell .editorial-alignment-summary{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+  margin:0 0 7px;
+  padding:6px 8px;
+  border:1px solid #dde7e0;
+  border-radius:4px;
+  background:#f7faf8;
+}
+.detail-shell .editorial-alignment-summary>span{
+  color:#50685b;
+  font-size:8px;
+  font-weight:950;
+}
+.detail-shell .editorial-alignment-summary>b{
+  border-radius:999px;
+  padding:3px 6px;
+  font-size:8px;
+  font-weight:950;
+}
+.detail-shell .editorial-alignment-summary>b.support{
+  background:#e5f4e9;
+  color:#2c704b;
+}
+.detail-shell .editorial-alignment-summary>b.contradict{
+  background:#fae9e6;
+  color:#9a4e45;
+}
+.detail-shell .editorial-alignment-summary>b.different{
+  background:#fff4d9;
+  color:#8d6c1d;
+}
+.detail-shell .editorial-alignment-summary>small{
+  margin-left:auto;
+  color:#7d8b83;
+  font-size:7.5px;
+}
+.detail-shell .commentary-main{
+  min-width:0;
+}
+.detail-shell .commentary-main>strong{
+  display:block;
+  color:#263e32;
+  font-size:10px;
+  line-height:1.25;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.detail-shell .commentary-signals{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-top:4px;
+}
+.detail-shell .commentary-signals>b{
+  border-radius:999px;
+  padding:2px 5px;
+  font-size:7px;
+  font-weight:900;
+}
+.detail-shell .editorial-signal.editorial-support{
+  background:#e6f4eb;
+  color:#2d714c;
+}
+.detail-shell .editorial-signal.editorial-contradict{
+  background:#f9e8e5;
+  color:#9a4e45;
+}
+.detail-shell .editorial-signal.editorial-different_line{
+  background:#fff3d7;
+  color:#8d6919;
+}
+.detail-shell .editorial-signal.editorial-context_only,
+.detail-shell .editorial-topic{
+  background:#eef2ef;
+  color:#64746b;
+}
+@media (max-width:680px){
+  .detail-shell .editorial-alignment-summary>small{
+    width:100%;
+    margin-left:0;
+  }
+  .detail-shell .commentary-main>strong{
+    white-space:normal;
+  }
+}
