@@ -15,7 +15,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "MULTI-MARKET-CARDS-20260924-1";
+const UI_BUILD = "MATCH-SCRIPT-CARDS-20260924-1";
 
 function pct(value) {
   const n = Number(value);
@@ -66,7 +66,7 @@ function totalMarketSummary(match, edge, market, label) {
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "Edge +" + (Number(edge.value) * 100).toFixed(1) + "%",
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "Edge +" + (Number(edge.value) * 100).toFixed(1) + "pp",
     positive: Number(edge.value) >= 0.025,
   };
 }
@@ -84,7 +84,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const away = match.awayZh || match.away;
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
   const hasMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
-  const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "%" : "—";
+  const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "pp" : "—";
   const pick = edge ? outcomeLabel(edge.key) : "—";
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const strongEdge = edge?.value >= 0.10;
@@ -92,6 +92,18 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
   const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
+  const storyScript = match.storySummary?.matchScript || null;
+  const editorialAlignment = match.storySummary?.editorialAlignment || null;
+  const avgGoals = Number(match.forebetDetail?.ou25?.avgGoals);
+  const scriptShape = storyScript?.shapeKey
+    || (Number.isFinite(avgGoals) ? (avgGoals >= 3 ? "OPEN" : avgGoals <= 2.2 ? "CONTROLLED" : "BALANCED") : null);
+  const scriptShapeLabel = scriptShape === "OPEN" ? "偏開放"
+    : scriptShape === "CONTROLLED" ? "偏受控"
+      : scriptShape === "BALANCED" ? "均衡"
+        : null;
+  const scriptScore = storyScript?.predictedScore || match.forebetDetail?.predictedScore || null;
+  const editorialContradict = Number(editorialAlignment?.contradict || 0);
+  const editorialSupport = Number(editorialAlignment?.support || 0);
   const rowClass = [
     "ft5-match-card",
     "ft5-forebet-row",
@@ -129,6 +141,28 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
             <span>vs</span>
             <b>{away}</b>
           </div>
+          {(scriptShapeLabel || scriptScore || editorialContradict || editorialSupport) ? (
+            <div
+              className="ft5-match-script-mini"
+              style={{
+                display:"flex",
+                alignItems:"center",
+                gap:5,
+                flexWrap:"wrap",
+                marginTop:6,
+                padding:"5px 7px",
+                border:"1px solid #e0e8e2",
+                borderRadius:8,
+                background:"#f8faf8",
+              }}
+            >
+              <span style={{ fontSize:7, fontWeight:950, color:"#76877e" }}>MATCH SCRIPT</span>
+              {scriptShapeLabel ? <b style={{ fontSize:8, color:"#2f6349" }}>{scriptShapeLabel}</b> : null}
+              {scriptScore ? <small style={{ fontSize:8, color:"#53685c", fontWeight:850 }}>{scriptScore}</small> : null}
+              {editorialContradict ? <em style={{ fontSize:7, color:"#9a4e45", fontStyle:"normal", fontWeight:900 }}>球評反向 {editorialContradict}</em> : null}
+              {!editorialContradict && editorialSupport ? <em style={{ fontSize:7, color:"#2d714c", fontStyle:"normal", fontWeight:900 }}>球評同向 {editorialSupport}</em> : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="ft5-cell ft5-model-cell">
