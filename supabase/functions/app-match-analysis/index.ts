@@ -76,7 +76,7 @@ function val(t: T | null, side: "H" | "D" | "A") {
 }
 
 function pct(v: number | null, dp = 1) {
-  return v === null ? "—" : (v * 100).toFixed(dp) + "%";
+  return v === null ? "—" : (v * 100).toFixed(dp) + "pp";
 }
 
 function sideLabel(side: string | null, home: string, away: string) {
@@ -574,7 +574,7 @@ Deno.serve(async (req: Request) => {
   const home = r.home_zh || r.home_en || "主隊";
   const away = r.away_zh || r.away_en || "客隊";
   const selection = sideLabel(bestSide, home, away);
-  const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "%");
+  const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "pp");
   const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
   const priceRead = fallbackMode
     ? (bestOdds === null ? "HKJC current price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
@@ -600,12 +600,12 @@ Deno.serve(async (req: Request) => {
 
   const movementData = movement.data;
   const movementText = movementData
-    ? `${movementData.signal || "COLLECTING"} · ${movementData.movement_side || "—"} · 24H ${movementData.move_24h_pp == null ? "—" : Number(movementData.move_24h_pp).toFixed(1) + "%"} · ${movementData.model_alignment || "—"}`
+    ? `${movementData.signal || "COLLECTING"} · ${movementData.movement_side || "—"} · 24H ${movementData.move_24h_pp == null ? "—" : Number(movementData.move_24h_pp).toFixed(1) + "pp"} · ${movementData.model_alignment || "—"}`
     : "未有足夠 odds history";
 
   const modelSentence = families.length
     ? bestSide
-      ? `支持 ${selection} 嘅模型：${supportingFamilies.length ? supportingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : (x.edgePp >= 0 ? "+" : "") + x.edgePp.toFixed(1) + "%"}`).join("、") : "暫無"}；未支持：${opposingFamilies.length ? opposingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : x.edgePp.toFixed(1) + "%"}`).join("、") : "無"}。`
+      ? `支持 ${selection} 嘅模型：${supportingFamilies.length ? supportingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : (x.edgePp >= 0 ? "+" : "") + x.edgePp.toFixed(1) + "pp"}`).join("、") : "暫無"}；未支持：${opposingFamilies.length ? opposingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : x.edgePp.toFixed(1) + "pp"}`).join("、") : "無"}。`
       : families.map(f => `${f.label}: ${sideLabel(pick(f.probs), home, away)}`).join("；")
     : "目前沒有足夠模型 evidence";
   const marketSentence = market && consensus
@@ -643,10 +643,10 @@ Deno.serve(async (req: Request) => {
     ? `HKJC 對 ${selection} 嘅 fair probability 約 ${pct(marketProb)}，跨模型中心約 ${pct(bestProb)}，形成 ${edgeText} 差距。${priceRead}；${confidenceLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
     : `目前市場與可用模型未形成清晰正 Edge；先以資料完整度同價格變化為主。`;
   const supportRead = bestSide
-    ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "%" : "暫無明顯支持"}。`
+    ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "pp" : "暫無明顯支持"}。`
     : "暫未形成可比較支持。";
   const counterRead = bestSide
-    ? `反方／風險：${strongestOpposition ? strongestOpposition.label + " " + strongestOpposition.edgePp!.toFixed(1) + "%" : "暫無模型明顯反對"}；${invalidators.length ? invalidators.join("；") : "未見額外 data-risk flag"}。`
+    ? `反方／風險：${strongestOpposition ? strongestOpposition.label + " " + strongestOpposition.edgePp!.toFixed(1) + "pp" : "暫無模型明顯反對"}；${invalidators.length ? invalidators.join("；") : "未見額外 data-risk flag"}。`
     : `風險：${invalidators.length ? invalidators.join("；") : "資料不足以建立 Edge"}。`;
 
   let advice = "PASS：現時未見足夠正 Edge。";
