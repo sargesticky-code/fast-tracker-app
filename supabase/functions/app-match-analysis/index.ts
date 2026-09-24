@@ -76,7 +76,7 @@ function val(t: T | null, side: "H" | "D" | "A") {
 }
 
 function pct(v: number | null, dp = 1) {
-  return v === null ? "—" : (v * 100).toFixed(dp) + "pp";
+  return v === null ? "—" : (v * 100).toFixed(dp) + "%";
 }
 
 function sideLabel(side: string | null, home: string, away: string) {
