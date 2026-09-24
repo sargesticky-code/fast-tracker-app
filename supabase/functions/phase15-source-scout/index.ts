@@ -265,6 +265,15 @@ Deno.serve(async (req)=>{
     if(hk.error) throw hk.error;
     const hkjc=hk.data||[];
 
+    const {data:phase1Feed,error:phase1FeedError}=await db.rpc("ft_internal_app_phase1_feed",{window_hours:24});
+    if(phase1FeedError) console.warn("phase1_gap_priority_query_failed",phase1FeedError.message);
+    const gapPriority=new Set(
+      (Array.isArray(phase1Feed)?phase1Feed:[])
+        .filter((row:any)=>Number(row?.evidence_channel_count??0)===0)
+        .map((row:any)=>String(row?.hkjc_event_id||""))
+        .filter(Boolean)
+    );
+
     const [fmMapRes,hkMapRes]=await Promise.all([
       db.from("team_name_master").select("source_key,team_key").eq("source","FOTMOB").eq("status","VERIFIED"),
       db.from("team_name_master").select("source_key,team_key").eq("source","HKJC_EN").eq("status","VERIFIED")
@@ -326,7 +335,14 @@ Deno.serve(async (req)=>{
     }
 
     let detailOk=0,detailFail=0,xgRows=0,lineupRows=0,statsRows=0;
+    matchedForDetail.sort((a,b)=>{
+      const gapA=gapPriority.has(String(a.eventId))?1:0;
+      const gapB=gapPriority.has(String(b.eventId))?1:0;
+      if(gapA!==gapB) return gapB-gapA;
+      return new Date(a.kickoff||0).getTime()-new Date(b.kickoff||0).getTime();
+    });
     const picked=matchedForDetail.slice(0,MAX_DETAIL);
+    const priorityGapDetailCount=picked.filter(x=>gapPriority.has(String(x.eventId))).length;
     for(let i=0;i<picked.length;i++){
       const p=picked[i];
       try{
