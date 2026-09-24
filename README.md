@@ -330,3 +330,17 @@ The detail view must surface the comparison directly, rather than forcing the us
 A Match Script is a Phase 1 pre-match inference, not a live simulation.
 
 **Critical interpretation rule:** “value direction” and “most likely outcome” are different concepts. A side can have positive Edge because the offered odds are generous even when its absolute model probability is below 50%. The UI and story must state this explicitly whenever relevant.
+
+
+### Quant Edge display contract (2026-09-24)
+
+The dashboard label **精算投注 / QUANT EDGE** means a deterministic probability-price comparison, not a guaranteed return or an actuarial promise.
+
+- **Model probability** is shown in percent (`%`).
+- **HKJC fair probability** is the de-vig market probability and is shown in percent (`%`).
+- **Quant Edge = model probability - HKJC fair probability**.
+- Probability Edge is always displayed in **percentage points (`pp`)**, never as a return percentage.
+- Example: model 39.0% - HKJC fair 31.9% = **+7.1pp Edge**.
+- **EV / ROI** remain separate concepts and may be displayed in percent (`%`) only where they are actually calculated.
+- The homepage Quant Edge shortlist currently requires at least **+5pp** and remains a candidate/watch layer while the Phase 5 calibration gate is pending.
+- Homepage fixture cards may show a compact Match Script tag (shape, reference score, editorial support/contradiction) so the likely match shape is visible before opening the detail page.
