@@ -13,6 +13,10 @@ function num(v: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
+function identityKey(v: unknown) {
+  return String(v ?? "").trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
 function clampProb(v: number) {
   return Math.min(0.999, Math.max(0.001, v));
 }
@@ -198,7 +202,28 @@ Deno.serve(async (req: Request) => {
     const formMetaMap = new Map<string, any>();
     const storySummaryMap = new Map<string, any>();
     const sourceContextMap = new Map<string, any>();
+    const verifiedMasterKeys = new Set<string>();
     if (eventIds.length) {
+      const currentNameKeys = [...new Set(
+        rows.flatMap((row: any) => [identityKey(row.home_en), identityKey(row.away_en)]).filter(Boolean)
+      )];
+      if (currentNameKeys.length) {
+        const { data: identityRows, error: identityError } = await db
+          .from("team_name_master")
+          .select("source_key")
+          .eq("source", "HKJC_EN")
+          .eq("status", "VERIFIED")
+          .in("source_key", currentNameKeys);
+        if (identityError) {
+          console.error("master_identity_query_failed", identityError);
+        } else {
+          for (const row of identityRows ?? []) {
+            const key = identityKey(row.source_key);
+            if (key) verifiedMasterKeys.add(key);
+          }
+        }
+      }
+
       const { data: formDetailPayload, error: formDetailError } = await db.rpc(
         "ft_internal_team_form_details",
         { event_ids: eventIds },
@@ -507,6 +532,9 @@ Deno.serve(async (req: Request) => {
       ]),
     );
 
+    const identityPresent = (legacyValue: unknown, name: unknown) =>
+      Boolean(legacyValue) || verifiedMasterKeys.has(identityKey(name));
+
     const matches = rows.map((r: any) => ({
       id: r.hkjc_event_id,
       kickoff: r.kickoff_hkt,
@@ -695,7 +723,11 @@ Deno.serve(async (req: Request) => {
       health: {
         status: r.health_status,
         primaryMissingReason: r.primary_missing_reason,
-        diagnostics: r.diagnostic_codes ?? [],
+        diagnostics: (r.diagnostic_codes ?? []).filter((code: string) => {
+          if (code === "HOME_ALIAS_NOT_REGISTERED" && identityPresent(r.home_alias_present, r.home_en)) return false;
+          if (code === "AWAY_ALIAS_NOT_REGISTERED" && identityPresent(r.away_alias_present, r.away_en)) return false;
+          return true;
+        }),
         hkjcFetchedAt: r.hkjc_fetched_at,
         hkjcPriceChangedAt: r.hkjc_price_changed_at,
         hkjcMarketCapturedAt: r.hkjc_market_captured_at,
@@ -711,8 +743,8 @@ Deno.serve(async (req: Request) => {
         fallbackSource: r.fallback_source,
         fallbackRecommendation: r.fallback_recommendation,
         fallbackMarket: r.fallback_market,
-        homeAliasPresent: r.home_alias_present,
-        awayAliasPresent: r.away_alias_present,
+        homeAliasPresent: identityPresent(r.home_alias_present, r.home_en),
+        awayAliasPresent: identityPresent(r.away_alias_present, r.away_en),
         evidenceChannelCount: Number(r.evidence_channel_count ?? 0),
         multisourceMemberCount: Number(r.multisource_member_count ?? 0),
         missingCanonical1x2: Boolean(r.missing_canonical_1x2),
@@ -737,7 +769,7 @@ Deno.serve(async (req: Request) => {
           if (rawStatus === "IDENTITY_BLOCK" && !sourceSpecificIdentityBlock) {
             if (evidenceCount >= 3) return "DATA_RICH";
             if (evidenceCount >= 1) return "PARTIAL_MODEL_COVERAGE";
-            if (Boolean(r.home_alias_present) && Boolean(r.away_alias_present)) {
+            if (identityPresent(r.home_alias_present, r.home_en) && identityPresent(r.away_alias_present, r.away_en)) {
               return "SOURCE_COVERAGE_GAP";
             }
           }
@@ -750,8 +782,8 @@ Deno.serve(async (req: Request) => {
 
           if (
             evidenceCount === 0 &&
-            Boolean(r.home_alias_present) &&
-            Boolean(r.away_alias_present) &&
+            identityPresent(r.home_alias_present, r.home_en) &&
+            identityPresent(r.away_alias_present, r.away_en) &&
             r.forebet_check_freshness === "FRESH" &&
             ["SOURCE_ABSENT", "FIXTURE_ONLY"].includes(String(r.forebet_coverage_status || "")) &&
             r.multisource_coverage_status === "NO_MATCHED_SOURCE"
@@ -763,8 +795,8 @@ Deno.serve(async (req: Request) => {
         })(),
         coverageExplanation:
           Number(r.evidence_channel_count ?? 0) === 0 &&
-          Boolean(r.home_alias_present) &&
-          Boolean(r.away_alias_present)
+          identityPresent(r.home_alias_present, r.home_en) &&
+          identityPresent(r.away_alias_present, r.away_en)
             ? "Team identity is verified; prediction sources were checked but no usable independent 1X2 model is available."
             : null,
       },
