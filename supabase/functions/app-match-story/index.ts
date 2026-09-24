@@ -293,16 +293,6 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     }
   }
 
-  if (commentary.length) {
-    const usable=commentary.slice(0,3).filter((x:any)=>x?.headline);
-    if (usable.length) {
-      const zh=usable.map((x:any)=>`${x.source || "外部來源"}：「${x.headline}」`).join("；");
-      const en=usable.map((x:any)=>`${x.source || "external source"}: “${x.headline}”`).join("; ");
-      zhStory.push(`外部球評 / preview 背景：${zh}。呢啲只作 contextual evidence，唔直接計入 Edge。`);
-      enStory.push(`External preview context: ${en}. These items are contextual evidence only and do not directly change the Edge.`);
-    }
-  }
-
   if (deep?.opta && deep.opta.homeRating !== null && deep.opta.awayRating !== null) {
     zhStory.push(
       `Opta strength 為 ${Number(deep.opta.homeRating).toFixed(1)} 對 ${Number(deep.opta.awayRating).toFixed(1)}；呢個只用作球隊強弱背景，唔會直接當成勝率。`
