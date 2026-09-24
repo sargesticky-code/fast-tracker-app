@@ -1,9 +1,13 @@
 "use client";
 
 import {
+  binaryOdds,
+  binarySideName,
+  cornersValueEdge,
   formatKickoff,
   formatOdds,
   freshness,
+  goalsValueEdge,
   coverageStatusMeta,
   modelAgreement,
   preferredModel,
@@ -11,7 +15,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "FOREBET-POLISH-20260923-1";
+const UI_BUILD = "MULTI-MARKET-CARDS-20260924-1";
 
 function pct(value) {
   const n = Number(value);
@@ -52,9 +56,26 @@ function outcomeLabel(key) {
   return "—";
 }
 
+function totalMarketSummary(match, edge, market, label) {
+  const line = market?.line;
+  if (line == null || line === "") return { label, text: "NO LINE", detail: "HKJC 未有盤口", positive: false };
+  if (!edge || !Number.isFinite(Number(edge.value)) || Number(edge.value) <= 0) {
+    return { label, text: "PASS · " + line, detail: "未見正 Edge", positive: false };
+  }
+  const odds = binaryOdds(market, edge.key);
+  return {
+    label,
+    text: binarySideName(edge.key) + " " + line,
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "Edge +" + (Number(edge.value) * 100).toFixed(1) + "%",
+    positive: Number(edge.value) >= 0.025,
+  };
+}
+
 export default function MatchCard({ match, nowMs, changeType = null }) {
   const edge = valueEdge(match);
   const model = preferredModel(match);
+  const goalsEdge = goalsValueEdge(match);
+  const cornersEdge = cornersValueEdge(match);
   const fresh = freshness(match, nowMs);
   const coverageMeta = coverageStatusMeta(match);
   const agreement = modelAgreement(match);
@@ -69,6 +90,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const strongEdge = edge?.value >= 0.10;
   const valueEdgeFlag = edge?.value >= 0.05;
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
+  const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
+  const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
   const rowClass = [
     "ft5-match-card",
     "ft5-forebet-row",
@@ -156,8 +179,12 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
             <div className={marketOddsClass(edge, "A")}>
               <span>客</span><b>{formatOdds(match.odds?.away)}</b>
             </div>
-            <div className="ft5-odd"><span>入球</span><b>{match.goals?.line ?? "—"}</b></div>
-            <div className="ft5-odd"><span>角球</span><b>{match.corners?.line ?? "—"}</b></div>
+            <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
+              <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
+            </div>
+            <div className={"ft5-odd ft5-total-pick" + (cornersSummary.positive ? " edge-target" : "")}>
+              <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
+            </div>
           </div>
         </div>
       </div>
