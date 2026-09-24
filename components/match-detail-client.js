@@ -151,6 +151,14 @@ function formQualityLabel(value) {
   return text.replaceAll("_", " ");
 }
 
+function h2hQualityLabel(value, games = 0) {
+  const text = String(value || "").toUpperCase();
+  if (text === "H2H_OK") return `${games} 場已驗證`;
+  if (text === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY") return "未有已驗證交手";
+  if (text === "HISTORY_PARTIAL") return "歷史覆蓋中";
+  return "等待 H2H 同步";
+}
+
 function pct(value, digits = 0) {
   if (value === null || value === undefined || value === "") return "—";
   const n = Number(value);
@@ -688,6 +696,16 @@ export default function MatchDetailClient() {
   }));
   const multisourceDataCount = multisourceRows.filter((row) => row.hasData).length;
 
+  const h2h = deep?.h2h || deep?.headToHead || null;
+  const h2hMeetings = Array.isArray(h2h?.meetings) ? h2h.meetings.slice(0, 5) : [];
+  const h2hGames = Number(h2h?.h2h_games || 0);
+  const h2hHomeWins = Number(h2h?.home_wins || 0);
+  const h2hDraws = Number(h2h?.draws || 0);
+  const h2hAwayWins = Number(h2h?.away_wins || 0);
+  const h2hHomeGoals = Number(h2h?.home_goals || 0);
+  const h2hAwayGoals = Number(h2h?.away_goals || 0);
+  const h2hAvgGoals = h2h?.avg_total_goals == null ? null : Number(h2h.avg_total_goals);
+  const h2hQuality = String(h2h?.quality || "");
   const deepModels = deep?.models || {};
   const internalDeep = deepModels.internal || {};
   const forebetDeep = deepModels.forebet || {};
@@ -1493,6 +1511,72 @@ export default function MatchDetailClient() {
         <p className="fineprint">
           最近賽果只用已確認 HKJC match results；W=勝、D=和、L=負。Model sample 係 Team-Form 模型可用樣本量，唔等同上面只展示嘅最近 5 場。
           {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
+        </p>
+      </section>
+
+      <section className="panel h2h-panel">
+        <div className="panel-title">
+          <div><p>HEAD TO HEAD</p><h2>對賽成績</h2></div>
+          <span>{h2hQualityLabel(h2hQuality, h2hGames)}</span>
+        </div>
+
+        {h2hGames > 0 ? (
+          <>
+            <div className="h2h-scoreboard">
+              <div>
+                <span>{match.homeZh || match.home}</span>
+                <strong>{h2hHomeWins}</strong>
+                <small>勝</small>
+              </div>
+              <div className="h2h-draw">
+                <span>和局</span>
+                <strong>{h2hDraws}</strong>
+                <small>{h2hGames} 場</small>
+              </div>
+              <div>
+                <span>{match.awayZh || match.away}</span>
+                <strong>{h2hAwayWins}</strong>
+                <small>勝</small>
+              </div>
+            </div>
+
+            <div className="h2h-metrics">
+              <div><span>對賽入球</span><b>{h2hHomeGoals} - {h2hAwayGoals}</b></div>
+              <div><span>平均總入球</span><b>{Number.isFinite(h2hAvgGoals) ? h2hAvgGoals.toFixed(2) : "—"}</b></div>
+              <div><span>最近方向</span><b>{h2h.last5 || "—"}</b></div>
+            </div>
+
+            <div className="h2h-list">
+              {h2hMeetings.map((row, index) => (
+                <div className="h2h-row" key={(row.match_id || row.hkjc_event_id || "h2h") + "-" + index}>
+                  <span className={"h2h-result h2h-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
+                  <span className="h2h-date">{formatFormDate(row.kickoff_hkt)}</span>
+                  <b>{row.home || "—"} <strong>{row.home_goals ?? "—"}-{row.away_goals ?? "—"}</strong> {row.away || "—"}</b>
+                  <small>{row.tournament || "—"}</small>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="h2h-empty">
+            <strong>
+              {h2hQuality === "HISTORY_PARTIAL"
+                ? "HKJC 歷史覆蓋仍在補齊"
+                : h2hQuality === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY"
+                  ? "可用 HKJC 歷史內未找到兩隊直接交手"
+                  : "H2H 資料正在同步"}
+            </strong>
+            <span>
+              {h2hQuality === "HISTORY_PARTIAL"
+                ? "暫時唔將缺少對賽當成負面訊號，等歷史資料完成後再更新。"
+                : "沒有已驗證交手 ≠ FAIL；系統會保持中性，不會用不存在的數據推斷。"}
+            </span>
+          </div>
+        )}
+
+        <p className="fineprint">
+          只用 HKJC stable team ID 對應嘅已確認賽果；H / D / A 以今場主隊角度計算。最多顯示最近 5 次直接交手。
+          {h2h?.source ? " · Source: " + h2h.source : ""}
         </p>
       </section>
 
