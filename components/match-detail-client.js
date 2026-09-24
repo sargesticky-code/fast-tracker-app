@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-DATA-LINK-CTX-20260924-1";
+const UI_BUILD = "DETAIL-NO-BLANK-CARDS-20260924-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -212,7 +212,26 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
           ))}
         </div>
       ) : (
-        <div className="model-empty-reason model-empty-slot" aria-label={modelStateLabel(false, stateReason)}>&nbsp;</div>
+        <div
+          className="model-empty-reason model-empty-slot"
+          aria-label={modelStateLabel(false, stateReason)}
+          style={{
+            minHeight:72,
+            display:"flex",
+            flexDirection:"column",
+            justifyContent:"center",
+            gap:4,
+            padding:"10px 12px",
+            borderRadius:10,
+            background:"#f7f8f7",
+            border:"1px dashed #dbe3de",
+          }}
+        >
+          <strong style={{ color:"#66776e", fontSize:10 }}>{modelStateLabel(false, stateReason)}</strong>
+          <small style={{ color:"#96a29b", fontSize:8.5, lineHeight:1.35 }}>
+            暫未有可用 probability · 保持空缺，唔用假數據補
+          </small>
+        </div>
       )}
       {metrics.length ? (
         <div className="model-metric-grid">
