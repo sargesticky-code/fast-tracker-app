@@ -197,6 +197,7 @@ Deno.serve(async (req: Request) => {
     const formDetailMap = new Map<string, any>();
     const formMetaMap = new Map<string, any>();
     const storySummaryMap = new Map<string, any>();
+    const sourceContextMap = new Map<string, any>();
     if (eventIds.length) {
       const { data: formDetailPayload, error: formDetailError } = await db.rpc(
         "ft_internal_team_form_details",
@@ -243,6 +244,40 @@ Deno.serve(async (req: Request) => {
           storySummaryMap.set(row.hkjc_event_id, {
             matchScript: row.match_script ?? null,
             editorialAlignment: row.editorial_alignment ?? null,
+          });
+        }
+      }
+
+      const { data: sourceContextRows, error: sourceContextError } = await db
+        .from("phase15_source_shadow_current")
+        .select("source_key,external_event_id,matched_hkjc_event_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")
+        .eq("source_key", "FOTMOB")
+        .in("matched_hkjc_event_id", eventIds);
+      if (sourceContextError) {
+        console.error("source_context_query_failed", sourceContextError);
+      } else {
+        for (const row of sourceContextRows ?? []) {
+          const id = String(row.matched_hkjc_event_id ?? "");
+          if (!id) continue;
+          const previous = sourceContextMap.get(id);
+          const previousConfidence = Number(previous?.matchConfidence ?? -1);
+          const confidence = Number(row.match_confidence ?? -1);
+          if (previous && previousConfidence > confidence) continue;
+          sourceContextMap.set(id, {
+            source: row.source_key,
+            externalEventId: row.external_event_id,
+            league: row.league_name,
+            home: row.home_name,
+            away: row.away_name,
+            matchConfidence: Number.isFinite(confidence) && confidence >= 0 ? confidence : null,
+            identityStatus: row.identity_status,
+            detailAvailable: Boolean(row.detail_available),
+            lineupAvailable: Boolean(row.lineup_available),
+            xgAvailable: Boolean(row.xg_available),
+            statsAvailable: Boolean(row.stats_available),
+            detailFetchedAt: row.detail_fetched_at,
+            updatedAt: row.updated_at,
+            mode: "SHADOW_CONTEXT_ONLY",
           });
         }
       }
@@ -702,6 +737,9 @@ Deno.serve(async (req: Request) => {
           if (rawStatus === "IDENTITY_BLOCK" && !sourceSpecificIdentityBlock) {
             if (evidenceCount >= 3) return "DATA_RICH";
             if (evidenceCount >= 1) return "PARTIAL_MODEL_COVERAGE";
+            if (Boolean(r.home_alias_present) && Boolean(r.away_alias_present)) {
+              return "SOURCE_COVERAGE_GAP";
+            }
           }
 
           // A missing optional model row is coverage information, not a hard
@@ -754,6 +792,7 @@ Deno.serve(async (req: Request) => {
       })(),
       power: powerMap.get(r.hkjc_event_id) ?? null,
       storySummary: storySummaryMap.get(r.hkjc_event_id) ?? null,
+      sourceContext: sourceContextMap.get(r.hkjc_event_id) ?? null,
       updatedAt: r.data_updated_at,
     }));
 
