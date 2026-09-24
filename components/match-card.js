@@ -11,6 +11,7 @@ import {
   goalsValueEdge,
   coverageStatusMeta,
   modelAgreement,
+  matchDetailHref,
   preferredModel,
   reviewPriority,
   valueEdge,
@@ -144,7 +145,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   return (
     <a
       className={rowClass}
-      href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
+      href={matchDetailHref(match.id, UI_BUILD)}
       onClick={cacheMatch}
     >
       <div className="ft5-row-grid">
