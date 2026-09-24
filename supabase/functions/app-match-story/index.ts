@@ -539,7 +539,7 @@ Deno.serve(async (req: Request) => {
     }));
 
     const packForHash = {
-      cacheSchema:"FT_STORY_V5_1_MULTI_MARKET_NARRATIVE",
+      cacheSchema:"FT_STORY_V5_2_MULTI_MARKET_NARRATIVE",
       match:analysis?.match,
       decision:analysis?.decision,
       marketAdvice:analysis?.marketAdvice,
