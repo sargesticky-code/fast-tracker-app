@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-MULTI-MARKET-20260924-2";
+const UI_BUILD = "DETAIL-EDITORIAL-ALIGNMENT-20260924-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -843,6 +843,27 @@ export default function MatchDetailClient() {
   const storyMode = story?.engine?.mode || null;
   const storyContent = story?.story || null;
   const commentaryRows = Array.isArray(story?.commentary) ? story.commentary.slice(0, 4) : [];
+  const editorialAlignment = story?.editorialAlignment || null;
+  const editorialAlignmentRows = Array.isArray(editorialAlignment?.rows) ? editorialAlignment.rows : [];
+  const commentaryUiRows = commentaryRows.map((row) => ({
+    ...row,
+    alignments: editorialAlignmentRows.filter((signal) => signal.source === row.source),
+  }));
+  const editorialSignalLabel = (signal) => {
+    const market = signal.market === "GOALS_OU" ? "入球" : signal.market === "CORNERS_OU" ? "角球" : "HDA";
+    const selection = signal.editorialSelection === "OVER" ? "大"
+      : signal.editorialSelection === "UNDER" ? "細"
+        : signal.editorialSelection === "H" ? "主"
+          : signal.editorialSelection === "D" ? "和"
+            : signal.editorialSelection === "A" ? "客"
+              : signal.editorialSelection || "—";
+    const line = signal.editorialLine == null ? "" : " " + signal.editorialLine;
+    return market + " " + selection + line;
+  };
+  const editorialStatusLabel = (status) => status === "SUPPORT" ? "同模型一致"
+    : status === "CONTRADICT" ? "同模型相反"
+      : status === "DIFFERENT_LINE" ? "不同盤口"
+        : "Context";
   const storyEvidence = story?.evidenceSummary || {};
   const storyEvidenceTags = [
     storyEvidence.forebet ? "Forebet" : null,
@@ -1068,14 +1089,27 @@ export default function MatchDetailClient() {
         </section>
       ) : null}
 
-      {commentaryRows.length ? (
+      {commentaryUiRows.length ? (
         <section className="panel commentary-panel">
           <div className="panel-title">
             <div><p>EDITORIAL EVIDENCE</p><h2>外部球評 / Match Preview</h2></div>
-            <span>{commentaryRows.length} sources · context only</span>
+            <span>
+              {editorialAlignment?.totalSignals
+                ? `${editorialAlignment.support || 0} 同向 · ${editorialAlignment.contradict || 0} 反向`
+                : `${commentaryUiRows.length} sources · context only`}
+            </span>
           </div>
+          {editorialAlignment?.totalSignals ? (
+            <div className="editorial-alignment-summary">
+              <span>球評 × 模型</span>
+              <b className="support">{editorialAlignment.support || 0} 一致</b>
+              <b className="contradict">{editorialAlignment.contradict || 0} 相反</b>
+              {editorialAlignment.differentLine ? <b className="different">{editorialAlignment.differentLine} 不同盤</b> : null}
+              <small>只作解讀，不改 Edge</small>
+            </div>
+          ) : null}
           <div className="commentary-board">
-            {commentaryRows.map((row, index) => (
+            {commentaryUiRows.map((row, index) => (
               <a
                 className="commentary-row"
                 href={row.sourceUrl || "#"}
@@ -1084,12 +1118,29 @@ export default function MatchDetailClient() {
                 key={(row.source || "source") + (row.headline || index)}
               >
                 <span>{row.source || "外部來源"}</span>
-                <strong>{row.headline || row.summary || "Preview"}</strong>
+                <div className="commentary-main">
+                  <strong>{row.headline || row.summary || "Preview"}</strong>
+                  {row.alignments?.length ? (
+                    <div className="commentary-signals">
+                      {row.alignments.map((signal, signalIndex) => (
+                        <b className={"editorial-signal editorial-" + String(signal.status || "context").toLowerCase()} key={String(signal.market) + signalIndex}>
+                          {editorialSignalLabel(signal)} · {editorialStatusLabel(signal.status)}
+                        </b>
+                      ))}
+                    </div>
+                  ) : row.topics?.length ? (
+                    <div className="commentary-signals">
+                      {row.topics.filter((topic) => !["PREMATCH", "EDITORIAL"].includes(topic)).slice(0, 3).map((topic) => (
+                        <b className="editorial-topic" key={topic}>{topic}</b>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <small>{row.publishedAt ? formatUpdated(row.publishedAt) : "時間未提供"}</small>
               </a>
             ))}
           </div>
-          <p className="fineprint">球評只作 contextual evidence；唔會直接改模型 probability、Edge 或 betting gate。</p>
+          <p className="fineprint">球評 signal 只用嚟檢查模型論點有冇外部支持或反方；唔會直接改 probability、Edge 或 betting gate。</p>
         </section>
       ) : null}
 
