@@ -103,8 +103,8 @@ function MarketPickRow({ match, edge, type }) {
         <b>{formatOdds(odds)}</b>
       </div>
       <div className="market-pick-number edge-number">
-        <span>Edge</span>
-        <b>+{(edge.value * 100).toFixed(1)}%</b>
+        <span>精算 Edge</span>
+        <b>+{(edge.value * 100).toFixed(1)}pp</b>
       </div>
     </a>
   );
@@ -810,7 +810,7 @@ export default function DashboardClient({ feed, nowMs }) {
     focus: ["NEXT 24H · 投注重點", "先按 Edge 級別及幅度，再按模型 coverage、Review 及開賽時間"],
     live: ["LIVE NOW", "只顯示 HKJC 正在售賣嘅即場市場"],
     all: ["Upcoming 24H", "按開賽時間排序"],
-    gaps: ["Multi-market Edge 候選", "HDA / 入球 / 角球一齊按模型高於 HKJC 市場機率嘅幅度排序"],
+    gaps: ["Multi-market 精算 Edge", "HDA / 入球 / 角球按「模型概率 − HKJC 去水後公平概率」排序；單位 pp"],
     odds: ["賠率大幅變動", `${oddsAlerts} 場達 ±10% · 按變動幅度排序`],
     missing: ["缺資料", "模型 coverage 未完整；顯示真實 source / model 狀態"],
     stale: ["過時資料", "超過 6 小時未更新"],
