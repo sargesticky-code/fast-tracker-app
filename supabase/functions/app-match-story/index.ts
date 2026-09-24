@@ -310,10 +310,21 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
       : "中段走勢：暫時未形成明顯大開大合或者極低節奏 regime，要靠首個入球、lineup 同 live stats 再分流。";
   }
 
+  const goalSelectionP=num(goals?.analystConsensusProbability);
+  const goalOtherP=goals?.selection==="OVER"
+    ? num(goals?.modelProbabilities?.under)
+    : goals?.selection==="UNDER"
+      ? num(goals?.modelProbabilities?.over)
+      : null;
+  const goalValueNote=goals?.selection && goalSelectionP!==null && goalOtherP!==null && goalSelectionP<goalOtherP
+    ? (language==="en"
+      ? ` The opposite side remains more likely in absolute probability (${pctText(goalOtherP,1)}), so this is a price/value call rather than a most-likely-outcome call.`
+      : ` 絕對概率其實仍然係另一邊較高（${pctText(goalOtherP,1)}），所以呢個係價格／value 判斷，唔係「最可能結果」判斷。`)
+    : "";
   const goalEnvironment=goals?.selection
     ? (language==="en"
-      ? `Goals market: ${goals.selectionLabel || goals.selection} at line ${goals.line ?? "—"}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.`
-      : `入球環境：現時模型偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 HKJC fair ${pctText(goals.marketFairProbability,1)}。`)
+      ? `Goals value: ${goals.selectionLabel || goals.selection} at line ${goals.line ?? "—"}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
+      : `入球 value：現價偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 HKJC fair ${pctText(goals.marketFairProbability,1)}。${goalValueNote}`)
     : (language==="en" ? "Goals market: no reliable Phase 1 direction yet." : "入球環境：Phase 1 暫未有可靠方向。");
 
   const cornerEnvironment=corners?.selection
@@ -400,10 +411,15 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     }
     const priceText = currentOdds === null ? "" : ` @ ${currentOdds.toFixed(2)}`;
     const edgeText = edgePp === null ? "—" : `${edgePp >= 0 ? "+" : ""}${edgePp.toFixed(1)}pp`;
+    const valueVsLikelihood = modelP !== null && modelP < 0.5
+      ? (language === "en"
+        ? " This is a value direction at the current price, not the more-likely outcome."
+        : " 呢個係現價下嘅 value 方向，唔代表佢係絕對概率較高嗰邊。")
+      : "";
     if (language === "en") {
-      return `${enLabel}: watch ${selectionLabel}${priceText}; model ${pctText(modelP,1)} versus HKJC fair ${pctText(fairP,1)}, Edge ${edgeText}, based on ${families} evidence famil${families === 1 ? "y" : "ies"} (${candidate || action}).`;
+      return `${enLabel}: watch ${selectionLabel}${priceText}; model ${pctText(modelP,1)} versus HKJC fair ${pctText(fairP,1)}, Edge ${edgeText}, based on ${families} evidence famil${families === 1 ? "y" : "ies"} (${candidate || action}).${valueVsLikelihood}`;
     }
-    return `${zhLabel}：建議觀察 ${selectionLabel}${priceText}；模型 ${pctText(modelP,1)} 對 HKJC fair ${pctText(fairP,1)}，Edge ${edgeText}，基於 ${families} 個 evidence family（${candidate || action}）。`;
+    return `${zhLabel}：建議觀察 ${selectionLabel}${priceText}；模型 ${pctText(modelP,1)} 對 HKJC fair ${pctText(fairP,1)}，Edge ${edgeText}，基於 ${families} 個 evidence family（${candidate || action}）。${valueVsLikelihood}`;
   };
   const goalsNarrative = describeMarketAdvice(goalsAdvice, "入球大細", "Goals O/U");
   const cornersNarrative = describeMarketAdvice(cornersAdvice, "角球大細", "Corners O/U");
@@ -721,7 +737,7 @@ Deno.serve(async (req: Request) => {
     const matchScript = buildMatchScript(analysis, detail, language, editorialAlignment);
 
     const packForHash = {
-      cacheSchema:"FT_STORY_V5_4_MATCH_SCRIPT",
+      cacheSchema:"FT_STORY_V5_5_VALUE_VS_LIKELIHOOD",
       match:analysis?.match,
       decision:analysis?.decision,
       marketAdvice:analysis?.marketAdvice,
