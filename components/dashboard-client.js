@@ -722,7 +722,8 @@ export default function DashboardClient({ feed, nowMs }) {
   const motionTimerRef = useRef(null);
   const all = currentFeed.matches || [];
   const liveMatches = useMemo(() => dedupeLiveMatches(all), [all]);
-  const prematchAll = all.filter((m) => !m.liveNow);
+  const liveIdentityKeys = new Set(liveMatches.map((match) => liveIdentityKey(match)));
+  const prematchAll = all.filter((m) => !m.liveNow && !liveIdentityKeys.has(liveIdentityKey(m)));
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("filter") || "focus";
