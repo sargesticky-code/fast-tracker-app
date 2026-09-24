@@ -1,5 +1,5 @@
-import MatchDetailClient from "@/components/match-detail-client";
+import LegacyRouteRedirect from "@/components/legacy-route-redirect";
 
 export default function MatchPage() {
-  return <MatchDetailClient />;
+  return <LegacyRouteRedirect />;
 }
