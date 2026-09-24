@@ -11,7 +11,6 @@ import {
   formatOdds,
   freshness,
   goalsValueEdge,
-  hasCoverageGap,
   modelCoverageCount,
   modelAgreement,
   reviewPriority,
@@ -35,6 +34,25 @@ function hdaOdds(match, key) {
   if (key === "D") return match.odds?.draw;
   if (key === "A") return match.odds?.away;
   return null;
+}
+
+function hasHardCoverageAlert(match) {
+  const status = String(match?.health?.unifiedCoverageStatus || "");
+  const coverage = modelCoverageCount(match);
+
+  if (status === "HKJC_STALE_OR_MISSING") return true;
+  if (status === "IDENTITY_BLOCK") return true;
+
+  if (coverage === 0) {
+    return ["PIPELINE_COVERAGE_GAP", "SOURCE_COVERAGE_GAP", "HKJC_ONLY", ""].includes(status);
+  }
+
+  return false;
+}
+
+function hasActionableDataAlert(match, nowMs) {
+  const fresh = freshness(match, nowMs).key;
+  return fresh === "stale" || fresh === "missing" || hasHardCoverageAlert(match);
 }
 
 function cacheMatch(match) {
@@ -730,7 +748,7 @@ export default function DashboardClient({ feed, nowMs }) {
       .sort((a, b) => Math.abs(Number(b.oddsMovement.rawOddsChangePct)) - Math.abs(Number(a.oddsMovement.rawOddsChangePct)));
   }
   if (filter === "missing") {
-    matches = prematchAll.filter((m) => hasCoverageGap(m))
+    matches = prematchAll.filter((m) => hasHardCoverageAlert(m))
       .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   }
   if (filter === "stale") {
@@ -738,13 +756,13 @@ export default function DashboardClient({ feed, nowMs }) {
       .sort((a, b) => dataAgeMinutes(b, clockMs) - dataAgeMinutes(a, clockMs));
   }
 
-  const missing = prematchAll.filter((m) => hasCoverageGap(m)).length;
-  const stale = prematchAll.filter((m) => freshness(m, clockMs).key === "stale").length;
+  const missing = prematchAll.filter((m) => hasHardCoverageAlert(m)).length;
+  const stale = prematchAll.filter((m) => ["stale", "missing"].includes(freshness(m, clockMs).key)).length;
   const valueCandidates = hdaCandidates.length + goalsCandidates.length + cornersCandidates.length;
   const oddsAlerts = prematchAll.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
   const modelReady = prematchAll.filter((m) => modelCoverageCount(m) > 0).length;
   const priorityOne = prematchAll.filter((m) => reviewPriority(m, clockMs).band === "p1").length;
-  const dataAlerts = missing + stale;
+  const dataAlerts = prematchAll.filter((m) => hasActionableDataAlert(m, clockMs)).length;
   const booting = currentFeed.source === "boot-empty";
   const isLive = currentFeed.source === "supabase-canonical-live";
   const liveOddsAge = heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs);
