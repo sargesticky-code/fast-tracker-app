@@ -13,6 +13,7 @@ import {
   goalsValueEdge,
   modelCoverageCount,
   modelAgreement,
+  matchDetailHref,
   reviewPriority,
   reviewScore,
   sideName,
@@ -95,7 +96,7 @@ function MarketPickRow({ match, edge, type }) {
   return (
     <a
       className="market-pick-row"
-      href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
+      href={matchDetailHref(match.id, UI_BUILD)}
       onClick={() => cacheMatch(match)}
     >
       <div className="market-pick-match">
@@ -325,7 +326,7 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
   return (
     <a
       className={"live-match-row ft5-live-row" + (freshnessDiag.hasLag ? " ft5-live-row-lag" : "") + (changeType ? " ft5-flash-" + changeType : "")}
-      href={`/details/?id=${encodeURIComponent(match.id)}&ui=${UI_BUILD}`}
+      href={matchDetailHref(match.id, UI_BUILD)}
       onClick={() => cacheMatch(match)}
     >
       <div className="ft5-live-grid">
@@ -495,7 +496,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
     <a
       className={"ft5-topbet ft5-topbet-row ft5-enter" + (changeType ? " ft5-flash-" + changeType : "")}
       style={{ animationDelay: Math.min(index, 2) * 70 + "ms" }}
-      href={"/details/?id=" + encodeURIComponent(match.id) + "&ui=" + UI_BUILD}
+      href={matchDetailHref(match.id, UI_BUILD)}
       onClick={() => cacheMatch(match)}
     >
       <div className="ft5-topbet-grid">
