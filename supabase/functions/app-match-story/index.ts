@@ -193,7 +193,70 @@ function deepFacts(detail: any, language: string): string {
   return parts.join(language==="en" ? ". " : "；") + (parts.length ? (language==="en" ? "." : "。") : "");
 }
 
-function fallbackStory(a: any, detail: any, language: string, commentary: any[] = []) {
+function compareEditorialSignals(a:any, commentary:any[]) {
+  const modelSelections:any = {
+    "1X2": {
+      selection:a?.decision?.selection ?? null,
+      line:null,
+      label:a?.decision?.selectionLabel ?? null,
+    },
+    "GOALS_OU": {
+      selection:a?.marketAdvice?.goals?.selection ?? null,
+      line:num(a?.marketAdvice?.goals?.line),
+      label:a?.marketAdvice?.goals?.selectionLabel ?? null,
+    },
+    "CORNERS_OU": {
+      selection:a?.marketAdvice?.corners?.selection ?? null,
+      line:num(a?.marketAdvice?.corners?.line),
+      label:a?.marketAdvice?.corners?.selectionLabel ?? null,
+    },
+  };
+  const specs=[
+    {market:"1X2",key:"outcome"},
+    {market:"GOALS_OU",key:"goals"},
+    {market:"CORNERS_OU",key:"corners"},
+  ];
+  const rows:any[]=[];
+  for(const item of Array.isArray(commentary)?commentary:[]){
+    for(const spec of specs){
+      const signal=item?.opinionSignals?.[spec.key];
+      if(!signal?.selection) continue;
+      const model=modelSelections[spec.market];
+      const signalLine=num(signal.line);
+      const modelLine=num(model?.line);
+      let status="CONTEXT_ONLY";
+      if(model?.selection){
+        if(signalLine!==null && modelLine!==null && Math.abs(signalLine-modelLine)>0.001) status="DIFFERENT_LINE";
+        else status=String(signal.selection).toUpperCase()===String(model.selection).toUpperCase() ? "SUPPORT" : "CONTRADICT";
+      }
+      rows.push({
+        source:item.source ?? null,
+        headline:item.headline ?? null,
+        market:spec.market,
+        editorialSelection:String(signal.selection).toUpperCase(),
+        editorialLine:signalLine,
+        modelSelection:model?.selection ?? null,
+        modelLabel:model?.label ?? null,
+        modelLine,
+        status,
+        confidence:num(signal.confidence),
+        basis:signal.basis ?? null,
+        relevanceScore:num(item.relevanceScore),
+      });
+    }
+  }
+  const count=(s:string)=>rows.filter((x:any)=>x.status===s).length;
+  return {
+    totalSignals:rows.length,
+    support:count("SUPPORT"),
+    contradict:count("CONTRADICT"),
+    differentLine:count("DIFFERENT_LINE"),
+    contextOnly:count("CONTEXT_ONLY"),
+    rows,
+  };
+}
+
+function fallbackStory(a: any, detail: any, language: string, commentary: any[] = [], editorialAlignment:any = null) {
   const s = a?.story || {};
   const deep = compactDetail(detail);
   const d = a?.decision || {};
@@ -264,6 +327,26 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     if (rows.length) {
       if (language === "en") enStory.push(`Attributed editorial context: ${rows.join("; ")}. This is context, not a probability input.`);
       else zhStory.push(`外部球評／preview context：${rows.join("；")}。呢部分只作有來源嘅比賽背景，唔會直接改模型機率或 Edge。`);
+    }
+  }
+  if (editorialAlignment?.totalSignals) {
+    const supports=editorialAlignment.rows.filter((x:any)=>x.status==="SUPPORT");
+    const conflicts=editorialAlignment.rows.filter((x:any)=>x.status==="CONTRADICT");
+    const lineDiff=editorialAlignment.rows.filter((x:any)=>x.status==="DIFFERENT_LINE");
+    if(language==="en"){
+      const parts=[
+        supports.length ? `${supports.length} editorial signal(s) support the current model direction` : null,
+        conflicts.length ? `${conflicts.length} contradict it` : null,
+        lineDiff.length ? `${lineDiff.length} refer to a different line` : null,
+      ].filter(Boolean);
+      if(parts.length) enStory.push(`Editorial-vs-model check: ${parts.join("; ")}. This comparison is explanatory only and does not change the calculated Edge.`);
+    } else {
+      const parts=[
+        supports.length ? `${supports.length} 個球評 signal 同模型方向一致` : null,
+        conflicts.length ? `${conflicts.length} 個球評 signal 同模型方向相反` : null,
+        lineDiff.length ? `${lineDiff.length} 個係唔同盤口，唔直接比較` : null,
+      ].filter(Boolean);
+      if(parts.length) zhStory.push(`球評 vs 模型：${parts.join("；")}。呢個對照只用嚟解釋，唔會改計算出嚟嘅 Edge。`);
     }
   }
 
@@ -405,7 +488,7 @@ function aiEnabled() {
     && Boolean(Deno.env.get("AI_MODEL"));
 }
 
-async function createAiStory(analysis: any, detail: any, fallback: any, language: string, style: string, commentary: any[] = []) {
+async function createAiStory(analysis: any, detail: any, fallback: any, language: string, style: string, commentary: any[] = [], editorialAlignment:any = null) {
   if (!aiEnabled()) {
     return { ok:false, mode:"DETERMINISTIC_FALLBACK", model:null, provider:"none", output:fallback, reason:"ai_not_configured" };
   }
@@ -424,6 +507,7 @@ async function createAiStory(analysis: any, detail: any, fallback: any, language
     deterministicStory: analysis?.story,
     marketAdvice: analysis?.marketAdvice,
     commentary,
+    editorialAlignment,
     phaseCoverage: analysis?.phaseCoverage,
     invalidators: analysis?.invalidators,
     evidence: {
@@ -517,7 +601,7 @@ Deno.serve(async (req: Request) => {
     }
     const db = createClient(sbUrl, key, { auth:{ persistSession:false, autoRefreshToken:false } });
     const commentaryQuery = await db.from("match_commentary_evidence")
-      .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics")
+      .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics,opinion_signals,relevance_score,parser_version")
       .eq("hkjc_event_id", id)
       .order("published_at", { ascending:false, nullsFirst:false })
       .limit(8);
@@ -536,15 +620,21 @@ Deno.serve(async (req: Request) => {
       leanSelection:row.lean_selection ?? null,
       confidence:num(row.confidence),
       topics:row.topics ?? [],
+      opinionSignals:row.opinion_signals ?? {},
+      relevanceScore:num(row.relevance_score),
+      parserVersion:row.parser_version ?? null,
     }));
 
+    const editorialAlignment = compareEditorialSignals(analysis, commentary);
+
     const packForHash = {
-      cacheSchema:"FT_STORY_V5_2_MULTI_MARKET_NARRATIVE",
+      cacheSchema:"FT_STORY_V5_3_EDITORIAL_ALIGNMENT",
       match:analysis?.match,
       decision:analysis?.decision,
       marketAdvice:analysis?.marketAdvice,
       story:analysis?.story,
       commentary,
+      editorialAlignment,
       phaseCoverage:analysis?.phaseCoverage,
       invalidators:analysis?.invalidators,
       evidence:analysis?.evidence,
@@ -566,8 +656,8 @@ Deno.serve(async (req: Request) => {
       }, { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
     }
 
-    const deterministic = fallbackStory(analysis, detail, language, commentary);
-    const ai = await createAiStory(analysis, detail, deterministic, language, style, commentary);
+    const deterministic = fallbackStory(analysis, detail, language, commentary, editorialAlignment);
+    const ai = await createAiStory(analysis, detail, deterministic, language, style, commentary, editorialAlignment);
     const story = ai.output || deterministic;
 
     const payload = {
@@ -603,6 +693,7 @@ Deno.serve(async (req: Request) => {
       },
       marketAdvice:analysis?.marketAdvice ?? null,
       commentary,
+      editorialAlignment,
       story,
       phaseCoverage:analysis.phaseCoverage ?? null,
       evidenceSummary:{
@@ -615,12 +706,15 @@ Deno.serve(async (req: Request) => {
         humanFactorRows:(detail?.humanFactors?.playerStatus?.length||0)+(detail?.humanFactors?.lineup?.length||0)+(detail?.humanFactors?.managers?.length||0),
         scenarioRows:detail?.scenario?.length||0,
         commentaryRows:commentary.length,
+        commentarySignals:editorialAlignment.totalSignals,
+        commentarySupport:editorialAlignment.support,
+        commentaryContradict:editorialAlignment.contradict,
       },
       invalidators:analysis.invalidators ?? [],
       governance:{
         sourceEngine:analysis.engine ?? null,
         sourceNarrationMode:analysis.narrationMode ?? null,
-        rule:"Story explains verified evidence only. Deterministic HDA, goals O/U and corners O/U action, selection, odds, probability and edge fields come from app-match-analysis. Editorial commentary is attributed context only.",
+        rule:"Story explains verified evidence only. Deterministic HDA, goals O/U and corners O/U action, selection, odds, probability and edge fields come from app-match-analysis. Editorial signals may be compared with model directions but never change probability or Edge.",
         calibrationGate:analysis?.governance?.calibrationGate ?? null,
         sourceMode:analysis?.governance?.sourceMode ?? analysis?.evidence?.phase1Health?.sourceMode ?? null,
         staking:analysis?.governance?.staking ?? null,
