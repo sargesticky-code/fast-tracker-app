@@ -3,14 +3,40 @@ import { parse } from "npm:csv-parse@7.0.2/sync";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.9.6";
 const GH="https://raw.githubusercontent.com/sargesticky-code/football-fast-tracker/main/data", BUCKET="fast-tracker-ingest";
 const ISSUER="https://token.actions.githubusercontent.com", AUD="fast-tracker-supabase", REPO="sargesticky-code/football-fast-tracker";
+const CORE_SYNC_FILES=[
+  "hkjc_current.csv","forebet_current.csv","model_current.csv","team_alias_registry.csv",
+  "form_current.csv","prediction_fallback_current.csv","forebet_availability.csv","h2h_summary.csv"
+];
 const REFS=new Set(["refs/heads/main","refs/heads/supabase-ingest-v2"]), JWKS=createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks`));
 const url=Deno.env.get("SUPABASE_URL")!, modern=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}"), key=modern.default||Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); if(!key)throw new Error("No Supabase admin key available");
 const db=createClient(url,key,{auth:{persistSession:false}}); const blank=(v:unknown)=>v==null||String(v).trim()==="", text=(v:unknown)=>blank(v)?null:String(v).trim();
-const num=(v:unknown)=>{if(blank(v))return null;const n=Number(String(v).trim());return Number.isFinite(n)?n:null}; const int=(v:unknown)=>{const n=num(v);return n===null?null:Math.trunc(n)}; const bool=(v:unknown)=>blank(v)?null:["1","true","yes","y"].includes(String(v).trim().toLowerCase()); const list=(v:unknown)=>blank(v)?[]:String(v).split(/[+|;]/).map(x=>x.trim()).filter(Boolean);
+const num=(v:unknown)=>{if(blank(v))return null;const n=Number(String(v).trim());return Number.isFinite(n)?n:null}; const int=(v:unknown)=>{const n=num(v);return n===null?null:Math.trunc(n)}; const bool=(v:unknown)=>blank(v)?null:["1","true","yes","y"].includes(String(v).trim().toLowerCase()); const list=(v:unknown)=>blank(v)?[]:String(v).split(/[+|;]/).map(x=>x.trim()).filter(Boolean); const jsonValue=(v:unknown,fallback:any=[])=>{if(blank(v))return fallback;try{return JSON.parse(String(v))}catch{return fallback}};
 function ts(v:unknown){if(blank(v))return null;const s=String(v).trim(),serial=Number(s);if(Number.isFinite(serial)&&serial>=20000&&serial<=80000)return new Date(Date.UTC(1899,11,30)+serial*86400000-8*3600000).toISOString();if(/Z$|[+-]\d\d:\d\d$/.test(s))return s;if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s+"T00:00:00+08:00";return s.replace(" ","T")+"+08:00"}
 async function csv(u:string){const r=await fetch(u+(u.includes("?")?"&":"?")+"nocache="+Date.now(),{headers:{"cache-control":"no-cache"}});if(!r.ok)throw new Error(`fetch ${u} failed ${r.status}`);return parse((await r.text()).replace(/^\uFEFF/,""),{columns:true,skip_empty_lines:true,relax_column_count:true}) as Record<string,string>[]}
-async function asset(f:string){try{return await csv(`${GH}/${f}`)}catch(e){console.error("github_asset_fetch_failed",f,e)}const {data,error}=await db.storage.from(BUCKET).download(f);if(error||!data)throw new Error(`storage ${f} failed ${error?.message||"missing"}`);return parse((await data.text()).replace(/^\uFEFF/,""),{columns:true,skip_empty_lines:true,relax_column_count:true}) as Record<string,string>[]}
-async function optionalAsset(f:string){try{return await asset(f)}catch{return []}} async function storageAsset(f:string){const {data,error}=await db.storage.from(BUCKET).download(f);if(error||!data)throw new Error(`storage ${f} failed ${error?.message||"missing"}`);return parse((await data.text()).replace(/^\uFEFF/,""),{columns:true,skip_empty_lines:true,relax_column_count:true}) as Record<string,string>[]} async function optionalStorageAsset(f:string){try{return await storageAsset(f)}catch{return []}}
+async function asset(f:string){try{return await storageAsset(f)}catch(e){console.warn("storage_asset_fallback",f,e instanceof Error?e.message:String(e))}return await csv(`${GH}/${f}`)}
+async function optionalAsset(f:string){try{return await storageAsset(f)}catch{}try{return await csv(`${GH}/${f}`)}catch{}return []} async function storageAsset(f:string){const {data,error}=await db.storage.from(BUCKET).download(f);if(error||!data)throw new Error(`storage ${f} failed ${error?.message||"missing"}`);return parse((await data.text()).replace(/^\uFEFF/,""),{columns:true,skip_empty_lines:true,relax_column_count:true}) as Record<string,string>[]} async function optionalStorageAsset(f:string){try{return await storageAsset(f)}catch{return []}}
+async function markAppliedHashes(){
+  const {data,error}=await db.from("source_health")
+    .select("metric,value_text")
+    .eq("source","GITHUB_OIDC_INGEST")
+    .in("metric",CORE_SYNC_FILES);
+  if(error)throw new Error(`applied_hash_read: ${error.message}`);
+  const now=new Date().toISOString();
+  const rows=(data??[]).filter((x:any)=>x.metric&&x.value_text).map((x:any)=>({
+    source:"SUPABASE_SYNC_APPLIED",
+    metric:String(x.metric),
+    value_text:String(x.value_text),
+    status:"PASS",
+    notes:"Latest uploaded core artifact successfully applied to canonical tables",
+    observed_at:now,
+    raw:{applied_by:"sync-fast-tracker"}
+  }));
+  if(rows.length){
+    const {error:upError}=await db.from("source_health").upsert(rows,{onConflict:"source,metric"});
+    if(upError)throw new Error(`applied_hash_write: ${upError.message}`);
+  }
+  return rows.length;
+}
 async function upsert(t:string,rows:Record<string,unknown>[],conflict:string,ignore=false){let total=0;for(let i=0;i<rows.length;i+=300){const {error}=await db.from(t).upsert(rows.slice(i,i+300),{onConflict:conflict,ignoreDuplicates:ignore});if(error)throw new Error(`${t}: ${error.message}`);total+=Math.min(300,rows.length-i)}return total}
 async function hash(s:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,"0")).join("")}
 async function authorized(req:Request){const c=req.headers.get("x-fast-tracker-cron")||"";if(c){const {data}=await db.from("system_config").select("value").eq("key","cron_secret_sha256").maybeSingle();if(data?.value&&(await hash(c))===data.value)return true}const a=req.headers.get("authorization")||"";if(!a.toLowerCase().startsWith("bearer "))return false;try{const {payload}=await jwtVerify(a.slice(7).trim(),JWKS,{issuer:ISSUER,audience:AUD});return payload.repository===REPO&&REFS.has(String(payload.ref||""))}catch{return false}}
@@ -24,7 +50,81 @@ async function telemetryAssets(){const specs=[
 ["ACC","acc_current.csv","hkjc_event_id","league","home_team","away_team"],["BCL","bcl_current.csv","hkjc_event_id","league","home_team","away_team"],["FRB","frb_current.csv","hkjc_event_id","league","home_team","away_team"],["FST","fst_current.csv","hkjc_event_id","league","home_team","away_team"],["PRE","pre_current.csv","hkjc_event_id","league","home_team","away_team"],["STA","sta_current.csv","hkjc_event_id","league","home_team","away_team"]] as const;
 const out:Record<string,unknown>={};for(const [source,file,event,competition,home,away] of specs){const rows=await optionalAsset(file);if(rows.length)out[source]={rows:rows.length,paths:await identityTelemetry(source,rows.filter(r=>r[event]),{event,competition,home,away})};else out[source]={rows:0,paths:null,asset:file,status:"NOT_PRESENT"}}return out}
 async function current(){const out:Record<string,unknown>={};const h=await asset("hkjc_current.csv");out.matches=await upsert("matches",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),hkjc_match_id:text(r.match_id),kickoff_hkt:ts(r.kickoff_hkt),status:text(r.status),tournament:text(r.tournament),home_en:text(r.home_en),away_en:text(r.away_en),home_zh:text(r.home_zh),away_zh:text(r.away_zh),pools:text(r.pools),pool_status:text(r.pool_status),in_play:bool(r.in_play),selling:bool(r.selling),fetched_at:ts(r.fetched_at_hkt),source_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id");out.hkjc_odds=await upsert("hkjc_odds_current",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),had_home:num(r.had_home),had_draw:num(r.had_draw),had_away:num(r.had_away),hil_line:text(r.hil_line),hil_over:num(r.hil_over),hil_under:num(r.hil_under),chl_line:text(r.chl_line),chl_over:num(r.chl_over),chl_under:num(r.chl_under),fetched_at:ts(r.fetched_at_hkt),odds_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id");
-const fb=await asset("forebet_current.csv");out.forebet=await upsert("forebet_predictions",fb.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),fetched_at:ts(r.fetched_at_hkt),forebet_league_short:text(r.league_short),forebet_home_team:text(r.home_team),forebet_away_team:text(r.away_team),prob_home:num(r.prob_home),prob_draw:num(r.prob_draw),prob_away:num(r.prob_away),prediction_1x2:text(r.prediction_1x2),predicted_score:text(r.predicted_score),avg_goals:num(r.avg_goals),prediction_ou25:text(r.prediction_ou25),prob_over25:num(r.prob_over25),prob_under25:num(r.prob_under25),corner_prediction:text(r.corner_prediction),avg_corners:num(r.avg_corners),raw:r})),"hkjc_event_id");out.forebet_identity=await identityTelemetry("FOREBET",fb.filter(r=>r.hkjc_event_id),{event:"hkjc_event_id",competition:"league_short",home:"home_team",away:"away_team"});
-const pf=await asset("prediction_fallback_current.csv");out.prediction_fallback=await upsert("prediction_fallback_current",pf.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),fetched_at:ts(r.fetched_at_hkt),kickoff_hkt:ts(r.kickoff_hkt),hkjc_league:text(r.hkjc_league),home_en:text(r.home_en),away_en:text(r.away_en),source:text(r.source),source_competition:text(r.source_competition),source_url:text(r.source_url),recommendation:text(r.recommendation),market:text(r.market),match_score:num(r.match_score),status:text(r.status),notes:text(r.notes),raw:r})),"hkjc_event_id");const fa=await asset("forebet_availability.csv");out.forebet_availability=await upsert("forebet_availability",fa.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),checked_at:ts(r.checked_at_hkt||r.checked_at),match_date:text(r.match_date),kickoff_hkt:ts(r.kickoff_hkt),league_zh:text(r.league_zh),home_en:text(r.home_en),away_en:text(r.away_en),state:text(r.state),reason:text(r.reason),source_home_team:text(r.source_home_team),source_away_team:text(r.source_away_team),source_competition:text(r.source_competition),fixture_match_score:num(r.fixture_match_score),identity_status:text(r.identity_status),identity_source:text(r.identity_source),raw:r})),"hkjc_event_id");const md=await asset("model_current.csv");await stubs(md,{event:"hkjc_event_id",home:"home",away:"away"});out.models=await upsert("model_predictions",md.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),fetched_at:ts(r.fetched_at_hkt),home:text(r.home),away:text(r.away),model_league:text(r.model_league),model_home_name:text(r.model_home_name),model_away_name:text(r.model_away_name),dc_prob_home:num(r.dc_prob_home),dc_prob_draw:num(r.dc_prob_draw),dc_prob_away:num(r.dc_prob_away),dc_xg_home:num(r.dc_xg_home),dc_xg_away:num(r.dc_xg_away),dc_prob_over25:num(r.dc_prob_over25),pi_prob_home:num(r.pi_prob_home),pi_prob_draw:num(r.pi_prob_draw),pi_prob_away:num(r.pi_prob_away),pi_home_rating:num(r.pi_home_rating),pi_away_rating:num(r.pi_away_rating),pi_diff:num(r.pi_diff),training_matches:int(r.training_matches),team_match_quality:num(r.team_match_quality),quality:text(r.quality),model_source:text(r.model_source),raw:r})),"hkjc_event_id");out.model_identity=await identityTelemetry("INTERNAL_MODEL",md.filter(r=>r.hkjc_event_id),{event:"hkjc_event_id",competition:"model_league",home:"model_home_name",away:"model_away_name"});
-out.extended_identity=await telemetryAssets();const aliases=await asset("team_alias_registry.csv");out.aliases=await upsert("team_aliases",aliases.filter(r=>r.forebet_alias&&r.canonical_hkjc_name).map(r=>({source:"FOREBET",alias:text(r.forebet_alias),canonical_hkjc_name:text(r.canonical_hkjc_name),confidence:num(r.confidence),first_seen_hkt:ts(r.first_seen_hkt),last_seen_hkt:ts(r.last_seen_hkt),match_count:int(r.match_count),status:text(r.status),alias_source:text(r.source)})),"source,alias");const {data:aliasV2,error:aliasV2Error}=await db.rpc("ft_refresh_team_alias_v2");if(aliasV2Error)throw aliasV2Error;out.team_alias_v2=aliasV2;const multi=await optionalStorageAsset("multibetter_current.csv");out.multisource_storage_rows=multi.length;if(multi.length){const multiPayload=multi.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),built_at:ts(r.built_at),external_fixture_id:text(r.external_fixture_id),github_forebet_date:text(r.github_forebet_date),github_forebet_time:text(r.github_forebet_time),github_forebet_league:text(r.github_forebet_league),github_forebet_home:text(r.github_forebet_home),github_forebet_away:text(r.github_forebet_away),home_away_explicit:bool(r.home_away_explicit),match_status:text(r.match_status),match_reason:text(r.match_reason),candidate_count:int(r.candidate_count),our_forebet_home:text(r.our_forebet_home),our_forebet_away:text(r.our_forebet_away),hkjc_home:text(r.hkjc_home),hkjc_away:text(r.hkjc_away),hkjc_kickoff_hkt:ts(r.hkjc_kickoff_hkt),source_count_total:int(r.source_count_total),sources_total:list(r.sources_total),source_count_consensus:int(r.source_count_consensus),sources_consensus:list(r.sources_consensus),learned_alias_count:int(r.learned_alias_count),learned_aliases:list(r.learned_aliases),consensus_home:num(r.consensus_home),consensus_draw:num(r.consensus_draw),consensus_away:num(r.consensus_away),consensus_over25:num(r.consensus_over25),consensus_under25:num(r.consensus_under25),consensus_btts_yes:num(r.consensus_btts_yes),consensus_btts_no:num(r.consensus_btts_no),raw:r}));const {data:multiCount,error:multiError}=await db.rpc("ft_internal_upsert_multisource",{payload:multiPayload});if(multiError)throw multiError;out.multisource=Number(multiCount??0);const {data:multiAlias,error:multiAliasError}=await db.rpc("ft_internal_ingest_multisource_alias_evidence",{payload:multiPayload});if(multiAliasError)throw multiAliasError;out.multisource_alias=multiAlias}else out.multisource=0;const {data:core,error:ce}=await db.rpc("ft_internal_refresh_phase1_core");if(ce)throw ce;out.canonical_core=core;const {data:gap}=await db.rpc("ft_internal_upcoming_canonical_gap_count");out.canonical_upcoming_gap=Number(gap??0);const {data:pre,error:pe}=await db.rpc("ft_internal_capture_prematch");if(pe)throw pe;out.prematch_snapshot=pre;const {data:dec,error:de}=await db.rpc("ft_internal_refresh_phase1_decisions");if(de)throw de;out.phase1_decisions=dec;const {data:coverageGuard,error:coverageError}=await db.rpc("ft_refresh_phase1_coverage_guard");if(coverageError)throw coverageError;out.phase1_coverage_guard=coverageGuard;return out}
-Deno.serve(async req=>{try{if(!(await authorized(req)))return Response.json({ok:false,error:"unauthorized"},{status:401});const body=req.method==="POST"?await req.json().catch(()=>({})):{};const mode=body.mode||"current";if(mode!=="current")return Response.json({ok:false,error:"mode temporarily unavailable during Phase 1 safe restore",mode},{status:503});const started=new Date().toISOString(),result=await current();await db.from("source_health").upsert({source:"SUPABASE_SYNC",metric:"current",value_text:JSON.stringify(result),status:Number((result as any).canonical_upcoming_gap||0)>0||String((result as any).phase1_coverage_guard?.status||"").toUpperCase()==="FAIL"?"FAIL":String((result as any).phase1_coverage_guard?.status||"").toUpperCase()==="WARN"?"WARN":"PASS",notes:"Edge sync current + availability materialization + master-first identity + Phase 1 coverage guard",observed_at:new Date().toISOString(),raw:{started_at:started,finished_at:new Date().toISOString()}},{onConflict:"source,metric"});return Response.json({ok:true,mode,result,started_at:started,finished_at:new Date().toISOString()})}catch(e){return Response.json({ok:false,error:e instanceof Error?e.message:String(e)},{status:500})}});
+try{
+const h2h=await optionalAsset("h2h_summary.csv");
+out.h2h=await upsert("match_h2h_current",h2h.filter(r=>r.hkjc_event_id).map(r=>({
+  hkjc_event_id:text(r.hkjc_event_id),
+  fetched_at:ts(r.fetched_at_hkt),
+  kickoff_hkt:ts(r.kickoff_hkt),
+  home_id:text(r.home_id),
+  away_id:text(r.away_id),
+  home:text(r.home),
+  away:text(r.away),
+  h2h_games:int(r.h2h_games)??0,
+  home_wins:int(r.home_wins)??0,
+  draws:int(r.draws)??0,
+  away_wins:int(r.away_wins)??0,
+  home_goals:int(r.home_goals)??0,
+  away_goals:int(r.away_goals)??0,
+  avg_total_goals:num(r.avg_total_goals),
+  last5:text(r.last5),
+  meetings:jsonValue(r.meetings_json,[]),
+  source:text(r.source)||"HKJC accumulated matchResult history",
+  quality:text(r.quality)||"HISTORY_PARTIAL",
+  updated_at:new Date().toISOString()
+})),"hkjc_event_id");
+}catch(e){
+  const message=e instanceof Error?e.message:String(e);
+  console.error("optional_h2h_sync_failed",message);
+  out.h2h={status:"WARN",error:message};
+}
+const fb=await asset("forebet_current.csv");out.forebet=await upsert("forebet_predictions",fb.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),fetched_at:ts(r.fetched_at_hkt),forebet_league_short:text(r.league_short),forebet_home_team:text(r.home_team),forebet_away_team:text(r.away_team),prob_home:num(r.prob_home),prob_draw:num(r.prob_draw),prob_away:num(r.prob_away),prediction_1x2:text(r.prediction_1x2),predicted_score:text(r.predicted_score),avg_goals:num(r.avg_goals),prediction_ou25:text(r.prediction_ou25),prob_over25:num(r.prob_over25),prob_under25:num(r.prob_under25),corner_prediction:text(r.corner_prediction),avg_corners:num(r.avg_corners),raw:r})),"hkjc_event_id");out.forebet_identity={status:"DEFERRED_TO_ALIAS_MAINTENANCE"};
+const pf=await asset("prediction_fallback_current.csv");out.prediction_fallback=await upsert("prediction_fallback_current",pf.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),fetched_at:ts(r.fetched_at_hkt),kickoff_hkt:ts(r.kickoff_hkt),hkjc_league:text(r.hkjc_league),home_en:text(r.home_en),away_en:text(r.away_en),source:text(r.source),source_competition:text(r.source_competition),source_url:text(r.source_url),recommendation:text(r.recommendation),market:text(r.market),match_score:num(r.match_score),status:text(r.status),notes:text(r.notes),raw:r})),"hkjc_event_id");const fa=await asset("forebet_availability.csv");out.forebet_availability=await upsert("forebet_availability",fa.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),checked_at:ts(r.checked_at_hkt||r.checked_at),match_date:text(r.match_date),kickoff_hkt:ts(r.kickoff_hkt),league_zh:text(r.league_zh),home_en:text(r.home_en),away_en:text(r.away_en),state:text(r.state),reason:text(r.reason),source_home_team:text(r.source_home_team),source_away_team:text(r.source_away_team),source_competition:text(r.source_competition),fixture_match_score:num(r.fixture_match_score),identity_status:text(r.identity_status),identity_source:text(r.identity_source),raw:r})),"hkjc_event_id");const md=await asset("model_current.csv");await stubs(md,{event:"hkjc_event_id",home:"home",away:"away"});out.models=await upsert("model_predictions",md.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),fetched_at:ts(r.fetched_at_hkt),home:text(r.home),away:text(r.away),model_league:text(r.model_league),model_home_name:text(r.model_home_name),model_away_name:text(r.model_away_name),dc_prob_home:num(r.dc_prob_home),dc_prob_draw:num(r.dc_prob_draw),dc_prob_away:num(r.dc_prob_away),dc_xg_home:num(r.dc_xg_home),dc_xg_away:num(r.dc_xg_away),dc_prob_over25:num(r.dc_prob_over25),pi_prob_home:num(r.pi_prob_home),pi_prob_draw:num(r.pi_prob_draw),pi_prob_away:num(r.pi_prob_away),pi_home_rating:num(r.pi_home_rating),pi_away_rating:num(r.pi_away_rating),pi_diff:num(r.pi_diff),training_matches:int(r.training_matches),team_match_quality:num(r.team_match_quality),quality:text(r.quality),model_source:text(r.model_source),raw:r})),"hkjc_event_id");out.model_identity={status:"DEFERRED_TO_ALIAS_MAINTENANCE"};const fm=await asset("form_current.csv");
+await stubs(fm,{event:"hkjc_event_id",home:"home",away:"away"});
+out.forms=await upsert("form_predictions",fm.filter(r=>r.hkjc_event_id).map(r=>({
+  hkjc_event_id:text(r.hkjc_event_id),
+  fetched_at:ts(r.fetched_at_hkt),
+  home:text(r.home),
+  away:text(r.away),
+  form_prob_home:num(r.form_prob_home),
+  form_prob_draw:num(r.form_prob_draw),
+  form_prob_away:num(r.form_prob_away),
+  form_xg_home:num(r.form_xg_home),
+  form_xg_away:num(r.form_xg_away),
+  home_games:int(r.home_games),
+  away_games:int(r.away_games),
+  home_venue_games:int(r.home_venue_games),
+  away_venue_games:int(r.away_venue_games),
+  quality:text(r.quality),
+  model_source:text(r.model_source),
+  raw:r,
+  updated_at:new Date().toISOString()
+})),"hkjc_event_id");
+out.extended_identity={status:"DEFERRED_TO_HOURLY_ALIAS_HEALTH"};const aliases=await asset("team_alias_registry.csv");out.aliases=await upsert("team_aliases",aliases.filter(r=>r.forebet_alias&&r.canonical_hkjc_name).map(r=>({source:"FOREBET",alias:text(r.forebet_alias),canonical_hkjc_name:text(r.canonical_hkjc_name),confidence:num(r.confidence),first_seen_hkt:ts(r.first_seen_hkt),last_seen_hkt:ts(r.last_seen_hkt),match_count:int(r.match_count),status:text(r.status),alias_source:text(r.source)})),"source,alias");const multi=await optionalStorageAsset("multibetter_current.csv");out.multisource_storage_rows=multi.length;if(multi.length){const multiPayload=multi.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),built_at:ts(r.built_at),external_fixture_id:text(r.external_fixture_id),github_forebet_date:text(r.github_forebet_date),github_forebet_time:text(r.github_forebet_time),github_forebet_league:text(r.github_forebet_league),github_forebet_home:text(r.github_forebet_home),github_forebet_away:text(r.github_forebet_away),home_away_explicit:bool(r.home_away_explicit),match_status:text(r.match_status),match_reason:text(r.match_reason),candidate_count:int(r.candidate_count),our_forebet_home:text(r.our_forebet_home),our_forebet_away:text(r.our_forebet_away),hkjc_home:text(r.hkjc_home),hkjc_away:text(r.hkjc_away),hkjc_kickoff_hkt:ts(r.hkjc_kickoff_hkt),source_count_total:int(r.source_count_total),sources_total:list(r.sources_total),source_count_consensus:int(r.source_count_consensus),sources_consensus:list(r.sources_consensus),learned_alias_count:int(r.learned_alias_count),learned_aliases:list(r.learned_aliases),consensus_home:num(r.consensus_home),consensus_draw:num(r.consensus_draw),consensus_away:num(r.consensus_away),consensus_over25:num(r.consensus_over25),consensus_under25:num(r.consensus_under25),consensus_btts_yes:num(r.consensus_btts_yes),consensus_btts_no:num(r.consensus_btts_no),raw:r}));const {data:multiCount,error:multiError}=await db.rpc("ft_internal_upsert_multisource",{payload:multiPayload});if(multiError)throw multiError;out.multisource=Number(multiCount??0);const {data:multiAlias,error:multiAliasError}=await db.rpc("ft_internal_ingest_multisource_alias_evidence",{payload:multiPayload});if(multiAliasError)throw multiAliasError;out.multisource_alias=multiAlias;out.team_alias_v2=(multiAlias as any)?.maintenance?.alias_v2??null}else{out.multisource=0;const {data:aliasV2,error:aliasV2Error}=await db.rpc("ft_refresh_team_alias_v2");if(aliasV2Error)throw aliasV2Error;out.team_alias_v2=aliasV2;}const {data:core,error:ce}=await db.rpc("ft_internal_refresh_phase1_core");if(ce)throw ce;out.canonical_core=core;const {data:gap}=await db.rpc("ft_internal_upcoming_canonical_gap_count");out.canonical_upcoming_gap=Number(gap??0);const {data:pre,error:pe}=await db.rpc("ft_internal_capture_prematch");if(pe)throw pe;out.prematch_snapshot=pre;const {data:dec,error:de}=await db.rpc("ft_internal_refresh_phase1_decisions");if(de)throw de;out.phase1_decisions=dec;const {data:coverageGuard,error:coverageError}=await db.rpc("ft_refresh_phase1_coverage_guard");if(coverageError)throw coverageError;out.phase1_coverage_guard=coverageGuard;return out}
+Deno.serve(async req=>{try{
+  if(!(await authorized(req)))return Response.json({ok:false,error:"unauthorized"},{status:401});
+  const body=req.method==="POST"?await req.json().catch(()=>({})):{};
+  const mode=body.mode||"current";
+  if(mode!=="current")return Response.json({ok:false,error:"mode temporarily unavailable during Phase 1 safe restore",mode},{status:503});
+  const started=new Date().toISOString();
+  const result=await current();
+  (result as any).applied_hashes=await markAppliedHashes();
+  await db.from("source_health").upsert({
+    source:"SUPABASE_SYNC",metric:"current",value_text:JSON.stringify(result),
+    status:Number((result as any).canonical_upcoming_gap||0)>0||String((result as any).phase1_coverage_guard?.status||"").toUpperCase()==="FAIL"?"FAIL":String((result as any).phase1_coverage_guard?.status||"").toUpperCase()==="WARN"?"WARN":"PASS",
+    notes:"Edge sync current + model/form + recovery hashes + availability materialization + master-first identity + Phase 1 coverage guard",
+    observed_at:new Date().toISOString(),raw:{started_at:started,finished_at:new Date().toISOString()}
+  },{onConflict:"source,metric"});
+  return Response.json({ok:true,mode,result,started_at:started,finished_at:new Date().toISOString()});
+}catch(e){
+  const message=e instanceof Error?e.message:String(e);
+  console.error("sync_fast_tracker_failed",message);
+  try{
+    await db.from("source_health").upsert({
+      source:"SUPABASE_SYNC",metric:"current",value_text:message,status:"FAIL",
+      notes:"Canonical static sync failed; uploaded/applied hashes remain mismatched so the next static ingest retries automatically.",
+      observed_at:new Date().toISOString(),raw:{error:message}
+    },{onConflict:"source,metric"});
+  }catch{}
+  return Response.json({ok:false,error:message},{status:500});
+}});
