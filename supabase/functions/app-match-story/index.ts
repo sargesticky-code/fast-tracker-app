@@ -193,7 +193,7 @@ function deepFacts(detail: any, language: string): string {
   return parts.join(language==="en" ? ". " : "；") + (parts.length ? (language==="en" ? "." : "。") : "");
 }
 
-function fallbackStory(a: any, detail: any, language: string) {
+function fallbackStory(a: any, detail: any, language: string, commentary: any[] = []) {
   const s = a?.story || {};
   const deep = compactDetail(detail);
   const d = a?.decision || {};
@@ -224,6 +224,47 @@ function fallbackStory(a: any, detail: any, language: string) {
   } else {
     zhStory.push(`${home} 對 ${away} 暫時未形成足夠穩定嘅可比較 Edge。`);
     enStory.push(`${home} versus ${away} does not yet produce a sufficiently stable comparable edge.`);
+  }
+
+  const goalsAdvice = a?.marketAdvice?.goals || null;
+  const cornersAdvice = a?.marketAdvice?.corners || null;
+  const describeMarketAdvice = (row:any, zhLabel:string, enLabel:string) => {
+    if (!row) return null;
+    const action = String(row.action || "").toUpperCase();
+    const candidate = String(row.candidateClass || "").toUpperCase();
+    const edgePp = num(row.candidateEdgePp);
+    const modelP = num(row.analystConsensusProbability);
+    const fairP = num(row.marketFairProbability);
+    const currentOdds = num(row.currentOdds);
+    const selectionLabel = String(row.selectionLabel || "PASS");
+    const families = Number(row.evidenceFamilyCount || 0);
+    if (!row.selection || action === "PASS" || action === "NO_BET") {
+      return language === "en"
+        ? `${enLabel}: ${selectionLabel}; ${candidate || action || "PASS"} because the comparable evidence is not strong enough.`
+        : `${zhLabel}：${selectionLabel}；目前係 ${candidate || action || "PASS"}，可比較 evidence 未足夠形成可靠方向。`;
+    }
+    const priceText = currentOdds === null ? "" : ` @ ${currentOdds.toFixed(2)}`;
+    const edgeText = edgePp === null ? "—" : `${edgePp >= 0 ? "+" : ""}${edgePp.toFixed(1)}pp`;
+    if (language === "en") {
+      return `${enLabel}: watch ${selectionLabel}${priceText}; model ${pctText(modelP,1)} versus HKJC fair ${pctText(fairP,1)}, Edge ${edgeText}, based on ${families} evidence famil${families === 1 ? "y" : "ies"} (${candidate || action}).`;
+    }
+    return `${zhLabel}：建議觀察 ${selectionLabel}${priceText}；模型 ${pctText(modelP,1)} 對 HKJC fair ${pctText(fairP,1)}，Edge ${edgeText}，基於 ${families} 個 evidence family（${candidate || action}）。`;
+  };
+  const goalsNarrative = describeMarketAdvice(goalsAdvice, "入球大細", "Goals O/U");
+  const cornersNarrative = describeMarketAdvice(cornersAdvice, "角球大細", "Corners O/U");
+  if (goalsNarrative) (language === "en" ? enStory : zhStory).push(goalsNarrative);
+  if (cornersNarrative) (language === "en" ? enStory : zhStory).push(cornersNarrative);
+
+  if (Array.isArray(commentary) && commentary.length) {
+    const rows = commentary.slice(0, 3).map((row:any) => {
+      const source = String(row.source || "source");
+      const body = String(row.summary || row.headline || row.excerpt || "").trim();
+      return body ? `${source}：${body}` : null;
+    }).filter(Boolean);
+    if (rows.length) {
+      if (language === "en") enStory.push(`Attributed editorial context: ${rows.join("; ")}. This is context, not a probability input.`);
+      else zhStory.push(`外部球評／preview context：${rows.join("；")}。呢部分只作有來源嘅比賽背景，唔會直接改模型機率或 Edge。`);
+    }
   }
 
   if (deep?.forebet) {
@@ -525,7 +566,7 @@ Deno.serve(async (req: Request) => {
       }, { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
     }
 
-    const deterministic = fallbackStory(analysis, detail, language);
+    const deterministic = fallbackStory(analysis, detail, language, commentary);
     const ai = await createAiStory(analysis, detail, deterministic, language, style, commentary);
     const story = ai.output || deterministic;
 
@@ -533,7 +574,7 @@ Deno.serve(async (req: Request) => {
       generatedAt:new Date().toISOString(),
       id,
       engine:{
-        name:"FT_STORY_INTERPRETER_V4",
+        name:"FT_STORY_INTERPRETER_V5",
         framework:ai.ok ? "openai-compatible-fetch" : "ft-deterministic-story",
         mode:ai.mode,
         provider:ai.provider,
@@ -594,7 +635,7 @@ Deno.serve(async (req: Request) => {
       language,
       style,
       analysis_hash:analysisHash,
-      framework:ai.ok ? "openai-compatible-fetch-v4" : "ft-deterministic-story-v4",
+      framework:ai.ok ? "openai-compatible-fetch-v5" : "ft-deterministic-story-v5",
       model:ai.ok ? ai.model : null,
       payload,
       source_generated_at:analysis.generatedAt ?? null,
