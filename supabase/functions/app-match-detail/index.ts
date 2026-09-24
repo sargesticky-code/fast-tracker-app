@@ -50,12 +50,11 @@ Deno.serve(async(req:Request)=>{
   };
 
   const [
-    fixtureUpcoming,fixtureLive,fixtureResult,model,forebet,form,power,human,scenario,movement,h2h,eventMap,
+    fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,
     playerStatus,lineups,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch
   ]=await Promise.all([
     one("hkjc_upcoming_current"),
     one("hkjc_live_odds_current"),
-    one("match_results","*","private"),
     one("model_predictions"),
     one("forebet_predictions"),
     one("form_predictions"),
@@ -75,34 +74,10 @@ Deno.serve(async(req:Request)=>{
     one("phase4_arb_watch_api"),
   ]);
 
-  const archivedFixture = fixtureResult.data ? {
-    hkjc_event_id:fixtureResult.data.hkjc_event_id,
-    match_id:fixtureResult.data.match_id,
-    kickoff_hkt:fixtureResult.data.kickoff_hkt,
-    tournament:fixtureResult.data.tournament,
-    home_en:fixtureResult.data.home,
-    away_en:fixtureResult.data.away,
-    home_zh:null,
-    away_zh:null,
-    status:"FINISHED",
-    had_home:null,had_draw:null,had_away:null,
-    hil_line:null,hil_over:null,hil_under:null,
-    chl_line:null,chl_over:null,chl_under:null,
-    fetched_at:fixtureResult.data.fetched_at,
-    updated_at:fixtureResult.data.updated_at,
-    final_score:{home:fixtureResult.data.home_goals,away:fixtureResult.data.away_goals},
-    outcome:fixtureResult.data.outcome,
-  } : null;
-  const fixture = fixtureUpcoming.data
-    ? fixtureUpcoming
-    : fixtureLive.data
-      ? fixtureLive
-      : archivedFixture
-        ? {data:archivedFixture,error:null}
-        : {data:null,error:null};
-  const fixtureSource = fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : archivedFixture ? "RESULT_ARCHIVE" : "MISSING";
+  const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
+  const fixtureSource = fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : "MISSING";
   const errors:any={};
-  for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,fixtureResult,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
+  for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
     if((v as any).error) errors[k]=(v as any).error;
   }
 
