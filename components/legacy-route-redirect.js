@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { matchDetailHref } from "@/lib/fast-tracker";
 
 export default function LegacyRouteRedirect() {
   useEffect(() => {
@@ -8,15 +9,21 @@ export default function LegacyRouteRedirect() {
     const legacy = path.match(/^\/match\/([^/]+)\/?$/i);
     if (legacy?.[1]) {
       const id = decodeURIComponent(legacy[1]);
-      window.location.replace("/details/?id=" + encodeURIComponent(id));
+      window.location.replace(matchDetailHref(id));
       return;
     }
 
     if (/^\/match\/?$/i.test(path)) {
       const id = new URLSearchParams(window.location.search).get("id");
-      if (id) window.location.replace("/details/?id=" + encodeURIComponent(id));
+      window.location.replace(id ? matchDetailHref(id) : "/");
     }
   }, []);
 
-  return null;
+  return (
+    <main className="shell detail-shell">
+      <section className="panel">
+        <p className="fineprint">Redirecting to the latest Supabase match view…</p>
+      </section>
+    </main>
+  );
 }
