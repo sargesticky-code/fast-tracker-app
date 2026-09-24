@@ -89,6 +89,15 @@ export default async function HealthPage(){
     const mins=Math.max(0,Math.round((now-t)/60000));
     return mins<2 ? "剛更新" : mins<60 ? `${mins}m` : `${Math.round(mins/60)}h`;
   };
+  const routeGuard=heartbeats.FRONTEND_ROUTE_GUARD||{};
+  const routeGuardRaw=routeGuard.raw||{};
+  const routeCurrentCount=Number(routeGuardRaw.current_feed_count??matches.length);
+  const routeUnresolved=Array.isArray(routeGuardRaw.unresolved_ids)?routeGuardRaw.unresolved_ids:[];
+  const sourceContextCoverage={
+    matched:matches.filter(m=>m.sourceContext && Number(m.sourceContext.matchConfidence)>=0.94).length,
+    detail:matches.filter(m=>m.sourceContext?.detailAvailable).length,
+    lineup:matches.filter(m=>m.sourceContext?.lineupAvailable).length,
+  };
   const stats={
     total:matches.length,
     modeled:matches.filter(m=>modelCoverageCount(m)>0).length,
@@ -111,7 +120,7 @@ export default async function HealthPage(){
         <div><span>Supabase live shadow<small style={{display:"block"}}>native fixture identity prewarm · 2-min cadence</small></span><b>{heartbeats.LIVE_SOURCE_SHADOW?.status || "—"} · {heartbeats.LIVE_SOURCE_SHADOW?.value || "—"}</b></div>
         <div><span>Live shadow compare<small style={{display:"block"}}>coverage · score · source ID · minute drift · detail</small></span><b>{heartbeats.LIVE_SHADOW_COMPARE?.status || "—"} · {heartbeats.LIVE_SHADOW_COMPARE?.value || "—"}</b></div>
         <div><span>Phase 3 identity<small style={{display:"block"}}>verified source-match registry</small></span><b>{heartbeats.PHASE3_IDENTITY_REGISTRY?.status || "—"} · {heartbeats.PHASE3_IDENTITY_REGISTRY?.value || "—"}</b></div>
-        <div><span>Dashboard routes<small style={{display:"block"}}>root + details + legacy link + health · 5-min guard</small></span><b>{heartbeats.FRONTEND_ROUTE_GUARD?.status || "—"} · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
+        <div><span>Dashboard routes<small style={{display:"block"}}>全 current feed resolver + representative detail/legacy probes</small></span><b>{routeGuard.status || "—"} · {routeCurrentCount-routeUnresolved.length}/{routeCurrentCount} resolved · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
       </div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>MARKETS</p><h2>24H Intelligence Coverage</h2></div><span>{stats.total} matches</span></div>
@@ -123,13 +132,14 @@ export default async function HealthPage(){
         <div><span>DC / Pi<small style={{display:"block"}}>Model / Fail-closed / Identity block</small></span><b>{sourceCoverage.dcpi.model} / {sourceCoverage.dcpi.fail} / {sourceCoverage.dcpi.identity}</b></div>
         <div><span>Team-Form<small style={{display:"block"}}>Model / Insufficient / Identity block</small></span><b>{sourceCoverage.form.model} / {sourceCoverage.form.insufficient} / {sourceCoverage.form.identity}</b></div>
         <div><span>Multi-source<small style={{display:"block"}}>Available / No matched source / No consensus</small></span><b>{sourceCoverage.multi.model} / {sourceCoverage.multi.noMatch} / {sourceCoverage.multi.noConsensus}</b></div>
+        <div><span>External context fallback<small style={{display:"block"}}>FotMob exact/verified fixture · Detail · Lineup</small></span><b>{sourceContextCoverage.matched} / {sourceContextCoverage.detail} / {sourceContextCoverage.lineup}</b></div>
       </div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>QUALITY</p><h2>Coverage</h2></div><span>{feed.source}</span></div>
       <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Source / scan不可用</span><b>{classes.SOURCE_UNAVAILABLE||0}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
     </section>
     {gapRows.length>0&&<section className="panel"><div className="panel-title"><div><p>GAPS</p><h2>Coverage未完整賽事</h2></div><span>{gapRows.length}</span></div>
-      <div className="health-list">{gapRows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · FB {m.health?.forebetCoverageStatus||"—"} · DC/PI {m.health?.dcPiCoverageStatus||"—"} · FORM {m.health?.formCoverageStatus||"—"} · MULTI {m.health?.multisourceCoverageStatus||"—"}</small></span><b>{unifiedCoverageStatus(m)}</b></div>)}</div>
+      <div className="health-list">{gapRows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · FB {m.health?.forebetCoverageStatus||"—"} · DC/PI {m.health?.dcPiCoverageStatus||"—"} · FORM {m.health?.formCoverageStatus||"—"} · MULTI {m.health?.multisourceCoverageStatus||"—"}{m.sourceContext ? ` · CTX ${m.sourceContext.source} ${Math.round(Number(m.sourceContext.matchConfidence||0)*100)}%` : ""}</small></span><b>{unifiedCoverageStatus(m)}</b></div>)}</div>
     </section>}
     <section className="panel"><div className="panel-title"><div><p>POLICY</p><h2>Phase 1 safeguards</h2></div></div><p className="fineprint">HKJC係 betting universe。缺 source 就顯示 NO DATA；stale唔當current；未check同source無model唔會混為一談；Decision engine保持validation-gated，未有足夠校準唔輸出正式投注指令。</p></section>
   </main>;
