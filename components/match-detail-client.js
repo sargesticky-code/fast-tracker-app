@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-EDITORIAL-ALIGNMENT-20260924-1";
+const UI_BUILD = "DETAIL-MATCH-SCRIPT-20260924-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -842,6 +842,7 @@ export default function MatchDetailClient() {
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
   const storyContent = story?.story || null;
+  const matchScript = story?.matchScript || null;
   const commentaryRows = Array.isArray(story?.commentary) ? story.commentary.slice(0, 4) : [];
   const editorialAlignment = story?.editorialAlignment || null;
   const editorialAlignmentRows = Array.isArray(editorialAlignment?.rows) ? editorialAlignment.rows : [];
@@ -1086,6 +1087,40 @@ export default function MatchDetailClient() {
               </div>
             ) : null}
           </details>
+        </section>
+      ) : null}
+
+      {matchScript ? (
+        <section className="panel match-script-panel">
+          <div className="panel-title">
+            <div><p>MATCH SCRIPT</p><h2>{matchScript.headline || "賽事走勢推演"}</h2></div>
+            <span>{matchScript.predictedScore ? "Forebet " + matchScript.predictedScore : matchScript.shapeKey || "Phase 1"}</span>
+          </div>
+          <div className="match-script-grid">
+            <div>
+              <span>開局</span>
+              <p>{matchScript.opening || "—"}</p>
+            </div>
+            <div>
+              <span>中段走勢</span>
+              <p>{matchScript.middle || "—"}</p>
+            </div>
+            <div>
+              <span>入球環境 / VALUE</span>
+              <p>{matchScript.goalEnvironment || "—"}</p>
+            </div>
+            <div>
+              <span>角球環境</span>
+              <p>{matchScript.cornerEnvironment || "—"}</p>
+            </div>
+          </div>
+          {Array.isArray(matchScript.turningPoints) && matchScript.turningPoints.length ? (
+            <div className="match-script-turning">
+              <span>關鍵轉折 / 失效位</span>
+              <div>{matchScript.turningPoints.slice(0, 6).map((item, index) => <b key={String(item) + index}>{item}</b>)}</div>
+            </div>
+          ) : null}
+          <p className="fineprint">Match Script 係 Phase 1 賽前推演；「最可能走勢」同「現價最有 value 嘅投注方向」會分開顯示。</p>
         </section>
       ) : null}
 
