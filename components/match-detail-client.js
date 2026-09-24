@@ -837,7 +837,7 @@ export default function MatchDetailClient() {
     return t.length > 18 ? t.slice(0, 18) + "…" : t;
   });
   const fallbackAdvice = primarySide && primaryEdgePp != null
-    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}%`
+    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}pp`
     : "現時未有足夠資料形成清晰投注位。";
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
