@@ -2041,3 +2041,56 @@
     border-right:0!important;
   }
 }
+
+
+/* Editorial evidence — attributed context only */
+.detail-shell .commentary-board{
+  border:1px solid #dfe7e1;
+  border-radius:4px;
+  overflow:hidden;
+  background:#fff;
+}
+.detail-shell .commentary-row{
+  display:grid;
+  grid-template-columns:120px minmax(0,1fr) 90px;
+  align-items:center;
+  gap:8px;
+  min-height:38px;
+  padding:6px 8px;
+  border-bottom:1px solid #e8eeea;
+  color:inherit;
+  text-decoration:none;
+}
+.detail-shell .commentary-row:last-child{border-bottom:0}
+.detail-shell .commentary-row:hover{background:#f5f9f6}
+.detail-shell .commentary-row>span{
+  color:#2f6b4d;
+  font-size:8px;
+  font-weight:900;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.detail-shell .commentary-row>strong{
+  color:#263e32;
+  font-size:10px;
+  line-height:1.25;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.detail-shell .commentary-row>small{
+  color:#7a8780;
+  font-size:8px;
+  text-align:right;
+}
+@media (max-width:680px){
+  .detail-shell .commentary-row{
+    grid-template-columns:1fr auto;
+    gap:3px 6px;
+  }
+  .detail-shell .commentary-row>strong{
+    grid-column:1/-1;
+    white-space:normal;
+  }
+}
