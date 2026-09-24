@@ -364,7 +364,7 @@ function aiEnabled() {
     && Boolean(Deno.env.get("AI_MODEL"));
 }
 
-async function createAiStory(analysis: any, detail: any, fallback: any, language: string, style: string) {
+async function createAiStory(analysis: any, detail: any, fallback: any, language: string, style: string, commentary: any[] = []) {
   if (!aiEnabled()) {
     return { ok:false, mode:"DETERMINISTIC_FALLBACK", model:null, provider:"none", output:fallback, reason:"ai_not_configured" };
   }
@@ -381,6 +381,8 @@ async function createAiStory(analysis: any, detail: any, fallback: any, language
     match: analysis?.match,
     decision: analysis?.decision,
     deterministicStory: analysis?.story,
+    marketAdvice: analysis?.marketAdvice,
+    commentary,
     phaseCoverage: analysis?.phaseCoverage,
     invalidators: analysis?.invalidators,
     evidence: {
@@ -472,18 +474,42 @@ Deno.serve(async (req: Request) => {
         if (!x?.error) detail=x;
       } catch {}
     }
+    const db = createClient(sbUrl, key, { auth:{ persistSession:false, autoRefreshToken:false } });
+    const commentaryQuery = await db.from("match_commentary_evidence")
+      .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics")
+      .eq("hkjc_event_id", id)
+      .order("published_at", { ascending:false, nullsFirst:false })
+      .limit(8);
+    const commentary = commentaryQuery.error ? [] : (commentaryQuery.data || []).map((row:any) => ({
+      source:row.source ?? null,
+      sourceType:row.source_type ?? null,
+      sourceUrl:row.source_url ?? null,
+      author:row.author ?? null,
+      publishedAt:row.published_at ?? null,
+      capturedAt:row.captured_at ?? null,
+      language:row.language ?? null,
+      headline:row.headline ?? null,
+      excerpt:row.excerpt ?? null,
+      summary:row.summary ?? null,
+      leanMarket:row.lean_market ?? null,
+      leanSelection:row.lean_selection ?? null,
+      confidence:num(row.confidence),
+      topics:row.topics ?? [],
+    }));
+
     const packForHash = {
-      cacheSchema:"FT_STORY_V4_2",
+      cacheSchema:"FT_STORY_V5_MULTI_MARKET",
       match:analysis?.match,
       decision:analysis?.decision,
+      marketAdvice:analysis?.marketAdvice,
       story:analysis?.story,
+      commentary,
       phaseCoverage:analysis?.phaseCoverage,
       invalidators:analysis?.invalidators,
       evidence:analysis?.evidence,
       deepDetail:compactDetail(detail),
     };
     const analysisHash = await sha256(packForHash);
-    const db = createClient(sbUrl, key, { auth:{ persistSession:false, autoRefreshToken:false } });
 
     const cached = await db.from("match_interpretations")
       .select("analysis_hash,payload,model,framework,generated_at")
@@ -500,7 +526,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const deterministic = fallbackStory(analysis, detail, language);
-    const ai = await createAiStory(analysis, detail, deterministic, language, style);
+    const ai = await createAiStory(analysis, detail, deterministic, language, style, commentary);
     const story = ai.output || deterministic;
 
     const payload = {
@@ -534,6 +560,8 @@ Deno.serve(async (req: Request) => {
         counterCase:story.counterCase,
         confidenceExplanation:story.confidenceExplanation,
       },
+      marketAdvice:analysis?.marketAdvice ?? null,
+      commentary,
       story,
       phaseCoverage:analysis.phaseCoverage ?? null,
       evidenceSummary:{
@@ -545,12 +573,13 @@ Deno.serve(async (req: Request) => {
         multisource:Boolean(detail?.models?.multisource) || Boolean(analysis?.evidence?.families?.some((x:any)=>x?.key==="MULTI")),
         humanFactorRows:(detail?.humanFactors?.playerStatus?.length||0)+(detail?.humanFactors?.lineup?.length||0)+(detail?.humanFactors?.managers?.length||0),
         scenarioRows:detail?.scenario?.length||0,
+        commentaryRows:commentary.length,
       },
       invalidators:analysis.invalidators ?? [],
       governance:{
         sourceEngine:analysis.engine ?? null,
         sourceNarrationMode:analysis.narrationMode ?? null,
-        rule:"Story explains verified evidence only. Deterministic action, selection, odds, probability and edge fields come from app-match-analysis.",
+        rule:"Story explains verified evidence only. Deterministic HDA, goals O/U and corners O/U action, selection, odds, probability and edge fields come from app-match-analysis. Editorial commentary is attributed context only.",
         calibrationGate:analysis?.governance?.calibrationGate ?? null,
         sourceMode:analysis?.governance?.sourceMode ?? analysis?.evidence?.phase1Health?.sourceMode ?? null,
         staking:analysis?.governance?.staking ?? null,
