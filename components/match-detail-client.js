@@ -1170,36 +1170,40 @@ export default function MatchDetailClient() {
             </div>
           ) : null}
           <div className="commentary-board">
-            {commentaryUiRows.map((row, index) => (
-              <a
-                className="commentary-row"
-                href={row.sourceUrl || "#"}
-                target={row.sourceUrl ? "_blank" : undefined}
-                rel={row.sourceUrl ? "noreferrer" : undefined}
-                key={(row.source || "source") + (row.headline || index)}
-              >
-                <span>{row.source || "外部來源"}</span>
-                <div className="commentary-main">
-                  <strong>{row.headline || row.summary || "Preview"}</strong>
-                  {row.alignments?.length ? (
-                    <div className="commentary-signals">
-                      {row.alignments.map((signal, signalIndex) => (
-                        <b className={"editorial-signal editorial-" + String(signal.status || "context").toLowerCase()} key={String(signal.market) + signalIndex}>
-                          {editorialSignalLabel(signal)} · {editorialStatusLabel(signal.status)}
-                        </b>
-                      ))}
-                    </div>
-                  ) : row.topics?.length ? (
-                    <div className="commentary-signals">
-                      {row.topics.filter((topic) => !["PREMATCH", "EDITORIAL"].includes(topic)).slice(0, 3).map((topic) => (
-                        <b className="editorial-topic" key={topic}>{topic}</b>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                <small>{row.publishedAt ? formatUpdated(row.publishedAt) : "時間未提供"}</small>
-              </a>
-            ))}
+            {commentaryUiRows.map((row, index) => {
+              const RowTag = row.sourceUrl ? "a" : "div";
+              const linkProps = row.sourceUrl
+                ? { href: row.sourceUrl, target: "_blank", rel: "noreferrer" }
+                : {};
+              return (
+                <RowTag
+                  className={"commentary-row" + (row.sourceUrl ? "" : " is-static")}
+                  {...linkProps}
+                  key={(row.source || "source") + (row.headline || index)}
+                >
+                  <span>{row.source || "外部來源"}</span>
+                  <div className="commentary-main">
+                    <strong>{row.headline || row.summary || "Preview"}</strong>
+                    {row.alignments?.length ? (
+                      <div className="commentary-signals">
+                        {row.alignments.map((signal, signalIndex) => (
+                          <b className={"editorial-signal editorial-" + String(signal.status || "context").toLowerCase()} key={String(signal.market) + signalIndex}>
+                            {editorialSignalLabel(signal)} · {editorialStatusLabel(signal.status)}
+                          </b>
+                        ))}
+                      </div>
+                    ) : row.topics?.length ? (
+                      <div className="commentary-signals">
+                        {row.topics.filter((topic) => !["PREMATCH", "EDITORIAL"].includes(topic)).slice(0, 3).map((topic) => (
+                          <b className="editorial-topic" key={topic}>{topic}</b>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <small>{row.publishedAt ? formatUpdated(row.publishedAt) : "時間未提供"}</small>
+                </RowTag>
+              );
+            })}
           </div>
           <p className="fineprint">球評 signal 只用嚟檢查模型論點有冇外部支持或反方；唔會直接改 probability、Edge 或 betting gate。</p>
         </section>
