@@ -109,7 +109,7 @@ function decodeXml(s){
   return String(s??"")
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1")
     .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
-    .replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+    .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/gi," ");
 }
 function stripHtml(s){
   const decoded=decodeXml(String(s??""));
@@ -158,7 +158,7 @@ async function fetchCommentary(home,away,kickoff){
     const timely=!Number.isFinite(kickoffMs)||!Number.isFinite(publishedMs)
       ? true
       : publishedMs>=kickoffMs-21*86400000 && publishedMs<=kickoffMs+6*3600000;
-    const editorial=/preview|prediction|tips?|best bets?|lineups?|odds|betting|analysis|head[- ]?to[- ]?head/i.test(title||"");
+    const editorial=/preview|prediction|tips?|best bets?|odds|betting|analysis|head[- ]?to[- ]?head/i.test(title||"");
     if(!title||!link||!timely||!editorial||!entityHit(relevanceText,home)||!entityHit(relevanceText,away)) continue;
     out.push({
       title:title.slice(0,500),
