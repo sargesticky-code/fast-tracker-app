@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-MATCH-SCRIPT-20260924-1";
+const UI_BUILD = "DETAIL-QUANT-EDGE-20260924-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -813,7 +813,7 @@ export default function MatchDetailClient() {
       : "watch";
   const decisionCleared = !["NO_BET", "PASS"].includes(rawAction);
   const pickLabel = decisionCleared ? "主要投注位" : "研究方向";
-  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : decisionCleared ? "EDGE" : "MODEL GAP";
+  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : decisionCleared ? "精算 EDGE" : "MODEL GAP";
   const gateLabel = rawAction === "NO_BET" ? "未通過投注 Gate"
     : rawAction === "PASS" ? "目前無投注需要"
       : rawAction.includes("WATCH") ? "觀察中"
@@ -961,8 +961,8 @@ export default function MatchDetailClient() {
       <section className={`detail-decision-board betting-command-${actionTone}`}>
         <div className="detail-decision-head">
           <div>
-            <span>BETTING VIEW</span>
-            <h2>{actionLabel}</h2>
+            <span>QUANT BETTING VIEW</span>
+            <h2>精算投注 · {actionLabel}</h2>
           </div>
           <b>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI GROUNDED" : story ? "STORY READY" : analysis ? "INTERPRETER READY" : "PHASE 1"}</b>
         </div>
@@ -976,7 +976,12 @@ export default function MatchDetailClient() {
 
           <div className="detail-decision-edge">
             <span>{gapLabel}</span>
-            <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "%"}</strong>
+            <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}</strong>
+            <small style={{ display:"block", marginTop:4, color:"#6f8177", fontSize:8, fontWeight:850 }}>
+              {Number.isFinite(primaryModelProbability) && Number.isFinite(primaryMarketProbability)
+                ? `模型 ${(primaryModelProbability * 100).toFixed(1)}% − HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%`
+                : "等待可比較概率"}
+            </small>
           </div>
 
           <div className="detail-decision-prob">
@@ -996,8 +1001,11 @@ export default function MatchDetailClient() {
         </div>
 
         <div className="detail-advice-line">
-          <span>分析</span>
+          <span>精算結論</span>
           <p>{bettingAdvice}</p>
+        </div>
+        <div style={{ marginTop:6, color:"#7a8981", fontSize:8.5, fontWeight:750 }}>
+          Edge 係「模型概率 − HKJC 去水後公平概率」嘅差距，單位係 percentage points (pp)，唔等於預計回報率。
         </div>
 
         {!decisionCleared && blockerTags.length ? (
