@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { matchDetailHref } from "@/lib/fast-tracker";
 
 export default function LegacyMatchIdRedirect({ id }) {
   useEffect(() => {
-    if (!id) {
-      window.location.replace("/");
-      return;
-    }
-    window.location.replace("/details/?id=" + encodeURIComponent(id));
+    window.location.replace(id ? matchDetailHref(id) : "/");
   }, [id]);
 
   return (
