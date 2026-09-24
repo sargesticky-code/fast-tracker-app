@@ -1,6 +1,7 @@
 const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
 const isCloudflarePages = process.env.CF_PAGES === "1" || process.env.CF_PAGES === "true";
-const isStaticExport = isGitHubPages || isCloudflarePages;
+const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_SERVICE_ID);
+const isStaticExport = !isRailway && (isGitHubPages || isCloudflarePages);
 const repo = "football-fast-tracker";
 
 export default {
