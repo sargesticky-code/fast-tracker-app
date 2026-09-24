@@ -116,6 +116,175 @@ function oneError(e: any) {
   return e ? { code: e.code ?? null, message: e.message ?? String(e) } : null;
 }
 
+type BinaryModel = {
+  key: string;
+  label: string;
+  over: number;
+  weight: number;
+  sources?: number;
+  method?: string;
+};
+
+function fairBinary(overOddsValue: unknown, underOddsValue: unknown) {
+  const overOdds = n(overOddsValue);
+  const underOdds = n(underOddsValue);
+  if (!overOdds || !underOdds || overOdds <= 0 || underOdds <= 0) return null;
+  const s = (1 / overOdds) + (1 / underOdds);
+  if (s <= 0) return null;
+  return { over: (1 / overOdds) / s, under: (1 / underOdds) / s };
+}
+
+function clampProb(v: number) {
+  return Math.min(0.999, Math.max(0.001, v));
+}
+
+function logit(v: number) {
+  const q = clampProb(v);
+  return Math.log(q / (1 - q));
+}
+
+function logistic(v: number) {
+  return 1 / (1 + Math.exp(-v));
+}
+
+function poissonOver(meanValue: unknown, lineValue: unknown) {
+  const mean = n(meanValue);
+  const line = n(lineValue);
+  if (mean === null || line === null || mean <= 0 || line < 0) return null;
+  const threshold = Math.floor(line) + 1;
+  let term = Math.exp(-mean);
+  let cdf = term;
+  for (let k = 1; k < threshold; k += 1) {
+    term *= mean / k;
+    cdf += term;
+  }
+  return clampProb(1 - cdf);
+}
+
+function currentLineOver(
+  targetLineValue: unknown,
+  avgValue: unknown,
+  refLine: number,
+  refOverValue: unknown,
+) {
+  const targetLine = n(targetLineValue);
+  const avg = n(avgValue);
+  const refOver = p(refOverValue);
+  if (targetLine === null) return null;
+  if (Math.abs(targetLine - refLine) < 0.001 && refOver !== null) {
+    return { over: refOver, method: "NATIVE_REFERENCE_LINE" };
+  }
+  const baseTarget = poissonOver(avg, targetLine);
+  if (baseTarget === null) return null;
+  if (refOver !== null) {
+    const baseRef = poissonOver(avg, refLine);
+    if (baseRef !== null) {
+      return {
+        over: clampProb(logistic(logit(baseTarget) + (logit(refOver) - logit(baseRef)))),
+        method: "ANCHORED_POISSON",
+      };
+    }
+  }
+  return { over: baseTarget, method: "AVG_POISSON" };
+}
+
+function buildBinaryAdvice(opts: {
+  marketKey: string;
+  label: string;
+  lineValue: unknown;
+  overOdds: unknown;
+  underOdds: unknown;
+  models: BinaryModel[];
+  healthOk: boolean;
+  fresh: boolean;
+  fallbackMode: boolean;
+  productionValidated: boolean;
+}) {
+  const line = n(opts.lineValue);
+  const market = fairBinary(opts.overOdds, opts.underOdds);
+  const models = opts.models.filter((m) => Number.isFinite(m.over) && m.over >= 0 && m.over <= 1 && m.weight > 0);
+  const weight = models.reduce((s, m) => s + m.weight, 0);
+  const modelOver = weight > 0 ? models.reduce((s, m) => s + m.over * m.weight, 0) / weight : null;
+  const modelUnder = modelOver === null ? null : 1 - modelOver;
+  const overEdge = market && modelOver !== null ? modelOver - market.over : null;
+  const underEdge = market && modelUnder !== null ? modelUnder - market.under : null;
+
+  let selection: "OVER" | "UNDER" | null = null;
+  let edge: number | null = null;
+  if (overEdge !== null && underEdge !== null) {
+    if (overEdge >= underEdge) {
+      selection = overEdge > 0 ? "OVER" : null;
+      edge = overEdge;
+    } else {
+      selection = underEdge > 0 ? "UNDER" : null;
+      edge = underEdge;
+    }
+  }
+
+  const odds = selection === "OVER" ? n(opts.overOdds) : selection === "UNDER" ? n(opts.underOdds) : null;
+  const modelProbability = selection === "OVER" ? modelOver : selection === "UNDER" ? modelUnder : null;
+  const marketProbability = selection === "OVER" ? market?.over ?? null : selection === "UNDER" ? market?.under ?? null : null;
+  const lineText = line === null ? "—" : String(line).replace(/\.0$/, "");
+  const selectionLabel = selection === "OVER"
+    ? `大 ${lineText}`
+    : selection === "UNDER"
+      ? `細 ${lineText}`
+      : "PASS";
+
+  let candidateClass = "NO_EDGE";
+  if (!market || line === null || opts.fallbackMode || !opts.healthOk || !opts.fresh) candidateClass = "DATA_RISK";
+  else if (!models.length) candidateClass = "NO_MODEL";
+  else if (selection === null || edge === null || edge <= 0) candidateClass = "NO_EDGE";
+  else if (models.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
+  else if (edge >= 0.10) candidateClass = "STRONG_VALUE_CANDIDATE";
+  else if (edge >= 0.05) candidateClass = "VALUE_CANDIDATE";
+  else if (edge >= 0.025) candidateClass = "LEAN";
+  else candidateClass = "WATCH";
+
+  const action = candidateClass === "DATA_RISK" ? "NO_BET"
+    : ["NO_MODEL", "NO_EDGE"].includes(candidateClass) ? "PASS"
+    : opts.productionValidated && !candidateClass.includes("WATCH") ? candidateClass
+    : "WATCH_CANDIDATE";
+
+  const edgePp = edge === null ? null : edge * 100;
+  const sourceCount = models.reduce((s, m) => s + Math.max(1, Number(m.sources || 1)), 0);
+  let advice = "PASS：未有足夠模型證據形成方向。";
+  if (candidateClass === "DATA_RISK") advice = `${opts.label}：資料或 HKJC 價格狀態未通過，暫不作投注方向。`;
+  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 盤口，但未有可比較模型，暫時 PASS。`;
+  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：模型同 HKJC fair probability 暫未形成正 Edge，PASS。`;
+  else if (selection) advice = `${opts.label}建議觀察 ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}，Edge ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}，${models.length} 個 evidence family / ${sourceCount} 個來源訊號。`;
+
+  return {
+    market: opts.marketKey,
+    label: opts.label,
+    line,
+    selection,
+    selectionLabel,
+    currentOdds: opts.fallbackMode ? null : odds,
+    referenceOdds: opts.fallbackMode ? odds : null,
+    oddsStatus: opts.fallbackMode ? "REFERENCE_STALE" : "CURRENT",
+    marketFairProbability: marketProbability,
+    analystConsensusProbability: modelProbability,
+    candidateEdgePp: edgePp,
+    candidateClass,
+    action,
+    evidenceFamilyCount: models.length,
+    sourceSignalCount: sourceCount,
+    marketProbabilities: market,
+    modelProbabilities: modelOver === null ? null : { over: modelOver, under: modelUnder },
+    models: models.map((m) => ({
+      key: m.key,
+      label: m.label,
+      over: m.over,
+      under: 1 - m.over,
+      weight: m.weight,
+      sources: m.sources ?? 1,
+      method: m.method ?? null,
+    })),
+    advice,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "GET") return Response.json({ error: "method_not_allowed" }, { status: 405, headers: cors });
@@ -170,10 +339,22 @@ Deno.serve(async (req: Request) => {
         hkjc_novig_home:null,
         hkjc_novig_draw:null,
         hkjc_novig_away:null,
+        hkjc_goals_line:o?.hil_line ?? null,
+        hkjc_goals_over:o?.hil_over ?? null,
+        hkjc_goals_under:o?.hil_under ?? null,
+        hkjc_corners_line:o?.chl_line ?? null,
+        hkjc_corners_over:o?.chl_over ?? null,
+        hkjc_corners_under:o?.chl_under ?? null,
 
         forebet_home:fb?.prob_home ?? null,
         forebet_draw:fb?.prob_draw ?? null,
         forebet_away:fb?.prob_away ?? null,
+        forebet_ou_over:fb?.prob_over25 ?? null,
+        forebet_ou_under:fb?.prob_under25 ?? null,
+        forebet_avg_goals:fb?.avg_goals ?? null,
+        forebet_corners_over:fb?.corner_prob_over95 ?? null,
+        forebet_corners_under:fb?.corner_prob_under95 ?? null,
+        forebet_avg_corners:fb?.avg_corners ?? null,
 
         dc_home:im?.dc_prob_home ?? null,
         dc_draw:im?.dc_prob_draw ?? null,
@@ -191,6 +372,8 @@ Deno.serve(async (req: Request) => {
         multisource_away:null,
         multisource_count:0,
         multisource_member_count:0,
+        multisource_ou_over:null,
+        multisource_ou_under:null,
 
         health_status:"FALLBACK",
         hkjc_freshness:"DB_FALLBACK",
@@ -231,7 +414,7 @@ Deno.serve(async (req: Request) => {
 
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
-    liveScore, liveStats, liveOdds, liveShadow, scenarios
+    liveScore, liveStats, liveOdds, liveShadow, scenarios, modelTotals
   ] = await Promise.all([
     one("human_factors_current"),
     one("api_football_event_map"),
@@ -244,6 +427,7 @@ Deno.serve(async (req: Request) => {
     one("hkjc_live_odds_current"),
     one("live_expected_actual_current"),
     many("match_scenario_current"),
+    one("model_predictions"),
   ]);
 
   const forebet = triplet(r.forebet_home, r.forebet_draw, r.forebet_away);
@@ -314,6 +498,78 @@ Deno.serve(async (req: Request) => {
     : candidate === "NO_EDGE" ? "PASS"
     : productionValidated ? candidate
     : "WATCH_CANDIDATE";
+
+  const goalsModels: BinaryModel[] = [];
+  const goalsLine = n(r.hkjc_goals_line);
+  const forebetGoals = currentLineOver(r.hkjc_goals_line, r.forebet_avg_goals, 2.5, r.forebet_ou_over);
+  if (forebetGoals) {
+    goalsModels.push({
+      key: "FOREBET",
+      label: "Forebet goals",
+      over: forebetGoals.over,
+      weight: 1,
+      method: forebetGoals.method,
+    });
+  }
+  const dcMean = (n(modelTotals.data?.dc_xg_home) ?? 0) + (n(modelTotals.data?.dc_xg_away) ?? 0);
+  const dcGoalsOver = dcMean > 0 && goalsLine !== null ? poissonOver(dcMean, goalsLine) : null;
+  if (dcGoalsOver !== null) {
+    goalsModels.push({
+      key: "DIXON_COLES",
+      label: "Dixon-Coles xG",
+      over: dcGoalsOver,
+      weight: 0.9,
+      method: "DC_XG_POISSON",
+    });
+  }
+  const multiGoalsOver = p(r.multisource_ou_over);
+  if (goalsLine !== null && Math.abs(goalsLine - 2.5) < 0.001 && multiGoalsOver !== null) {
+    goalsModels.push({
+      key: "MULTI",
+      label: "External O/U consensus",
+      over: multiGoalsOver,
+      weight: multiCount >= 2 ? 0.75 : 0.35,
+      sources: Math.max(1, multiCount),
+      method: "NATIVE_OU25",
+    });
+  }
+
+  const cornerModels: BinaryModel[] = [];
+  const forebetCorners = currentLineOver(r.hkjc_corners_line, r.forebet_avg_corners, 9.5, r.forebet_corners_over);
+  if (forebetCorners) {
+    cornerModels.push({
+      key: "FOREBET",
+      label: "Forebet corners",
+      over: forebetCorners.over,
+      weight: 1,
+      method: forebetCorners.method,
+    });
+  }
+
+  const goalsAdvice = buildBinaryAdvice({
+    marketKey: "GOALS_OU",
+    label: "入球大細",
+    lineValue: r.hkjc_goals_line,
+    overOdds: r.hkjc_goals_over,
+    underOdds: r.hkjc_goals_under,
+    models: goalsModels,
+    healthOk,
+    fresh,
+    fallbackMode,
+    productionValidated,
+  });
+  const cornersAdvice = buildBinaryAdvice({
+    marketKey: "CORNERS_OU",
+    label: "角球大細",
+    lineValue: r.hkjc_corners_line,
+    overOdds: r.hkjc_corners_over,
+    underOdds: r.hkjc_corners_under,
+    models: cornerModels,
+    healthOk,
+    fresh,
+    fallbackMode,
+    productionValidated,
+  });
 
   const home = r.home_zh || r.home_en || "主隊";
   const away = r.away_zh || r.away_en || "客隊";
@@ -416,7 +672,7 @@ Deno.serve(async (req: Request) => {
   };
 
   const errors: any = {};
-  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,liveShadow,scenarios })) {
+  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,liveShadow,scenarios,modelTotals })) {
     if ((v as any).error) errors[k] = (v as any).error;
   }
 
@@ -457,6 +713,12 @@ Deno.serve(async (req: Request) => {
       counterRead,
       riskRead: invalidators.length ? `主要風險/失效條件：${invalidators.join("；")}。` : "目前未見額外 data-risk flag。",
       advice,
+      goalsAdvice: goalsAdvice.advice,
+      cornersAdvice: cornersAdvice.advice,
+    },
+    marketAdvice: {
+      goals: goalsAdvice,
+      corners: cornersAdvice,
     },
     evidence: {
       market,
@@ -474,6 +736,10 @@ Deno.serve(async (req: Request) => {
       phase2: { quality: humanQuality, injuryHome, injuryAway, lineupConfirmed, playerRows: playerStatus.data.length, lineupRows: lineups.data.length, managerRows: managers.data.length },
       phase3: liveState,
       phase4: movementData,
+      totals: {
+        goals: goalsAdvice,
+        corners: cornersAdvice,
+      },
     },
     invalidators,
     phaseCoverage,
