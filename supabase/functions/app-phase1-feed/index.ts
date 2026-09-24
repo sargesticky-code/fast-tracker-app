@@ -188,6 +188,7 @@ Deno.serve(async (req: Request) => {
     const rows = Array.isArray(data) ? data : [];
 
     const eventIds = rows.map((r: any) => r.hkjc_event_id).filter(Boolean);
+    const liveEventIds = rows.filter((r: any) => Boolean(r.live_now)).map((r: any) => r.hkjc_event_id).filter(Boolean);
     const movementMap = new Map<string, any>();
     const liveStatsMap = new Map<string, any>();
     const shadowMap = new Map<string, any>();
@@ -297,7 +298,7 @@ Deno.serve(async (req: Request) => {
       const { data: liveStatRows, error: liveStatsError } = await db
         .from("live_stats_current")
         .select("hkjc_event_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
-        .in("hkjc_event_id", eventIds)
+        .in("hkjc_event_id", liveEventIds)
         .gte("captured_at_hkt", liveCutoff);
 
       const currentStatRows = new Map<string, any>();
@@ -318,7 +319,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const missingDetailIds = eventIds.filter((id: string) => !liveStatsMap.has(id));
+      const missingDetailIds = liveEventIds.filter((id: string) => !liveStatsMap.has(id));
       if (missingDetailIds.length) {
         const { data: historyRows, error: historyError } = await db
           .from("live_stats_history")
@@ -380,12 +381,12 @@ Deno.serve(async (req: Request) => {
       const { data: shadowRows, error: shadowError } = await db
         .from("live_expected_actual_current")
         .select(shadowSelect)
-        .in("hkjc_event_id", eventIds);
+        .in("hkjc_event_id", liveEventIds);
 
       const missingShadowIds: string[] = [];
       if (shadowError) {
         console.error("shadow_query_failed", shadowError);
-        missingShadowIds.push(...eventIds);
+        missingShadowIds.push(...liveEventIds);
       } else {
         for (const row of shadowRows ?? []) {
           if (Number(row.live_metric_count ?? 0) > 0) {
@@ -394,7 +395,7 @@ Deno.serve(async (req: Request) => {
             missingShadowIds.push(row.hkjc_event_id);
           }
         }
-        for (const id of eventIds) {
+        for (const id of liveEventIds) {
           if (!(shadowRows ?? []).some((row: any) => row.hkjc_event_id === id)) missingShadowIds.push(id);
         }
       }
@@ -764,7 +765,7 @@ Deno.serve(async (req: Request) => {
       systemHealth,
       matches,
     }, {
-      headers: { ...corsHeaders, "Cache-Control": "private, no-store" },
+      headers: { ...corsHeaders, "Cache-Control": "public, max-age=5, stale-while-revalidate=15" },
     });
   } catch (error) {
     console.error(error);

@@ -687,10 +687,23 @@ export default function DashboardClient({ feed, nowMs }) {
     const requested = new URLSearchParams(window.location.search).get("filter") || "focus";
     setFilter(filters.some(([key]) => key === requested) ? requested : "focus");
 
+    try {
+      const raw = window.sessionStorage.getItem("ft-dashboard-feed-v1")
+        || window.localStorage.getItem("ft-dashboard-feed-v1");
+      if (raw) {
+        const cachedFeed = JSON.parse(raw);
+        if (Array.isArray(cachedFeed?.matches) && cachedFeed.matches.length) {
+          setCurrentFeed(cachedFeed);
+          previousFeedRef.current = feedMotionSnapshot(cachedFeed.matches);
+          setClockMs(Date.now());
+        }
+      }
+    } catch {}
+
     let cancelled = false;
     async function refreshFeed() {
       try {
-        const res = await fetch(FEED_URL + "&_=" + Date.now(), { cache: "no-store" });
+        const res = await fetch(FEED_URL, { cache: "default" });
         if (!res.ok) return;
         const next = await res.json();
         if (!cancelled && Array.isArray(next?.matches)) {
@@ -699,6 +712,11 @@ export default function DashboardClient({ feed, nowMs }) {
           previousFeedRef.current = nextSnapshot;
           setCurrentFeed(next);
           setClockMs(Date.now());
+          try {
+            const serialized = JSON.stringify(next);
+            window.sessionStorage.setItem("ft-dashboard-feed-v1", serialized);
+            window.localStorage.setItem("ft-dashboard-feed-v1", serialized);
+          } catch {}
           if (Object.keys(changes).length) {
             setChangeMap(changes);
             if (motionTimerRef.current) window.clearTimeout(motionTimerRef.current);
@@ -726,7 +744,7 @@ export default function DashboardClient({ feed, nowMs }) {
     const fullTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshFeed();
       setClockMs(Date.now());
-    }, 45000);
+    }, 60000);
 
     const liveTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshLive();

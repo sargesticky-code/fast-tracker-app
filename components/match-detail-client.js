@@ -430,12 +430,18 @@ export default function MatchDetailClient() {
 
     const cached = readCachedMatch(matchId);
 
+    if (cached) {
+      setMatch(cached);
+      setSource("CACHE · loading latest");
+      setReady(true);
+    }
+
     let cancelled = false;
     let resolvedFresh = false;
 
     async function refreshMatch() {
       try {
-        const res = await fetch(FEED_URL + "&_=" + Date.now(), { cache: "no-store" });
+        const res = await fetch(FEED_URL, { cache: "default" });
         if (!res.ok) return;
         const feed = await res.json();
         if (cancelled) return;
@@ -454,7 +460,7 @@ export default function MatchDetailClient() {
 
     async function refreshDetail() {
       try {
-        const res = await fetch(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&_=" + Date.now(), { cache: "no-store" });
+        const res = await fetch(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" });
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -470,7 +476,7 @@ export default function MatchDetailClient() {
 
     async function refreshAnalysis() {
       try {
-        const res = await fetch(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&_=" + Date.now(), { cache: "no-store" });
+        const res = await fetch(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" });
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -481,8 +487,8 @@ export default function MatchDetailClient() {
     async function refreshStory() {
       try {
         const res = await fetch(
-          STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=zh-HK&style=professional&_=" + Date.now(),
-          { cache: "no-store" }
+          STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=zh-HK&style=professional",
+          { cache: "default" }
         );
         if (!res.ok) return;
         const payload = await res.json();
@@ -513,7 +519,7 @@ export default function MatchDetailClient() {
       } catch {}
     }
 
-    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail(), refreshAnalysis(), refreshStory()]).then(() => {
+    Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail()]).then(() => {
       if (cancelled) return;
       if (!resolvedFresh && cached) {
         setMatch(cached);
@@ -522,14 +528,25 @@ export default function MatchDetailClient() {
       setReady(true);
     });
 
+    const deferredNarrative = window.setTimeout(() => {
+      if (!cancelled && document.visibilityState === "visible") {
+        refreshAnalysis();
+        refreshStory();
+      }
+    }, 600);
+
     const fullTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") {
         refreshMatch();
         refreshDetail();
+      }
+    }, 60000);
+    const narrativeTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
         refreshAnalysis();
         refreshStory();
       }
-    }, 45000);
+    }, 300000);
     const liveTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") refreshLive();
     }, 10000);
@@ -539,23 +556,21 @@ export default function MatchDetailClient() {
         refreshLive();
         refreshMatch();
         refreshDetail();
-        refreshAnalysis();
-        refreshStory();
       }
     };
     const refreshPageShow = () => {
       refreshLive();
       refreshMatch();
       refreshDetail();
-      refreshAnalysis();
-      refreshStory();
     };
     document.addEventListener("visibilitychange", refreshVisible);
     window.addEventListener("pageshow", refreshPageShow);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(deferredNarrative);
       window.clearInterval(fullTimer);
+      window.clearInterval(narrativeTimer);
       window.clearInterval(liveTimer);
       document.removeEventListener("visibilitychange", refreshVisible);
       window.removeEventListener("pageshow", refreshPageShow);
