@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-FINAL-BOARD-20260923-1";
+const UI_BUILD = "DETAIL-MULTI-MARKET-20260924-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -655,6 +655,24 @@ export default function MatchDetailClient() {
   const cornersCompare = lineComparisonStatus(match, "corners");
   const goalsLineModel = match.forebetDetail?.goalsCurrentLine || null;
   const cornersLineModel = match.forebetDetail?.cornersCurrentLine || null;
+  const totalsAdvice = story?.marketAdvice || analysis?.marketAdvice || {};
+  const goalsAdvice = totalsAdvice.goals || null;
+  const cornersAdvice = totalsAdvice.corners || null;
+  const totalAdviceTone = (row) => {
+    const action = String(row?.action || "").toUpperCase();
+    if (action === "PASS" || action === "NO_BET") return "pass";
+    if (String(row?.candidateClass || "").toUpperCase().includes("VALUE")) return "value";
+    return "watch";
+  };
+  const totalAdviceEdge = (row) => row?.candidateEdgePp == null
+    ? "Edge —"
+    : `Edge ${Number(row.candidateEdgePp) >= 0 ? "+" : ""}${Number(row.candidateEdgePp).toFixed(1)}pp`;
+  const totalAdviceLabel = (row) => {
+    if (!row) return "分析中";
+    if (String(row.action || "").toUpperCase() === "NO_BET") return "暫不下注";
+    if (String(row.action || "").toUpperCase() === "PASS") return row.candidateClass === "NO_MODEL" ? "NO MODEL · PASS" : "PASS";
+    return row.selectionLabel || "WATCH";
+  };
 
   const coreModelRows = CORE_MODEL_DEFS.map((model) => {
     const values = coreModelValues(match, model.key, market);
@@ -1216,24 +1234,38 @@ export default function MatchDetailClient() {
         <div className="panel-title"><div><p>HKJC TOTALS</p><h2>入球及角球</h2></div></div>
         <div className="totals-board">
           <div className="totals-row">
-            <div className="totals-name"><span>入球 O/U</span><b>{match.goals?.line || "—"}</b></div>
-            <div className="totals-prices"><b>大 {formatOdds(match.goals?.over)}</b><b>細 {formatOdds(match.goals?.under)}</b></div>
+            <div className="totals-name"><span>入球大細</span><b>盤口 {match.goals?.line || "—"}</b></div>
+            <div className="totals-prices"><b>大 {match.goals?.line || "—"} · {formatOdds(match.goals?.over)}</b><b>細 {match.goals?.line || "—"} · {formatOdds(match.goals?.under)}</b></div>
             <div className="totals-model-note">
+              <div className={"totals-suggestion " + totalAdviceTone(goalsAdvice)}>
+                <span>建議</span>
+                <strong>{totalAdviceLabel(goalsAdvice)}</strong>
+                {goalsAdvice?.currentOdds != null ? <em>@ {formatOdds(goalsAdvice.currentOdds)}</em> : null}
+                <b>{totalAdviceEdge(goalsAdvice)}</b>
+                {goalsAdvice?.evidenceFamilyCount != null ? <small>{goalsAdvice.evidenceFamilyCount} families · {goalsAdvice.sourceSignalCount ?? goalsAdvice.evidenceFamilyCount} signals</small> : null}
+              </div>
               {goalsLineModel?.over != null
                 ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
-                    {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · O {(goalsLineModel.over * 100).toFixed(0)}% · U {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
+                    {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · 大 {(goalsLineModel.over * 100).toFixed(0)}% · 細 {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
                   </small>
                 : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "同線模型 NO DATA"}</small>}
             </div>
           </div>
 
           <div className="totals-row">
-            <div className="totals-name"><span>角球 O/U</span><b>{match.corners?.line || "—"}</b></div>
-            <div className="totals-prices"><b>大 {formatOdds(match.corners?.over)}</b><b>細 {formatOdds(match.corners?.under)}</b></div>
+            <div className="totals-name"><span>角球大細</span><b>盤口 {match.corners?.line || "—"}</b></div>
+            <div className="totals-prices"><b>大 {match.corners?.line || "—"} · {formatOdds(match.corners?.over)}</b><b>細 {match.corners?.line || "—"} · {formatOdds(match.corners?.under)}</b></div>
             <div className="totals-model-note">
+              <div className={"totals-suggestion " + totalAdviceTone(cornersAdvice)}>
+                <span>建議</span>
+                <strong>{totalAdviceLabel(cornersAdvice)}</strong>
+                {cornersAdvice?.currentOdds != null ? <em>@ {formatOdds(cornersAdvice.currentOdds)}</em> : null}
+                <b>{totalAdviceEdge(cornersAdvice)}</b>
+                {cornersAdvice?.evidenceFamilyCount != null ? <small>{cornersAdvice.evidenceFamilyCount} families · {cornersAdvice.sourceSignalCount ?? cornersAdvice.evidenceFamilyCount} signals</small> : null}
+              </div>
               {cornersLineModel?.over != null
                 ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
-                    {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · O {(cornersLineModel.over * 100).toFixed(0)}% · U {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
+                    {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · 大 {(cornersLineModel.over * 100).toFixed(0)}% · 細 {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
                   </small>
                 : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
             </div>
