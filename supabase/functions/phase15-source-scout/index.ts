@@ -112,7 +112,8 @@ function decodeXml(s){
     .replace(/&quot;/g,'"').replace(/&#39;/g,"'");
 }
 function stripHtml(s){
-  return decodeXml(String(s??"").replace(/<br\s*\/?\s*>/gi," ").replace(/<[^>]+>/g," "))
+  const decoded=decodeXml(String(s??""));
+  return decoded.replace(/<br\s*\/?\s*>/gi," ").replace(/<[^>]+>/g," ")
     .replace(/\s+/g," ").trim();
 }
 function tagValue(block,tag){
@@ -133,8 +134,8 @@ function entityHit(text,name){
   const hay=String(text??"").toLowerCase();
   return entityVariants(name).some(v=>v.length>=2 && hay.includes(v));
 }
-async function fetchCommentary(home,away){
-  const query=`"${home}" "${away}" football preview prediction`;
+async function fetchCommentary(home,away,kickoff){
+  const query=`"${home}" "${away}" football preview prediction tips lineup odds`;
   const url=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
   const r=await fetch(url,{
     headers:{"Accept":"application/rss+xml,application/xml,text/xml,*/*","User-Agent":"FastTrackerEditorialScout/1.0"},
@@ -151,12 +152,19 @@ async function fetchCommentary(home,away){
     const publisher=sourceValue(item)||"Google News";
     const description=tagValue(item,"description");
     const relevanceText=[title,description].filter(Boolean).join(" ");
-    if(!title||!link||!entityHit(relevanceText,home)||!entityHit(relevanceText,away)) continue;
+    const publishedAt=toIso(published);
+    const publishedMs=publishedAt?new Date(publishedAt).getTime():NaN;
+    const kickoffMs=kickoff?new Date(kickoff).getTime():NaN;
+    const timely=!Number.isFinite(kickoffMs)||!Number.isFinite(publishedMs)
+      ? true
+      : publishedMs>=kickoffMs-21*86400000 && publishedMs<=kickoffMs+6*3600000;
+    const editorial=/preview|prediction|tips?|best bets?|lineups?|odds|betting|analysis|head[- ]?to[- ]?head/i.test(title||"");
+    if(!title||!link||!timely||!editorial||!entityHit(relevanceText,home)||!entityHit(relevanceText,away)) continue;
     out.push({
       title:title.slice(0,500),
       link,
       publisher:publisher.slice(0,200),
-      publishedAt:toIso(published),
+      publishedAt,
       excerpt:description?description.slice(0,600):null,
       query,
       aggregator:"Google News RSS"
@@ -240,7 +248,7 @@ Deno.serve(async (req)=>{
       };
       rows.push(row);
       if(best&&best.conf>=.94&&m.kickoff&&new Date(m.kickoff).getTime()<=Date.now()+24*3600000){
-        matchedForDetail.push({id:m.id,eventId:best.eventId,homeName:m.homeName,awayName:m.awayName});
+        matchedForDetail.push({id:m.id,eventId:best.eventId,homeName:m.homeName,awayName:m.awayName,kickoff:best.kickoff});
       }
     }
 
@@ -272,7 +280,7 @@ Deno.serve(async (req)=>{
     for(let i=0;i<picked.length;i++){
       const p=picked[i];
       try{
-        const items=await fetchCommentary(p.homeName,p.awayName);
+        const items=await fetchCommentary(p.homeName,p.awayName,p.kickoff);
         if(items.length) commentaryMatches++;
         for(const item of items){
           const fingerprint=await sha256([p.eventId,item.publisher,item.title,item.link].join("|"));
