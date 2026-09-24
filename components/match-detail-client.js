@@ -19,7 +19,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-QUANT-EDGE-20260924-1";
+const UI_BUILD = "DETAIL-DATA-LINK-CTX-20260924-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -615,6 +615,9 @@ export default function MatchDetailClient() {
   const detailAgreement = modelAgreement(match);
   const detailPriority = reviewPriority(match);
   const missingReason = match.health?.primaryMissingReason || match.health?.forebetReason || null;
+  const sourceContext = match.sourceContext || null;
+  const sourceContextConfidence = Number(sourceContext?.matchConfidence);
+  const sourceContextVerified = sourceContext && Number.isFinite(sourceContextConfidence) && sourceContextConfidence >= 0.94;
   const predictedScore = match.forebetDetail?.predictedScore || match.forebet?.predictedScore || null;
   const movement = match.oddsMovement || null;
   const movementPct = Number(movement?.rawOddsChangePct);
@@ -990,6 +993,46 @@ export default function MatchDetailClient() {
           <span className="detail-status-source">{source}</span>
         </div>
       </section>
+
+      {(sourceContextVerified || evidenceCount === 0) ? (
+        <section
+          className="panel"
+          style={{
+            marginTop:10,
+            padding:"12px 14px",
+            borderColor:sourceContextVerified ? "#d7e4ed" : "#eadfca",
+            background:sourceContextVerified ? "#f7fafc" : "#fffaf2",
+          }}
+        >
+          <div className="panel-title" style={{ marginBottom:6 }}>
+            <div>
+              <p>{sourceContextVerified ? "EXTERNAL CONTEXT" : "DATA GAP"}</p>
+              <h2 style={{ fontSize:15 }}>
+                {sourceContextVerified
+                  ? `${sourceContext.source || "External"} 已核實呢場賽事`
+                  : "賽事 link 正常，但暫未有可用模型 evidence"}
+              </h2>
+            </div>
+            <span>
+              {sourceContextVerified ? Math.round(sourceContextConfidence * 100) + "% MATCH" : "NO MODEL"}
+            </span>
+          </div>
+          {sourceContextVerified ? (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", fontSize:9, fontWeight:850, color:"#587080" }}>
+              <span>{sourceContext.identityStatus || "MATCHED"}</span>
+              {sourceContext.detailAvailable ? <b>DETAIL ✓</b> : <span>DETAIL 待補</span>}
+              {sourceContext.lineupAvailable ? <b>LINEUP ✓</b> : <span>LINEUP —</span>}
+              {sourceContext.statsAvailable ? <b>STATS ✓</b> : <span>STATS —</span>}
+              {sourceContext.xgAvailable ? <b>xG ✓</b> : <span>xG —</span>}
+            </div>
+          ) : null}
+          <p className="fineprint" style={{ margin:"7px 0 0" }}>
+            {sourceContextVerified
+              ? "呢層只用嚟確認 fixture / lineup / context coverage；唔會改模型概率、HKJC fair probability 或精算 Edge。"
+              : "系統已分開 route dead 同 data dead；呢場係資料覆蓋缺口，唔會用假 model 補數。"}
+          </p>
+        </section>
+      ) : null}
 
       <section className={`detail-decision-board betting-command-${actionTone}`}>
         <div className="detail-decision-head">
