@@ -17,7 +17,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "QUANT-EDGE-CARDS-20260924-1";
+const UI_BUILD = "DATA-LINK-CTX-CARDS-20260924-1";
 
 function pct(value) {
   const n = Number(value);
@@ -124,6 +124,16 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const scriptScore = storyScript?.predictedScore || match.forebetDetail?.predictedScore || null;
   const editorialContradict = Number(editorialAlignment?.contradict || 0);
   const editorialSupport = Number(editorialAlignment?.support || 0);
+  const sourceContext = match.sourceContext || null;
+  const sourceContextVerified = sourceContext && Number(sourceContext.matchConfidence) >= 0.94;
+  const sourceContextDetail = sourceContextVerified
+    ? [
+        sourceContext.source || "External",
+        sourceContext.identityStatus === "EXACT_PAIR" ? "verified" : "matched",
+        sourceContext.lineupAvailable ? "LINEUP" : null,
+        sourceContext.detailAvailable && !sourceContext.lineupAvailable ? "DETAIL" : null,
+      ].filter(Boolean).join(" · ")
+    : null;
   const rowClass = [
     "ft5-match-card",
     "ft5-forebet-row",
@@ -181,6 +191,30 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
               {scriptScore ? <small style={{ fontSize:8, color:"#53685c", fontWeight:850 }}>{scriptScore}</small> : null}
               {editorialContradict ? <em style={{ fontSize:7, color:"#9a4e45", fontStyle:"normal", fontWeight:900 }}>球評反向 {editorialContradict}</em> : null}
               {!editorialContradict && editorialSupport ? <em style={{ fontSize:7, color:"#2d714c", fontStyle:"normal", fontWeight:900 }}>球評同向 {editorialSupport}</em> : null}
+            </div>
+          ) : null}
+          {sourceContextDetail && coverageMeta.tone !== "rich" ? (
+            <div
+              className="ft5-source-context-mini"
+              style={{
+                display:"flex",
+                alignItems:"center",
+                gap:5,
+                flexWrap:"wrap",
+                marginTop:5,
+                padding:"4px 7px",
+                border:"1px solid #dce6ef",
+                borderRadius:8,
+                background:"#f5f8fb",
+                color:"#526b7a",
+                fontSize:7.5,
+                fontWeight:850,
+              }}
+              title="External fixture context only — does not change model probability or Edge"
+            >
+              <span>SOURCE CTX</span>
+              <b>{sourceContextDetail}</b>
+              <small>{Math.round(Number(sourceContext.matchConfidence) * 100)}%</small>
             </div>
           ) : null}
         </div>
