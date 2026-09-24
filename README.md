@@ -303,3 +303,30 @@ Current deterministic totals evidence:
 Editorial commentary is a **context lane**, not a probability family. `app-match-story` may use it to explain tactics, support/counter-case and what to watch, but commentary must not directly alter probability or Edge until a later calibrated model demonstrates predictive value.
 
 `app-match-analysis` owns deterministic HDA, goals O/U and corners O/U outputs. `app-match-story` explains those outputs and must never overwrite them.
+
+
+### Structured editorial evidence and Match Script (2026-09-24)
+
+Phase 1 now treats editorial previews as a separate, attributed context layer:
+
+- `match_commentary_evidence.opinion_signals` stores only explicit, rule-grounded signals such as 1X2, goals O/U, corners O/U and BTTS. Ambiguous “prediction / tips / lineup” headlines stay neutral.
+- `relevance_score` and `parser_version` record the quality/parser context. Current deterministic parser: `EDITORIAL_RULES_V1`.
+- Editorial signals are compared with deterministic model directions as `SUPPORT`, `CONTRADICT`, `DIFFERENT_LINE` or `CONTEXT_ONLY`.
+- Editorial evidence NEVER changes model probability, fair probability, Edge, betting gate or stake sizing. It is explanatory evidence only.
+- Internal commentary storage is server-side only; anon/authenticated table privileges are revoked.
+
+The detail view must surface the comparison directly, rather than forcing the user to read article headlines and infer the conflict.
+
+#### Match Script
+
+`app-match-story` also returns a grounded `matchScript` with:
+- opening-phase inference;
+- middle-game shape;
+- goals environment;
+- corners environment;
+- turning points / invalidators;
+- Forebet reference score and average-goals context where available.
+
+A Match Script is a Phase 1 pre-match inference, not a live simulation.
+
+**Critical interpretation rule:** “value direction” and “most likely outcome” are different concepts. A side can have positive Edge because the offered odds are generous even when its absolute model probability is below 50%. The UI and story must state this explicitly whenever relevant.
