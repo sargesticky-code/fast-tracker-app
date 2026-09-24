@@ -136,11 +136,7 @@ function entityHit(text,name){
 }
 
 function escapeRegex(v){
-  return String(v??"").replace(/[.*+?^$()|[\]{}\\]/g,"\\function entityHit(text,name){
-  const hay=String(text??"").toLowerCase();
-  return entityVariants(name).some(v=>v.length>=2 && hay.includes(v));
-}
-");
+  return String(v??"").replace(/[\\^$.*+?()[\]{}|]/g,(m)=>"\\\\"+m);
 }
 function editorialSignals(text,home,away){
   const raw=String(text??"").replace(/\s+/g," ").trim();
