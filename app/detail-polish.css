@@ -2186,3 +2186,64 @@
     white-space:normal;
   }
 }
+
+
+/* Grounded Phase 1 match script */
+.detail-shell .match-script-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+}
+.detail-shell .match-script-grid>div{
+  min-width:0;
+  padding:8px 9px;
+  border:1px solid #dfe8e2;
+  border-radius:4px;
+  background:#fbfcfb;
+}
+.detail-shell .match-script-grid span{
+  display:block;
+  margin-bottom:4px;
+  color:#397052;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.02em;
+}
+.detail-shell .match-script-grid p{
+  margin:0;
+  color:#30463a;
+  font-size:10px;
+  line-height:1.42;
+}
+.detail-shell .match-script-turning{
+  margin-top:7px;
+  padding:7px 8px;
+  border:1px solid #e7e0cf;
+  border-radius:4px;
+  background:#fffaf0;
+}
+.detail-shell .match-script-turning>span{
+  display:block;
+  margin-bottom:5px;
+  color:#806520;
+  font-size:8px;
+  font-weight:950;
+}
+.detail-shell .match-script-turning>div{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+}
+.detail-shell .match-script-turning b{
+  border-radius:999px;
+  padding:3px 6px;
+  background:#fff1ca;
+  color:#795d18;
+  font-size:7.5px;
+  font-weight:850;
+}
+@media(max-width:680px){
+  .detail-shell .match-script-grid{
+    grid-template-columns:1fr;
+  }
+}
