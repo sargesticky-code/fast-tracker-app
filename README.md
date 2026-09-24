@@ -280,3 +280,26 @@ The dashboard may show REVIEW 0–100 to help decide which match to inspect firs
 
 - Final detail-board rhythm: HKJC totals use two compact market rows; Phase 3 scenario uses table rows rather than timeline cards; Live Trading uses contiguous scoreboard/control/pressure/market boards; Technical diagnostics remain collapsed and visually quiet.
 - Avoid restoring large standalone cards for these sections unless the information cannot be represented as a compact evidence row.
+
+
+## Phase 1 multi-market recommendation contract (2026-09-24)
+
+Phase 1 is not a 1X2-only layer. Every HKJC-match detail view should treat the following as parallel market lanes:
+
+- **1X2 / H-D-A** — deterministic market-vs-model comparison, selection, price, fair probability, model probability, Edge, evidence coverage, action/gate.
+- **Goals O/U** — always label the HKJC line explicitly (for example `入球大細 · 盤口 2.5`), show both prices, then show `大 2.5` / `細 2.5` / `PASS`, Edge in percentage points, evidence-family/source count and model basis. Never display a naked `2.5` without saying what market it belongs to.
+- **Corners O/U** — same contract (for example `角球大細 · 盤口 8.5`). Never display a naked `8.5`; always show whether the candidate is `大 8.5`, `細 8.5`, or `PASS`.
+
+Current deterministic totals evidence:
+- Goals: Forebet current-line/native-or-anchored O/U, Dixon-Coles xG Poisson, and multi-source O/U when the source line is comparable.
+- Corners: Forebet current-line/native-or-anchored corner O/U. Until another independent corner family is validated, single-source corner signals must remain WATCH/PASS rather than being promoted as high-confidence value.
+- Current HKJC O/U prices are converted to no-vig fair probabilities before Edge is calculated.
+- Phase 5 calibration gate still controls promotion. Phase 1 may identify and explain candidates but should not silently turn unvalidated signals into automatic stakes.
+
+### Editorial / pundit evidence
+
+`public.match_commentary_evidence` is the canonical store for attributed preview/commentary evidence. Store source metadata, URL, headline, a short excerpt, structured summary, lean/context and provenance — not full copied articles.
+
+Editorial commentary is a **context lane**, not a probability family. `app-match-story` may use it to explain tactics, support/counter-case and what to watch, but commentary must not directly alter probability or Edge until a later calibrated model demonstrates predictive value.
+
+`app-match-analysis` owns deterministic HDA, goals O/U and corners O/U outputs. `app-match-story` explains those outputs and must never overwrite them.
