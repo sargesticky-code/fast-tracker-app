@@ -277,6 +277,7 @@ Deno.serve(async (req)=>{
     }
 
     let commentaryRows=0,commentaryMatches=0,commentaryFail=0;
+    const commentaryErrors=[];
     for(let i=0;i<picked.length;i++){
       const p=picked[i];
       try{
@@ -308,8 +309,11 @@ Deno.serve(async (req)=>{
           if(up.error) throw up.error;
           commentaryRows++;
         }
-      }catch{commentaryFail++;}
-      if(i+1<picked.length) await sleep(350);
+      }catch(e){
+        commentaryFail++;
+        commentaryErrors.push(String(e instanceof Error?e.message:e).slice(0,160));
+      }
+      if(i+1<picked.length) await sleep(1200);
     }
 
     const matched=rows.filter(r=>r.matched_hkjc_event_id).length;
@@ -320,19 +324,19 @@ Deno.serve(async (req)=>{
       last_probe_at:nowIso,last_success_at:nowIso,last_failure_at:null,
       consecutive_success:prevS+1,consecutive_failure:0,total_records:rows.length,
       schema_fingerprint:schema,last_seen_at:nowIso,updated_at:nowIso,
-      raw:{upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail}
+      raw:{upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
     }).eq("source_key",SOURCE);
 
     await db.from("source_health").upsert({
       source:"PHASE15_FOTMOB_SCOUT",metric:"6h",
-      value_text:JSON.stringify({rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail}),
+      value_text:JSON.stringify({rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}),
       status:rows.length>0?"OK":"WARN",
       notes:"Experimental shadow-only scout. No betting-model influence until trust promotion.",
       observed_at:new Date().toISOString(),
-      raw:{upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail}
+      raw:{upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
     },{onConflict:"source,metric"});
 
-    return Response.json({ok:true,source:SOURCE,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail});
+    return Response.json({ok:true,source:SOURCE,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
   }catch(e){
     const message=e instanceof Error?e.message:String(e);
     const reg=await db.from("phase15_source_registry").select("consecutive_failure").eq("source_key",SOURCE).maybeSingle();
