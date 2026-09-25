@@ -17,7 +17,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DATA-LINK-CTX-CARDS-20260924-1";
+const UI_BUILD = "SYSTEMATIC-EVIDENCE-20260925-1";
 
 function pct(value) {
   const n = Number(value);
@@ -56,6 +56,60 @@ function outcomeLabel(key) {
   if (key === "D") return "和";
   if (key === "A") return "客";
   return "—";
+}
+
+function MiniIcon({ type }) {
+  const common = {
+    width: 13,
+    height: 13,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+  if (type === "score") return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 9h2M14 9h2M9 14h6"/></svg>;
+  if (type === "goals") return <svg {...common}><circle cx="12" cy="12" r="8"/><path d="m12 8 3 2-1 4h-4l-1-4 3-2ZM7 7l2 3M17 7l-2 3M7 17l3-3M17 17l-3-3"/></svg>;
+  if (type === "corner") return <svg {...common}><path d="M6 20V4M6 5h9l-2 4 2 4H6M4 20h5"/></svg>;
+  if (type === "form") return <svg {...common}><path d="M4 17l5-5 4 3 7-8"/><path d="M16 7h4v4"/></svg>;
+  if (type === "model") return <svg {...common}><path d="M4 18V9M10 18V5M16 18v-7M22 18H2"/></svg>;
+  if (type === "power") return <svg {...common}><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></svg>;
+  if (type === "btts") return <svg {...common}><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><path d="M10 12h4"/></svg>;
+  if (type === "source") return <svg {...common}><path d="M9 7H7a4 4 0 0 0 0 8h2M15 7h2a4 4 0 0 1 0 8h-2M8 12h8"/></svg>;
+  return <svg {...common}><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>;
+}
+
+function recentFormCode(detail) {
+  const recent = Array.isArray(detail?.recent) ? detail.recent.slice(0, 5) : [];
+  if (!recent.length) return null;
+  return recent.map((row) => String(row?.result || "—").slice(0, 1).toUpperCase()).join("");
+}
+
+function sourceCoverage(match) {
+  return [
+    ["FB", Boolean(match.forebet || match.forebetDetail?.predictedScore)],
+    ["DC", Boolean(match.dc || match.dcDetail?.available)],
+    ["PI", Boolean(match.pi || match.piDetail?.available)],
+    ["FM", Boolean(match.form || match.formDetail)],
+    ["PW", Boolean(match.power)],
+    ["CTX", Boolean(match.sourceContext)],
+  ];
+}
+
+function EvidenceItem({ icon, label, value, detail = null, tone = "", children = null }) {
+  return (
+    <div className={"ft5-evidence-item" + (tone ? " tone-" + tone : "")}>
+      <span className="ft5-evidence-icon"><MiniIcon type={icon} /></span>
+      <span className="ft5-evidence-copy">
+        <small>{label}</small>
+        <b>{value ?? "—"}</b>
+        {detail ? <em>{detail}</em> : null}
+      </span>
+      {children}
+    </div>
+  );
 }
 
 function totalMarketSummary(match, edge, market, label) {
@@ -134,6 +188,26 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
         sourceContext.detailAvailable && !sourceContext.lineupAvailable ? "DETAIL" : null,
       ].filter(Boolean).join(" · ")
     : null;
+
+  const avgCorners = Number(match.forebetDetail?.corners95?.avgCorners);
+  const bttsYes = Number(match.multisourceDetail?.btts?.yes);
+  const dcXgHome = Number(match.dcDetail?.expectedGoals?.home);
+  const dcXgAway = Number(match.dcDetail?.expectedGoals?.away);
+  const dcXgText = Number.isFinite(dcXgHome) && Number.isFinite(dcXgAway)
+    ? dcXgHome.toFixed(2) + "–" + dcXgAway.toFixed(2)
+    : null;
+  const piDiff = Number(match.piDetail?.ratings?.difference);
+  const powerHome = Number(match.power?.home);
+  const powerAway = Number(match.power?.away);
+  const powerText = Number.isFinite(powerHome) && Number.isFinite(powerAway)
+    ? powerHome.toFixed(1) + "–" + powerAway.toFixed(1)
+    : Number.isFinite(piDiff)
+      ? (piDiff >= 0 ? "+" : "") + piDiff.toFixed(2)
+      : null;
+  const homeFormCode = recentFormCode(match.formDetail?.home);
+  const awayFormCode = recentFormCode(match.formDetail?.away);
+  const sourceMatrix = sourceCoverage(match);
+  const availableSources = sourceMatrix.filter(([, available]) => available).length;
   const rowClass = [
     "ft5-match-card",
     "ft5-forebet-row",
@@ -276,6 +350,23 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
               <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
             </div>
           </div>
+        </div>
+
+        <div className="ft5-evidence-ribbon" aria-label="match evidence summary">
+          <EvidenceItem icon="score" label="預測比分" value={scriptScore || "—"} detail={scriptShapeLabel || null} />
+          <EvidenceItem icon="goals" label="Avg Goals" value={Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"} />
+          <EvidenceItem icon="corner" label="Avg Corners" value={Number.isFinite(avgCorners) ? avgCorners.toFixed(1) : "—"} />
+          <EvidenceItem icon="form" label="Form" value={homeFormCode && awayFormCode ? homeFormCode + " / " + awayFormCode : homeFormCode || awayFormCode || "—"} />
+          <EvidenceItem icon="model" label="DC xG" value={dcXgText || "—"} />
+          <EvidenceItem icon="power" label={match.power ? "Power" : "Pi Δ"} value={powerText || "—"} />
+          <EvidenceItem icon="btts" label="BTTS Yes" value={Number.isFinite(bttsYes) ? Math.round(bttsYes * 100) + "%" : "—"} />
+          <EvidenceItem icon="source" label="Sources" value={availableSources + "/6"}>
+            <span className="ft5-source-matrix" aria-label="source coverage">
+              {sourceMatrix.map(([name, available]) => (
+                <i className={available ? "on" : ""} key={name} title={name + (available ? " available" : " no data")}>{name}</i>
+              ))}
+            </span>
+          </EvidenceItem>
         </div>
       </div>
     </a>
