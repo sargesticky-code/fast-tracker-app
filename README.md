@@ -344,3 +344,19 @@ The dashboard label **精算投注 / QUANT EDGE** means a deterministic probabil
 - **EV / ROI** remain separate concepts and may be displayed in percent (`%`) only where they are actually calculated.
 - The homepage Quant Edge shortlist currently requires at least **+5pp** and remains a candidate/watch layer while the Phase 5 calibration gate is pending.
 - Homepage fixture cards may show a compact Match Script tag (shape, reference score, editorial support/contradiction) so the likely match shape is visible before opening the detail page.
+
+
+### Systematic dashboard evidence ribbon
+
+Each prematch row should expose a fixed compact evidence sequence rather than hiding useful feed fields:
+- predicted score / match shape
+- average goals
+- average corners
+- recent team form
+- Dixon-Coles expected goals
+- Power or Pi rating signal
+- BTTS probability
+- engine decision / market / selection
+- source coverage matrix and verified source context
+
+Use exact numbers plus lightweight micro-diagrams. Missing values should render as `—` or an unfilled source indicator rather than removing the slot entirely. Live xG and possession retain exact values and add split bars for direction at a glance. Avoid adding a new visualization dependency unless existing `recharts` or inline SVG/CSS cannot express the signal efficiently.
