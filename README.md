@@ -371,3 +371,20 @@ Live rows use a fixed two-level structure:
 - freshness/provenance is always visible for odds, score, stats and shadow, plus live-stat source and match confidence
 
 Exact values remain visible. Split bars are supplemental directional cues only. Missing live fields render as `—` rather than disappearing. Do not duplicate telemetry values in the control layer.
+
+
+### Dashboard data completeness matrix
+
+Dashboard coverage uses one shared channel definition from `lib/fast-tracker.js`:
+- HK = current HKJC 1X2 prices
+- FB = Forebet model or predicted score
+- DC = Dixon-Coles
+- PI = Pi Rating
+- FM = Team Form
+- PW = Power
+- MS = Multi-source data
+- CTX = verified/usable external context
+- ENG = decision engine output
+- LIVE = current live-stat coverage, reported separately against active live matches
+
+The global coverage board, per-match Coverage matrix and Missing/Gaps sorting must all use the same shared helpers. Missing values stay visible as absent cells; do not silently remove channels. The Missing filter orders matches by number of absent channels before kickoff time. Header ALERT remains reserved for actionable hard coverage/freshness failures so optional source gaps do not inflate operational alerts.
