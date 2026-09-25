@@ -808,6 +808,8 @@ function CoverageBoard({ matches, liveMatches, selectedGap = null, onSelectGap, 
   const overall = totalCells ? Math.round((readyCells / totalCells) * 100) : 0;
   const liveWithStats = liveMatches.filter((match) => hasReadableLiveStats(match.live?.stats)).length;
   const livePct = liveMatches.length ? Math.round((liveWithStats / liveMatches.length) * 100) : 0;
+  const selectedChannel = selectedGap ? summary.find((row) => row.key === selectedGap) || null : null;
+  const selectedReasons = selectedGap ? dataGapReasonSummary(matches, selectedGap, nowMs) : [];
 
   return (
     <section className="ft5-coverage-board" aria-label="24 hour data coverage">
@@ -855,6 +857,17 @@ function CoverageBoard({ matches, liveMatches, selectedGap = null, onSelectGap, 
           <i><em style={{ width: livePct + "%" }} /></i>
         </button>
       </div>
+
+      {selectedChannel ? (
+        <div className="ft5-gap-reason-line">
+          <b>{selectedChannel.short} 缺口 · {Math.max(0, selectedChannel.total - selectedChannel.count)} 場</b>
+          <span>
+            {selectedReasons.length
+              ? selectedReasons.slice(0, 3).map((row) => row.shortReason + " " + row.count).join(" · ")
+              : "暫時未有缺口"}
+          </span>
+        </div>
+      ) : null}
     </section>
   );
 }
