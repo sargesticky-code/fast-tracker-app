@@ -1438,3 +1438,208 @@
     padding:3px 4px;
   }
 }
+
+
+/* V15 — dashboard-wide data completeness matrix */
+.ft5-coverage-board{
+  min-height:46px;
+  margin:0 0 9px;
+  display:grid;
+  grid-template-columns:150px minmax(0,1fr);
+  align-items:stretch;
+  border:1px solid var(--ft-polish-border);
+  border-radius:5px;
+  overflow:hidden;
+  background:#fff;
+}
+.ft5-coverage-overall{
+  min-width:0;
+  padding:6px 8px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  grid-template-rows:auto auto;
+  align-items:center;
+  column-gap:7px;
+  border-right:1px solid var(--ft-polish-border);
+  background:#f2f7f3;
+}
+.ft5-coverage-overall>span{
+  grid-column:1/-1;
+  color:#6f7e76;
+  font-size:7.5px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+.ft5-coverage-overall>b{
+  color:#155f3d;
+  font-size:17px;
+  line-height:1;
+}
+.ft5-coverage-overall>small{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#7b8981;
+  font-size:7px;
+  line-height:1.15;
+}
+.ft5-coverage-grid{
+  min-width:0;
+  display:grid;
+  grid-template-columns:repeat(10,minmax(0,1fr));
+}
+.ft5-coverage-tile{
+  min-width:0;
+  padding:5px 5px 4px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  grid-template-rows:auto auto auto;
+  align-items:center;
+  column-gap:4px;
+  border-right:1px solid var(--ft-polish-border-soft);
+  background:#fff;
+}
+.ft5-coverage-tile:last-child{
+  border-right:0;
+}
+.ft5-coverage-tile>span{
+  color:#738179;
+  font-size:7px;
+  font-weight:950;
+}
+.ft5-coverage-tile>b{
+  justify-self:end;
+  color:#345548;
+  font-size:10px;
+  line-height:1;
+}
+.ft5-coverage-tile>small{
+  grid-column:1/-1;
+  margin-top:2px;
+  color:#8a9690;
+  font-size:6.5px;
+  line-height:1;
+}
+.ft5-coverage-tile>i{
+  grid-column:1/-1;
+  width:100%;
+  height:3px;
+  margin-top:4px;
+  display:block;
+  overflow:hidden;
+  border-radius:2px;
+  background:#e7ece9;
+}
+.ft5-coverage-tile>i>em{
+  display:block;
+  height:100%;
+  border-radius:2px;
+  background:#8aa997;
+}
+.ft5-coverage-tile.is-good>i>em{
+  background:#2b8054;
+}
+.ft5-coverage-tile.is-warn{
+  background:#fffdf6;
+}
+.ft5-coverage-tile.is-warn>i>em{
+  background:#c39a42;
+}
+.ft5-coverage-tile.is-low{
+  background:#fff9f7;
+}
+.ft5-coverage-tile.is-low>i>em{
+  background:#b86a5e;
+}
+.ft5-coverage-live{
+  background:#f6faf7;
+}
+
+/* per-match completeness uses the same semantics */
+.ft5-evidence-item.tone-good .ft5-evidence-icon{
+  background:#dff0e5!important;
+  color:#1c6c45!important;
+}
+.ft5-evidence-item.tone-warn .ft5-evidence-icon{
+  background:#fff1cf!important;
+  color:#8b6619!important;
+}
+.ft5-evidence-item.tone-danger .ft5-evidence-icon{
+  background:#f8e4df!important;
+  color:#9b4b41!important;
+}
+.ft5-evidence-item.tone-danger{
+  background:#fffaf8;
+}
+
+/* 9-channel source matrix */
+.ft5-source-matrix{
+  flex-wrap:nowrap;
+}
+.ft5-source-matrix i{
+  min-width:17px!important;
+  padding:0 2px!important;
+}
+.ft5-evidence-item:last-child{
+  min-width:0;
+}
+
+/* missing-data mode should visually emphasize the gap summary */
+.ft5-match-card:has(.ft5-evidence-item.tone-danger) .ft5-evidence-ribbon{
+  box-shadow:inset 3px 0 0 #b86659;
+}
+
+@media(max-width:1050px) and (min-width:681px){
+  .ft5-coverage-board{
+    grid-template-columns:132px minmax(0,1fr);
+  }
+  .ft5-coverage-grid{
+    display:flex;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .ft5-coverage-grid::-webkit-scrollbar{
+    display:none;
+  }
+  .ft5-coverage-tile{
+    flex:0 0 78px;
+  }
+}
+
+@media(max-width:680px){
+  .ft5-coverage-board{
+    grid-template-columns:112px minmax(0,1fr);
+    min-height:43px;
+  }
+  .ft5-coverage-overall{
+    padding:5px 6px;
+  }
+  .ft5-coverage-overall>b{
+    font-size:15px;
+  }
+  .ft5-coverage-overall>small{
+    font-size:6px;
+  }
+  .ft5-coverage-grid{
+    display:flex;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .ft5-coverage-grid::-webkit-scrollbar{
+    display:none;
+  }
+  .ft5-coverage-tile{
+    flex:0 0 70px;
+    padding:4px;
+  }
+  .ft5-coverage-tile>span{
+    font-size:6.5px;
+  }
+  .ft5-coverage-tile>b{
+    font-size:9px;
+  }
+  .ft5-coverage-tile>small{
+    font-size:6px;
+  }
+}
