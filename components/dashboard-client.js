@@ -427,6 +427,7 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
   const contextCoverage = Number(shadow?.contextCoverage);
   const telemetry = {
     xg: stats?.xg || null,
+    xgot: stats?.xgot || null,
     shots: stats?.shots || null,
     sot: stats?.shotsOnTarget || null,
     big: stats?.bigChances || null,
@@ -497,6 +498,7 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
 
         <div className="ft5-live-telemetry">
           <LiveTelemetryCell label="xG" pair={telemetry.xg} digits={2} />
+          <LiveTelemetryCell label="xGOT" pair={telemetry.xgot} digits={2} />
           <LiveTelemetryCell label="射門" pair={telemetry.shots} />
           <LiveTelemetryCell label="中框" pair={telemetry.sot} />
           <LiveTelemetryCell label="Big Chances" pair={telemetry.big} />
@@ -507,6 +509,10 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
             {Object.entries(freshnessDiag.lanes).map(([key, lane]) => (
               <span className={"is-" + lane.state} key={key}><small>{key.toUpperCase()}</small><b>{lane.label}</b></span>
             ))}
+            <em className="ft5-telemetry-source">
+              <small>{cleanLiveToken(stats?.source) || "NO STATS SOURCE"}</small>
+              <b>{Number.isFinite(Number(stats?.confidence)) ? Math.round(Number(stats.confidence) * 100) + "% match" : "confidence —"}</b>
+            </em>
           </div>
         </div>
       </div>
