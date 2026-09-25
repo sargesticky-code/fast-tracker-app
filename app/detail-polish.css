@@ -2380,3 +2380,71 @@
   .detail-shell .h2h-row{grid-template-columns:26px 45px minmax(0,1fr)}
   .detail-shell .h2h-row>small{display:none}
 }
+
+
+/* Primary recommendation stays visible; alternatives sit directly underneath. */
+.detail-shell .detail-extra-recommendations{
+  margin-top:8px;
+  padding-top:8px;
+  border-top:1px solid #e6ece8;
+}
+.detail-shell .detail-extra-recommendations>span{
+  display:block;
+  margin-bottom:5px;
+  color:#6f8177;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+.detail-shell .detail-extra-recommendations>div{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+}
+.detail-shell .detail-extra-recommendation{
+  min-width:0;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-areas:
+    "rank pick odds"
+    "rank note note";
+  align-items:center;
+  column-gap:6px;
+  row-gap:2px;
+  padding:7px 8px;
+  border:1px solid #dfe7e1;
+  border-radius:5px;
+  background:#f8faf8;
+}
+.detail-shell .detail-extra-recommendation>b{
+  grid-area:rank;
+  color:#2d6044;
+  font-size:10px;
+}
+.detail-shell .detail-extra-recommendation>strong{
+  grid-area:pick;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#244d39;
+  font-size:10px;
+}
+.detail-shell .detail-extra-recommendation>em{
+  grid-area:odds;
+  color:#244d39;
+  font-size:9px;
+  font-style:normal;
+  font-weight:900;
+}
+.detail-shell .detail-extra-recommendation>small{
+  grid-area:note;
+  color:#78877f;
+  font-size:7.5px;
+  font-weight:800;
+}
+@media (max-width:680px){
+  .detail-shell .detail-extra-recommendations>div{
+    grid-template-columns:1fr;
+  }
+}
