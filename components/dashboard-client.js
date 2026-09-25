@@ -603,6 +603,9 @@ export default function DashboardClient({ feed, nowMs }) {
   const [changeMap, setChangeMap] = useState({});
   const previousFeedRef = useRef(feedMotionSnapshot(feed?.matches || []));
   const motionTimerRef = useRef(null);
+  const feedRequestRef = useRef(null);
+  const liveRequestRef = useRef(null);
+  const initialFeedAtRef = useRef(Date.now());
   const all = currentFeed.matches || [];
   const liveMatches = all.filter((m) => m.liveNow);
   const prematchAll = all.filter((m) => !m.liveNow);
@@ -612,9 +615,12 @@ export default function DashboardClient({ feed, nowMs }) {
     setFilter(filters.some(([key]) => key === requested) ? requested : "focus");
 
     let cancelled = false;
-    async function refreshFeed() {
+    async function refreshFeed({ force = false } = {}) {
+      if (!force && Date.now() - initialFeedAtRef.current < 15000) return;
+      if (feedRequestRef.current) return feedRequestRef.current;
+      feedRequestRef.current = (async () => {
       try {
-        const res = await fetch(FEED_URL + "&_=" + Date.now(), { cache: "no-store" });
+        const res = await fetch(FEED_URL, { cache: "no-store" });
         if (!res.ok) return;
         const next = await res.json();
         if (!cancelled && Array.isArray(next?.matches)) {
@@ -630,11 +636,16 @@ export default function DashboardClient({ feed, nowMs }) {
           }
         }
       } catch {}
+      finally { feedRequestRef.current = null; }
+      })();
+      return feedRequestRef.current;
     }
 
     async function refreshLive() {
+      if (liveRequestRef.current) return liveRequestRef.current;
+      liveRequestRef.current = (async () => {
       try {
-        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
+        const res = await fetch(LIVE_FEED_URL, { cache: "no-store" });
         if (!res.ok) return;
         const payload = await res.json();
         if (!cancelled && Array.isArray(payload?.matches)) {
@@ -642,9 +653,13 @@ export default function DashboardClient({ feed, nowMs }) {
           setClockMs(Date.now());
         }
       } catch {}
+      finally { liveRequestRef.current = null; }
+      })();
+      return liveRequestRef.current;
     }
 
-    refreshFeed();
+    // SSR already supplied the current 24h feed. Avoid an immediate duplicate
+    // hydration fetch; live remains independently refreshed.
     refreshLive();
 
     const fullTimer = window.setInterval(() => {
