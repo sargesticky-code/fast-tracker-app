@@ -5,6 +5,8 @@ import {
   binaryOdds,
   binarySideName,
   cornersValueEdge,
+  dataCompleteness,
+  dataCoverageMatrix,
   formatKickoff,
   formatOdds,
   freshness,
@@ -17,7 +19,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "SYSTEMATIC-EVIDENCE-20260925-3";
+const UI_BUILD = "COVERAGE-MATRIX-20260925-1";
 
 function pct(value) {
   const n = Number(value);
@@ -86,17 +88,6 @@ function recentFormCode(detail) {
   const recent = Array.isArray(detail?.recent) ? detail.recent.slice(0, 5) : [];
   if (!recent.length) return null;
   return recent.map((row) => String(row?.result || "—").slice(0, 1).toUpperCase()).join("");
-}
-
-function sourceCoverage(match) {
-  return [
-    ["FB", Boolean(match.forebet || match.forebetDetail?.predictedScore)],
-    ["DC", Boolean(match.dc || match.dcDetail?.available)],
-    ["PI", Boolean(match.pi || match.piDetail?.available)],
-    ["FM", Boolean(match.form || match.formDetail)],
-    ["PW", Boolean(match.power)],
-    ["CTX", Boolean(match.sourceContext)],
-  ];
 }
 
 function EvidenceItem({ icon, label, value, detail = null, tone = "", children = null }) {
@@ -207,8 +198,10 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
       : null;
   const homeFormCode = recentFormCode(match.formDetail?.home);
   const awayFormCode = recentFormCode(match.formDetail?.away);
-  const sourceMatrix = sourceCoverage(match);
-  const availableSources = sourceMatrix.filter(([, available]) => available).length;
+  const completeness = dataCompleteness(match);
+  const sourceMatrix = dataCoverageMatrix(match);
+  const availableSources = completeness.available;
+  const coverageTone = completeness.percent >= 80 ? "good" : completeness.percent >= 55 ? "warn" : "danger";
   const decisionValue = match.decision || "—";
   const decisionDetail = [
     match.decisionMarket || null,
@@ -380,10 +373,10 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <EvidenceItem icon="power" label={match.power ? "Power" : "Pi Δ"} value={powerText || "—"} />
           <EvidenceItem icon="btts" label="BTTS Yes" value={Number.isFinite(bttsYes) ? Math.round(bttsYes * 100) + "%" : "—"} />
           <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
-          <EvidenceItem icon="source" label="Sources" value={availableSources + "/6"} detail={sourceContextDetail || null}>
+          <EvidenceItem icon="source" label="Coverage" value={availableSources + "/" + completeness.total} detail={completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))} tone={coverageTone}>
             <span className="ft5-source-matrix" aria-label="source coverage">
-              {sourceMatrix.map(([name, available]) => (
-                <i className={available ? "on" : ""} key={name} title={name + (available ? " available" : " no data")}>{name}</i>
+              {sourceMatrix.map((row) => (
+                <i className={row.available ? "on" : ""} key={row.key} title={row.label + (row.available ? " available" : " no data")}>{row.short}</i>
               ))}
             </span>
           </EvidenceItem>
