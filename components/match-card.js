@@ -19,7 +19,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "COVERAGE-MATRIX-20260925-1";
+const UI_BUILD = "COVERAGE-DRILLDOWN-20260925-1";
 
 function pct(value) {
   const n = Number(value);
@@ -125,7 +125,7 @@ function totalMarketSummary(match, edge, market, label) {
   };
 }
 
-export default function MatchCard({ match, nowMs, changeType = null }) {
+export default function MatchCard({ match, nowMs, coverageGap = null, changeType = null }) {
   const edge = valueEdge(match);
   const model = preferredModel(match);
   const goalsEdge = goalsValueEdge(match);
@@ -376,7 +376,7 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <EvidenceItem icon="source" label="Coverage" value={availableSources + "/" + completeness.total} detail={completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))} tone={coverageTone}>
             <span className="ft5-source-matrix" aria-label="source coverage">
               {sourceMatrix.map((row) => (
-                <i className={row.available ? "on" : ""} key={row.key} title={row.label + (row.available ? " available" : " no data")}>{row.short}</i>
+                <i className={(row.available ? "on" : "") + (coverageGap === row.key ? " gap-focus" : "")} key={row.key} title={row.label + (row.available ? " available" : " no data")}>{row.short}</i>
               ))}
             </span>
           </EvidenceItem>
