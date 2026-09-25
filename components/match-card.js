@@ -7,6 +7,7 @@ import {
   cornersValueEdge,
   dataCompleteness,
   dataCoverageMatrix,
+  dataGapDiagnostic,
   formatKickoff,
   formatOdds,
   freshness,
@@ -19,7 +20,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "COVERAGE-DRILLDOWN-20260925-1";
+const UI_BUILD = "COVERAGE-DIAG-20260925-1";
 
 function pct(value) {
   const n = Number(value);
@@ -202,6 +203,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
   const sourceMatrix = dataCoverageMatrix(match);
   const availableSources = completeness.available;
   const coverageTone = completeness.percent >= 80 ? "good" : completeness.percent >= 55 ? "warn" : "danger";
+  const selectedGapDiagnostic = coverageGap ? dataGapDiagnostic(match, coverageGap, nowMs) : null;
   const decisionValue = match.decision || "—";
   const decisionDetail = [
     match.decisionMarket || null,
@@ -373,11 +375,28 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
           <EvidenceItem icon="power" label={match.power ? "Power" : "Pi Δ"} value={powerText || "—"} />
           <EvidenceItem icon="btts" label="BTTS Yes" value={Number.isFinite(bttsYes) ? Math.round(bttsYes * 100) + "%" : "—"} />
           <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
-          <EvidenceItem icon="source" label="Coverage" value={availableSources + "/" + completeness.total} detail={completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))} tone={coverageTone}>
+          <EvidenceItem
+            icon="source"
+            label={selectedGapDiagnostic ? selectedGapDiagnostic.short + " Diagnosis" : "Coverage"}
+            value={selectedGapDiagnostic ? (selectedGapDiagnostic.available ? "OK" : selectedGapDiagnostic.shortReason) : availableSources + "/" + completeness.total}
+            detail={
+              selectedGapDiagnostic
+                ? [selectedGapDiagnostic.code, selectedGapDiagnostic.detail].filter(Boolean).join(" · ")
+                : completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))
+            }
+            tone={selectedGapDiagnostic ? (selectedGapDiagnostic.available ? "good" : "danger") : coverageTone}
+          >
             <span className="ft5-source-matrix" aria-label="source coverage">
-              {sourceMatrix.map((row) => (
-                <i className={(row.available ? "on" : "") + (coverageGap === row.key ? " gap-focus" : "")} key={row.key} title={row.label + (row.available ? " available" : " no data")}>{row.short}</i>
-              ))}
+              {sourceMatrix.map((row) => {
+                const diag = coverageGap === row.key ? selectedGapDiagnostic : null;
+                return (
+                  <i
+                    className={(row.available ? "on" : "") + (coverageGap === row.key ? " gap-focus" : "")}
+                    key={row.key}
+                    title={row.label + (row.available ? " available" : " no data") + (diag && !diag.available ? " · " + diag.code + (diag.detail ? " · " + diag.detail : "") : "")}
+                  >{row.short}</i>
+                );
+              })}
             </span>
           </EvidenceItem>
         </div>
