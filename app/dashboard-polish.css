@@ -1215,7 +1215,7 @@
   grid-column:1/-1;
   min-width:0;
   display:grid;
-  grid-template-columns:repeat(7,minmax(86px,1fr)) minmax(205px,1.65fr);
+  grid-template-columns:repeat(8,minmax(82px,1fr)) minmax(220px,1.75fr);
   align-items:stretch;
   border-top:1px solid var(--ft-polish-border-soft);
   background:#f8faf8;
@@ -1330,6 +1330,35 @@
 }
 .ft5-telemetry-freshness .is-unavailable b{
   color:#89938e;
+}
+.ft5-telemetry-source{
+  grid-column:1/-1;
+  min-width:0;
+  padding:2px 3px 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px;
+  border-top:1px solid #e6ece8;
+  color:#738079;
+  font-style:normal;
+}
+.ft5-telemetry-source small,
+.ft5-telemetry-source b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:6.5px!important;
+  line-height:1!important;
+}
+.ft5-telemetry-source small{
+  color:#839088;
+  font-weight:850;
+}
+.ft5-telemetry-source b{
+  color:#53645a;
+  font-weight:950;
 }
 
 /* top Live row stays compact now telemetry owns detailed stats */
