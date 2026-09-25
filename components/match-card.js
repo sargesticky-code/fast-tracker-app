@@ -306,9 +306,21 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
             </div>
           </div>
           <div className="ft5-probs" aria-label="HDA model probability">
-            <div className={selectedClass(edge, "H")}><span>H</span><b>{pct(model?.home)}</b></div>
-            <div className={selectedClass(edge, "D")}><span>D</span><b>{pct(model?.draw)}</b></div>
-            <div className={selectedClass(edge, "A")}><span>A</span><b>{pct(model?.away)}</b></div>
+            <div className={selectedClass(edge, "H")}>
+              <span>H</span>
+              <b>{pct(model?.home)}</b>
+              <i className="ft5-prob-bar"><em style={{ width: Math.max(0, Math.min(100, Number(model?.home) * 100 || 0)) + "%" }} /></i>
+            </div>
+            <div className={selectedClass(edge, "D")}>
+              <span>D</span>
+              <b>{pct(model?.draw)}</b>
+              <i className="ft5-prob-bar"><em style={{ width: Math.max(0, Math.min(100, Number(model?.draw) * 100 || 0)) + "%" }} /></i>
+            </div>
+            <div className={selectedClass(edge, "A")}>
+              <span>A</span>
+              <b>{pct(model?.away)}</b>
+              <i className="ft5-prob-bar"><em style={{ width: Math.max(0, Math.min(100, Number(model?.away) * 100 || 0)) + "%" }} /></i>
+            </div>
           </div>
         </div>
 
