@@ -388,3 +388,6 @@ Dashboard coverage uses one shared channel definition from `lib/fast-tracker.js`
 - LIVE = current live-stat coverage, reported separately against active live matches
 
 The global coverage board, per-match Coverage matrix and Missing/Gaps sorting must all use the same shared helpers. Missing values stay visible as absent cells; do not silently remove channels. The Missing filter orders matches by number of absent channels before kickoff time. Header ALERT remains reserved for actionable hard coverage/freshness failures so optional source gaps do not inflate operational alerts.
+
+- Coverage tiles are diagnostic controls: selecting HK/FB/DC/PI/FM/PW/MS/CTX/ENG switches to the Missing view for that exact channel, updates the URL with `filter=missing&gap=<channel>`, and highlights the same channel in each match row.
+- Selecting DATA COVERAGE clears the channel drill-down while staying in the Missing view. Selecting LIVE opens the dedicated de-duplicated Live view.
