@@ -912,3 +912,237 @@
     display:none;
   }
 }
+
+
+/* V13 — systematic evidence ribbon + micro diagrams */
+
+/* Upcoming match row becomes a 2-tier data board */
+.ft5-row-grid{
+  grid-template-rows:auto auto!important;
+}
+.ft5-evidence-ribbon{
+  grid-column:1/-1;
+  min-width:0;
+  display:grid;
+  grid-template-columns:1.05fr .82fr .88fr 1.28fr 1fr .9fr .9fr 1.6fr;
+  align-items:stretch;
+  border-top:1px solid var(--ft-polish-border-soft);
+  background:#f8faf8;
+}
+.ft5-evidence-item{
+  min-width:0;
+  min-height:31px;
+  padding:4px 6px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  border-right:1px solid var(--ft-polish-border-soft);
+}
+.ft5-evidence-item:last-child{
+  border-right:0;
+}
+.ft5-evidence-icon{
+  flex:0 0 17px;
+  width:17px;
+  height:17px;
+  display:grid;
+  place-items:center;
+  border-radius:4px;
+  background:#e9f1eb;
+  color:#2c694b;
+}
+.ft5-evidence-copy{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:4px;
+  white-space:nowrap;
+}
+.ft5-evidence-copy small{
+  flex:0 0 auto;
+  color:#839088;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.01em;
+}
+.ft5-evidence-copy b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#355347;
+  font-size:9px;
+  line-height:1;
+  font-weight:900;
+}
+.ft5-evidence-copy em{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#708078;
+  font-size:7.5px;
+  font-style:normal;
+  font-weight:800;
+}
+.ft5-source-matrix{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:2px;
+}
+.ft5-source-matrix i{
+  min-width:18px;
+  height:15px;
+  padding:0 3px;
+  display:grid;
+  place-items:center;
+  border:1px solid #d7dfda;
+  border-radius:3px;
+  background:#fff;
+  color:#a0aaa4;
+  font-size:6px;
+  font-style:normal;
+  font-weight:950;
+  line-height:1;
+}
+.ft5-source-matrix i.on{
+  border-color:#b8d5c2;
+  background:#e0f0e5;
+  color:#1d6d46;
+}
+
+/* HDA probabilities show shape as well as exact number */
+.ft5-prob{
+  position:relative!important;
+  overflow:hidden!important;
+}
+.ft5-prob-bar{
+  width:100%;
+  height:3px;
+  margin-top:3px;
+  display:block;
+  overflow:hidden;
+  border-radius:2px;
+  background:#dfe7e2;
+}
+.ft5-prob-bar em{
+  display:block;
+  height:100%;
+  border-radius:2px;
+  background:#91bca2;
+}
+.ft5-prob.selected .ft5-prob-bar{
+  background:#c6dfcf;
+}
+.ft5-prob.selected .ft5-prob-bar em{
+  background:#25784f;
+}
+
+/* Live visual metrics: numbers remain exact, diagram gives direction at a glance */
+.ft5-live-visual-metric{
+  min-width:0;
+}
+.ft5-live-splitbar{
+  width:100%;
+  height:3px;
+  margin-top:3px;
+  display:flex;
+  overflow:hidden;
+  border-radius:2px;
+  background:#e0e7e2;
+}
+.ft5-live-splitbar em{
+  height:100%;
+  display:block;
+}
+.ft5-live-splitbar em:first-child{
+  background:#2e8056;
+}
+.ft5-live-splitbar em:last-child{
+  background:#9fb4a7;
+}
+
+/* Evidence ribbon should not inflate desktop whitespace */
+.ft5-match-card .ft5-row-grid{
+  min-height:0!important;
+}
+.ft5-match-card .ft5-cell{
+  min-height:52px!important;
+}
+.ft5-match-script-mini,
+.ft5-source-context-mini{
+  margin-top:4px!important;
+}
+
+/* avoid inline mini context blocks making fixture column too tall now that ribbon exists */
+.ft5-fixture-cell .ft5-match-script-mini{
+  padding:3px 5px!important;
+  border-radius:4px!important;
+}
+.ft5-fixture-cell .ft5-source-context-mini{
+  padding:3px 5px!important;
+  border-radius:4px!important;
+}
+
+/* systematic visual semantics */
+.ft5-evidence-item:nth-child(1) .ft5-evidence-icon{background:#e9f2fb;color:#416d98}
+.ft5-evidence-item:nth-child(2) .ft5-evidence-icon{background:#edf6ee;color:#327149}
+.ft5-evidence-item:nth-child(3) .ft5-evidence-icon{background:#fff5df;color:#8b6719}
+.ft5-evidence-item:nth-child(4) .ft5-evidence-icon{background:#eef2f8;color:#536d94}
+.ft5-evidence-item:nth-child(5) .ft5-evidence-icon{background:#f0ebf8;color:#6c5291}
+.ft5-evidence-item:nth-child(6) .ft5-evidence-icon{background:#fff0dc;color:#9a6626}
+.ft5-evidence-item:nth-child(7) .ft5-evidence-icon{background:#eaf5f4;color:#33746d}
+.ft5-evidence-item:nth-child(8) .ft5-evidence-icon{background:#ecf1ed;color:#567065}
+
+/* tablet: ribbon scrolls horizontally instead of shrinking text into illegibility */
+@media(max-width:1050px) and (min-width:681px){
+  .ft5-evidence-ribbon{
+    display:flex;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .ft5-evidence-ribbon::-webkit-scrollbar{
+    display:none;
+  }
+  .ft5-evidence-item{
+    flex:0 0 auto;
+    min-width:116px;
+  }
+  .ft5-evidence-item:last-child{
+    min-width:210px;
+  }
+}
+
+/* mobile: keep a thin horizontally scrollable evidence rail */
+@media(max-width:680px){
+  .ft5-evidence-ribbon{
+    display:flex;
+    overflow-x:auto;
+    scrollbar-width:none;
+    border-top:1px solid var(--ft-polish-border-soft);
+  }
+  .ft5-evidence-ribbon::-webkit-scrollbar{
+    display:none;
+  }
+  .ft5-evidence-item{
+    flex:0 0 auto;
+    min-width:108px;
+    min-height:30px;
+    padding:4px 5px;
+  }
+  .ft5-evidence-item:last-child{
+    min-width:196px;
+  }
+  .ft5-evidence-copy small{
+    font-size:6.5px;
+  }
+  .ft5-evidence-copy b{
+    font-size:8px;
+  }
+  .ft5-evidence-copy em{
+    font-size:7px;
+  }
+  .ft5-source-matrix i{
+    min-width:17px;
+    height:14px;
+    font-size:5.8px;
+  }
+}
