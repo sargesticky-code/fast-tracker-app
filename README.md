@@ -391,3 +391,6 @@ The global coverage board, per-match Coverage matrix and Missing/Gaps sorting mu
 
 - Coverage tiles are diagnostic controls: selecting HK/FB/DC/PI/FM/PW/MS/CTX/ENG switches to the Missing view for that exact channel, updates the URL with `filter=missing&gap=<channel>`, and highlights the same channel in each match row.
 - Selecting DATA COVERAGE clears the channel drill-down while staying in the Missing view. Selecting LIVE opens the dedicated de-duplicated Live view.
+
+- Source-specific gap diagnostics use feed-native status fields rather than guessed causes. Examples: Forebet coverage/check state, DC/Pi missingReason and training quality, Form coverage/quality, Multi-source match status/reason, Context identity/confidence/detail availability, and Engine evidence/fallback state.
+- The selected coverage tile shows the dominant missing reason; the selected match Coverage cell shows the exact diagnostic code plus supporting detail. Keep these diagnostics descriptive only and do not convert them into model probability or betting Edge.
