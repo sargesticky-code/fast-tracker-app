@@ -7,6 +7,8 @@ import {
   binarySideName,
   cornersValueEdge,
   dataAgeMinutes,
+  dataCompleteness,
+  dataCoverageSummary,
   formatKickoff,
   formatOdds,
   freshness,
@@ -797,10 +799,46 @@ function compactAge(minutes) {
   return Math.round(seconds / 3600) + "h";
 }
 
+function CoverageBoard({ matches, liveMatches }) {
+  const summary = dataCoverageSummary(matches);
+  const totalCells = summary.reduce((sum, row) => sum + row.total, 0);
+  const readyCells = summary.reduce((sum, row) => sum + row.count, 0);
+  const overall = totalCells ? Math.round((readyCells / totalCells) * 100) : 0;
+  const liveWithStats = liveMatches.filter((match) => hasReadableLiveStats(match.live?.stats)).length;
+  const livePct = liveMatches.length ? Math.round((liveWithStats / liveMatches.length) * 100) : 0;
+
+  return (
+    <section className="ft5-coverage-board" aria-label="24 hour data coverage">
+      <div className="ft5-coverage-overall">
+        <span>DATA COVERAGE</span>
+        <b>{overall}%</b>
+        <small>{matches.length} matches · {readyCells}/{totalCells || 0} cells</small>
+      </div>
+
+      <div className="ft5-coverage-grid">
+        {summary.map((row) => (
+          <div className={"ft5-coverage-tile" + (row.percent >= 80 ? " is-good" : row.percent >= 55 ? " is-warn" : " is-low")} key={row.key} title={row.label + " " + row.count + "/" + row.total}>
+            <span>{row.short}</span>
+            <b>{row.percent}%</b>
+            <small>{row.count}/{row.total}</small>
+            <i><em style={{ width: row.percent + "%" }} /></i>
+          </div>
+        ))}
+        <div className={"ft5-coverage-tile ft5-coverage-live" + (livePct >= 80 ? " is-good" : livePct >= 55 ? " is-warn" : " is-low")} title={"Live stats " + liveWithStats + "/" + liveMatches.length}>
+          <span>LIVE</span>
+          <b>{liveMatches.length ? livePct + "%" : "—"}</b>
+          <small>{liveWithStats}/{liveMatches.length}</small>
+          <i><em style={{ width: livePct + "%" }} /></i>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 const DASHBOARD_LAYOUT_V5 = "\n.ft5-shell{max-width:1120px;margin:0 auto;padding:28px 20px 104px}\n.ft5-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}\n.ft5-brand{display:flex;align-items:center;gap:12px}\n.ft5-logo{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;background:linear-gradient(135deg,#1f7a4f,#46a978);color:#fff;font-weight:950;letter-spacing:.02em;box-shadow:0 10px 24px rgba(31,122,79,.18)}\n.ft5-brand-copy b{display:block;font-size:24px;line-height:1;color:#143c2d}\n.ft5-brand-copy span{display:block;margin-top:4px;font-size:11px;color:#7c8d84;font-weight:700}\n.ft5-live-pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:9px 13px;background:#e4f6ea;color:#1d7950;font-size:11px;font-weight:900;border:1px solid #c8e9d3}\n.ft5-live-pill:before{content:\"\";width:7px;height:7px;border-radius:50%;background:#2fa46c;box-shadow:0 0 0 4px rgba(47,164,108,.10)}\n.ft5-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:18px}\n.ft5-hero h1{margin:0;color:#123e2c;font-size:34px;line-height:1.05;letter-spacing:-.03em}\n.ft5-hero p{margin:8px 0 0;color:#75877e;font-size:13px;font-weight:650}\n.ft5-update{text-align:right;color:#7c8d84;font-size:11px;line-height:1.5}\n.ft5-pipeline{display:flex;align-items:center;gap:8px;margin:-4px 0 14px;padding:9px 12px;border:1px solid #f0d2c8;border-radius:12px;background:#fff5f1;color:#995345;font-size:11px;font-weight:800}\n.ft5-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}\n.ft5-kpi{min-width:0;background:rgba(255,255,255,.94);border:1px solid #dce8df;border-radius:17px;padding:15px 16px;box-shadow:0 8px 24px rgba(42,79,61,.05)}\n.ft5-kpi span{display:block;color:#7b8c83;font-size:11px;font-weight:750;margin-bottom:6px}\n.ft5-kpi b{display:block;color:#164d35;font-size:28px;line-height:1;font-weight:950}\n.ft5-kpi small{display:block;margin-top:6px;color:#9aa79f;font-size:9px}\n.ft5-kpi.warn{background:#fffaf0;border-color:#eedfaf}\n.ft5-kpi.warn b{color:#98701c}\n.ft5-section{margin:0 0 20px}\n.ft5-section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:11px}\n.ft5-section-head h2{margin:0;color:#153f2f;font-size:22px;letter-spacing:-.02em}\n.ft5-section-head p{margin:4px 0 0;color:#819087;font-size:11px}\n.ft5-section-head .ft5-count{color:#7b8a82;font-size:11px;font-weight:800}\n.ft5-topbets-wrap{padding:16px;border:1px solid #cce5d4;border-radius:22px;background:linear-gradient(135deg,#eaf8ef 0%,#dff3e7 100%);box-shadow:0 12px 30px rgba(46,102,72,.07)}\n.ft5-topbets-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}\n.ft5-topbets-title div span{display:block;color:#238054;font-size:10px;font-weight:950;letter-spacing:.08em}\n.ft5-topbets-title h2{margin:2px 0 0;color:#164832;font-size:22px}\n.ft5-topbets-title button{border:0;background:transparent;color:#277c55;font-size:11px;font-weight:900;cursor:pointer}\n.ft5-topbets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}\n.ft5-topbet{display:flex;flex-direction:column;min-width:0;background:#fff;border:1px solid #d9e8de;border-radius:16px;padding:13px;box-shadow:0 6px 18px rgba(44,85,64,.05);transition:.16s ease}\n.ft5-topbet:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(44,85,64,.09)}\n.ft5-topbet-meta{display:flex;justify-content:space-between;gap:8px;color:#809087;font-size:9px;font-weight:800}\n.ft5-topbet-meta span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}\n.ft5-topbet-teams{margin:10px 0 12px}\n.ft5-topbet-teams b{display:block;color:#17392d;font-size:16px;line-height:1.22}\n.ft5-topbet-teams small{display:block;color:#a2ada7;font-size:9px;margin:3px 0}\n.ft5-topbet-signal{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:auto}\n.ft5-topbet-pick{border-radius:11px;background:#eef8f1;padding:9px 10px}\n.ft5-topbet-pick span{display:block;color:#7d8d84;font-size:8px;font-weight:800}\n.ft5-topbet-pick b{display:block;margin-top:3px;color:#1b6847;font-size:16px}\n.ft5-topbet-edge{border-radius:11px;background:#e0f3e7;padding:9px 10px;text-align:center;color:#1f7a50}\n.ft5-topbet-edge span{display:block;font-size:8px;font-weight:800}\n.ft5-topbet-edge b{display:block;margin-top:3px;font-size:17px}\n.ft5-topbet-footer{display:flex;justify-content:space-between;gap:8px;margin-top:9px;color:#7f8e86;font-size:9px;font-weight:750}\n.ft5-live-zone{padding:15px;border:1px solid #cbe3d2;border-radius:20px;background:#edf8f0;margin-bottom:20px}\n.ft5-live-zone .live-zone-head{margin-bottom:10px}\n.ft5-live-zone .live-match-row{box-shadow:none;border-radius:14px}\n.ft5-live-zone .live-context-grid{display:none!important}\n.ft5-live-zone .live-score-hero{justify-content:center}\n.ft5-live-zone .live-stat-strip span{min-height:52px}\n.ft5-toolbar{position:sticky;top:0;z-index:8;padding:10px 0 8px;background:linear-gradient(180deg,rgba(245,247,242,.97) 72%,rgba(245,247,242,0))}\n.ft5-filters{display:flex;gap:7px;overflow-x:auto;padding:0 0 4px;scrollbar-width:none}\n.ft5-filters::-webkit-scrollbar{display:none}\n.ft5-filter{white-space:nowrap;border:1px solid #dae5dd;background:#fff;color:#708179;border-radius:999px;padding:8px 13px;font-size:10px;font-weight:850;cursor:pointer}\n.ft5-filter.active{background:#237b52;color:#fff;border-color:#237b52;box-shadow:0 5px 12px rgba(35,123,82,.18)}\n.ft5-match-list{display:grid;gap:10px}\n.ft5-match-card{display:block;background:#fff;border:1px solid #dce7df;border-radius:17px;padding:14px 15px;box-shadow:0 6px 20px rgba(45,77,62,.045);transition:.15s ease}\n.ft5-match-card:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(45,77,62,.08)}\n.ft5-match-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}\n.ft5-match-meta-left{display:flex;align-items:center;gap:8px;min-width:0}\n.ft5-kickoff{color:#173d2f;font-size:12px;font-weight:950;white-space:nowrap}\n.ft5-league{color:#8b9991;font-size:9px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.ft5-fresh{border-radius:999px;background:#edf7f0;color:#2b7b55;padding:5px 7px;font-size:8px;font-weight:900;white-space:nowrap}\n.ft5-match-main{display:grid;grid-template-columns:minmax(190px,1.05fr) minmax(150px,.75fr) minmax(210px,.9fr);gap:12px;align-items:stretch}\n.ft5-teams{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0;padding:7px 2px}\n.ft5-teams b{color:#15392c;font-size:18px;line-height:1.18;font-weight:900;overflow-wrap:anywhere}\n.ft5-teams span{color:#a1aca6;font-size:9px;font-weight:700}\n.ft5-probs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border:1px solid #d9e7de;border-radius:13px;background:#f4faf6;padding:8px}\n.ft5-prob{display:flex;flex-direction:column;justify-content:center;align-items:center;border-radius:9px;padding:7px 4px;color:#71847a}\n.ft5-prob span{font-size:8px;font-weight:900}\n.ft5-prob b{margin-top:4px;font-size:17px;line-height:1;color:#4d675a}\n.ft5-prob.selected{background:#dff2e5;color:#1f724c}\n.ft5-prob.selected b{color:#1b6b47}\n.ft5-signal{display:grid;grid-template-columns:1fr 1fr;gap:6px}\n.ft5-signal-box{display:flex;flex-direction:column;justify-content:center;min-width:0;border:1px solid #e0e9e3;border-radius:11px;background:#f8faf8;padding:8px 9px}\n.ft5-signal-box span{color:#84938b;font-size:8px;font-weight:850}\n.ft5-signal-box b{margin-top:4px;color:#1c5d41;font-size:13px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.ft5-signal-box.edge{background:#edf8f1;border-color:#d0e8d8}\n.ft5-signal-box.edge b{color:#177748;font-size:16px}\n.ft5-odds{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:10px}\n.ft5-odd{min-width:0;border:1px solid #e1e9e3;border-radius:9px;background:#fafcfa;padding:7px 8px}\n.ft5-odd span{display:block;color:#8b9991;font-size:7px;font-weight:850}\n.ft5-odd b{display:block;margin-top:3px;color:#234736;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.ft5-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}\n.ft5-tags{display:flex;flex-wrap:wrap;gap:5px}\n.ft5-tag{border-radius:999px;background:#edf5ef;color:#4f6f5f;padding:5px 7px;font-size:8px;font-weight:850}\n.ft5-tag.blue{background:#edf3fb;color:#51719a}\n.ft5-tag.alert{background:#fff0ec;color:#a25749}\n.ft5-tag.health-rich{background:#e3f3e7;color:#27734d}\n.ft5-tag.health-partial{background:#e9f1fb;color:#466c96}\n.ft5-tag.health-warn{background:#fff2cf;color:#946514}\n.ft5-tag.health-danger{background:#f7e4e1;color:#9c4c46}\n.ft5-details{color:#22794f;font-size:10px;font-weight:950;white-space:nowrap}\n.ft5-empty{padding:20px;border:1px dashed #ccd9d0;border-radius:15px;text-align:center;color:#839087;font-size:12px;background:#fbfcfb}\n.ft5-bottom-nav{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:20;width:min(92%,620px);display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:6px;border:1px solid #d8e4db;border-radius:18px;background:rgba(255,255,255,.94);backdrop-filter:blur(16px);box-shadow:0 14px 40px rgba(47,78,62,.15)}\n.ft5-bottom-nav>*{border:0;background:transparent;border-radius:12px;padding:9px 3px;color:#7d8c84;font:inherit;font-size:10px;font-weight:900;text-align:center;cursor:pointer}\n.ft5-bottom-nav .selected{background:#e3f3e8;color:#1d7249}\n@media(max-width:820px){\n  .ft5-shell{padding:16px 12px 94px}\n  .ft5-brand-copy b{font-size:21px}\n  .ft5-logo{width:40px;height:40px;border-radius:13px}\n  .ft5-hero{align-items:flex-start}\n  .ft5-hero h1{font-size:27px}\n  .ft5-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}\n  .ft5-topbets{display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x mandatory;padding-bottom:3px}\n  .ft5-topbet{min-width:270px;scroll-snap-align:start}\n  .ft5-match-main{grid-template-columns:1fr}\n  .ft5-teams{padding:2px 0}\n  .ft5-probs{grid-template-columns:repeat(3,1fr)}\n  .ft5-signal{grid-template-columns:repeat(2,1fr)}\n  .ft5-odds{grid-template-columns:repeat(3,1fr)}\n}\n@media(max-width:520px){\n  .ft5-shell{padding:12px 9px 88px}\n  .ft5-topbar{margin-bottom:17px}\n  .ft5-live-pill{padding:7px 10px;font-size:10px}\n  .ft5-brand-copy b{font-size:19px}\n  .ft5-brand-copy span{font-size:9px}\n  .ft5-hero{display:block}\n  .ft5-hero h1{font-size:24px}\n  .ft5-hero p{font-size:11px}\n  .ft5-update{margin-top:8px;text-align:left;font-size:9px}\n  .ft5-kpi{padding:12px}\n  .ft5-kpi b{font-size:24px}\n  .ft5-topbets-wrap{padding:12px;border-radius:18px}\n  .ft5-topbets-title h2{font-size:19px}\n  .ft5-topbet{min-width:245px;padding:12px}\n  .ft5-section-head h2{font-size:19px}\n  .ft5-match-card{padding:12px;border-radius:15px}\n  .ft5-match-meta{margin-bottom:9px}\n  .ft5-kickoff{font-size:11px}\n  .ft5-league{font-size:8px}\n  .ft5-teams b{font-size:17px}\n  .ft5-prob b{font-size:16px}\n  .ft5-signal-box b{font-size:12px}\n  .ft5-signal-box.edge b{font-size:15px}\n  .ft5-odd{padding:6px}\n  .ft5-odd b{font-size:10px}\n  .ft5-bottom-nav{bottom:6px;width:calc(100% - 16px);border-radius:14px}\n}\n\n\n\\n.ft5-total-pick{min-width:0}\\n.ft5-total-pick b{font-size:9px!important;white-space:nowrap}\\n.ft5-total-pick small{display:block;margin-top:2px;color:#738078;font-size:7px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\\n.ft5-total-pick.edge-target small{color:#2f6b4d}\\n@media(max-width:760px){.ft5-total-pick b{font-size:8.5px!important}.ft5-total-pick small{font-size:6.8px}}\n@keyframes ft5-breathe{0%,100%{transform:scale(.86);opacity:.58}50%{transform:scale(1.18);opacity:1}}\n@keyframes ft5-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}\n@keyframes ft5-edge-flash{0%{transform:scale(1);background:#edf8f1}30%{transform:scale(1.035);background:#d0f1dc}100%{transform:scale(1);background:#edf8f1}}\n@keyframes ft5-odds-flash{0%{transform:translateY(0);background:#fafcfa}28%{transform:translateY(-2px);background:#fff2c9}100%{transform:translateY(0);background:#fafcfa}}\n@keyframes ft5-score-bump{0%{transform:scale(1)}32%{transform:scale(1.14)}100%{transform:scale(1)}}\n@keyframes ft5-new-card{from{opacity:.2;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}\n.ft5-live-pill:before{animation:ft5-breathe 2.2s ease-in-out infinite}\n.live-dot{position:relative;padding-left:17px!important}\n.live-dot:before{content:\"\";position:absolute;left:7px;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:#2fa46c;animation:ft5-breathe 2s ease-in-out infinite}\n.ft5-enter{animation:ft5-enter .38s ease-out both}\n.ft5-list-enter{animation:ft5-enter .24s ease-out both}\n.ft5-flash-edge .ft5-signal-box.edge,.ft5-topbet.ft5-flash-edge .ft5-topbet-edge{animation:ft5-edge-flash .9s ease-out}\n.ft5-flash-odds .ft5-odd,.ft5-topbet.ft5-flash-odds .ft5-topbet-pick{animation:ft5-odds-flash .9s ease-out}\n.live-match-row.ft5-flash-score .live-score-main{animation:ft5-score-bump .72s cubic-bezier(.2,.8,.2,1)}\n.ft5-flash-new{animation:ft5-new-card .55s ease-out both}\n.ft5-match-card{content-visibility:auto;contain-intrinsic-size:220px}\n@media(prefers-reduced-motion:reduce){\n  .ft5-live-pill:before,.live-dot:before,.ft5-enter,.ft5-list-enter,.ft5-flash-edge .ft5-signal-box.edge,.ft5-flash-odds .ft5-odd,.live-match-row.ft5-flash-score .live-score-main,.ft5-flash-new{animation:none!important}\n  .ft5-match-card,.ft5-topbet{transition:none!important}\n}\n";
 
-const UI_BUILD = "LIVE-TELEMETRY-20260925-1";
+const UI_BUILD = "COVERAGE-MATRIX-20260925-2";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 
@@ -957,15 +995,20 @@ export default function DashboardClient({ feed, nowMs }) {
       .sort((a, b) => Math.abs(Number(b.oddsMovement.rawOddsChangePct)) - Math.abs(Number(a.oddsMovement.rawOddsChangePct)));
   }
   if (filter === "missing") {
-    matches = prematchAll.filter((m) => hasHardCoverageAlert(m))
-      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    matches = prematchAll
+      .filter((m) => dataCompleteness(m).missing.length > 0)
+      .sort((a, b) => {
+        const gapDelta = dataCompleteness(b).missing.length - dataCompleteness(a).missing.length;
+        if (gapDelta) return gapDelta;
+        return new Date(a.kickoff) - new Date(b.kickoff);
+      });
   }
   if (filter === "stale") {
     matches = prematchAll.filter((m) => freshness(m, clockMs).key === "stale")
       .sort((a, b) => dataAgeMinutes(b, clockMs) - dataAgeMinutes(a, clockMs));
   }
 
-  const missing = prematchAll.filter((m) => hasHardCoverageAlert(m)).length;
+  const missing = prematchAll.filter((m) => dataCompleteness(m).missing.length > 0).length;
   const stale = prematchAll.filter((m) => ["stale", "missing"].includes(freshness(m, clockMs).key)).length;
   const valueCandidates = hdaCandidates.length + goalsCandidates.length + cornersCandidates.length;
   const oddsAlerts = prematchAll.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
@@ -1001,7 +1044,7 @@ export default function DashboardClient({ feed, nowMs }) {
     all: ["Upcoming 24H", "按開賽時間排序"],
     gaps: ["Multi-market 精算 Edge", "HDA / 入球 / 角球按「模型概率 − HKJC 去水後公平概率」排序；單位 pp"],
     odds: ["賠率大幅變動", `${oddsAlerts} 場達 ±10% · 按變動幅度排序`],
-    missing: ["缺資料", "模型 coverage 未完整；顯示真實 source / model 狀態"],
+    missing: ["資料缺口", "按缺少 channel 數量排序 · HK / FB / DC / PI / FM / PW / MS / CTX / ENG"],
     stale: ["過時資料", "超過 6 小時未更新"],
   };
 
@@ -1085,6 +1128,8 @@ export default function DashboardClient({ feed, nowMs }) {
           資料延遲：{pipelineWarnings.join(" · ")}
         </div>
       )}
+
+      <CoverageBoard matches={prematchAll} liveMatches={liveMatches} />
 
       <section className="ft5-section ft5-topbets-wrap">
         <div className="ft5-topbets-title">
