@@ -867,8 +867,10 @@ export default function MatchDetailClient() {
     : rawAction.includes("STRONG") || rawAction.includes("VALUE") ? "value"
       : "watch";
   const decisionCleared = !["NO_BET", "PASS"].includes(rawAction);
-  const pickLabel = decisionCleared ? "主要投注位" : "研究方向";
-  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : decisionCleared ? "精算 EDGE" : "MODEL GAP";
+  // Keep the original recommendation visible even when governance/data gates
+  // downgrade execution. A gate is a warning, not a reason to erase the pick.
+  const pickLabel = "主要投注位";
+  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : "精算 EDGE";
   const gateLabel = rawAction === "NO_BET" ? "未通過投注 Gate"
     : rawAction === "PASS" ? "目前無投注需要"
       : rawAction.includes("WATCH") ? "觀察中"
@@ -937,6 +939,39 @@ export default function MatchDetailClient() {
     { key: "D", label: "和", odds: referencePriceOnly ? null : match.odds?.draw, fair: market?.draw },
     { key: "A", label: match.awayZh || match.away || "客", odds: referencePriceOnly ? null : match.odds?.away, fair: market?.away },
   ];
+
+  const recommendationRows = [
+    {
+      key: "HDA",
+      market: "HDA",
+      selection: primarySelectionLabel,
+      odds: Number.isFinite(primaryOdds) ? primaryOdds : null,
+      edgePp: Number.isFinite(primaryEdgePp) ? primaryEdgePp : null,
+      action: rawAction,
+      note: referencePriceOnly ? "REFERENCE PRICE" : "原本主推",
+      available: Boolean(primarySide),
+    },
+    {
+      key: "GOALS",
+      market: "入球大細",
+      selection: totalAdviceLabel(goalsAdvice),
+      odds: goalsAdvice?.currentOdds == null ? null : Number(goalsAdvice.currentOdds),
+      edgePp: goalsAdvice?.candidateEdgePp == null ? null : Number(goalsAdvice.candidateEdgePp),
+      action: String(goalsAdvice?.action || "WATCH").toUpperCase(),
+      note: goalsAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "次選",
+      available: Boolean(goalsAdvice?.selection),
+    },
+    {
+      key: "CORNERS",
+      market: "角球大細",
+      selection: totalAdviceLabel(cornersAdvice),
+      odds: cornersAdvice?.currentOdds == null ? null : Number(cornersAdvice.currentOdds),
+      edgePp: cornersAdvice?.candidateEdgePp == null ? null : Number(cornersAdvice.candidateEdgePp),
+      action: String(cornersAdvice?.action || "WATCH").toUpperCase(),
+      note: cornersAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "備選",
+      available: Boolean(cornersAdvice?.selection),
+    },
+  ].filter((row) => row.available);
 
   const marketIntel = deep?.marketIntelligence || {};
   const phase4Values = Array.isArray(marketIntel.value) ? marketIntel.value : [];
@@ -1099,6 +1134,22 @@ export default function MatchDetailClient() {
           <span>精算結論</span>
           <p>{bettingAdvice}</p>
         </div>
+
+        {recommendationRows.length > 1 ? (
+          <div className="detail-extra-recommendations">
+            <span>其他投注建議</span>
+            <div>
+              {recommendationRows.slice(1, 3).map((row, index) => (
+                <div className="detail-extra-recommendation" key={row.key}>
+                  <b>#{index + 2}</b>
+                  <strong>{row.market} · {row.selection}</strong>
+                  <em>{row.odds == null || !Number.isFinite(row.odds) ? "MODEL ONLY" : "@" + row.odds.toFixed(2)}</em>
+                  <small>{row.edgePp == null || !Number.isFinite(row.edgePp) ? row.note : (row.edgePp >= 0 ? "+" : "") + row.edgePp.toFixed(1) + "pp · " + row.note}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div style={{ marginTop:6, color:"#7a8981", fontSize:8.5, fontWeight:750 }}>
           Edge 係「模型概率 − HKJC 去水後公平概率」嘅差距，單位係 percentage points (pp)，唔等於預計回報率。
         </div>
