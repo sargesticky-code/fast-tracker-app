@@ -360,3 +360,14 @@ Each prematch row should expose a fixed compact evidence sequence rather than hi
 - source coverage matrix and verified source context
 
 Use exact numbers plus lightweight micro-diagrams. Missing values should render as `—` or an unfilled source indicator rather than removing the slot entirely. Live xG and possession retain exact values and add split bars for direction at a glance. Avoid adding a new visualization dependency unless existing `recharts` or inline SVG/CSS cannot express the signal efficiently.
+
+
+### Live telemetry board
+
+Live rows use a fixed two-level structure:
+- control layer: PRE expectation, LIVE control, alignment state, control score, context coverage, metric count
+- telemetry layer: xG, xGOT, shots, shots on target, big chances, box touches, corners, possession
+- market layer remains HKJC HAD / goals / corners
+- freshness/provenance is always visible for odds, score, stats and shadow, plus live-stat source and match confidence
+
+Exact values remain visible. Split bars are supplemental directional cues only. Missing live fields render as `—` rather than disappearing. Do not duplicate telemetry values in the control layer.
