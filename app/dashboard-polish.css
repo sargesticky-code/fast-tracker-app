@@ -924,7 +924,7 @@
   grid-column:1/-1;
   min-width:0;
   display:grid;
-  grid-template-columns:1.05fr .82fr .88fr 1.28fr 1fr .9fr .9fr 1.6fr;
+  grid-template-columns:1.02fr .78fr .84fr 1.18fr .92fr .86fr .82fr 1.05fr 1.55fr;
   align-items:stretch;
   border-top:1px solid var(--ft-polish-border-soft);
   background:#f8faf8;
@@ -1090,7 +1090,8 @@
 .ft5-evidence-item:nth-child(5) .ft5-evidence-icon{background:#f0ebf8;color:#6c5291}
 .ft5-evidence-item:nth-child(6) .ft5-evidence-icon{background:#fff0dc;color:#9a6626}
 .ft5-evidence-item:nth-child(7) .ft5-evidence-icon{background:#eaf5f4;color:#33746d}
-.ft5-evidence-item:nth-child(8) .ft5-evidence-icon{background:#ecf1ed;color:#567065}
+.ft5-evidence-item:nth-child(8) .ft5-evidence-icon{background:#f1edf8;color:#6a568e}
+.ft5-evidence-item:nth-child(9) .ft5-evidence-icon{background:#ecf1ed;color:#567065}
 
 /* tablet: ribbon scrolls horizontally instead of shrinking text into illegibility */
 @media(max-width:1050px) and (min-width:681px){
