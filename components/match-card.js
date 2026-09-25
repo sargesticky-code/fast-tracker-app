@@ -17,7 +17,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "SYSTEMATIC-EVIDENCE-20260925-1";
+const UI_BUILD = "SYSTEMATIC-EVIDENCE-20260925-3";
 
 function pct(value) {
   const n = Number(value);
@@ -78,6 +78,7 @@ function MiniIcon({ type }) {
   if (type === "power") return <svg {...common}><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></svg>;
   if (type === "btts") return <svg {...common}><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><path d="M10 12h4"/></svg>;
   if (type === "source") return <svg {...common}><path d="M9 7H7a4 4 0 0 0 0 8h2M15 7h2a4 4 0 0 1 0 8h-2M8 12h8"/></svg>;
+  if (type === "decision") return <svg {...common}><path d="M4 12h10M10 6l6 6-6 6"/><path d="M18 5h2v14h-2"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>;
 }
 
@@ -208,6 +209,12 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
   const awayFormCode = recentFormCode(match.formDetail?.away);
   const sourceMatrix = sourceCoverage(match);
   const availableSources = sourceMatrix.filter(([, available]) => available).length;
+  const decisionValue = match.decision || "—";
+  const decisionDetail = [
+    match.decisionMarket || null,
+    match.decisionSelection || null,
+    Number.isFinite(Number(match.decisionEdge)) ? ((Number(match.decisionEdge) >= 0 ? "+" : "") + (Number(match.decisionEdge) * 100).toFixed(1) + "pp") : null,
+  ].filter(Boolean).join(" · ");
   const rowClass = [
     "ft5-match-card",
     "ft5-forebet-row",
@@ -372,7 +379,8 @@ export default function MatchCard({ match, nowMs, changeType = null }) {
           <EvidenceItem icon="model" label="DC xG" value={dcXgText || "—"} />
           <EvidenceItem icon="power" label={match.power ? "Power" : "Pi Δ"} value={powerText || "—"} />
           <EvidenceItem icon="btts" label="BTTS Yes" value={Number.isFinite(bttsYes) ? Math.round(bttsYes * 100) + "%" : "—"} />
-          <EvidenceItem icon="source" label="Sources" value={availableSources + "/6"}>
+          <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
+          <EvidenceItem icon="source" label="Sources" value={availableSources + "/6"} detail={sourceContextDetail || null}>
             <span className="ft5-source-matrix" aria-label="source coverage">
               {sourceMatrix.map(([name, available]) => (
                 <i className={available ? "on" : ""} key={name} title={name + (available ? " available" : " no data")}>{name}</i>
