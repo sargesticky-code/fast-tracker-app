@@ -7,6 +7,7 @@ import {
   cornersValueEdge,
   dataCompleteness,
   dataCoverageMatrix,
+  dataGapAction,
   dataGapDiagnostic,
   formatKickoff,
   formatOdds,
@@ -20,7 +21,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "COVERAGE-DIAG-20260925-1";
+const UI_BUILD = "COVERAGE-ACTION-20260926-1";
 
 function pct(value) {
   const n = Number(value);
@@ -204,6 +205,10 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
   const availableSources = completeness.available;
   const coverageTone = completeness.percent >= 80 ? "good" : completeness.percent >= 55 ? "warn" : "danger";
   const selectedGapDiagnostic = coverageGap ? dataGapDiagnostic(match, coverageGap, nowMs) : null;
+  const selectedGapAction = coverageGap ? dataGapAction(match, coverageGap, nowMs) : null;
+  const selectedActionTone = selectedGapAction?.tone === "ready" ? "good"
+    : selectedGapAction?.tone === "wait" ? "warn"
+      : selectedGapAction ? "danger" : coverageTone;
   const decisionValue = match.decision || "—";
   const decisionDetail = [
     match.decisionMarket || null,
@@ -377,14 +382,18 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
           <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
           <EvidenceItem
             icon="source"
-            label={selectedGapDiagnostic ? selectedGapDiagnostic.short + " Diagnosis" : "Coverage"}
-            value={selectedGapDiagnostic ? (selectedGapDiagnostic.available ? "OK" : selectedGapDiagnostic.shortReason) : availableSources + "/" + completeness.total}
+            label={selectedGapAction ? selectedGapDiagnostic.short + " Next" : "Coverage"}
+            value={selectedGapAction ? selectedGapAction.label : availableSources + "/" + completeness.total}
             detail={
-              selectedGapDiagnostic
-                ? [selectedGapDiagnostic.code, selectedGapDiagnostic.detail].filter(Boolean).join(" · ")
+              selectedGapAction
+                ? [
+                    selectedGapDiagnostic.shortReason,
+                    selectedGapDiagnostic.detail,
+                    selectedGapAction.detail,
+                  ].filter(Boolean).join(" · ")
                 : completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))
             }
-            tone={selectedGapDiagnostic ? (selectedGapDiagnostic.available ? "good" : "danger") : coverageTone}
+            tone={selectedActionTone}
           >
             <span className="ft5-source-matrix" aria-label="source coverage">
               {sourceMatrix.map((row) => {
@@ -393,7 +402,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
                   <i
                     className={(row.available ? "on" : "") + (coverageGap === row.key ? " gap-focus" : "")}
                     key={row.key}
-                    title={row.label + (row.available ? " available" : " no data") + (diag && !diag.available ? " · " + diag.code + (diag.detail ? " · " + diag.detail : "") : "")}
+                    title={row.label + (row.available ? " available" : " no data") + (diag && !diag.available ? " · " + diag.code + (diag.detail ? " · " + diag.detail : "") + (selectedGapAction ? " · Next: " + selectedGapAction.label : "") : "")}
                   >{row.short}</i>
                 );
               })}
