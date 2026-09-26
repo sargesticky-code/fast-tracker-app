@@ -407,3 +407,13 @@ Coverage drill-down is operational, not predictive. For a missing source/channel
 - inspect the pipeline for true pipeline gaps
 
 Fail-closed model states such as `MODEL_FAIL_CLOSED / SPARSE_GRAPH_REJECTED` must remain fail-closed and should surface as a sample/data action rather than forcing a prediction. Action status must never alter model probability, betting Edge, or market selection.
+
+
+### Operational action queue
+
+The dashboard aggregates all missing coverage channels into one compact Action Queue. Actions are grouped by operational intent:
+- intervene: alias/matching/pipeline/source checks that need attention
+- rerun: model/engine/source refreshes that are appropriate only when upstream evidence exists
+- wait: market/source/prediction/detail/lineup/sample states that should not be forced
+
+Selecting an action switches the fixture list to the affected unique matches, writes `filter=missing&action=<action>` to the URL, and highlights every source channel in the match that maps to that same action. Match counts are unique fixture counts, not raw gap counts. The queue is diagnostic/operational only and must not alter probability, Edge, model selection, or fail-closed behavior.
