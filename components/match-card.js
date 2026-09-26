@@ -16,12 +16,13 @@ import {
   coverageStatusMeta,
   modelAgreement,
   matchDetailHref,
+  matchGapActions,
   preferredModel,
   reviewPriority,
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "COVERAGE-ACTION-20260926-1";
+const UI_BUILD = "ACTION-QUEUE-20260926-1";
 
 function pct(value) {
   const n = Number(value);
@@ -127,7 +128,7 @@ function totalMarketSummary(match, edge, market, label) {
   };
 }
 
-export default function MatchCard({ match, nowMs, coverageGap = null, changeType = null }) {
+export default function MatchCard({ match, nowMs, coverageGap = null, actionFilter = null, changeType = null }) {
   const edge = valueEdge(match);
   const model = preferredModel(match);
   const goalsEdge = goalsValueEdge(match);
@@ -206,9 +207,15 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
   const coverageTone = completeness.percent >= 80 ? "good" : completeness.percent >= 55 ? "warn" : "danger";
   const selectedGapDiagnostic = coverageGap ? dataGapDiagnostic(match, coverageGap, nowMs) : null;
   const selectedGapAction = coverageGap ? dataGapAction(match, coverageGap, nowMs) : null;
-  const selectedActionTone = selectedGapAction?.tone === "ready" ? "good"
-    : selectedGapAction?.tone === "wait" ? "warn"
-      : selectedGapAction ? "danger" : coverageTone;
+  const actionRows = actionFilter
+    ? matchGapActions(match, nowMs).filter((row) => row.action.key === actionFilter)
+    : [];
+  const selectedQueueAction = actionRows[0]?.action || null;
+  const selectedQueueChannels = actionRows.map((row) => row.channel.short);
+  const selectedAction = selectedQueueAction || selectedGapAction;
+  const selectedActionTone = selectedAction?.tone === "ready" ? "good"
+    : selectedAction?.tone === "wait" ? "warn"
+      : selectedAction ? "danger" : coverageTone;
   const decisionValue = match.decision || "—";
   const decisionDetail = [
     match.decisionMarket || null,
@@ -382,27 +389,41 @@ export default function MatchCard({ match, nowMs, coverageGap = null, changeType
           <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
           <EvidenceItem
             icon="source"
-            label={selectedGapAction ? selectedGapDiagnostic.short + " Next" : "Coverage"}
-            value={selectedGapAction ? selectedGapAction.label : availableSources + "/" + completeness.total}
+            label={
+              selectedQueueAction
+                ? "Action · " + selectedQueueChannels.join("/")
+                : selectedGapAction
+                  ? selectedGapDiagnostic.short + " Next"
+                  : "Coverage"
+            }
+            value={selectedAction ? selectedAction.label : availableSources + "/" + completeness.total}
             detail={
-              selectedGapAction
-                ? [
-                    selectedGapDiagnostic.shortReason,
-                    selectedGapDiagnostic.detail,
-                    selectedGapAction.detail,
-                  ].filter(Boolean).join(" · ")
-                : completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))
+              selectedQueueAction
+                ? actionRows.map((row) => row.channel.short + " " + row.action.diagnostic.shortReason).join(" · ") + (selectedQueueAction.detail ? " · " + selectedQueueAction.detail : "")
+                : selectedGapAction
+                  ? [
+                      selectedGapDiagnostic.shortReason,
+                      selectedGapDiagnostic.detail,
+                      selectedGapAction.detail,
+                    ].filter(Boolean).join(" · ")
+                  : completeness.percent + "% · " + (sourceContextDetail || (completeness.missing.length ? "Missing " + completeness.missing.map((row) => row.short).join("/") : "complete"))
             }
             tone={selectedActionTone}
           >
             <span className="ft5-source-matrix" aria-label="source coverage">
               {sourceMatrix.map((row) => {
                 const diag = coverageGap === row.key ? selectedGapDiagnostic : null;
+                const actionRow = actionRows.find((item) => item.channel.key === row.key) || null;
+                const focused = coverageGap === row.key || Boolean(actionRow);
                 return (
                   <i
-                    className={(row.available ? "on" : "") + (coverageGap === row.key ? " gap-focus" : "")}
+                    className={(row.available ? "on" : "") + (focused ? " gap-focus" : "")}
                     key={row.key}
-                    title={row.label + (row.available ? " available" : " no data") + (diag && !diag.available ? " · " + diag.code + (diag.detail ? " · " + diag.detail : "") + (selectedGapAction ? " · Next: " + selectedGapAction.label : "") : "")}
+                    title={
+                      row.label + (row.available ? " available" : " no data")
+                      + (diag && !diag.available ? " · " + diag.code + (diag.detail ? " · " + diag.detail : "") + (selectedGapAction ? " · Next: " + selectedGapAction.label : "") : "")
+                      + (actionRow ? " · " + actionRow.action.diagnostic.code + " · Next: " + actionRow.action.label : "")
+                    }
                   >{row.short}</i>
                 );
               })}
