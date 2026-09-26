@@ -892,6 +892,11 @@ function ActionQueue({ matches, selectedAction = null, onSelectAction, nowMs = D
     rerun: queue.filter((row) => row.group === "rerun"),
     wait: queue.filter((row) => row.group === "wait"),
   };
+  const affectedMatches = new Set(
+    matches
+      .filter((match) => matchGapActions(match, nowMs).length > 0)
+      .map((match) => String(match.id))
+  ).size;
   const groupMatchCount = (rows) => new Set(
     matches
       .filter((match) => matchGapActions(match, nowMs).some((row) => rows.some((item) => item.key === row.action.key)))
@@ -909,7 +914,7 @@ function ActionQueue({ matches, selectedAction = null, onSelectAction, nowMs = D
         title="Show all missing-data actions"
       >
         <span>ACTION QUEUE</span>
-        <b>{queue.reduce((sum, row) => sum + row.matchCount, 0)}</b>
+        <b>{affectedMatches}</b>
         <small>
           修復 {groupMatchCount(groups.intervene)} · 重跑 {groupMatchCount(groups.rerun)} · 等待 {groupMatchCount(groups.wait)}
         </small>
