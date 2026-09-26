@@ -394,3 +394,16 @@ The global coverage board, per-match Coverage matrix and Missing/Gaps sorting mu
 
 - Source-specific gap diagnostics use feed-native status fields rather than guessed causes. Examples: Forebet coverage/check state, DC/Pi missingReason and training quality, Form coverage/quality, Multi-source match status/reason, Context identity/confidence/detail availability, and Engine evidence/fallback state.
 - The selected coverage tile shows the dominant missing reason; the selected match Coverage cell shows the exact diagnostic code plus supporting detail. Keep these diagnostics descriptive only and do not convert them into model probability or betting Edge.
+
+
+### Coverage action status
+
+Coverage drill-down is operational, not predictive. For a missing source/channel, `dataGapAction()` maps feed-native diagnosis to the next operational step, for example:
+- wait for the next source capture / market refresh
+- fix team alias or fixture matching
+- wait for prediction/detail/lineup
+- build more model/form sample
+- rerun a model or decision engine only when upstream evidence is sufficient
+- inspect the pipeline for true pipeline gaps
+
+Fail-closed model states such as `MODEL_FAIL_CLOSED / SPARSE_GRAPH_REJECTED` must remain fail-closed and should surface as a sample/data action rather than forcing a prediction. Action status must never alter model probability, betting Edge, or market selection.
