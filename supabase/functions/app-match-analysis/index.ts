@@ -1048,6 +1048,9 @@ Deno.serve(async (req: Request) => {
     edgePpNow !== null ? `模型 vs fair 機率差 ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : null,
     `${support}/${decisionFamilies.length} 模型 family 支持`,
     decisionFamilies.length === 1 ? "只有 1 個獨立模型 family，方向只列觀望" : null,
+    expectedValuePctNow !== null && expectedValuePctNow >= 4 && edgePpNow !== null && edgePpNow < 3
+      ? "EV 雖高但機率差不足 3pp，高賠率放大效應：只列觀望"
+      : null,
     dispersion !== null ? `模型分歧 ${(dispersion * 100).toFixed(1)}pp` : null,
     live ? `${liveMetricCount} 項 live metrics` : null,
     liveContradiction ? "即場走勢與預期矛盾，降為觀望" : null,
@@ -1063,9 +1066,12 @@ Deno.serve(async (req: Request) => {
   else if ((best.expectedValue ?? -1) <= 0) candidate = "NO_EDGE";
   else if (decisionFamilies.length < 2) candidate = "WATCH";
   else if (liveContradiction || (dispersion !== null && dispersion > 0.18)) candidate = "WATCH";
-  else if ((best.expectedValue ?? -1) >= 0.08 && agreement >= 0.66 && confidenceScore >= 65) candidate = "STRONG_VALUE_CANDIDATE";
-  else if ((best.expectedValue ?? -1) >= 0.04 && agreement >= 0.50 && confidenceScore >= 50) candidate = "VALUE_CANDIDATE";
-  else if ((best.expectedValue ?? -1) >= 0.02 && confidenceScore >= 40) candidate = "LEAN";
+  // Use a dual gate: actual-price EV must be positive AND the model-market
+  // probability gap must be large enough. This prevents long odds from turning
+  // a tiny probability disagreement into a misleading "Strong Value".
+  else if ((best.expectedValue ?? -1) >= 0.08 && (best.edge ?? -1) >= 0.06 && agreement >= 0.66 && confidenceScore >= 65) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.expectedValue ?? -1) >= 0.04 && (best.edge ?? -1) >= 0.03 && agreement >= 0.50 && confidenceScore >= 50) candidate = "VALUE_CANDIDATE";
+  else if ((best.expectedValue ?? -1) >= 0.02 && (best.edge ?? -1) >= 0.015 && confidenceScore >= 40) candidate = "LEAN";
   else candidate = "WATCH";
 
   const productionValidated = !fallbackMode && !pipelineGate.includes("CALIBRATION") && pipelineGate !== "";
@@ -1300,9 +1306,9 @@ Deno.serve(async (req: Request) => {
     } else if (candidate === "LEAN") {
       advice = `輕注／偏向 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}）。方向存在，但優勢未到 Value 級。`;
     } else if (candidate === "WATCH") {
-      advice = `觀望 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；有正值但模型支持、分歧或信心未夠厚，等價位／場面再改善。`;
+      advice = `觀望 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；EV 為正，但機率差 ${edgeText}、模型支持、分歧或信心其中一項未達 Value 門檻，等價位／場面再改善。`;
     } else {
-      advice = `暫時跳過：${stateText} 後，模型同 HKJC live fair 未形成正 Edge。`;
+      advice = `暫時跳過：${stateText} 後，按 HKJC live 現價計算，最佳方向 EV 仍然 ≤ 0%，所以唔落注。`;
     }
   }
   else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：現價 EV ${evText}，但獨立 evidence family 太少或模型分歧未收斂，暫未提升至 Value。` : advice;
