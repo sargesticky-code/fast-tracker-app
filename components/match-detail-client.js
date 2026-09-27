@@ -1127,10 +1127,14 @@ export default function MatchDetailClient() {
 
           <div className="detail-decision-edge">
             <span>{gapLabel}</span>
-            <strong>{primaryEdgePp == null || !Number.isFinite(primaryEdgePp) ? "—" : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}</strong>
+            <strong>{Number.isFinite(primaryExpectedValuePct)
+              ? (primaryExpectedValuePct >= 0 ? "+" : "") + primaryExpectedValuePct.toFixed(1) + "%"
+              : primaryEdgePp == null || !Number.isFinite(primaryEdgePp)
+                ? "—"
+                : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}</strong>
             <small style={{ display:"block", marginTop:4, color:"#6f8177", fontSize:8, fontWeight:850 }}>
               {Number.isFinite(primaryModelProbability) && Number.isFinite(primaryMarketProbability)
-                ? `模型 ${(primaryModelProbability * 100).toFixed(1)}% − HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%`
+                ? `模型 ${(primaryModelProbability * 100).toFixed(1)}% · HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · 機率差 " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
                 : "等待可比較概率"}
             </small>
           </div>
