@@ -13,7 +13,10 @@ function side(row) {
 }
 
 function formation(rows) {
-  return rows.find((r) => r?.formation)?.formation || rows.find((r) => r?.formation_name)?.formation_name || null;
+  return rows.find((r) => r?.formation)?.formation
+    || rows.find((r) => r?.formation_name)?.formation_name
+    || rows.find((r) => r?.raw?.formation)?.raw?.formation
+    || null;
 }
 
 function findLineup(payload) {
