@@ -153,17 +153,32 @@ function statusTone(status) {
 
 function statusLabel(row) {
   return String(
-    row?.status
+    row?.status_type
+      || row?.status
       || row?.availability
       || row?.player_status
       || row?.classification
       || row?.reason
+      || row?.raw?.unavailability?.type
       || "UNKNOWN"
   ).toUpperCase();
 }
 
+function statusDetail(row) {
+  return row?.status_value
+    || row?.expected_return
+    || row?.raw?.unavailability?.expectedReturn
+    || row?.raw?.unavailability?.reason
+    || null;
+}
+
 function statusName(row) {
-  return row?.player_name || row?.name || row?.player || row?.player_key || "Unknown player";
+  return row?.player_name
+    || row?.name
+    || row?.player
+    || row?.raw?.player_name
+    || row?.player_key
+    || "Unknown player";
 }
 
 function statusSide(row) {
@@ -172,7 +187,15 @@ function statusSide(row) {
 }
 
 function managerName(row) {
-  return row?.manager_name || row?.name || row?.manager || row?.coach_name || row?.coach || null;
+  return row?.manager_name
+    || row?.evidence_value
+    || row?.name
+    || row?.manager
+    || row?.coach_name
+    || row?.coach
+    || row?.raw?.manager_name
+    || row?.raw?.name
+    || null;
 }
 
 function managerSide(row) {
@@ -310,8 +333,11 @@ function AvailabilityPanel({ rows, homeTeam, awayTeam }) {
             <div style={{display:"grid",gap:6,marginTop:9}}>
               {list.length ? list.map((row, i) => (
                 <div key={row?.id || i} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"8px 9px",borderRadius:10,background:"#fff7f4"}}>
-                  <span style={{fontSize:10,fontWeight:800,color:"#3a443f"}}>{statusName(row)}</span>
-                  <b style={{fontSize:9,color:"#a34d3e"}}>{statusLabel(row)}</b>
+                  <div style={{minWidth:0}}>
+                    <span style={{display:"block",fontSize:10,fontWeight:800,color:"#3a443f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statusName(row)}</span>
+                    {statusDetail(row) ? <small style={{display:"block",marginTop:2,fontSize:8.5,color:"#8b746d"}}>{statusDetail(row)}</small> : null}
+                  </div>
+                  <b style={{fontSize:9,color:"#a34d3e",whiteSpace:"nowrap"}}>{statusLabel(row)}</b>
                 </div>
               )) : <small style={{fontSize:10,color:palette.muted}}>No team-specific status rows</small>}
             </div>
