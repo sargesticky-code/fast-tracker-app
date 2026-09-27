@@ -442,14 +442,43 @@ function buildHandicapAdvice(opts: {
   };
 }
 
-function maxEdge(consensus: T | null, market: T | null) {
-  if (!consensus || !market) return { side: null as "H"|"D"|"A"|null, edge: null as number|null };
-  const edges = [
-    { side: "H" as const, edge: consensus.home - market.home },
-    { side: "D" as const, edge: consensus.draw - market.draw },
-    { side: "A" as const, edge: consensus.away - market.away },
-  ].sort((a,b) => b.edge - a.edge);
-  return edges[0];
+function maxHdaValue(
+  consensus: T | null,
+  market: T | null,
+  oddsBySide: { H: number | null; D: number | null; A: number | null },
+) {
+  if (!consensus || !market) {
+    return {
+      side: null as "H"|"D"|"A"|null,
+      edge: null as number|null,
+      expectedValue: null as number|null,
+      modelProbability: null as number|null,
+      marketProbability: null as number|null,
+      odds: null as number|null,
+    };
+  }
+  const rows = [
+    { side: "H" as const, modelProbability: consensus.home, marketProbability: market.home, odds: oddsBySide.H },
+    { side: "D" as const, modelProbability: consensus.draw, marketProbability: market.draw, odds: oddsBySide.D },
+    { side: "A" as const, modelProbability: consensus.away, marketProbability: market.away, odds: oddsBySide.A },
+  ].filter((row) => row.odds !== null && row.odds > 1)
+    .map((row) => ({
+      ...row,
+      edge: row.modelProbability - row.marketProbability,
+      expectedValue: row.modelProbability * (row.odds as number) - 1,
+    }))
+    .sort((a, b) => b.expectedValue - a.expectedValue);
+  if (!rows.length) {
+    return {
+      side: null as "H"|"D"|"A"|null,
+      edge: null as number|null,
+      expectedValue: null as number|null,
+      modelProbability: null as number|null,
+      marketProbability: null as number|null,
+      odds: null as number|null,
+    };
+  }
+  return rows[0];
 }
 
 function oneError(e: any) {
@@ -548,20 +577,27 @@ function buildBinaryAdvice(opts: {
   const modelUnder = modelOver === null ? null : 1 - modelOver;
   const overEdge = market && modelOver !== null ? modelOver - market.over : null;
   const underEdge = market && modelUnder !== null ? modelUnder - market.under : null;
+  const overOdds = n(opts.overOdds);
+  const underOdds = n(opts.underOdds);
+  const overExpectedValue = modelOver !== null && overOdds !== null && overOdds > 1 ? modelOver * overOdds - 1 : null;
+  const underExpectedValue = modelUnder !== null && underOdds !== null && underOdds > 1 ? modelUnder * underOdds - 1 : null;
 
   let selection: "OVER" | "UNDER" | null = null;
   let edge: number | null = null;
-  if (overEdge !== null && underEdge !== null) {
-    if (overEdge >= underEdge) {
-      selection = overEdge > 0 ? "OVER" : null;
-      edge = overEdge;
+  let expectedValue: number | null = null;
+  if (overExpectedValue !== null || underExpectedValue !== null) {
+    if ((overExpectedValue ?? -999) >= (underExpectedValue ?? -999)) {
+      selection = (overExpectedValue ?? -1) > 0 ? "OVER" : null;
+      edge = selection ? overEdge : null;
+      expectedValue = selection ? overExpectedValue : Math.max(overExpectedValue ?? -999, underExpectedValue ?? -999);
     } else {
-      selection = underEdge > 0 ? "UNDER" : null;
-      edge = underEdge;
+      selection = (underExpectedValue ?? -1) > 0 ? "UNDER" : null;
+      edge = selection ? underEdge : null;
+      expectedValue = selection ? underExpectedValue : Math.max(overExpectedValue ?? -999, underExpectedValue ?? -999);
     }
   }
 
-  const odds = selection === "OVER" ? n(opts.overOdds) : selection === "UNDER" ? n(opts.underOdds) : null;
+  const odds = selection === "OVER" ? overOdds : selection === "UNDER" ? underOdds : null;
   const modelProbability = selection === "OVER" ? modelOver : selection === "UNDER" ? modelUnder : null;
   const marketProbability = selection === "OVER" ? market?.over ?? null : selection === "UNDER" ? market?.under ?? null : null;
   const lineText = line === null ? "—" : String(line).replace(/\.0$/, "");
@@ -593,12 +629,12 @@ function buildBinaryAdvice(opts: {
   let candidateClass = "NO_EDGE";
   if (dataRiskReason) candidateClass = "DATA_RISK";
   else if (!models.length) candidateClass = "NO_MODEL";
-  else if (selection === null || edge === null || edge <= 0) candidateClass = "NO_EDGE";
+  else if (selection === null || expectedValue === null || expectedValue <= 0) candidateClass = "NO_EDGE";
   else if (models.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
   else if (dispersion !== null && dispersion > 0.18) candidateClass = "WATCH_MODEL_SPLIT";
-  else if (edge >= 0.10 && supportRatio >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidateClass = "STRONG_VALUE_CANDIDATE";
-  else if (edge >= 0.05 && supportRatio >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidateClass = "VALUE_CANDIDATE";
-  else if (edge >= 0.025) candidateClass = "LEAN";
+  else if (expectedValue >= 0.08 && supportRatio >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidateClass = "STRONG_VALUE_CANDIDATE";
+  else if (expectedValue >= 0.04 && supportRatio >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidateClass = "VALUE_CANDIDATE";
+  else if (expectedValue >= 0.02) candidateClass = "LEAN";
   else candidateClass = "WATCH";
 
   const action = candidateClass === "DATA_RISK" ? "NO_BET"
@@ -608,6 +644,7 @@ function buildBinaryAdvice(opts: {
     : "WATCH";
 
   const edgePp = edge === null ? null : edge * 100;
+  const expectedValuePct = expectedValue === null || !Number.isFinite(expectedValue) ? null : expectedValue * 100;
   const sourceCount = models.reduce((s, m) => s + Math.max(1, Number(m.sources || 1)), 0);
   let advice = "PASS：未有足夠模型證據形成方向。";
   if (candidateClass === "DATA_RISK") {
@@ -621,14 +658,14 @@ function buildBinaryAdvice(opts: {
     advice = `${opts.label}：暫不下注，因為${why}；呢個係資料 gate，唔代表市場本身冇價值。`;
   }
   else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 現盤，但未有可比較模型，所以暫不下注；原因係冇模型，而唔係計過冇 Edge。`;
-  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：已完成模型 vs HKJC fair probability 計算，暫未形成正 Edge，跳過。`;
+  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：已按現價計算，最佳方向 EV 仍然 ≤ 0%，所以跳過。`;
   else if (selection) {
     const lead = candidateClass.includes("VALUE")
       ? "Value 候選"
       : candidateClass === "LEAN"
         ? "輕微傾向"
         : "觀察";
-    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}，Edge ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}，${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}。`;
+    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；現價 EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}，模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}（機率差 ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}），${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}。`;
   }
 
   return {
@@ -643,6 +680,7 @@ function buildBinaryAdvice(opts: {
     marketFairProbability: marketProbability,
     analystConsensusProbability: modelProbability,
     candidateEdgePp: edgePp,
+    expectedValuePct,
     candidateClass,
     action,
     dataRiskReason,
@@ -923,17 +961,16 @@ Deno.serve(async (req: Request) => {
 
   const consensus = weighted(decisionFamilies);
   const market = live ? liveMarket : fairMarket(r);
-  const best = maxEdge(consensus, market);
-  const bestSide = best.edge !== null && best.edge > 0 ? best.side : null;
-  const bestProb = bestSide ? val(consensus, bestSide) : null;
-  const marketProb = bestSide ? val(market, bestSide) : null;
-  const bestOdds = bestSide
-    ? (live
-        ? (bestSide === "H" ? n(liveMarketInput.hkjc_home_odds)
-          : bestSide === "D" ? n(liveMarketInput.hkjc_draw_odds)
-          : n(liveMarketInput.hkjc_away_odds))
-        : oddsFor(r, bestSide))
-    : null;
+  const hdaOdds = {
+    H: live ? n(liveMarketInput.hkjc_home_odds) : n(r.hkjc_home_odds),
+    D: live ? n(liveMarketInput.hkjc_draw_odds) : n(r.hkjc_draw_odds),
+    A: live ? n(liveMarketInput.hkjc_away_odds) : n(r.hkjc_away_odds),
+  };
+  const best = maxHdaValue(consensus, market, hdaOdds);
+  const bestSide = best.expectedValue !== null && best.expectedValue > 0 ? best.side : null;
+  const bestProb = bestSide ? best.modelProbability : null;
+  const marketProb = bestSide ? best.marketProbability : null;
+  const bestOdds = bestSide ? best.odds : null;
 
   // Value support means the model family prices the candidate above the current no-vig market.
   const support = bestSide && market
@@ -974,10 +1011,11 @@ Deno.serve(async (req: Request) => {
     live && shadow?.shadow_status &&
     ["CONTRADICTION","REJECT","RISK"].some((k) => String(shadow.shadow_status).toUpperCase().includes(k))
   );
-  const edgePpNow = best.edge === null ? null : best.edge * 100;
+  const edgePpNow = bestSide && best.edge !== null ? best.edge * 100 : null;
+  const expectedValuePctNow = bestSide && best.expectedValue !== null ? best.expectedValue * 100 : null;
   const liveMetricCount = Number(shadow?.live_metric_count ?? 0);
   const confidenceParts = {
-    edge: edgePpNow === null ? 0 : clamp(edgePpNow * 3.2, 0, 36),
+    edge: expectedValuePctNow === null ? 0 : clamp(expectedValuePctNow * 3.2, 0, 36),
     evidence: clamp(decisionFamilies.length * 6, 0, 18),
     agreement: clamp(agreement * 18, 0, 18),
     live: live ? clamp(liveMetricCount * 1.8, 0, 10) : 6,
@@ -1006,7 +1044,8 @@ Deno.serve(async (req: Request) => {
         : "低";
 
   const recommendationReasons = [
-    edgePpNow !== null ? `Edge ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : "無可計 Edge",
+    expectedValuePctNow !== null ? `現價 EV ${expectedValuePctNow >= 0 ? "+" : ""}${expectedValuePctNow.toFixed(1)}%` : "無可計現價 EV",
+    edgePpNow !== null ? `模型 vs fair 機率差 ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : null,
     `${support}/${decisionFamilies.length} 模型 family 支持`,
     decisionFamilies.length === 1 ? "只有 1 個獨立模型 family，方向只列觀望" : null,
     dispersion !== null ? `模型分歧 ${(dispersion * 100).toFixed(1)}pp` : null,
@@ -1021,12 +1060,12 @@ Deno.serve(async (req: Request) => {
   // is a corroborating gate, not a second copy of the Edge threshold.
   let candidate = "NO_EDGE";
   if (!market || !decisionFamilies.length || !fresh || hardLiveDataGap || fallbackMode) candidate = "DATA_RISK";
-  else if ((best.edge ?? -1) <= 0) candidate = "NO_EDGE";
+  else if ((best.expectedValue ?? -1) <= 0) candidate = "NO_EDGE";
   else if (decisionFamilies.length < 2) candidate = "WATCH";
   else if (liveContradiction || (dispersion !== null && dispersion > 0.18)) candidate = "WATCH";
-  else if ((best.edge ?? -1) >= 0.08 && agreement >= 0.66 && confidenceScore >= 65) candidate = "STRONG_VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.04 && agreement >= 0.50 && confidenceScore >= 50) candidate = "VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.02 && confidenceScore >= 40) candidate = "LEAN";
+  else if ((best.expectedValue ?? -1) >= 0.08 && agreement >= 0.66 && confidenceScore >= 65) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.expectedValue ?? -1) >= 0.04 && agreement >= 0.50 && confidenceScore >= 50) candidate = "VALUE_CANDIDATE";
+  else if ((best.expectedValue ?? -1) >= 0.02 && confidenceScore >= 40) candidate = "LEAN";
   else candidate = "WATCH";
 
   const productionValidated = !fallbackMode && !pipelineGate.includes("CALIBRATION") && pipelineGate !== "";
@@ -1157,7 +1196,8 @@ Deno.serve(async (req: Request) => {
   });
 
   const selection = sideLabel(bestSide, home, away);
-  const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "pp");
+  const edgeText = edgePpNow === null ? "—" : ((edgePpNow >= 0 ? "+" : "") + edgePpNow.toFixed(1) + "pp");
+  const evText = expectedValuePctNow === null ? "—" : ((expectedValuePctNow >= 0 ? "+" : "") + expectedValuePctNow.toFixed(1) + "%");
   const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
   const priceRead = fallbackMode
     ? (bestOdds === null ? "HKJC current price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
@@ -1216,7 +1256,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const headline = bestSide && best.edge !== null
-    ? `${selection} · ${edgeText} 模型—市場差`
+    ? `${selection} · EV ${evText} · 機率差 ${edgeText}`
     : `${home} vs ${away} · 暫未見可執行 Edge`;
 
   const modelConsensusLabel = families.length >= 3 && agreement >= 0.66 && (dispersion === null || dispersion <= 0.12)
@@ -1227,7 +1267,7 @@ Deno.serve(async (req: Request) => {
   const strongestSupport = supportingFamilies[0] || null;
   const strongestOpposition = opposingFamilies[0] || null;
   const professionalSummary = bestSide && best.edge !== null
-    ? `HKJC 對 ${selection} 嘅 fair probability 約 ${pct(marketProb)}，跨模型中心約 ${pct(bestProb)}，形成 ${edgeText} 差距。${priceRead}；${modelConsensusLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
+    ? `${priceRead}；模型估計 ${selection} 勝率 ${pct(bestProb)}，按現價計 EV ${evText}。HKJC no-vig fair 約 ${pct(marketProb)}，機率差 ${edgeText}；${modelConsensusLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
     : `目前市場與可用模型未形成清晰正 Edge；先以資料完整度同價格變化為主。`;
   const supportRead = bestSide
     ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "pp" : "暫無明顯支持"}。`
@@ -1256,18 +1296,18 @@ Deno.serve(async (req: Request) => {
       ? `${liveState?.metricCount} 項 live metrics，場面控制 ${liveState?.actualSide || "—"}`
       : "暫時主要靠比分、分鐘、即場賠率同賽前模型";
     if (candidate.includes("VALUE_CANDIDATE")) {
-      advice = `可考慮下注 ${selection} @ ${oddsText}：${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}，${supportingFamilies.length}/${decisionFamilies.length} 個模型 family 支持；${liveEvidenceText}。`;
+      advice = `可考慮下注 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}），${supportingFamilies.length}/${decisionFamilies.length} 個模型 family 支持；${liveEvidenceText}。`;
     } else if (candidate === "LEAN") {
-      advice = `輕注／偏向 ${selection} @ ${oddsText}：${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}。方向存在，但優勢未到 Value 級。`;
+      advice = `輕注／偏向 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}）。方向存在，但優勢未到 Value 級。`;
     } else if (candidate === "WATCH") {
-      advice = `觀望 ${selection} @ ${oddsText}：${stateText}；現時 Edge ${edgeText}，但模型支持或優勢幅度未夠厚，等價位／場面再改善。`;
+      advice = `觀望 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；有正值但模型支持、分歧或信心未夠厚，等價位／場面再改善。`;
     } else {
       advice = `暫時跳過：${stateText} 後，模型同 HKJC live fair 未形成正 Edge。`;
     }
   }
-  else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：市場與模型有初步差異，但獨立 evidence family 太少，未足以提升信心。` : advice;
-  else if (candidate === "LEAN") advice = `輕微傾向 ${selection} @ ${oddsText}：Edge ${edgeText}，但屬觀察級。`;
-  else if (candidate.includes("VALUE_CANDIDATE")) advice = `Value 候選 ${selection} @ ${oddsText}：Edge ${edgeText}，${supportingFamilies.length}/${decisionFamilies.length} 個 evidence family 支持。`;
+  else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：現價 EV ${evText}，但獨立 evidence family 太少或模型分歧未收斂，暫未提升至 Value。` : advice;
+  else if (candidate === "LEAN") advice = `輕微傾向 ${selection} @ ${oddsText}：現價 EV ${evText}（機率差 ${edgeText}），但未到 Value 級。`;
+  else if (candidate.includes("VALUE_CANDIDATE")) advice = `Value 候選 ${selection} @ ${oddsText}：現價 EV ${evText}（機率差 ${edgeText}），${supportingFamilies.length}/${decisionFamilies.length} 個 evidence family 支持。`;
   if (!productionValidated && !["DATA_RISK","NO_EDGE"].includes(candidate)) {
     advice += " Phase 5 calibration 未完成只限制自動 stake sizing；方向同 Edge 照常顯示。";
   }
@@ -1309,7 +1349,8 @@ Deno.serve(async (req: Request) => {
       oddsStatus: fallbackMode ? "REFERENCE_STALE" : "CURRENT",
       marketFairProbability: marketProb,
       analystConsensusProbability: bestProb,
-      candidateEdgePp: best.edge === null ? null : best.edge * 100,
+      candidateEdgePp: edgePpNow,
+      expectedValuePct: expectedValuePctNow,
       confidenceScore,
       confidenceLabel,
       recommendationReasons,
