@@ -418,7 +418,7 @@ function LiveMatchRow({ match, changeType = null, nowMs = Date.now() }) {
   const stats = live.stats || null;
   const shadow = live.shadow || null;
   const showStats = hasReadableLiveStats(stats);
-  const league = leagueDisplayName(cleanLiveToken(match.league)) || "LIVE";
+  const league = leagueDisplayName(cleanLiveToken(match.leagueZh) || cleanLiveToken(match.league)) || "LIVE";
   const homeName = cleanLiveToken(match.homeZh) || cleanLiveToken(match.home) || "主隊";
   const awayName = cleanLiveToken(match.awayZh) || cleanLiveToken(match.away) || "客隊";
   const goalsLine = cleanLiveToken(live.goals?.line) || "—";
@@ -644,7 +644,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
         <div className="ft5-topbet-fixture">
           <div>
             <span>{formatKickoff(match.kickoff)}</span>
-            <small>{leagueDisplayName(match.league)}</small>
+            <small>{leagueDisplayName(match.leagueZh || match.league)}</small>
             <small>{modelSourceLabel(match)}</small>
             <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
             {scriptBits.length ? (
