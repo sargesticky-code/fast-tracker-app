@@ -567,6 +567,236 @@ Deno.serve(async (req: Request) => {
     sources: multiCount,
   });
 
+  const home = r.home_zh || r.home_en || "主隊";
+  const away = r.away_zh || r.away_en || "客隊";
+  const shadow = liveShadow.data;
+  const liveOddsRow:any = liveOdds.data || null;
+  const live = Boolean(r.live_now || liveScore.data || liveOddsRow);
+  const explicitLiveMinute =
+    n(liveScore.data?.minute) ??
+    n(liveStats.data?.match_minute) ??
+    n(shadow?.match_minute) ??
+    n(r.live_minute);
+  const resolvedLiveMinute = live
+    ? (explicitLiveMinute ?? inferredLiveMinute(null, r.kickoff_hkt))
+    : null;
+  const scorePair = live
+    ? liveScorePair(
+        liveScore.data?.live_score ?? liveStats.data?.live_score ?? shadow?.live_score ?? r.live_score,
+        liveScore.data?.home_score ?? r.live_home_score,
+        liveScore.data?.away_score ?? r.live_away_score,
+      )
+    : null;
+
+  const liveMarketInput = {
+    hkjc_home_odds: liveOddsRow?.had_home ?? r.live_had_home,
+    hkjc_draw_odds: liveOddsRow?.had_draw ?? r.live_had_draw,
+    hkjc_away_odds: liveOddsRow?.had_away ?? r.live_had_away,
+  };
+  const liveMarket = live ? fairMarket(liveMarketInput) : null;
+  const liveOddsAgeSeconds = live
+    ? secondsOld(liveOddsRow?.fetched_at ?? liveOddsRow?.odds_updated_at ?? r.live_fetched_at ?? r.live_odds_updated_at)
+    : null;
+  const liveFresh = live && liveMarket
+    ? liveOddsAgeSeconds !== null && liveOddsAgeSeconds <= 240
+    : false;
+
+  const dcMean = (n(modelTotals.data?.dc_xg_home) ?? 0) + (n(modelTotals.data?.dc_xg_away) ?? 0);
+  const prematchTotalMean = n(r.forebet_avg_goals) ?? (dcMean > 0 ? dcMean : 2.7);
+  const prematchConsensus = weighted(families);
+  const canStateAdjust = Boolean(live && prematchConsensus && scorePair && resolvedLiveMinute !== null);
+  const decisionFamilies: Family[] = canStateAdjust
+    ? families.map((f) => ({
+        ...f,
+        probs: liveStateAdjustedTriplet(
+          f.probs,
+          scorePair!.home,
+          scorePair!.away,
+          resolvedLiveMinute!,
+          prematchTotalMean,
+          shadow,
+        ),
+      }))
+    : families;
+
+  const consensus = weighted(decisionFamilies);
+  const market = live ? liveMarket : fairMarket(r);
+  const best = maxEdge(consensus, market);
+  const bestSide = best.edge !== null && best.edge > 0 ? best.side : null;
+  const bestProb = bestSide ? val(consensus, bestSide) : null;
+  const marketProb = bestSide ? val(market, bestSide) : null;
+  const bestOdds = bestSide
+    ? (live
+        ? (bestSide === "H" ? n(liveMarketInput.hkjc_home_odds)
+          : bestSide === "D" ? n(liveMarketInput.hkjc_draw_odds)
+          : n(liveMarketInput.hkjc_away_odds))
+        : oddsFor(r, bestSide))
+    : null;
+
+  // Value support means the model family prices the candidate above the current no-vig market.
+  const support = bestSide && market
+    ? decisionFamilies.filter(x => (val(x.probs, bestSide) ?? -1) > (val(market, bestSide) ?? 2)).length
+    : 0;
+  const agreement = decisionFamilies.length ? support / decisionFamilies.length : 0;
+  const selectedFamilyValues = bestSide
+    ? decisionFamilies.map(x => val(x.probs, bestSide)).filter((x): x is number => x !== null)
+    : [];
+  const dispersion = selectedFamilyValues.length >= 2
+    ? Math.max(...selectedFamilyValues) - Math.min(...selectedFamilyValues)
+    : null;
+  const familySupport = bestSide && market
+    ? decisionFamilies.map((f) => {
+        const probability = val(f.probs, bestSide);
+        const fair = val(market, bestSide);
+        return {
+          key: f.key,
+          label: f.label,
+          probability,
+          edgePp: probability === null || fair === null ? null : (probability - fair) * 100,
+          supports: probability !== null && fair !== null ? probability > fair : false,
+        };
+      })
+    : [];
+  const supportingFamilies = familySupport.filter((x) => x.supports).sort((a,b) => (b.edgePp ?? -999) - (a.edgePp ?? -999));
+  const opposingFamilies = familySupport.filter((x) => !x.supports).sort((a,b) => (a.edgePp ?? 999) - (b.edgePp ?? 999));
+
+  const phase1HealthOk = String(r.health_status || "").toUpperCase() === "OK";
+  const healthOk = live ? Boolean(market && decisionFamilies.length) : phase1HealthOk;
+  const fresh = live ? liveFresh : String(r.hkjc_freshness || "").toUpperCase() === "FRESH";
+  const pipelineGate = String(r.decision || "").toUpperCase();
+
+  // A hard NO_BET is now reserved for cases where the live calculation itself is not trustworthy.
+  // Calibration and partial Phase 1 coverage may limit staking confidence, but must not erase a real edge.
+  const hardLiveDataGap = Boolean(live && (!scorePair || resolvedLiveMinute === null));
+  let candidate = "NO_EDGE";
+  if (!market || !decisionFamilies.length || !fresh || hardLiveDataGap || fallbackMode) candidate = "DATA_RISK";
+  else if (decisionFamilies.length < 2) candidate = "WATCH";
+  else if ((best.edge ?? -1) >= 0.10 && agreement >= 0.66) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.05 && agreement >= 0.50) candidate = "VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.025) candidate = "LEAN";
+  else if ((best.edge ?? -1) > 0) candidate = "WATCH";
+  else candidate = "NO_EDGE";
+
+  const productionValidated = !fallbackMode && !pipelineGate.includes("CALIBRATION") && pipelineGate !== "";
+  // This is a recommendation/action label, not an auto-staking permission.
+  const action = candidate === "DATA_RISK" ? "NO_BET"
+    : candidate === "NO_EDGE" ? "PASS"
+    : candidate;
+
+  const currentGoalsLine = live ? (liveOddsRow?.hil_line ?? r.live_hil_line) : r.hkjc_goals_line;
+  const currentGoalsOver = live ? (liveOddsRow?.hil_over ?? r.live_hil_over) : r.hkjc_goals_over;
+  const currentGoalsUnder = live ? (liveOddsRow?.hil_under ?? r.live_hil_under) : r.hkjc_goals_under;
+  const currentCornersLine = live ? (liveOddsRow?.chl_line ?? r.live_chl_line) : r.hkjc_corners_line;
+  const currentCornersOver = live ? (liveOddsRow?.chl_over ?? r.live_chl_over) : r.hkjc_corners_over;
+  const currentCornersUnder = live ? (liveOddsRow?.chl_under ?? r.live_chl_under) : r.hkjc_corners_under;
+
+  const goalsModels: BinaryModel[] = [];
+  const goalsLine = n(currentGoalsLine);
+  const currentGoalTotal = scorePair ? scorePair.home + scorePair.away : 0;
+  const goalPaceRatio = live && resolvedLiveMinute !== null
+    ? livePaceRatio(prematchTotalMean, resolvedLiveMinute, shadow)
+    : 1;
+  const forebetGoals = live && resolvedLiveMinute !== null
+    ? liveResidualOver(r.forebet_avg_goals, currentGoalTotal, resolvedLiveMinute, currentGoalsLine, goalPaceRatio)
+    : currentLineOver(currentGoalsLine, r.forebet_avg_goals, 2.5, r.forebet_ou_over);
+  if (forebetGoals !== null && forebetGoals !== undefined) {
+    goalsModels.push({
+      key: "FOREBET",
+      label: live ? "Forebet live residual" : "Forebet goals",
+      over: typeof forebetGoals === "number" ? forebetGoals : forebetGoals.over,
+      weight: 1,
+      method: live ? "LIVE_RESIDUAL_POISSON" : forebetGoals.method,
+    });
+  }
+  const dcGoalsOver = dcMean > 0 && goalsLine !== null
+    ? (live && resolvedLiveMinute !== null
+        ? liveResidualOver(dcMean, currentGoalTotal, resolvedLiveMinute, currentGoalsLine, goalPaceRatio)
+        : poissonOver(dcMean, goalsLine))
+    : null;
+  if (dcGoalsOver !== null) {
+    goalsModels.push({
+      key: "DIXON_COLES",
+      label: live ? "Dixon-Coles live residual" : "Dixon-Coles xG",
+      over: dcGoalsOver,
+      weight: 0.9,
+      method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
+    });
+  }
+  const multiGoalsOver = p(r.multisource_ou_over);
+  if (!live && goalsLine !== null && Math.abs(goalsLine - 2.5) < 0.001 && multiGoalsOver !== null) {
+    goalsModels.push({
+      key: "MULTI",
+      label: "External O/U consensus",
+      over: multiGoalsOver,
+      weight: multiCount >= 2 ? 0.75 : 0.35,
+      sources: Math.max(1, multiCount),
+      method: "NATIVE_OU25",
+    });
+  }
+
+  const cornerModels: BinaryModel[] = [];
+  const currentCornerTotal =
+    n(liveScore.data?.total_corners) ??
+    n(liveStats.data?.total_corners) ??
+    ((n(shadow?.corners_home) ?? 0) + (n(shadow?.corners_away) ?? 0));
+  const avgCorners = n(r.forebet_avg_corners);
+  let cornerPaceRatio = 1;
+  if (live && resolvedLiveMinute !== null && avgCorners !== null && avgCorners > 0 && currentCornerTotal !== null && resolvedLiveMinute >= 10) {
+    const expectedCornersElapsed = avgCorners * Math.max(0.08, resolvedLiveMinute / 95);
+    cornerPaceRatio = clamp(currentCornerTotal / expectedCornersElapsed, 0.65, 1.55);
+  }
+  const forebetCorners = live && resolvedLiveMinute !== null && currentCornerTotal !== null
+    ? liveResidualOver(r.forebet_avg_corners, currentCornerTotal, resolvedLiveMinute, currentCornersLine, cornerPaceRatio)
+    : currentLineOver(currentCornersLine, r.forebet_avg_corners, 9.5, r.forebet_corners_over);
+  if (forebetCorners !== null && forebetCorners !== undefined) {
+    cornerModels.push({
+      key: "FOREBET",
+      label: live ? "Forebet corners live residual" : "Forebet corners",
+      over: typeof forebetCorners === "number" ? forebetCorners : forebetCorners.over,
+      weight: 1,
+      method: live ? "LIVE_CORNERS_RESIDUAL" : forebetCorners.method,
+    });
+  }
+
+  const goalsAdvice = buildBinaryAdvice({
+    marketKey: "GOALS_OU",
+    label: "入球大細",
+    lineValue: currentGoalsLine,
+    overOdds: currentGoalsOver,
+    underOdds: currentGoalsUnder,
+    models: goalsModels,
+    healthOk,
+    fresh,
+    fallbackMode,
+    productionValidated,
+  });
+  const cornersAdvice = buildBinaryAdvice({
+    marketKey: "CORNERS_OU",
+    label: "角球大細",
+    lineValue: currentCornersLine,
+    overOdds: currentCornersOver,
+    underOdds: currentCornersUnder,
+    models: cornerModels,
+    healthOk,
+    fresh,
+    fallbackMode,
+    productionValidated,
+  });
+
+  const selection = sideLabel(bestSide, home, away);
+  const edgeText = best.edge === null ? "—" : ((best.edge >= 0 ? "+" : "") + (best.edge * 100).toFixed(1) + "pp");
+  const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
+  const priceRead = fallbackMode
+    ? (bestOdds === null ? "HKJC current price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
+    : live
+      ? `HKJC live 現價 ${oddsText}`
+      : `現價 ${oddsText}`;
+
+  const lineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
+  const injuryHome = Number(human.data?.raw?.injury_count_home ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="HOME").length ?? 0);
+  const injuryAway = Number(human.data?.raw?.injury_count_away ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="AWAY").length ?? 0);
+  const humanQuality = human.data?.quality ?? (eventMap.data ? "MAPPED" : "NO_DATA");
+
   const liveState = live ? {
     minute: resolvedLiveMinute,
     score: scorePair ? `${scorePair.home}-${scorePair.away}` : (liveScore.data?.live_score ?? liveStats.data?.live_score ?? null),
@@ -601,12 +831,12 @@ Deno.serve(async (req: Request) => {
 
   const invalidators: string[] = [];
   if (fallbackMode) invalidators.push("賽事暫不在 canonical active feed；只用 database fallback，投注 action 強制 NO_BET");
-  if (!fresh) invalidators.push(live ? "HKJC live 市場超過 3 分鐘 freshness 門檻" : "HKJC 市場不新鮮");
-  if (!healthOk) invalidators.push("Phase 1 data health 非 OK");
+  if (!fresh) invalidators.push(live ? "HKJC live 市場價格超過 4 分鐘 freshness 門檻" : "HKJC 市場不新鮮");
+  if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");\n  if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
   if (families.length < 2) invalidators.push("獨立 evidence family 少於 2");
   if (!lineupConfirmed && !live) invalidators.push("Official XI 尚未確認");
   if (dispersion !== null && dispersion > 0.18) invalidators.push("模型分歧較大");
-  if (!productionValidated) invalidators.push("Phase 5 calibration 未完成（只限制自動注碼，不抹走投注方向）");
+  if (!productionValidated) invalidators.push("Phase 5 calibration 未完成：只限制自動注碼，不取消人工 recommendation");
   if (liveState?.shadowStatus && ["CONTRADICTION","REJECT","RISK"].some(k => String(liveState.shadowStatus).toUpperCase().includes(k))) {
     invalidators.push("Live actual 與 pre-match expectation 出現明顯矛盾");
   }
@@ -634,33 +864,38 @@ Deno.serve(async (req: Request) => {
 
   let advice = "PASS：現時未見足夠正 Edge。";
   if (candidate === "DATA_RISK") {
-    const why = live
-      ? (!fresh ? "HKJC live 價格超過 freshness 門檻" : !scorePair || resolvedLiveMinute === null ? "缺比分／分鐘，無法做即場 state update" : !healthOk ? "data health 未過" : "模型或市場資料不足")
-      : "資料健康或 freshness 未通過";
-    advice = `暫不下注：${why}；呢個係資料 gate，而唔係模型計到一定冇價值。`;
+    const why = !market
+      ? "HKJC 即場市場未齊，無法計 fair probability"
+      : !decisionFamilies.length
+        ? "未有可用模型機率"
+        : !fresh
+          ? "HKJC live 價格超過 4 分鐘，避免用舊價製造假 Edge"
+          : live && (!scorePair || resolvedLiveMinute === null)
+            ? "缺可靠比分／分鐘，未能按剩餘時間重估"
+            : "資料可信度未達計算門檻";
+    advice = `暫不下注：${why}。呢個係資料 gate，唔代表場波本身冇投注價值。`;
   } else if (live && bestSide && best.edge !== null) {
-    const stateText = liveState?.stateAdjusted
-      ? `${liveState.score || "—"} / ${liveState.minute ?? "—"}' 已按剩餘時間重新計算賽果分布`
-      : "未能完整做 score-time adjustment";
+    const stateText = canStateAdjust
+      ? `${liveState?.score || "—"} / ${liveState?.minute ?? "—"}' 已按剩餘時間重估 H/D/A`
+      : "以目前可用模型估值";
     const liveEvidenceText = (liveState?.metricCount || 0) > 0
-      ? `live evidence ${liveState.metricCount} 項，控制方向 ${liveState.actualSide || "—"}`
-      : "暫時主要靠比分、分鐘及賽前模型";
-    if (candidate === "WATCH" && (resolvedLiveMinute ?? 0) >= 92) {
-      advice = `即場觀察 ${selection} @ ${oddsText}：${stateText}，Edge ${edgeText}；但已到 ${resolvedLiveMinute}'，剩餘時間太短，唔追價。`;
-    } else if (candidate === "WATCH") {
-      advice = `即場觀察 ${selection} @ ${oddsText}：${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}。目前 ${liveEvidenceText}，證據未夠厚。`;
+      ? `${liveState?.metricCount} 項 live metrics，場面控制 ${liveState?.actualSide || "—"}`
+      : "暫時主要靠比分、分鐘、即場賠率同賽前模型";
+    if (candidate.includes("VALUE_CANDIDATE")) {
+      advice = `可考慮下注 ${selection} @ ${oddsText}：${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}，${supportingFamilies.length}/${decisionFamilies.length} 個模型 family 支持；${liveEvidenceText}。`;
     } else if (candidate === "LEAN") {
-      advice = `即場輕微傾向 ${selection} @ ${oddsText}：${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}。理由：${liveEvidenceText}。`;
-    } else if (candidate.includes("VALUE_CANDIDATE")) {
-      advice = `即場 Value 候選 ${selection} @ ${oddsText}：${stateText}；state-adjusted 模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}，${supportingFamilies.length}/${decisionFamilies.length} 個 evidence family 支持；${liveEvidenceText}。`;
+      advice = `輕注／偏向 ${selection} @ ${oddsText}：${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}，Edge ${edgeText}。方向存在，但優勢未到 Value 級。`;
+    } else if (candidate === "WATCH") {
+      advice = `觀望 ${selection} @ ${oddsText}：${stateText}；現時 Edge ${edgeText}，但模型支持或優勢幅度未夠厚，等價位／場面再改善。`;
     } else {
-      advice = `即場 PASS：${stateText} 後，模型同 HKJC live fair 未形成足夠正 Edge。`;
+      advice = `暫時跳過：${stateText} 後，模型同 HKJC live fair 未形成正 Edge。`;
     }
-  } else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：市場與模型有初步差異，但獨立 evidence family 太少，未足以提升信心。` : advice;
+  }
+  else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：市場與模型有初步差異，但獨立 evidence family 太少，未足以提升信心。` : advice;
   else if (candidate === "LEAN") advice = `輕微傾向 ${selection} @ ${oddsText}：Edge ${edgeText}，但屬觀察級。`;
   else if (candidate.includes("VALUE_CANDIDATE")) advice = `Value 候選 ${selection} @ ${oddsText}：Edge ${edgeText}，${supportingFamilies.length}/${decisionFamilies.length} 個 evidence family 支持。`;
   if (!productionValidated && !["DATA_RISK","NO_EDGE"].includes(candidate)) {
-    advice += " Phase 5 calibration 未完成只會禁止自動注碼／stake sizing，唔會再將有 Edge 嘅方向改寫成「暫不下注」。";
+    advice += " Phase 5 calibration 未完成只限制自動 stake sizing；方向同 Edge 照常顯示。";
   }
 
   const phaseCoverage = {
@@ -704,13 +939,7 @@ Deno.serve(async (req: Request) => {
       evidenceFamilyCount: families.length,
       supportCount: support,
       valueSupportRatio: agreement,
-      dispersion,
-      liveAdjusted: Boolean(live && canStateAdjust),
-      liveMinute: liveState?.minute ?? null,
-      liveScore: liveState?.score ?? null,
-      liveMarketAgeSeconds: liveOddsAgeSeconds,
-      autoStakeAllowed: productionValidated,
-      explanation: live ? advice : null,
+      dispersion,\n      liveAdjusted: Boolean(live && canStateAdjust),\n      liveMinute: liveState?.minute ?? null,\n      liveScore: liveState?.score ?? null,\n      liveMarketAgeSeconds,\n      autoStakeAllowed: productionValidated,\n      explanation: live ? advice : null,
     },
     story: {
       headline,
@@ -734,8 +963,7 @@ Deno.serve(async (req: Request) => {
     evidence: {
       market,
       consensus,
-      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, probabilities:f.probs, pick:pick(f.probs) })),
-      prematchConsensus: weighted(families),
+      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, probabilities:f.probs, pick:pick(f.probs) })),\n      prematchConsensus,
       familySupport,
       phase1Health: {
         status: r.health_status,
