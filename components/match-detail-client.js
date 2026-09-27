@@ -702,6 +702,7 @@ export default function MatchDetailClient() {
   const goalsLineModel = match.forebetDetail?.goalsCurrentLine || null;
   const cornersLineModel = match.forebetDetail?.cornersCurrentLine || null;
   const totalsAdvice = story?.marketAdvice || analysis?.marketAdvice || {};
+  const handicapAdvice = totalsAdvice.handicap || null;
   const goalsAdvice = totalsAdvice.goals || null;
   const cornersAdvice = totalsAdvice.corners || null;
   const totalAdviceTone = (row) => {
@@ -953,6 +954,17 @@ export default function MatchDetailClient() {
       available: Boolean(primarySide),
     },
     {
+      key: "HANDICAP",
+      market: "亞洲讓球",
+      selection: handicapAdvice?.selectionLabel || "—",
+      odds: handicapAdvice?.currentOdds == null ? null : Number(handicapAdvice.currentOdds),
+      edgePp: null,
+      expectedValuePct: handicapAdvice?.expectedValuePct == null ? null : Number(handicapAdvice.expectedValuePct),
+      action: String(handicapAdvice?.action || "WATCH").toUpperCase(),
+      note: handicapAdvice?.method === "MODEL_DERIVED_SCORE_DISTRIBUTION" ? "模型衍生 EV" : "讓球",
+      available: Boolean(handicapAdvice?.selection),
+    },
+    {
       key: "GOALS",
       market: "入球大細",
       selection: totalAdviceLabel(goalsAdvice),
@@ -1140,19 +1152,25 @@ export default function MatchDetailClient() {
           <div className="detail-extra-recommendations">
             <span>其他投注建議</span>
             <div>
-              {recommendationRows.slice(1, 3).map((row, index) => (
+              {recommendationRows.slice(1, 4).map((row, index) => (
                 <div className="detail-extra-recommendation" key={row.key}>
                   <b>#{index + 2}</b>
                   <strong>{row.market} · {row.selection}</strong>
                   <em>{row.odds == null || !Number.isFinite(row.odds) ? "MODEL ONLY" : "@" + row.odds.toFixed(2)}</em>
-                  <small>{row.edgePp == null || !Number.isFinite(row.edgePp) ? row.note : (row.edgePp >= 0 ? "+" : "") + row.edgePp.toFixed(1) + "pp · " + row.note}</small>
+                  <small>{
+                    row.expectedValuePct != null && Number.isFinite(row.expectedValuePct)
+                      ? "EV " + (row.expectedValuePct >= 0 ? "+" : "") + row.expectedValuePct.toFixed(1) + "% · " + row.note
+                      : row.edgePp == null || !Number.isFinite(row.edgePp)
+                        ? row.note
+                        : (row.edgePp >= 0 ? "+" : "") + row.edgePp.toFixed(1) + "pp · " + row.note
+                  }</small>
                 </div>
               ))}
             </div>
           </div>
         ) : null}
         <div style={{ marginTop:6, color:"#7a8981", fontSize:8.5, fontWeight:750 }}>
-          Edge 係「模型概率 − HKJC 去水後公平概率」嘅差距，單位係 percentage points (pp)，唔等於預計回報率。
+          HDA / 大細 / 角球 Edge 用 probability points (pp)；亞洲讓球因為有走盤、半贏半輸，改用模型衍生 EV%，兩者唔應混埋比較。
         </div>
 
         {!decisionCleared && blockerTags.length ? (
