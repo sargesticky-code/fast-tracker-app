@@ -118,6 +118,33 @@ function playerFlags(row) {
   return flags;
 }
 
+function playerRole(row) {
+  const raw = String(row?.role || row?.raw?.flash_record?.LS || "").trim();
+  if (!raw) return null;
+  if (/goalkeeper/i.test(raw) || raw === "GK") return "GK";
+  if (/def/i.test(raw) || raw === "DEF") return "DEF";
+  if (/mid/i.test(raw) || raw === "MID") return "MID";
+  if (/att|forward|striker/i.test(raw) || raw === "ATT") return "ATT";
+  if (/captain/i.test(raw)) return null;
+  return raw.toUpperCase();
+}
+
+function playerCountry(row) {
+  return row?.country
+    || row?.country_name
+    || row?.raw?.country
+    || row?.raw?.country_name
+    || row?.raw?.flash_record?.LQ
+    || null;
+}
+
+function roleBadge(row) {
+  const role = playerRole(row);
+  if (role === "GK") return "🧤 GK";
+  if (role) return role;
+  return row?.starter === false ? "SUB" : "XI";
+}
+
 function sourceUpdated(rows) {
   const times = rows
     .map((r) => r?.source_updated_at || r?.fetched_at || r?.created_at)
@@ -219,10 +246,10 @@ function PlayerMarker({ row, point, accent, predicted }) {
   const number = row?.shirt_number ?? row?.number ?? "•";
   return (
     <g transform={`translate(${point.x} ${point.y})`}>
-      <circle r="3.8" fill="#ffffff" stroke={accent} strokeWidth="0.85" />
-      <text x="0" y="1.25" textAnchor="middle" fontSize="3.15" fontWeight="900" fill={accent}>{number}</text>
-      <rect x="-9.2" y="4.8" width="18.4" height="5.6" rx="2.1" fill="rgba(18,35,27,.86)" />
-      <text x="0" y="8.65" textAnchor="middle" fontSize="2.65" fontWeight="800" fill="#fff">{label}</text>
+      <circle r="4.25" fill="#ffffff" stroke={accent} strokeWidth="0.95" />
+      <text x="0" y="1.35" textAnchor="middle" fontSize="3.25" fontWeight="950" fill={accent}>{number}</text>
+      <rect x="-10" y="5.2" width="20" height="5.8" rx="2.2" fill="rgba(18,35,27,.88)" />
+      <text x="0" y="9.15" textAnchor="middle" fontSize="2.7" fontWeight="850" fill="#fff">{label}</text>
       {flags.includes("C") ? (
         <>
           <circle cx="4.6" cy="-3.1" r="1.8" fill="#f2c94c" stroke="#fff" strokeWidth=".45" />
@@ -268,20 +295,29 @@ function TeamPitch({ teamName, rows, accent, status }) {
           })}
         </Pitch>
       </div>
+      <div style={{padding:"7px 12px",display:"flex",gap:8,flexWrap:"wrap",borderTop:"1px solid #183b2d",background:"#102f22"}}>
+        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>🧤 GK</small>
+        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>C Captain</small>
+        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>{predicted ? "● yellow = predicted" : "✓ confirmed XI"}</small>
+      </div>
       <div style={{padding:"10px 12px"}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
           {sorted.map((row, index) => {
             const flags = playerFlags(row);
-            const country = row?.raw?.flash_record?.LQ || row?.country || null;
+            const country = playerCountry(row);
+            const role = playerRole(row);
             return (
-              <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:8,alignItems:"center",padding:"7px 8px",border:"1px solid #e7ede9",borderRadius:10,background:"#fafcfb"}}>
-                <span style={{display:"grid",placeItems:"center",width:27,height:27,borderRadius:9,background:accent,color:"#fff",fontSize:10,fontWeight:950}}>{row?.shirt_number ?? "•"}</span>
+              <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e3ebe6",borderRadius:11,background:"#fafcfb"}}>
+                <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:11,fontWeight:950,boxShadow:"inset 0 0 0 1px rgba(255,255,255,.22)"}}>{row?.shirt_number ?? "•"}</span>
                 <div style={{minWidth:0}}>
-                  <b style={{display:"block",fontSize:11,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
-                  <small style={{display:"block",marginTop:2,fontSize:8.5,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[...flags, country].filter(Boolean).join(" · ") || "Starter"}
+                  <b style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
+                  <small style={{display:"block",marginTop:2,fontSize:9,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                    {[country, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
                   </small>
                 </div>
+                <span style={{fontSize:8.5,fontWeight:900,padding:"4px 6px",borderRadius:999,background:role==="GK"?"#eaf1ff":"#eef5f0",color:role==="GK"?"#315d9a":"#4f6b5d",whiteSpace:"nowrap"}}>
+                  {roleBadge(row)}
+                </span>
               </div>
             );
           })}
@@ -300,13 +336,22 @@ function SquadList({ title, rows, accent, empty }) {
       </div>
       {rows.length ? (
         <div style={{display:"grid",gap:6}}>
-          {rows.map((row, i) => (
-            <div key={row?.id || row?.player_key || i} style={{display:"grid",gridTemplateColumns:"32px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"7px 8px",borderRadius:10,background:"#f8faf8"}}>
-              <span style={{fontSize:10,fontWeight:950,color:accent}}>#{row?.shirt_number ?? "—"}</span>
-              <span style={{fontSize:11,fontWeight:800,color:"#2f4036",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row?.player_name || "Unknown"}</span>
-              <small style={{fontSize:8.5,color:palette.muted}}>{playerFlags(row).join("/") || (row?.starter === false ? "BENCH" : "XI")}</small>
-            </div>
-          ))}
+          {rows.map((row, i) => {
+            const country = playerCountry(row);
+            const captain = playerFlags(row).includes("C");
+            return (
+              <div key={row?.id || row?.player_key || i} style={{display:"grid",gridTemplateColumns:"36px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e8eeea",borderRadius:11,background:"#f8faf8"}}>
+                <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:10,fontWeight:950}}>#{row?.shirt_number ?? "—"}</span>
+                <div style={{minWidth:0}}>
+                  <span style={{display:"block",fontSize:11.5,fontWeight:850,color:"#2f4036",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row?.player_name || "Unknown"}</span>
+                  <small style={{display:"block",marginTop:2,fontSize:8.8,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                    {[country, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
+                  </small>
+                </div>
+                <small style={{fontSize:8.5,fontWeight:900,color:"#52675b",padding:"4px 6px",borderRadius:999,background:"#eef4f0",whiteSpace:"nowrap"}}>{roleBadge(row)}</small>
+              </div>
+            );
+          })}
         </div>
       ) : <div style={{padding:"12px 10px",borderRadius:10,background:"#f7f9f7",fontSize:10,color:"#7d8a83"}}>{empty}</div>}
     </div>
