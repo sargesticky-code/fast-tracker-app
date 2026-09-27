@@ -1219,7 +1219,7 @@ Deno.serve(async (req: Request) => {
     ? `${selection} · ${edgeText} 模型—市場差`
     : `${home} vs ${away} · 暫未見可執行 Edge`;
 
-  const confidenceLabel = families.length >= 3 && agreement >= 0.66 && (dispersion === null || dispersion <= 0.12)
+  const modelConsensusLabel = families.length >= 3 && agreement >= 0.66 && (dispersion === null || dispersion <= 0.12)
     ? "模型共識較集中"
     : families.length >= 2 && agreement >= 0.5
       ? "模型有一定支持"
@@ -1227,7 +1227,7 @@ Deno.serve(async (req: Request) => {
   const strongestSupport = supportingFamilies[0] || null;
   const strongestOpposition = opposingFamilies[0] || null;
   const professionalSummary = bestSide && best.edge !== null
-    ? `HKJC 對 ${selection} 嘅 fair probability 約 ${pct(marketProb)}，跨模型中心約 ${pct(bestProb)}，形成 ${edgeText} 差距。${priceRead}；${confidenceLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
+    ? `HKJC 對 ${selection} 嘅 fair probability 約 ${pct(marketProb)}，跨模型中心約 ${pct(bestProb)}，形成 ${edgeText} 差距。${priceRead}；${modelConsensusLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
     : `目前市場與可用模型未形成清晰正 Edge；先以資料完整度同價格變化為主。`;
   const supportRead = bestSide
     ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "pp" : "暫無明顯支持"}。`
