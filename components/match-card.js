@@ -265,7 +265,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
             <span className={"ft5-fresh-text ft5-fresh-" + fresh.key}>{fresh.label}</span>
             <span
               title={lineup?.source ? `${lineup.source} · H ${lineup.homeStarters || 0} / A ${lineup.awayStarters || 0}` : "Lineup not available yet"}
-              style={{fontSize:7,fontWeight:950,padding:"2px 5px",borderRadius:999,border:"1px solid "+lineupTone.bd,background:lineupTone.bg,color:lineupTone.fg,whiteSpace:"nowrap"}}
+              style={{fontSize:10,fontWeight:950,padding:"3px 7px",borderRadius:999,border:"1px solid "+lineupTone.bd,background:lineupTone.bg,color:lineupTone.fg,whiteSpace:"nowrap"}}
             >{lineupLabel}</span>
           </div>
           <div className="ft5-teams">
