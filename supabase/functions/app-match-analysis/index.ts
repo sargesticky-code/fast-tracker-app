@@ -832,7 +832,8 @@ Deno.serve(async (req: Request) => {
   const invalidators: string[] = [];
   if (fallbackMode) invalidators.push("賽事暫不在 canonical active feed；只用 database fallback，投注 action 強制 NO_BET");
   if (!fresh) invalidators.push(live ? "HKJC live 市場價格超過 4 分鐘 freshness 門檻" : "HKJC 市場不新鮮");
-  if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");\n  if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
+  if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");
+  if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
   if (families.length < 2) invalidators.push("獨立 evidence family 少於 2");
   if (!lineupConfirmed && !live) invalidators.push("Official XI 尚未確認");
   if (dispersion !== null && dispersion > 0.18) invalidators.push("模型分歧較大");
@@ -939,7 +940,13 @@ Deno.serve(async (req: Request) => {
       evidenceFamilyCount: families.length,
       supportCount: support,
       valueSupportRatio: agreement,
-      dispersion,\n      liveAdjusted: Boolean(live && canStateAdjust),\n      liveMinute: liveState?.minute ?? null,\n      liveScore: liveState?.score ?? null,\n      liveMarketAgeSeconds,\n      autoStakeAllowed: productionValidated,\n      explanation: live ? advice : null,
+      dispersion,
+      liveAdjusted: Boolean(live && canStateAdjust),
+      liveMinute: liveState?.minute ?? null,
+      liveScore: liveState?.score ?? null,
+      liveMarketAgeSeconds,
+      autoStakeAllowed: productionValidated,
+      explanation: live ? advice : null,
     },
     story: {
       headline,
@@ -963,7 +970,8 @@ Deno.serve(async (req: Request) => {
     evidence: {
       market,
       consensus,
-      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, probabilities:f.probs, pick:pick(f.probs) })),\n      prematchConsensus,
+      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, probabilities:f.probs, pick:pick(f.probs) })),
+      prematchConsensus,
       familySupport,
       phase1Health: {
         status: r.health_status,
