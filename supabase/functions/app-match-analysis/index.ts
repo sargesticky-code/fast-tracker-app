@@ -545,13 +545,27 @@ function buildBinaryAdvice(opts: {
       ? `細 ${lineText}`
       : "PASS";
 
+  const selectedModelProbabilities = selection === "OVER"
+    ? models.map((m) => m.over)
+    : selection === "UNDER"
+      ? models.map((m) => 1 - m.over)
+      : [];
+  const supportCount = marketProbability === null
+    ? 0
+    : selectedModelProbabilities.filter((prob) => prob > marketProbability).length;
+  const supportRatio = selectedModelProbabilities.length ? supportCount / selectedModelProbabilities.length : 0;
+  const dispersion = selectedModelProbabilities.length >= 2
+    ? Math.max(...selectedModelProbabilities) - Math.min(...selectedModelProbabilities)
+    : null;
+
   let candidateClass = "NO_EDGE";
   if (!market || line === null || opts.fallbackMode || !opts.healthOk || !opts.fresh) candidateClass = "DATA_RISK";
   else if (!models.length) candidateClass = "NO_MODEL";
   else if (selection === null || edge === null || edge <= 0) candidateClass = "NO_EDGE";
   else if (models.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
-  else if (edge >= 0.10) candidateClass = "STRONG_VALUE_CANDIDATE";
-  else if (edge >= 0.05) candidateClass = "VALUE_CANDIDATE";
+  else if (dispersion !== null && dispersion > 0.18) candidateClass = "WATCH_MODEL_SPLIT";
+  else if (edge >= 0.10 && supportRatio >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidateClass = "STRONG_VALUE_CANDIDATE";
+  else if (edge >= 0.05 && supportRatio >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidateClass = "VALUE_CANDIDATE";
   else if (edge >= 0.025) candidateClass = "LEAN";
   else candidateClass = "WATCH";
 
@@ -573,7 +587,7 @@ function buildBinaryAdvice(opts: {
       : candidateClass === "LEAN"
         ? "輕微傾向"
         : "觀察";
-    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}，Edge ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}，${models.length} 個 evidence family / ${sourceCount} 個來源訊號。`;
+    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}，Edge ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}，${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}。`;
   }
 
   return {
@@ -592,6 +606,9 @@ function buildBinaryAdvice(opts: {
     action,
     autoStakeAllowed: opts.productionValidated,
     evidenceFamilyCount: models.length,
+    supportCount,
+    supportRatio,
+    dispersion,
     sourceSignalCount: sourceCount,
     marketProbabilities: market,
     modelProbabilities: modelOver === null ? null : { over: modelOver, under: modelUnder },
