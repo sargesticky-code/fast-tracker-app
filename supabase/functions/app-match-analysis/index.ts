@@ -896,15 +896,54 @@ Deno.serve(async (req: Request) => {
     live && shadow?.shadow_status &&
     ["CONTRADICTION","REJECT","RISK"].some((k) => String(shadow.shadow_status).toUpperCase().includes(k))
   );
+  const edgePpNow = best.edge === null ? null : best.edge * 100;
+  const liveMetricCount = Number(shadow?.live_metric_count ?? 0);
+  const confidenceParts = {
+    edge: edgePpNow === null ? 0 : clamp(edgePpNow * 3.2, 0, 36),
+    evidence: clamp(decisionFamilies.length * 6, 0, 18),
+    agreement: clamp(agreement * 18, 0, 18),
+    live: live ? clamp(liveMetricCount * 1.8, 0, 10) : 6,
+    freshness: live
+      ? (liveOddsAgeSeconds !== null && liveOddsAgeSeconds <= 90 ? 10
+        : liveOddsAgeSeconds !== null && liveOddsAgeSeconds <= 180 ? 6
+          : 0)
+      : 8,
+  };
+  let confidenceScore = Math.round(
+    confidenceParts.edge +
+    confidenceParts.evidence +
+    confidenceParts.agreement +
+    confidenceParts.live +
+    confidenceParts.freshness
+  );
+  if (dispersion !== null && dispersion > 0.18) confidenceScore -= 18;
+  else if (dispersion !== null && dispersion > 0.12) confidenceScore -= 8;
+  if (liveContradiction) confidenceScore -= 20;
+  if (decisionFamilies.length < 2) confidenceScore = Math.min(confidenceScore, 48);
+  if (!fresh || hardLiveDataGap || fallbackMode) confidenceScore = Math.min(confidenceScore, 25);
+  confidenceScore = Math.round(clamp(confidenceScore, 0, 100));
+  const confidenceLabel = confidenceScore >= 75 ? "高"
+    : confidenceScore >= 58 ? "中高"
+      : confidenceScore >= 45 ? "中"
+        : "低";
+
+  const recommendationReasons = [
+    edgePpNow !== null ? `Edge ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : "無可計 Edge",
+    `${support}/${decisionFamilies.length} 模型 family 支持`,
+    dispersion !== null ? `模型分歧 ${(dispersion * 100).toFixed(1)}pp` : null,
+    live ? `${liveMetricCount} 項 live metrics` : null,
+    liveContradiction ? "即場走勢與預期矛盾" : null,
+    live && liveOddsAgeSeconds !== null ? `live price ${Math.round(liveOddsAgeSeconds)}s` : null,
+  ].filter(Boolean);
+
   let candidate = "NO_EDGE";
   if (!market || !decisionFamilies.length || !fresh || hardLiveDataGap || fallbackMode) candidate = "DATA_RISK";
-  else if (decisionFamilies.length < 2) candidate = "WATCH";
-  else if ((best.edge ?? -1) > 0 && (liveContradiction || (dispersion !== null && dispersion > 0.18))) candidate = "WATCH";
-  else if ((best.edge ?? -1) >= 0.10 && agreement >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidate = "STRONG_VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.05 && agreement >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidate = "VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.025) candidate = "LEAN";
-  else if ((best.edge ?? -1) > 0) candidate = "WATCH";
-  else candidate = "NO_EDGE";
+  else if ((best.edge ?? -1) <= 0) candidate = "NO_EDGE";
+  else if (decisionFamilies.length < 2 || confidenceScore < 45) candidate = "WATCH";
+  else if ((best.edge ?? -1) >= 0.08 && agreement >= 0.66 && confidenceScore >= 75 && !liveContradiction) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.045 && agreement >= 0.50 && confidenceScore >= 58 && !liveContradiction) candidate = "VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.02 && confidenceScore >= 48) candidate = "LEAN";
+  else candidate = "WATCH";
 
   const productionValidated = !fallbackMode && !pipelineGate.includes("CALIBRATION") && pipelineGate !== "";
   // This is a recommendation/action label, not an auto-staking permission.
@@ -1170,7 +1209,7 @@ Deno.serve(async (req: Request) => {
   return Response.json({
     generatedAt: new Date().toISOString(),
     id,
-    engine: "FT_INTERPRETER_RULES_V2",
+    engine: "FT_INTERPRETER_RULES_V3_HOLISTIC",
     narrationMode: "DETERMINISTIC_GROUNDED",
     match: { home, away, homeEn: r.home_en, awayEn: r.away_en, tournament: r.tournament, kickoff: r.kickoff_hkt },
     decision: {
@@ -1187,7 +1226,10 @@ Deno.serve(async (req: Request) => {
       marketFairProbability: marketProb,
       analystConsensusProbability: bestProb,
       candidateEdgePp: best.edge === null ? null : best.edge * 100,
-      evidenceFamilyCount: families.length,
+      confidenceScore,
+      confidenceLabel,
+      recommendationReasons,
+      evidenceFamilyCount: decisionFamilies.length,
       supportCount: support,
       valueSupportRatio: agreement,
       dispersion,
