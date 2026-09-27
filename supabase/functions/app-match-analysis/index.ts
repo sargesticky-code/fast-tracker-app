@@ -1168,7 +1168,7 @@ Deno.serve(async (req: Request) => {
       liveAdjusted: Boolean(live && canStateAdjust),
       liveMinute: liveState?.minute ?? null,
       liveScore: liveState?.score ?? null,
-      liveMarketAgeSeconds,
+      liveMarketAgeSeconds: liveOddsAgeSeconds,
       autoStakeAllowed: productionValidated,
       explanation: live ? advice : null,
     },
