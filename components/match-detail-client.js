@@ -711,9 +711,11 @@ export default function MatchDetailClient() {
     if (String(row?.candidateClass || "").toUpperCase().includes("VALUE")) return "value";
     return "watch";
   };
-  const totalAdviceEdge = (row) => row?.candidateEdgePp == null
-    ? "Edge —"
-    : `Edge ${Number(row.candidateEdgePp) >= 0 ? "+" : ""}${Number(row.candidateEdgePp).toFixed(1)}pp`;
+  const totalAdviceEdge = (row) => row?.expectedValuePct != null && Number.isFinite(Number(row.expectedValuePct))
+    ? `EV ${Number(row.expectedValuePct) >= 0 ? "+" : ""}${Number(row.expectedValuePct).toFixed(1)}%`
+    : row?.candidateEdgePp == null
+      ? "EV —"
+      : `機率差 ${Number(row.candidateEdgePp) >= 0 ? "+" : ""}${Number(row.candidateEdgePp).toFixed(1)}pp`;
   const totalAdviceLabel = (row) => {
     if (!row) return "分析中";
     if (String(row.action || "").toUpperCase() === "NO_BET") return "暫不下注";
@@ -821,6 +823,9 @@ export default function MatchDetailClient() {
   const primaryEdgePp = analysisDecision?.candidateEdgePp != null
     ? Number(analysisDecision.candidateEdgePp)
     : gap?.value != null ? Number(gap.value) * 100 : null;
+  const primaryExpectedValuePct = analysisDecision?.expectedValuePct != null
+    ? Number(analysisDecision.expectedValuePct)
+    : null;
   const analysisSourceMode = String(
     story?.governance?.sourceMode
       || analysis?.governance?.sourceMode
@@ -872,7 +877,7 @@ export default function MatchDetailClient() {
   // Keep the original recommendation visible even when governance/data gates
   // downgrade execution. A gate is a warning, not a reason to erase the pick.
   const pickLabel = "主要投注位";
-  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : "精算 EDGE";
+  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : Number.isFinite(primaryExpectedValuePct) ? "現價 EV" : "精算 EDGE";
   const gateLabel = rawAction === "NO_BET" ? "未通過投注 Gate"
     : rawAction === "PASS" ? "目前無投注需要"
       : rawAction.includes("WATCH") ? "觀察中"
@@ -895,8 +900,8 @@ export default function MatchDetailClient() {
     if (/health/i.test(t)) return "Data health 未過";
     return t.length > 18 ? t.slice(0, 18) + "…" : t;
   });
-  const fallbackAdvice = primarySide && primaryEdgePp != null
-    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · Edge ${primaryEdgePp >= 0 ? "+" : ""}${primaryEdgePp.toFixed(1)}pp`
+  const fallbackAdvice = primarySide && (primaryExpectedValuePct != null || primaryEdgePp != null)
+    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · ${Number.isFinite(primaryExpectedValuePct) ? "EV " + (primaryExpectedValuePct >= 0 ? "+" : "") + primaryExpectedValuePct.toFixed(1) + "%" : "機率差 " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}`
     : "現時未有足夠資料形成清晰投注位。";
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
@@ -949,6 +954,7 @@ export default function MatchDetailClient() {
       selection: primarySelectionLabel,
       odds: Number.isFinite(primaryOdds) ? primaryOdds : null,
       edgePp: Number.isFinite(primaryEdgePp) ? primaryEdgePp : null,
+      expectedValuePct: Number.isFinite(primaryExpectedValuePct) ? primaryExpectedValuePct : null,
       action: rawAction,
       note: referencePriceOnly ? "REFERENCE PRICE" : "原本主推",
       available: Boolean(primarySide),
@@ -970,6 +976,7 @@ export default function MatchDetailClient() {
       selection: totalAdviceLabel(goalsAdvice),
       odds: goalsAdvice?.currentOdds == null ? null : Number(goalsAdvice.currentOdds),
       edgePp: goalsAdvice?.candidateEdgePp == null ? null : Number(goalsAdvice.candidateEdgePp),
+      expectedValuePct: goalsAdvice?.expectedValuePct == null ? null : Number(goalsAdvice.expectedValuePct),
       action: String(goalsAdvice?.action || "WATCH").toUpperCase(),
       note: goalsAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "次選",
       available: Boolean(goalsAdvice?.selection),
@@ -980,6 +987,7 @@ export default function MatchDetailClient() {
       selection: totalAdviceLabel(cornersAdvice),
       odds: cornersAdvice?.currentOdds == null ? null : Number(cornersAdvice.currentOdds),
       edgePp: cornersAdvice?.candidateEdgePp == null ? null : Number(cornersAdvice.candidateEdgePp),
+      expectedValuePct: cornersAdvice?.expectedValuePct == null ? null : Number(cornersAdvice.expectedValuePct),
       action: String(cornersAdvice?.action || "WATCH").toUpperCase(),
       note: cornersAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "備選",
       available: Boolean(cornersAdvice?.selection),
