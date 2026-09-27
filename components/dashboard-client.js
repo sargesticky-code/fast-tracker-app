@@ -412,10 +412,15 @@ function liveRecommendationMeta(analysis) {
   const decision = analysis?.decision || null;
   const action = String(decision?.action || "").toUpperCase();
   const selection = decision?.selectionLabel || "—";
-  const odds = Number(decision?.currentOdds);
-  const ev = Number(decision?.expectedValuePct);
-  const edge = Number(decision?.candidateEdgePp);
-  const confidence = Number(decision?.confidenceScore);
+  const optionalNumber = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const odds = optionalNumber(decision?.currentOdds);
+  const ev = optionalNumber(decision?.expectedValuePct);
+  const edge = optionalNumber(decision?.candidateEdgePp);
+  const confidence = optionalNumber(decision?.confidenceScore);
   const explanation = String(decision?.explanation || analysis?.story?.advice || "").trim();
 
   let label = "分析中";
@@ -431,10 +436,10 @@ function liveRecommendationMeta(analysis) {
     label,
     tone,
     selection,
-    odds: Number.isFinite(odds) ? odds : null,
-    ev: Number.isFinite(ev) ? ev : null,
-    edge: Number.isFinite(edge) ? edge : null,
-    confidence: Number.isFinite(confidence) ? confidence : null,
+    odds,
+    ev,
+    edge,
+    confidence,
     explanation: explanation || (action ? "Recommendation 已計算，入 detail 可睇完整理由" : "即場 recommendation 計算中"),
   };
 }
