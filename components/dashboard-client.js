@@ -987,7 +987,7 @@ export default function DashboardClient({ feed, nowMs }) {
     let cancelled = false;
     async function refreshFeed() {
       try {
-        const res = await fetch(FEED_URL, { cache: "default" });
+        const res = await fetch(FEED_URL + "&_=" + Date.now(), { cache: "no-store" });
         if (!res.ok) return;
         const next = await res.json();
         if (!cancelled && Array.isArray(next?.matches)) {
@@ -1095,6 +1095,16 @@ export default function DashboardClient({ feed, nowMs }) {
   const goalsGroups = groupLineCandidates(goalsCandidates, "goals", 2);
   const cornersGroups = groupLineCandidates(cornersCandidates, "corners", 2);
   const topBets = [...hdaCandidates.map((row) => ({ ...row, type: "HDA" })), ...goalsCandidates.map((row) => ({ ...row, type: "入球" })), ...cornersCandidates.map((row) => ({ ...row, type: "角球" }))].sort((a, b) => b.edge.value - a.edge.value).slice(0, 3);
+
+  const lineupReady = useMemo(() => (all || [])
+    .filter((match) => ["CONFIRMED", "PREDICTED_FULL"].includes(String(match?.humanFactors?.lineup?.status || "")))
+    .sort((a, b) => {
+      const aConfirmed = String(a?.humanFactors?.lineup?.status || "") === "CONFIRMED" ? 1 : 0;
+      const bConfirmed = String(b?.humanFactors?.lineup?.status || "") === "CONFIRMED" ? 1 : 0;
+      if (aConfirmed !== bConfirmed) return bConfirmed - aConfirmed;
+      return new Date(a.kickoff) - new Date(b.kickoff);
+    })
+    .slice(0, 8), [all]);
 
   let matches = byFocus;
   if (filter === "all") matches = [...prematchAll].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
@@ -1291,6 +1301,49 @@ export default function DashboardClient({ feed, nowMs }) {
         onSelectAction={selectActionFilter}
         nowMs={clockMs}
       />
+
+      <section className="ft5-section" style={{padding:14,border:"1px solid #cfe5d5",borderRadius:18,background:"#f3faf5"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:10}}>
+          <div>
+            <span style={{display:"block",fontSize:10,fontWeight:950,letterSpacing:".06em",color:"#28704f"}}>PHASE 2 · VISIBLE RESULT</span>
+            <h2 style={{margin:"2px 0 0",fontSize:21,color:"#183f30"}}>⚽ LINEUP READY · 已有完整陣容</h2>
+            <p style={{margin:"4px 0 0",fontSize:11,color:"#6c7e73",fontWeight:700}}>官方 XI 優先；未公布官方時先顯示可信 11v11 預計陣容</p>
+          </div>
+          <b style={{fontSize:22,color:"#1d6c49"}}>{lineupReady.length}</b>
+        </div>
+        {lineupReady.length ? (
+          <div style={{display:"grid",gap:8}}>
+            {lineupReady.map((match) => {
+              const li = match?.humanFactors?.lineup || {};
+              const confirmed = String(li.status || "") === "CONFIRMED";
+              return (
+                <a
+                  key={"lineup-ready-" + match.id}
+                  href={matchDetailHref(match.id, UI_BUILD)}
+                  onClick={() => cacheMatch(match)}
+                  style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:12,alignItems:"center",padding:"11px 12px",border:"1px solid "+(confirmed?"#b9dfc7":"#ead9a6"),borderRadius:13,background:"#fff",textDecoration:"none"}}
+                >
+                  <div style={{minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,fontWeight:950,padding:"4px 7px",borderRadius:999,background:confirmed?"#e6f6eb":"#fff4d8",color:confirmed?"#17643f":"#855b08"}}>
+                        {confirmed ? "CONFIRMED 11v11 ✓" : "PREDICTED 11v11"}
+                      </span>
+                      <span style={{fontSize:10,fontWeight:800,color:"#6f7d75"}}>{formatKickoff(match.kickoff)}</span>
+                    </div>
+                    <b style={{display:"block",marginTop:6,fontSize:15,lineHeight:1.25,color:"#1d382d"}}>{match.homeZh || match.home} vs {match.awayZh || match.away}</b>
+                    <small style={{display:"block",marginTop:4,fontSize:10,color:"#74837a",fontWeight:750}}>
+                      H {li.homeStarters || 0} · A {li.awayStarters || 0} · {li.source || "source pending"}
+                    </small>
+                  </div>
+                  <strong style={{fontSize:11,color:"#23764f",whiteSpace:"nowrap"}}>查看足球場陣容 →</strong>
+                </a>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="ft5-empty">暫時未有完整 11v11；有可信資料後會自動出現在這裡</div>
+        )}
+      </section>
 
       <section className="ft5-section ft5-topbets-wrap">
         <div className="ft5-topbets-title">
