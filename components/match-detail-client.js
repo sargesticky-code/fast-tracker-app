@@ -1023,7 +1023,7 @@ export default function MatchDetailClient() {
       <section className="detail-board-hero">
         <div className="detail-board-meta">
           <span>{formatKickoff(match.kickoff)}</span>
-          <b>{leagueDisplayName(match.league)}</b>
+          <b>{leagueDisplayName(match.leagueZh || match.league)}</b>
           <small>{match.id}</small>
           <span className={"detail-board-fresh detail-board-fresh-" + fresh.key}>{fresh.label}</span>
         </div>
