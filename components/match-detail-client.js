@@ -11,6 +11,7 @@ import {
   formatUpdated,
   freshness,
   lineComparisonStatus,
+  leagueDisplayName,
   modelAgreement,
   modelCoverageCount,
   modelLabel,
@@ -19,7 +20,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DETAIL-NO-BLANK-CARDS-20260924-1";
+const UI_BUILD = "LIVE-EXPLAINED-ZH-LEAGUE-20260927-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -1022,7 +1023,7 @@ export default function MatchDetailClient() {
       <section className="detail-board-hero">
         <div className="detail-board-meta">
           <span>{formatKickoff(match.kickoff)}</span>
-          <b>{match.league}</b>
+          <b>{leagueDisplayName(match.league)}</b>
           <small>{match.id}</small>
           <span className={"detail-board-fresh detail-board-fresh-" + fresh.key}>{fresh.label}</span>
         </div>
@@ -1433,6 +1434,44 @@ export default function MatchDetailClient() {
               <small>{shadow?.metricCount ? shadow.metricCount + " live metrics" : "等待 evidence"}</small>
             </div>
           </div>
+
+          {analysisDecision ? (
+            <div style={{
+              margin:"10px 0 12px",
+              padding:"12px 14px",
+              border:"1px solid " + (actionTone === "value" ? "#bfe0ca" : actionTone === "watch" ? "#ead9a6" : "#e2d6d1"),
+              borderRadius:13,
+              background:actionTone === "value" ? "#f0faf3" : actionTone === "watch" ? "#fffaf0" : "#fbf7f5",
+            }}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                <span style={{fontSize:9,fontWeight:950,letterSpacing:".06em",color:"#6b7b72"}}>
+                  即場建議 · {analysisDecision.liveAdjusted ? "比分＋分鐘重估" : "模型觀察"}
+                </span>
+                {analysisDecision.liveMarketAgeSeconds != null ? (
+                  <small style={{fontSize:9,color:"#7d8982",fontWeight:800}}>
+                    live price {Math.round(Number(analysisDecision.liveMarketAgeSeconds))}s
+                  </small>
+                ) : null}
+              </div>
+              <strong style={{display:"block",marginTop:5,fontSize:17,color:actionTone === "value" ? "#17633f" : "#5f5541"}}>
+                {actionLabel} · {primarySelectionLabel}
+              </strong>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6,fontSize:10,fontWeight:850,color:"#53685c"}}>
+                <span>模型 {Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</span>
+                <span>HKJC fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
+                <span>Edge {Number.isFinite(primaryEdgePp) ? (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : "—"}</span>
+                <span>{analysisDecision.liveScore || liveScoreText} · {analysisDecision.liveMinute ?? liveMinute}</span>
+              </div>
+              <p style={{margin:"7px 0 0",fontSize:11,lineHeight:1.55,color:"#495b51",fontWeight:700}}>
+                {analysisDecision.explanation || bettingAdvice}
+              </p>
+              {!analysisDecision.autoStakeAllowed ? (
+                <small style={{display:"block",marginTop:6,color:"#8a7661",fontWeight:800}}>
+                  Calibration 只限制自動注碼；有 Edge 嘅方向仍會照常顯示
+                </small>
+              ) : null}
+            </div>
+          ) : null}
 
           {liveSignalRows.length ? (
             <div className="live-pressure-board">
