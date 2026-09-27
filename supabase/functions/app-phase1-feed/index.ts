@@ -202,8 +202,29 @@ Deno.serve(async (req: Request) => {
     const formMetaMap = new Map<string, any>();
     const storySummaryMap = new Map<string, any>();
     const sourceContextMap = new Map<string, any>();
+    const upcomingAuthorityMap = new Map<string, any>();
+    const liveAuthorityMap = new Map<string, any>();
     const verifiedMasterKeys = new Set<string>();
     if (eventIds.length) {
+      const [{ data: upcomingAuthorityRows, error: upcomingAuthorityError }, { data: liveAuthorityRows, error: liveAuthorityError }] = await Promise.all([
+        db.from("hkjc_upcoming_current")
+          .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
+          .in("hkjc_event_id", eventIds),
+        db.from("hkjc_live_odds_current")
+          .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
+          .in("hkjc_event_id", eventIds),
+      ]);
+      if (upcomingAuthorityError) {
+        console.error("upcoming_display_authority_query_failed", upcomingAuthorityError);
+      } else {
+        for (const row of upcomingAuthorityRows ?? []) upcomingAuthorityMap.set(row.hkjc_event_id, row);
+      }
+      if (liveAuthorityError) {
+        console.error("live_display_authority_query_failed", liveAuthorityError);
+      } else {
+        for (const row of liveAuthorityRows ?? []) liveAuthorityMap.set(row.hkjc_event_id, row);
+      }
+
       const currentNameKeys = [...new Set(
         rows.flatMap((row: any) => [identityKey(row.home_en), identityKey(row.away_en)]).filter(Boolean)
       )];
@@ -535,11 +556,16 @@ Deno.serve(async (req: Request) => {
     const identityPresent = (legacyValue: unknown, name: unknown) =>
       Boolean(legacyValue) || verifiedMasterKeys.has(identityKey(name));
 
-    const matches = rows.map((r: any) => ({
+    const matches = rows.map((r: any) => {
+      const displayAuthority = Boolean(r.live_now)
+        ? (liveAuthorityMap.get(r.hkjc_event_id) ?? upcomingAuthorityMap.get(r.hkjc_event_id) ?? null)
+        : (upcomingAuthorityMap.get(r.hkjc_event_id) ?? liveAuthorityMap.get(r.hkjc_event_id) ?? null);
+      return {
       id: r.hkjc_event_id,
       kickoff: r.kickoff_hkt,
       status: r.status,
       league: r.tournament,
+      leagueZh: displayAuthority?.tournament_zh ?? null,
       home: r.home_en,
       away: r.away_en,
       homeZh: r.home_zh,
@@ -556,6 +582,11 @@ Deno.serve(async (req: Request) => {
           home: num(r.live_had_home),
           draw: num(r.live_had_draw),
           away: num(r.live_had_away),
+        },
+        handicap: {
+          line: displayAuthority?.hdc_line ?? null,
+          home: num(displayAuthority?.hdc_home),
+          away: num(displayAuthority?.hdc_away),
         },
         goals: {
           line: r.live_hil_line ?? null,
@@ -593,6 +624,11 @@ Deno.serve(async (req: Request) => {
         home: num(r.hkjc_novig_home),
         draw: num(r.hkjc_novig_draw),
         away: num(r.hkjc_novig_away),
+      },
+      handicap: {
+        line: displayAuthority?.hdc_line ?? null,
+        home: num(displayAuthority?.hdc_home),
+        away: num(displayAuthority?.hdc_away),
       },
       goals: {
         line: r.hkjc_goals_line ?? null,
@@ -826,7 +862,8 @@ Deno.serve(async (req: Request) => {
       storySummary: storySummaryMap.get(r.hkjc_event_id) ?? null,
       sourceContext: sourceContextMap.get(r.hkjc_event_id) ?? null,
       updatedAt: r.data_updated_at,
-    }));
+      };
+    });
 
     return Response.json({
       generatedAt: new Date().toISOString(),
