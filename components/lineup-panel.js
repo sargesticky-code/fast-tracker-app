@@ -69,7 +69,8 @@ export default function LineupPanel() {
     const home = rows.filter((r) => side(r) === "H");
     const away = rows.filter((r) => side(r) === "A");
     const confirmedRows = rows.filter((r) => r?.confirmed === true);
-    const match = payload?.match || payload?.data?.match || {};
+    const match = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
+    const meta = hf?.lineupMeta || hf?.lineup_meta || payload?.lineupMeta || payload?.lineup_meta || {};
     return {
       rows,
       home,
@@ -79,6 +80,8 @@ export default function LineupPanel() {
       awayFormation: formation(away),
       homeTeam: match.homeZh || match.home_zh || match.home || hf?.homeTeam || hf?.home_team || "主隊",
       awayTeam: match.awayZh || match.away_zh || match.away || hf?.awayTeam || hf?.away_team || "客隊",
+      source: meta?.source || rows[0]?.source_name || null,
+      status: meta?.status || (rows.length ? (confirmedRows.length >= Math.min(20, rows.length) ? "CONFIRMED" : "PREDICTED_FULL") : "MISSING"),
     };
   }, [payload]);
 
@@ -91,7 +94,7 @@ export default function LineupPanel() {
           <div style={{fontSize:18,fontWeight:900}}>⚽ LINEUP · 陣容</div>
           <div style={{fontSize:12,color:"#68736c",marginTop:2}}>預計陣容會清楚標示；官方正選公布後自動切換 CONFIRMED</div>
         </div>
-        {view.rows.length > 0 && <div style={{fontSize:12,fontWeight:800,padding:"5px 8px",borderRadius:999,background:view.confirmed?"#e4f5e9":"#fff4d8",color:view.confirmed?"#166534":"#8a5a00"}}>{view.confirmed?"CONFIRMED":"預計陣容"}</div>}
+        {view.rows.length > 0 && <div style={{fontSize:12,fontWeight:850,padding:"6px 9px",borderRadius:999,background:view.confirmed?"#e4f5e9":"#fff4d8",color:view.confirmed?"#166534":"#8a5a00"}}>{view.confirmed?"CONFIRMED 11v11":"PREDICTED 11v11"}{view.source ? ` · ${view.source}` : ""}</div>}
       </div>
 
       {view.home.length || view.away.length ? (
