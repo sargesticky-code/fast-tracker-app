@@ -1478,11 +1478,17 @@ export default function MatchDetailClient() {
                 <span>模型 {Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</span>
                 <span>HKJC fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
                 <span>Edge {Number.isFinite(primaryEdgePp) ? (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : "—"}</span>
+                {analysisDecision.confidenceLabel ? <span>信心 {analysisDecision.confidenceLabel} · {analysisDecision.confidenceScore ?? "—"}/100</span> : null}
                 <span>{analysisDecision.liveScore || liveScoreText} · {analysisDecision.liveMinute ?? liveMinute}</span>
               </div>
               <p style={{margin:"7px 0 0",fontSize:11,lineHeight:1.55,color:"#495b51",fontWeight:700}}>
                 {analysisDecision.explanation || bettingAdvice}
               </p>
+              {Array.isArray(analysisDecision.recommendationReasons) && analysisDecision.recommendationReasons.length ? (
+                <small style={{display:"block",marginTop:5,color:"#748178",fontWeight:750}}>
+                  判斷依據：{analysisDecision.recommendationReasons.slice(0, 4).join(" · ")}
+                </small>
+              ) : null}
               {!analysisDecision.autoStakeAllowed ? (
                 <small style={{display:"block",marginTop:6,color:"#8a7661",fontWeight:800}}>
                   Calibration 只限制自動注碼；有 Edge 嘅方向仍會照常顯示
