@@ -250,7 +250,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
         <div className="ft5-cell ft5-fixture-cell">
           <div className="ft5-match-meta">
             <strong className="ft5-kickoff">{formatKickoff(match.kickoff)}</strong>
-            <span className="ft5-league">{leagueDisplayName(match.league)}</span>
+            <span className="ft5-league">{leagueDisplayName(match.leagueZh || match.league)}</span>
             <span className="ft5-meta-sep">·</span>
             <span className={"ft5-fresh-text ft5-fresh-" + fresh.key}>{fresh.label}</span>
           </div>
