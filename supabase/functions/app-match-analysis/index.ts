@@ -557,8 +557,9 @@ function buildBinaryAdvice(opts: {
 
   const action = candidateClass === "DATA_RISK" ? "NO_BET"
     : ["NO_MODEL", "NO_EDGE"].includes(candidateClass) ? "PASS"
-    : opts.productionValidated && !candidateClass.includes("WATCH") ? candidateClass
-    : "WATCH_CANDIDATE";
+    : candidateClass === "LEAN" ? "LEAN"
+    : candidateClass.includes("VALUE") ? candidateClass
+    : "WATCH";
 
   const edgePp = edge === null ? null : edge * 100;
   const sourceCount = models.reduce((s, m) => s + Math.max(1, Number(m.sources || 1)), 0);
@@ -566,7 +567,14 @@ function buildBinaryAdvice(opts: {
   if (candidateClass === "DATA_RISK") advice = `${opts.label}：資料或 HKJC 價格狀態未通過，暫不作投注方向。`;
   else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 盤口，但未有可比較模型，暫時 PASS。`;
   else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：模型同 HKJC fair probability 暫未形成正 Edge，PASS。`;
-  else if (selection) advice = `${opts.label}建議觀察 ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}，Edge ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}，${models.length} 個 evidence family / ${sourceCount} 個來源訊號。`;
+  else if (selection) {
+    const lead = candidateClass.includes("VALUE")
+      ? "Value 候選"
+      : candidateClass === "LEAN"
+        ? "輕微傾向"
+        : "觀察";
+    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}，Edge ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}，${models.length} 個 evidence family / ${sourceCount} 個來源訊號。`;
+  }
 
   return {
     market: opts.marketKey,
@@ -582,6 +590,7 @@ function buildBinaryAdvice(opts: {
     candidateEdgePp: edgePp,
     candidateClass,
     action,
+    autoStakeAllowed: opts.productionValidated,
     evidenceFamilyCount: models.length,
     sourceSignalCount: sourceCount,
     marketProbabilities: market,
