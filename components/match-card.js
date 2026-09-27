@@ -13,6 +13,7 @@ import {
   formatOdds,
   freshness,
   goalsValueEdge,
+  leagueDisplayName,
   coverageStatusMeta,
   modelAgreement,
   matchDetailHref,
@@ -22,7 +23,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "ACTION-QUEUE-20260926-1";
+const UI_BUILD = "ZH-LEAGUE-LIVE-20260927-1";
 
 function pct(value) {
   const n = Number(value);
@@ -173,24 +174,13 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const scriptScore = storyScript?.predictedScore || match.forebetDetail?.predictedScore || null;
   const editorialContradict = Number(editorialAlignment?.contradict || 0);
   const editorialSupport = Number(editorialAlignment?.support || 0);
-  const lineup = match.humanFactors?.lineup || null;
-  const lineupStatus = String(lineup?.status || "MISSING");
-  const lineupLabel = lineupStatus === "CONFIRMED" ? "XI ✓"
-    : lineupStatus === "PREDICTED_FULL" ? "XI 預計"
-      : lineupStatus === "PARTIAL" ? "XI 部分"
-        : "XI —";
-  const lineupTone = lineupStatus === "CONFIRMED" ? { bg:"#eaf7ef", fg:"#21613f", bd:"#bee0ca" }
-    : lineupStatus === "PREDICTED_FULL" ? { bg:"#fff8e5", fg:"#7a5a12", bd:"#ead99a" }
-      : lineupStatus === "PARTIAL" ? { bg:"#fff4e8", fg:"#87531d", bd:"#eccba7" }
-        : { bg:"#f4f5f4", fg:"#7a817d", bd:"#dfe3e0" };
   const sourceContext = match.sourceContext || null;
   const sourceContextVerified = sourceContext && Number(sourceContext.matchConfidence) >= 0.94;
   const sourceContextDetail = sourceContextVerified
     ? [
         sourceContext.source || "External",
         sourceContext.identityStatus === "EXACT_PAIR" ? "verified" : "matched",
-        sourceContext.lineupAvailable ? "LINEUP" : null,
-        sourceContext.detailAvailable && !sourceContext.lineupAvailable ? "DETAIL" : null,
+        sourceContext.detailAvailable ? "DETAIL" : null,
       ].filter(Boolean).join(" · ")
     : null;
 
@@ -260,13 +250,9 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
         <div className="ft5-cell ft5-fixture-cell">
           <div className="ft5-match-meta">
             <strong className="ft5-kickoff">{formatKickoff(match.kickoff)}</strong>
-            <span className="ft5-league">{match.league}</span>
+            <span className="ft5-league">{leagueDisplayName(match.league)}</span>
             <span className="ft5-meta-sep">·</span>
             <span className={"ft5-fresh-text ft5-fresh-" + fresh.key}>{fresh.label}</span>
-            <span
-              title={lineup?.source ? `${lineup.source} · H ${lineup.homeStarters || 0} / A ${lineup.awayStarters || 0}` : "Lineup not available yet"}
-              style={{fontSize:10,fontWeight:950,padding:"3px 7px",borderRadius:999,border:"1px solid "+lineupTone.bd,background:lineupTone.bg,color:lineupTone.fg,whiteSpace:"nowrap"}}
-            >{lineupLabel}</span>
           </div>
           <div className="ft5-teams">
             <b>{home}</b>
