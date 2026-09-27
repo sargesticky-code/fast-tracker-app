@@ -219,6 +219,203 @@ function liveResidualOver(
   return poissonOver(remainingMean, residualLine);
 }
 
+function parseAsianHandicapLine(value: unknown): number[] | null {
+  const raw = String(value ?? "").trim().replace(/−/g, "-").replace(/＋/g, "+");
+  if (!raw) return null;
+  const parts = raw.split("/").map((x) => Number(x.trim())).filter(Number.isFinite);
+  if (!parts.length || parts.length > 2) return null;
+  return parts;
+}
+
+type DiffOutcome = { diff: number; probability: number };
+
+function scoreDiffDistribution(
+  prior: T,
+  totalMeanValue: number,
+  homeScoreValue = 0,
+  awayScoreValue = 0,
+  minuteValue: number | null = null,
+  shadow: any = null,
+): DiffOutcome[] {
+  const homeScore = Math.max(0, Math.round(homeScoreValue));
+  const awayScore = Math.max(0, Math.round(awayScoreValue));
+  const totalMean = clamp(totalMeanValue || 2.7, 1.2, 5.2);
+  const liveMode = minuteValue !== null;
+  const minute = liveMode ? clamp(Number(minuteValue), 0, 96) : 0;
+  const paceRatio = liveMode ? livePaceRatio(totalMean, minute, shadow) : 1;
+
+  let remainingMean = liveMode
+    ? totalMean * Math.max(0, (95 - minute) / 95) * (0.72 + 0.28 * paceRatio)
+    : totalMean;
+  if (liveMode && minute >= 55 && homeScore !== awayScore) remainingMean *= 1.06;
+
+  let homeShare = clamp(0.5 + (prior.home - prior.away) * 0.58, 0.20, 0.80);
+  if (liveMode) {
+    const xgHome = n(shadow?.xg_home);
+    const xgAway = n(shadow?.xg_away);
+    const xgTotal = (xgHome ?? 0) + (xgAway ?? 0);
+    if (xgHome !== null && xgAway !== null && xgTotal > 0.15) {
+      const xgShare = clamp((xgHome + 0.15) / (xgTotal + 0.30), 0.18, 0.82);
+      homeShare = 0.72 * homeShare + 0.28 * xgShare;
+    }
+    const actualSide = String(shadow?.actual_control_side || "").toUpperCase();
+    if (actualSide === "H") homeShare += 0.035;
+    if (actualSide === "A") homeShare -= 0.035;
+    if (homeScore < awayScore) homeShare += 0.04;
+    if (homeScore > awayScore) homeShare -= 0.04;
+  }
+  homeShare = clamp(homeShare, 0.16, 0.84);
+
+  const lambdaHome = Math.max(0, remainingMean * homeShare);
+  const lambdaAway = Math.max(0, remainingMean * (1 - homeShare));
+  const diffMap = new Map<number, number>();
+  let mass = 0;
+  for (let hg = 0; hg <= 10; hg += 1) {
+    const ph = poissonPmf(hg, lambdaHome);
+    for (let ag = 0; ag <= 10; ag += 1) {
+      const probability = ph * poissonPmf(ag, lambdaAway);
+      if (probability <= 0) continue;
+      const diff = (homeScore + hg) - (awayScore + ag);
+      diffMap.set(diff, (diffMap.get(diff) ?? 0) + probability);
+      mass += probability;
+    }
+  }
+  if (mass <= 0) return [];
+  return [...diffMap.entries()].map(([diff, probability]) => ({ diff, probability: probability / mass }));
+}
+
+function asianSettlementNet(diff: number, homeLine: number, odds: number, side: "HOME" | "AWAY") {
+  const adjustedHome = diff + homeLine;
+  const sideMargin = side === "HOME" ? adjustedHome : -adjustedHome;
+  if (sideMargin > 1e-9) return odds - 1;
+  if (sideMargin < -1e-9) return -1;
+  return 0;
+}
+
+function asianExpectedValue(
+  distribution: DiffOutcome[],
+  homeLines: number[],
+  oddsValue: unknown,
+  side: "HOME" | "AWAY",
+) {
+  const odds = n(oddsValue);
+  if (!distribution.length || !homeLines.length || odds === null || odds <= 1) return null;
+  let ev = 0;
+  for (const row of distribution) {
+    const settlement = homeLines.reduce(
+      (sum, line) => sum + asianSettlementNet(row.diff, line, odds, side),
+      0,
+    ) / homeLines.length;
+    ev += row.probability * settlement;
+  }
+  return ev;
+}
+
+function buildHandicapAdvice(opts: {
+  lineValue: unknown;
+  homeOdds: unknown;
+  awayOdds: unknown;
+  consensus: T | null;
+  families: Family[];
+  totalMean: number;
+  homeName: string;
+  awayName: string;
+  live: boolean;
+  score: { home: number; away: number } | null;
+  minute: number | null;
+  shadow: any;
+  fresh: boolean;
+  fallbackMode: boolean;
+}) {
+  const lines = parseAsianHandicapLine(opts.lineValue);
+  const homeOdds = n(opts.homeOdds);
+  const awayOdds = n(opts.awayOdds);
+  const usable = Boolean(lines && opts.consensus && homeOdds && awayOdds && homeOdds > 1 && awayOdds > 1);
+  if (!usable || !opts.fresh || opts.fallbackMode) {
+    return {
+      market: "ASIAN_HANDICAP",
+      label: "亞洲讓球",
+      line: opts.lineValue ?? null,
+      selection: null,
+      selectionLabel: "暫不建議",
+      currentOdds: null,
+      expectedValuePct: null,
+      candidateClass: "DATA_RISK",
+      action: "NO_BET",
+      method: "MODEL_DERIVED_SCORE_DISTRIBUTION",
+      advice: !usable
+        ? "亞洲讓球：現時未有完整 HKJC 讓球盤或可用模型分布。"
+        : "亞洲讓球：市場價格 freshness 未通過，暫不以舊價計 Value。",
+    };
+  }
+
+  const baseHome = opts.live && opts.score ? opts.score.home : 0;
+  const baseAway = opts.live && opts.score ? opts.score.away : 0;
+  const minute = opts.live ? opts.minute : null;
+  const dist = scoreDiffDistribution(opts.consensus!, opts.totalMean, baseHome, baseAway, minute, opts.shadow);
+  const homeEv = asianExpectedValue(dist, lines!, homeOdds, "HOME");
+  const awayEv = asianExpectedValue(dist, lines!, awayOdds, "AWAY");
+  const side: "HOME" | "AWAY" | null =
+    homeEv === null && awayEv === null ? null :
+    (homeEv ?? -999) >= (awayEv ?? -999) ? "HOME" : "AWAY";
+  const ev = side === "HOME" ? homeEv : side === "AWAY" ? awayEv : null;
+  const odds = side === "HOME" ? homeOdds : side === "AWAY" ? awayOdds : null;
+
+  const familyEvs = side ? opts.families.map((family) => {
+    const fd = scoreDiffDistribution(family.probs, opts.totalMean, baseHome, baseAway, minute, opts.shadow);
+    return asianExpectedValue(fd, lines!, side === "HOME" ? homeOdds : awayOdds, side);
+  }).filter((x): x is number => x !== null) : [];
+  const supportCount = familyEvs.filter((x) => x > 0).length;
+  const supportRatio = familyEvs.length ? supportCount / familyEvs.length : 0;
+  const evDispersion = familyEvs.length >= 2 ? Math.max(...familyEvs) - Math.min(...familyEvs) : null;
+
+  let candidateClass = "NO_EDGE";
+  if (side === null || ev === null || ev <= 0) candidateClass = "NO_EDGE";
+  else if (opts.families.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
+  else if (evDispersion !== null && evDispersion > 0.18) candidateClass = "WATCH_MODEL_SPLIT";
+  else if (ev >= 0.12 && supportRatio >= 0.66) candidateClass = "STRONG_VALUE_CANDIDATE";
+  else if (ev >= 0.05 && supportRatio >= 0.50) candidateClass = "VALUE_CANDIDATE";
+  else if (ev >= 0.02) candidateClass = "LEAN";
+  else candidateClass = "WATCH";
+
+  const action = candidateClass === "NO_EDGE" ? "PASS"
+    : candidateClass.includes("STRONG") ? "STRONG_VALUE_CANDIDATE"
+    : candidateClass.includes("VALUE") ? "VALUE_CANDIDATE"
+    : candidateClass === "LEAN" ? "LEAN"
+    : "WATCH";
+  const lineText = String(opts.lineValue ?? "—");
+  const selectionLabel = side === "HOME"
+    ? `${opts.homeName} ${lineText}`
+    : side === "AWAY"
+      ? `${opts.awayName} ${lines!.map((x) => -x).map((x) => (x > 0 ? "+" : "") + x).join("/")}`
+      : "暫不建議";
+  const evText = ev === null ? "—" : `${ev >= 0 ? "+" : ""}${(ev * 100).toFixed(1)}%`;
+  let advice = "亞洲讓球：模型計算後未見正期望值。";
+  if (side && ev !== null && ev > 0) {
+    advice = `${action === "WATCH" ? "觀望" : action === "LEAN" ? "輕微傾向" : "Value 候選"} ${selectionLabel} @ ${odds?.toFixed(2) ?? "—"}；模型衍生 EV ${evText}，${supportCount}/${Math.max(1, familyEvs.length)} 個 evidence family 為正值${evDispersion !== null ? `，模型 EV 分歧 ${(evDispersion * 100).toFixed(1)}pp` : ""}。`;
+  }
+
+  return {
+    market: "ASIAN_HANDICAP",
+    label: "亞洲讓球",
+    line: opts.lineValue ?? null,
+    selection: side,
+    selectionLabel,
+    currentOdds: odds,
+    expectedValuePct: ev === null ? null : ev * 100,
+    candidateClass,
+    action,
+    supportCount,
+    evidenceFamilyCount: opts.families.length,
+    supportRatio,
+    dispersionPct: evDispersion === null ? null : evDispersion * 100,
+    method: "MODEL_DERIVED_SCORE_DISTRIBUTION",
+    homeExpectedValuePct: homeEv === null ? null : homeEv * 100,
+    awayExpectedValuePct: awayEv === null ? null : awayEv * 100,
+    advice,
+  };
+}
+
 function maxEdge(consensus: T | null, market: T | null) {
   if (!consensus || !market) return { side: null as "H"|"D"|"A"|null, edge: null as number|null };
   const edges = [
@@ -531,7 +728,7 @@ Deno.serve(async (req: Request) => {
 
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
-    liveScore, liveStats, liveOdds, liveShadow, scenarios, modelTotals
+    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals
   ] = await Promise.all([
     one("human_factors_current"),
     one("api_football_event_map"),
@@ -542,6 +739,7 @@ Deno.serve(async (req: Request) => {
     one("live_score_current"),
     one("live_stats_current"),
     one("hkjc_live_odds_current"),
+    one("hkjc_upcoming_current"),
     one("live_expected_actual_current"),
     many("match_scenario_current"),
     one("model_predictions"),
@@ -668,11 +866,16 @@ Deno.serve(async (req: Request) => {
   // A hard NO_BET is now reserved for cases where the live calculation itself is not trustworthy.
   // Calibration and partial Phase 1 coverage may limit staking confidence, but must not erase a real edge.
   const hardLiveDataGap = Boolean(live && (!scorePair || resolvedLiveMinute === null));
+  const liveContradiction = Boolean(
+    live && shadow?.shadow_status &&
+    ["CONTRADICTION","REJECT","RISK"].some((k) => String(shadow.shadow_status).toUpperCase().includes(k))
+  );
   let candidate = "NO_EDGE";
   if (!market || !decisionFamilies.length || !fresh || hardLiveDataGap || fallbackMode) candidate = "DATA_RISK";
   else if (decisionFamilies.length < 2) candidate = "WATCH";
-  else if ((best.edge ?? -1) >= 0.10 && agreement >= 0.66) candidate = "STRONG_VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.05 && agreement >= 0.50) candidate = "VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) > 0 && (liveContradiction || (dispersion !== null && dispersion > 0.18))) candidate = "WATCH";
+  else if ((best.edge ?? -1) >= 0.10 && agreement >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.05 && agreement >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidate = "VALUE_CANDIDATE";
   else if ((best.edge ?? -1) >= 0.025) candidate = "LEAN";
   else if ((best.edge ?? -1) > 0) candidate = "WATCH";
   else candidate = "NO_EDGE";
@@ -682,6 +885,27 @@ Deno.serve(async (req: Request) => {
   const action = candidate === "DATA_RISK" ? "NO_BET"
     : candidate === "NO_EDGE" ? "PASS"
     : candidate;
+
+  const hdcAuthority:any = live ? (liveOddsRow ?? null) : (upcomingOdds.data ?? null);
+  const currentHdcLine = hdcAuthority?.hdc_line ?? null;
+  const currentHdcHome = hdcAuthority?.hdc_home ?? null;
+  const currentHdcAway = hdcAuthority?.hdc_away ?? null;
+  const handicapAdvice = buildHandicapAdvice({
+    lineValue: currentHdcLine,
+    homeOdds: currentHdcHome,
+    awayOdds: currentHdcAway,
+    consensus,
+    families: decisionFamilies,
+    totalMean: prematchTotalMean,
+    homeName: home,
+    awayName: away,
+    live,
+    score: scorePair,
+    minute: resolvedLiveMinute,
+    shadow,
+    fresh,
+    fallbackMode,
+  });
 
   const currentGoalsLine = live ? (liveOddsRow?.hil_line ?? r.live_hil_line) : r.hkjc_goals_line;
   const currentGoalsOver = live ? (liveOddsRow?.hil_over ?? r.live_hil_over) : r.hkjc_goals_over;
@@ -913,7 +1137,7 @@ Deno.serve(async (req: Request) => {
   };
 
   const errors: any = {};
-  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,liveShadow,scenarios,modelTotals })) {
+  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,upcomingOdds,liveShadow,scenarios,modelTotals })) {
     if ((v as any).error) errors[k] = (v as any).error;
   }
 
@@ -960,10 +1184,12 @@ Deno.serve(async (req: Request) => {
       counterRead,
       riskRead: invalidators.length ? `主要風險/失效條件：${invalidators.join("；")}。` : "目前未見額外 data-risk flag。",
       advice,
+      handicapAdvice: handicapAdvice.advice,
       goalsAdvice: goalsAdvice.advice,
       cornersAdvice: cornersAdvice.advice,
     },
     marketAdvice: {
+      handicap: handicapAdvice,
       goals: goalsAdvice,
       corners: cornersAdvice,
     },
@@ -984,6 +1210,11 @@ Deno.serve(async (req: Request) => {
       phase2: { quality: humanQuality, injuryHome, injuryAway, lineupConfirmed, playerRows: playerStatus.data.length, lineupRows: lineups.data.length, managerRows: managers.data.length },
       phase3: liveState,
       phase4: movementData,
+      markets: {
+        handicap: handicapAdvice,
+        goals: goalsAdvice,
+        corners: cornersAdvice,
+      },
       totals: {
         goals: goalsAdvice,
         corners: cornersAdvice,
