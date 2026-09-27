@@ -124,6 +124,32 @@ function secondsOld(value: unknown) {
   return Math.max(0, (Date.now() - ms) / 1000);
 }
 
+function matchStatusToken(...values: unknown[]) {
+  for (const value of values) {
+    const token = String(value ?? "").trim().toUpperCase().replace(/[\s_-]+/g, "");
+    if (token) return token;
+  }
+  return "";
+}
+
+function statusIsLive(token: string) {
+  return [
+    "LIVE",
+    "INPLAY",
+    "FIRSTHALF",
+    "FIRSTHALFCOMPLETED",
+    "HALFTIME",
+    "HT",
+    "SECONDHALF",
+    "EXTRATIME",
+    "PENALTIES",
+  ].includes(token);
+}
+
+function statusIsPrematch(token: string) {
+  return ["PREEVENT", "PREMATCH", "UPCOMING", "SCHEDULED", "NOTSTARTED"].includes(token);
+}
+
 function inferredLiveMinute(explicit: unknown, kickoff: unknown) {
   const direct = n(explicit);
   if (direct !== null) return clamp(Math.round(direct), 0, 100);
@@ -558,8 +584,14 @@ function buildBinaryAdvice(opts: {
     ? Math.max(...selectedModelProbabilities) - Math.min(...selectedModelProbabilities)
     : null;
 
+  let dataRiskReason: string | null = null;
+  if (!market) dataRiskReason = "MISSING_MARKET_PRICE";
+  else if (line === null) dataRiskReason = "MISSING_MARKET_LINE";
+  else if (opts.fallbackMode) dataRiskReason = "REFERENCE_PRICE_ONLY";
+  else if (!opts.fresh) dataRiskReason = "STALE_MARKET_PRICE";
+
   let candidateClass = "NO_EDGE";
-  if (!market || line === null || opts.fallbackMode || !opts.healthOk || !opts.fresh) candidateClass = "DATA_RISK";
+  if (dataRiskReason) candidateClass = "DATA_RISK";
   else if (!models.length) candidateClass = "NO_MODEL";
   else if (selection === null || edge === null || edge <= 0) candidateClass = "NO_EDGE";
   else if (models.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
@@ -578,9 +610,18 @@ function buildBinaryAdvice(opts: {
   const edgePp = edge === null ? null : edge * 100;
   const sourceCount = models.reduce((s, m) => s + Math.max(1, Number(m.sources || 1)), 0);
   let advice = "PASS：未有足夠模型證據形成方向。";
-  if (candidateClass === "DATA_RISK") advice = `${opts.label}：資料或 HKJC 價格狀態未通過，暫不作投注方向。`;
-  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 盤口，但未有可比較模型，暫時 PASS。`;
-  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：模型同 HKJC fair probability 暫未形成正 Edge，PASS。`;
+  if (candidateClass === "DATA_RISK") {
+    const why = dataRiskReason === "MISSING_MARKET_PRICE"
+      ? "HKJC 現價未齊"
+      : dataRiskReason === "MISSING_MARKET_LINE"
+        ? "HKJC 盤口線未齊"
+        : dataRiskReason === "REFERENCE_PRICE_ONLY"
+          ? "目前只得參考舊價"
+          : "HKJC 現價已超過 freshness 門檻";
+    advice = `${opts.label}：暫不下注，因為${why}；呢個係資料 gate，唔代表市場本身冇價值。`;
+  }
+  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 現盤，但未有可比較模型，所以暫不下注；原因係冇模型，而唔係計過冇 Edge。`;
+  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：已完成模型 vs HKJC fair probability 計算，暫未形成正 Edge，跳過。`;
   else if (selection) {
     const lead = candidateClass.includes("VALUE")
       ? "Value 候選"
@@ -604,6 +645,8 @@ function buildBinaryAdvice(opts: {
     candidateEdgePp: edgePp,
     candidateClass,
     action,
+    dataRiskReason,
+    healthWarning: !opts.healthOk,
     autoStakeAllowed: opts.productionValidated,
     evidenceFamilyCount: models.length,
     supportCount,
@@ -795,7 +838,44 @@ Deno.serve(async (req: Request) => {
   const away = r.away_zh || r.away_en || "客隊";
   const shadow = liveShadow.data;
   const liveOddsRow:any = liveOdds.data || null;
-  const live = Boolean(r.live_now || liveScore.data || liveOddsRow);
+
+  // Treat the canonical feed's live_now as the primary authority. Some HKJC
+  // rows carry in_play=true before kickoff, and stale live rows can survive
+  // after a match, so row presence alone must never flip a match into live mode.
+  const liveStatusToken = matchStatusToken(
+    r.live_status,
+    liveScore.data?.match_status,
+    liveScore.data?.status,
+    liveStats.data?.match_status,
+    r.status,
+  );
+  const kickoffMs = r.kickoff_hkt ? new Date(String(r.kickoff_hkt)).getTime() : NaN;
+  const nowMs = Date.now();
+  const kickoffStarted = Number.isFinite(kickoffMs) && kickoffMs <= nowMs + 2 * 60 * 1000;
+  const withinLiveWindow = Number.isFinite(kickoffMs) && kickoffMs >= nowMs - 4 * 60 * 60 * 1000;
+  const candidateLiveOddsAgeSeconds = secondsOld(
+    liveOddsRow?.fetched_at ??
+    liveOddsRow?.odds_updated_at ??
+    r.live_fetched_at ??
+    r.live_odds_updated_at
+  );
+  const liveScoreAgeSeconds = secondsOld(
+    liveScore.data?.captured_at_hkt ??
+    liveScore.data?.captured_at ??
+    liveScore.data?.source_updated_at ??
+    liveScore.data?.updated_at ??
+    r.live_score_captured_at ??
+    r.live_score_source_updated_at
+  );
+  const recentLiveEvidence = [candidateLiveOddsAgeSeconds, liveScoreAgeSeconds]
+    .some((age) => age !== null && age <= 10 * 60);
+  let live = Boolean(r.live_now) ||
+    (statusIsLive(liveStatusToken) && kickoffStarted && withinLiveWindow && recentLiveEvidence) ||
+    (kickoffStarted && withinLiveWindow && recentLiveEvidence);
+  if (statusIsPrematch(liveStatusToken) && Number.isFinite(kickoffMs) && kickoffMs > nowMs - 2 * 60 * 1000) {
+    live = false;
+  }
+
   const explicitLiveMinute =
     n(liveScore.data?.minute) ??
     n(liveStats.data?.match_minute) ??
@@ -818,9 +898,7 @@ Deno.serve(async (req: Request) => {
     hkjc_away_odds: liveOddsRow?.had_away ?? r.live_had_away,
   };
   const liveMarket = live ? fairMarket(liveMarketInput) : null;
-  const liveOddsAgeSeconds = live
-    ? secondsOld(liveOddsRow?.fetched_at ?? liveOddsRow?.odds_updated_at ?? r.live_fetched_at ?? r.live_odds_updated_at)
-    : null;
+  const liveOddsAgeSeconds = live ? candidateLiveOddsAgeSeconds : null;
   const liveFresh = live && liveMarket
     ? liveOddsAgeSeconds !== null && liveOddsAgeSeconds <= 240
     : false;
@@ -930,19 +1008,25 @@ Deno.serve(async (req: Request) => {
   const recommendationReasons = [
     edgePpNow !== null ? `Edge ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : "無可計 Edge",
     `${support}/${decisionFamilies.length} 模型 family 支持`,
+    decisionFamilies.length === 1 ? "只有 1 個獨立模型 family，方向只列觀望" : null,
     dispersion !== null ? `模型分歧 ${(dispersion * 100).toFixed(1)}pp` : null,
     live ? `${liveMetricCount} 項 live metrics` : null,
-    liveContradiction ? "即場走勢與預期矛盾" : null,
+    liveContradiction ? "即場走勢與預期矛盾，降為觀望" : null,
+    !fresh ? "市場價格 freshness 未通過" : null,
+    hardLiveDataGap ? "缺可靠比分／分鐘" : null,
     live && liveOddsAgeSeconds !== null ? `live price ${Math.round(liveOddsAgeSeconds)}s` : null,
   ].filter(Boolean);
 
+  // Classify the recommendation from direct price-vs-model evidence. Confidence
+  // is a corroborating gate, not a second copy of the Edge threshold.
   let candidate = "NO_EDGE";
   if (!market || !decisionFamilies.length || !fresh || hardLiveDataGap || fallbackMode) candidate = "DATA_RISK";
   else if ((best.edge ?? -1) <= 0) candidate = "NO_EDGE";
-  else if (decisionFamilies.length < 2 || confidenceScore < 45) candidate = "WATCH";
-  else if ((best.edge ?? -1) >= 0.08 && agreement >= 0.66 && confidenceScore >= 75 && !liveContradiction) candidate = "STRONG_VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.045 && agreement >= 0.50 && confidenceScore >= 58 && !liveContradiction) candidate = "VALUE_CANDIDATE";
-  else if ((best.edge ?? -1) >= 0.02 && confidenceScore >= 48) candidate = "LEAN";
+  else if (decisionFamilies.length < 2) candidate = "WATCH";
+  else if (liveContradiction || (dispersion !== null && dispersion > 0.18)) candidate = "WATCH";
+  else if ((best.edge ?? -1) >= 0.08 && agreement >= 0.66 && confidenceScore >= 65) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.04 && agreement >= 0.50 && confidenceScore >= 50) candidate = "VALUE_CANDIDATE";
+  else if ((best.edge ?? -1) >= 0.02 && confidenceScore >= 40) candidate = "LEAN";
   else candidate = "WATCH";
 
   const productionValidated = !fallbackMode && !pipelineGate.includes("CALIBRATION") && pipelineGate !== "";
