@@ -23,7 +23,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "DASH-STABLE-20260928-1";
+const UI_BUILD = "DASH-FOCUS-20260928-1";
 
 function pct(value) {
   const n = Number(value);
@@ -195,6 +195,42 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
         };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
   const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
+  const secondaryMarkets = [
+    {
+      key: "HANDICAP",
+      rank: handicapAdvice?.status === "VALUE" ? 100 + Math.max(0, handicapEdge || 0) : handicapAdvice?.status === "LEAN" ? 35 + Math.max(0, handicapEdge || 0) : 5,
+      available: handicapLine != null,
+      node: (
+        <div className={"ft5-odd ft5-total-pick" + (handicapSummary.positive ? " edge-target" : "")}>
+          <span>讓球</span><b>{handicapSummary.text}</b><small>{handicapSummary.detail}</small>
+        </div>
+      ),
+    },
+    {
+      key: "GOALS",
+      rank: goalsEdge && Number(goalsEdge.value) > 0 ? 70 + Number(goalsEdge.value) * 100 : 10,
+      available: match.goals?.line != null,
+      node: (
+        <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
+          <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
+          <BinaryMarketBar market={match.goals} edge={goalsEdge} />
+        </div>
+      ),
+    },
+    {
+      key: "CORNERS",
+      rank: cornersEdge && Number(cornersEdge.value) > 0 ? 70 + Number(cornersEdge.value) * 100 : 10,
+      available: match.corners?.line != null,
+      node: (
+        <div className={"ft5-odd ft5-total-pick" + (cornersSummary.positive ? " edge-target" : "")}>
+          <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
+          <BinaryMarketBar market={match.corners} edge={cornersEdge} />
+        </div>
+      ),
+    },
+  ].filter((row) => row.available).sort((a, b) => b.rank - a.rank);
+  const visibleSecondaryMarkets = secondaryMarkets.slice(0, 2);
+  const hiddenSecondaryCount = Math.max(0, secondaryMarkets.length - visibleSecondaryMarkets.length);
   const storyScript = match.storySummary?.matchScript || null;
   const editorialAlignment = match.storySummary?.editorialAlignment || null;
   const avgGoals = Number(match.forebetDetail?.ou25?.avgGoals);
@@ -412,28 +448,20 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
             <div className={marketOddsClass(edge, "A")}>
               <span>客</span><b>{formatOdds(match.odds?.away)}</b>
             </div>
-            <div className={"ft5-odd ft5-total-pick" + (handicapSummary.positive ? " edge-target" : "")}>
-              <span>讓球</span><b>{handicapSummary.text}</b><small>{handicapSummary.detail}</small>
-            </div>
-            <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
-              <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
-              <BinaryMarketBar market={match.goals} edge={goalsEdge} />
-            </div>
-            <div className={"ft5-odd ft5-total-pick" + (cornersSummary.positive ? " edge-target" : "")}>
-              <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
-              <BinaryMarketBar market={match.corners} edge={cornersEdge} />
-            </div>
+            {visibleSecondaryMarkets.map((row) => <div key={row.key}>{row.node}</div>)}
+            {hiddenSecondaryCount > 0 ? (
+              <div className="ft5-odd ft5-total-pick" style={{ opacity:.72 }}>
+                <span>更多</span><b>+{hiddenSecondaryCount} 市場</b><small>完整盤口及模型分析請入 Detail</small>
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div className="ft5-evidence-ribbon" aria-label="match evidence summary">
           <EvidenceItem icon="score" label="預測比分" value={scriptScore || "—"} detail={scriptShapeLabel || null} />
-          <EvidenceItem icon="goals" label="Avg Goals" value={Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"} />
-          <EvidenceItem icon="corner" label="Avg Corners" value={Number.isFinite(avgCorners) ? avgCorners.toFixed(1) : "—"} />
           <EvidenceItem icon="form" label="Form" value={homeFormCode && awayFormCode ? homeFormCode + " / " + awayFormCode : homeFormCode || awayFormCode || "—"} />
           <EvidenceItem icon="model" label="DC xG" value={dcXgText || "—"} />
-          <EvidenceItem icon="power" label={match.power ? "Power" : "Pi Δ"} value={powerText || "—"} />
-          <EvidenceItem icon="btts" label="BTTS Yes" value={Number.isFinite(bttsYes) ? Math.round(bttsYes * 100) + "%" : "—"} />
+          {Number.isFinite(bttsYes) ? <EvidenceItem icon="btts" label="BTTS" value={Math.round(bttsYes * 100) + "%"} /> : null}
           <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
           <EvidenceItem
             icon="source"
