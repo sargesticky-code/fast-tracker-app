@@ -52,8 +52,8 @@ function selectedClass(edge, key) {
 
 function marketOddsClass(edge, key) {
   const classes = ["ft5-odd"];
-  if (edge?.key === key && edge?.value > 0) classes.push("edge-target");
-  if (edge?.key === key && edge?.value >= 0.10) classes.push("edge-target-strong");
+  if (edge?.key === key && ["LEAN","VALUE","STRONG_VALUE"].includes(edge?.band)) classes.push("edge-target");
+  if (edge?.key === key && edge?.band === "STRONG_VALUE") classes.push("edge-target-strong");
   return classes.join(" ");
 }
 
@@ -127,16 +127,21 @@ function BinaryMarketBar({ market, edge, overLabel = "大", underLabel = "細" }
   );
 }
 
-function marketQuality({ edgePct = null, odds = null, freshnessKey, coveragePercent, consensusBonus = 0, hasModel = true }) {
-  const e = Number(edgePct);
+function marketQuality({ evPct = null, gapPp = null, odds = null, freshnessKey, coveragePercent, consensusBonus = 0, hasModel = true, band = null }) {
+  const ev = Number(evPct);
+  const gap = Number(gapPp);
   const o = Number(odds);
   let score = 0;
   const reasons = [];
-  if (Number.isFinite(e)) {
-    score += Math.max(-20, Math.min(55, e * 2.2));
-    if (e >= 10) reasons.push("Edge強");
-    else if (e >= 5) reasons.push("Edge正");
-    else if (e > 0) reasons.push("微正Edge");
+  if (Number.isFinite(ev)) {
+    score += Math.max(-20, Math.min(46, ev * 1.9));
+    if (band === "STRONG_VALUE") reasons.push("強Value");
+    else if (band === "VALUE") reasons.push("Value");
+    else if (band === "LEAN") reasons.push("正EV");
+    else if (ev > 0) reasons.push("EV正");
+  }
+  if (Number.isFinite(gap)) {
+    score += Math.max(-8, Math.min(12, gap * 0.8));
   }
   if (hasModel) { score += 12; reasons.push("有模型"); }
   if (freshnessKey === "fresh") { score += 14; reasons.push("資料新"); }
@@ -155,21 +160,31 @@ function marketQuality({ edgePct = null, odds = null, freshnessKey, coveragePerc
 function totalMarketSummary(match, edge, market, label) {
   const line = market?.line;
   if (line == null || line === "") return { label, text: "NO LINE", detail: "HKJC 未有盤口", positive: false };
-  if (!edge || !Number.isFinite(Number(edge.value)) || Number(edge.value) <= 0) {
-    return { label, text: "PASS · " + line, detail: "未見正 Edge", positive: false };
+  if (!edge || !Number.isFinite(Number(edge.expectedValue)) || Number(edge.expectedValue) <= 0) {
+    return { label, text: "PASS · " + line, detail: "現價 EV ≤ 0%", positive: false };
   }
-  const odds = binaryOdds(market, edge.key);
+  const odds = Number.isFinite(Number(edge.odds)) ? Number(edge.odds) : binaryOdds(market, edge.key);
   const fair = binaryFair(market?.over, market?.under);
-  const modelP = edge.key === "O" ? Number(edge.model?.over) : Number(edge.model?.under);
-  const fairP = edge.key === "O" ? Number(fair?.over) : Number(fair?.under);
+  const modelP = Number.isFinite(Number(edge.modelProbability))
+    ? Number(edge.modelProbability)
+    : edge.key === "O" ? Number(edge.model?.over) : Number(edge.model?.under);
+  const fairP = Number.isFinite(Number(edge.marketProbability))
+    ? Number(edge.marketProbability)
+    : edge.key === "O" ? Number(fair?.over) : Number(fair?.under);
+  const evPct = Number(edge.expectedValue) * 100;
+  const gapPp = Number(edge.value) * 100;
+  const band = edge.band === "STRONG_VALUE" ? "強Value"
+    : edge.band === "VALUE" ? "Value"
+      : edge.band === "LEAN" ? "Lean"
+        : edge.band === "WATCH" ? "觀望" : "Pass";
   const formula = Number.isFinite(modelP) && Number.isFinite(fairP)
-    ? "模型 " + (modelP * 100).toFixed(1) + "% − fair " + (fairP * 100).toFixed(1) + "%"
-    : "精算 Edge";
+    ? "模型 " + (modelP * 100).toFixed(1) + "% / fair " + (fairP * 100).toFixed(1) + "%"
+    : "模型 vs HKJC fair";
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + formula + " = +" + (Number(edge.value) * 100).toFixed(1) + "%",
-    positive: Number(edge.value) >= 0.025,
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "EV " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "% · Gap " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "pp · " + band + " · " + formula,
+    positive: ["LEAN","VALUE","STRONG_VALUE"].includes(edge.band),
   };
 }
 
@@ -186,23 +201,22 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const away = match.awayZh || match.away;
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
   const hasMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
-  const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "%" : "—";
+  const edgeGapPp = edge && Number.isFinite(Number(edge.value)) ? Number(edge.value) * 100 : null;
+  const edgeEvPct = edge && Number.isFinite(Number(edge.expectedValue)) ? Number(edge.expectedValue) * 100 : null;
+  const edgeText = edgeEvPct == null ? "—" : (edgeEvPct >= 0 ? "+" : "") + edgeEvPct.toFixed(1) + "%";
   const pick = edge ? outcomeLabel(edge.key) : "—";
-  const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
-  const selectedModelProbability = edge?.key === "H" ? Number(model?.home)
-    : edge?.key === "D" ? Number(model?.draw)
-      : edge?.key === "A" ? Number(model?.away)
-        : null;
-  const selectedFairProbability = edge?.key === "H" ? Number(match.market?.home)
-    : edge?.key === "D" ? Number(match.market?.draw)
-      : edge?.key === "A" ? Number(match.market?.away)
-        : null;
+  const selectedOdds = edge && Number.isFinite(Number(edge.odds)) ? Number(edge.odds) : edge ? edgeOdds(match, edge.key) : null;
+  const selectedModelProbability = Number.isFinite(Number(edge?.modelProbability)) ? Number(edge.modelProbability) : null;
+  const selectedFairProbability = Number.isFinite(Number(edge?.marketProbability)) ? Number(edge.marketProbability) : null;
   const edgeFormula = Number.isFinite(selectedModelProbability) && Number.isFinite(selectedFairProbability)
-    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + "% − fair " + (selectedFairProbability * 100).toFixed(1) + "%"
-    : "模型概率 − HKJC fair";
-  const quantBand = edge?.value >= 0.10 ? "強 VALUE" : edge?.value >= 0.05 ? "VALUE" : edge?.value >= 0.025 ? "WATCH" : "PASS";
-  const strongEdge = edge?.value >= 0.10;
-  const valueEdgeFlag = edge?.value >= 0.05;
+    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + "% / fair " + (selectedFairProbability * 100).toFixed(1) + "%" + (edgeGapPp == null ? "" : " · Gap " + (edgeGapPp >= 0 ? "+" : "") + edgeGapPp.toFixed(1) + "pp")
+    : "模型概率 vs HKJC fair";
+  const quantBand = edge?.band === "STRONG_VALUE" ? "強 VALUE"
+    : edge?.band === "VALUE" ? "VALUE"
+      : edge?.band === "LEAN" ? "LEAN"
+        : edge?.band === "WATCH" ? "觀望" : "PASS";
+  const strongEdge = edge?.band === "STRONG_VALUE";
+  const valueEdgeFlag = edge?.band === "VALUE";
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
   const handicapAdvice = match.handicapAdvice || null;
   const handicapSide = handicapAdvice?.selection === "HOME" ? "主" : handicapAdvice?.selection === "AWAY" ? "客" : "—";
@@ -225,7 +239,8 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
     && ((handicapAdvice?.selection === "HOME" && agreement.side === "H") || (handicapAdvice?.selection === "AWAY" && agreement.side === "A"))
       ? 10 : 0;
   const handicapQuality = marketQuality({
-    edgePct: Number.isFinite(handicapEdge) ? handicapEdge : null,
+    evPct: Number.isFinite(Number(handicapAdvice?.expectedValuePct)) ? Number(handicapAdvice.expectedValuePct) : Number.isFinite(handicapEdge) ? handicapEdge : null,
+    gapPp: null,
     odds: handicapOdds,
     freshnessKey: fresh.key,
     coveragePercent: coveragePctForRank,
@@ -234,19 +249,23 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   });
   const goalsOdds = goalsEdge ? binaryOdds(match.goals, goalsEdge.key) : null;
   const goalsQuality = marketQuality({
-    edgePct: goalsEdge ? Number(goalsEdge.value) * 100 : null,
+    evPct: goalsEdge ? Number(goalsEdge.expectedValue) * 100 : null,
+    gapPp: goalsEdge ? Number(goalsEdge.value) * 100 : null,
     odds: goalsOdds,
     freshnessKey: fresh.key,
     coveragePercent: coveragePctForRank,
     hasModel: Boolean(goalsEdge?.model),
+    band: goalsEdge?.band,
   });
   const cornersOdds = cornersEdge ? binaryOdds(match.corners, cornersEdge.key) : null;
   const cornersQuality = marketQuality({
-    edgePct: cornersEdge ? Number(cornersEdge.value) * 100 : null,
+    evPct: cornersEdge ? Number(cornersEdge.expectedValue) * 100 : null,
+    gapPp: cornersEdge ? Number(cornersEdge.value) * 100 : null,
     odds: cornersOdds,
     freshnessKey: fresh.key,
     coveragePercent: coveragePctForRank,
     hasModel: Boolean(cornersEdge?.model),
+    band: cornersEdge?.band,
   });
   const secondaryMarkets = [
     {
@@ -481,7 +500,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
-              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>精算 EDGE · {quantBand}</span>
+              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>現價 EV · {quantBand}</span>
               <b>{edgeText}</b>
               <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
             </div>
