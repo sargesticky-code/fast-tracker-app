@@ -23,7 +23,7 @@ import {
   valueEdge,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "ZH-LEAGUE-LIVE-20260927-1";
+const UI_BUILD = "DASH-STABLE-20260928-1";
 
 function pct(value) {
   const n = Number(value);
