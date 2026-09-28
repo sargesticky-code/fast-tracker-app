@@ -17,6 +17,7 @@ import {
   formatOdds,
   freshness,
   goalsValueEdge,
+  handicapValueEdge,
   leagueDisplayName,
   modelCoverageCount,
   modelAgreement,
@@ -65,7 +66,7 @@ function hasActionableDataAlert(match, nowMs) {
 }
 
 function bestMarketEdge(match) {
-  return [valueEdge(match), goalsValueEdge(match), cornersValueEdge(match)]
+  return [valueEdge(match), handicapValueEdge(match), goalsValueEdge(match), cornersValueEdge(match)]
     .filter((edge) => edge && Number.isFinite(Number(edge.expectedValue)) && Number(edge.expectedValue) > 0)
     .sort((a, b) => Number(b.expectedValue) - Number(a.expectedValue))[0] || null;
 }
@@ -648,7 +649,7 @@ function TopBetsHead() {
       <span>#</span>
       <span>賽事 / 模型</span>
       <span>精算選擇 / 現價</span>
-      <span>現價 EV / Gap</span>
+      <span>現價 EV / 支持</span>
     </div>
   );
 }
@@ -670,6 +671,10 @@ function TopBetCard({ row, index = 0, changeType = null }) {
     pick = topHdaLabel(edge.key);
     odds = hdaOdds(match, edge.key);
     probability = hdaProbability(match, edge.key);
+  } else if (type === "讓球") {
+    pick = edge.selectionLabel || "—";
+    odds = edge.odds;
+    probability = null;
   } else if (type === "入球") {
     pick = binarySideName(edge.key) + " " + (match.goals?.line ?? "—");
     odds = binaryOdds(match.goals, edge.key);
@@ -688,8 +693,11 @@ function TopBetCard({ row, index = 0, changeType = null }) {
     : modelProbability == null ? null : modelProbability - Number(edge.value || 0);
   const modelPct = modelProbability == null ? "—" : (modelProbability * 100).toFixed(1) + "%";
   const fairPct = marketFairProbability == null ? "—" : (marketFairProbability * 100).toFixed(1) + "%";
-  const edgePp = Number(edge.value || 0) * 100;
+  const edgePp = Number.isFinite(Number(edge.value)) ? Number(edge.value) * 100 : null;
   const evPct = Number(edge.expectedValue || 0) * 100;
+  const supportText = type === "讓球"
+    ? `${Number(edge.supportCount || 0)}/${Number(edge.familyCount || 0)} family${Number.isFinite(Number(edge.dispersion)) ? " · 分歧 " + (Number(edge.dispersion) * 100).toFixed(1) + "pp" : ""}`
+    : `Gap ${edgePp == null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"} · 模型 ${modelPct} / fair ${fairPct}`;
   const quantBand = edge.band === "STRONG_VALUE" ? "強 VALUE"
     : edge.band === "VALUE" ? "VALUE"
       : edge.band === "LEAN" ? "LEAN"
@@ -753,7 +761,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
           <span>現價 EV</span>
           <b>{evPct >= 0 ? "+" : ""}{evPct.toFixed(1)}%</b>
           <small style={{ display:"block", marginTop:3, fontSize:8, fontWeight:850 }}>
-            Gap {edgePp >= 0 ? "+" : ""}{edgePp.toFixed(1)}pp · 模型 {modelPct} / fair {fairPct}
+            {supportText}
           </small>
           <em style={{ display:"inline-block", marginTop:5, borderRadius:999, padding:"2px 6px", background:"#f7fbf8", fontSize:8, fontStyle:"normal", fontWeight:950 }}>
             {quantBand}
@@ -1025,7 +1033,7 @@ const DASHBOARD_LAYOUT_V5 = "\n.ft5-shell{max-width:1120px;margin:0 auto;padding
 
 const LIVE_RECOMMENDATION_CSS = ".ft5-live-recommendation{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:8px;padding:10px 12px;border:1px solid #dce6df;border-radius:12px;background:#f8faf8}.ft5-live-reco-copy{min-width:0}.ft5-live-reco-copy>span{display:block;font-size:8px;font-weight:950;letter-spacing:.04em;color:#718179}.ft5-live-reco-copy>b{display:block;margin-top:3px;color:#214a37;font-size:13px}.ft5-live-reco-copy>small{display:-webkit-box;margin-top:3px;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:#718179;font-size:8px;font-weight:750;line-height:1.3}.ft5-live-reco-metrics{display:grid;grid-template-columns:repeat(3,minmax(54px,1fr));gap:6px}.ft5-live-reco-metrics>span{display:block;min-width:0;padding:6px 7px;border-radius:9px;background:rgba(255,255,255,.72);text-align:center}.ft5-live-reco-metrics small{display:block;color:#84938b;font-size:7px;font-weight:850}.ft5-live-reco-metrics b{display:block;margin-top:2px;color:#315b47;font-size:11px}.ft5-live-recommendation.is-value,.ft5-live-recommendation.is-strong{background:#eaf7ee;border-color:#c3e3ce}.ft5-live-recommendation.is-strong .ft5-live-reco-copy>b,.ft5-live-recommendation.is-strong .ft5-live-reco-metrics b{color:#126d42}.ft5-live-recommendation.is-value .ft5-live-reco-copy>b{color:#23764f}.ft5-live-recommendation.is-lean{background:#f0f7ed;border-color:#d8e6d1}.ft5-live-recommendation.is-watch{background:#fffaf0;border-color:#eee0b9}.ft5-live-recommendation.is-watch .ft5-live-reco-copy>b{color:#88651d}.ft5-live-recommendation.is-pass{background:#f7f7f5;border-color:#e1e3df}.ft5-live-recommendation.is-pass .ft5-live-reco-copy>b{color:#6d756f}@media(max-width:760px){.ft5-live-recommendation{grid-template-columns:1fr;padding:9px 10px}.ft5-live-reco-metrics{grid-template-columns:repeat(3,1fr)}}";
 
-const UI_BUILD = "EV-DUAL-GATE-20260928-3";
+const UI_BUILD = "AH-TOPBETS-20260928-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const MATCH_ANALYSIS_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis?id=";
@@ -1225,6 +1233,10 @@ export default function DashboardClient({ feed, nowMs }) {
     .map((match) => ({ match, edge: valueEdge(match) }))
     .filter((row) => isValueCandidate(row.edge))
     .sort(candidateSort), [prematchAll]);
+  const handicapCandidates = useMemo(() => prematchAll
+    .map((match) => ({ match, edge: handicapValueEdge(match) }))
+    .filter((row) => isValueCandidate(row.edge))
+    .sort(candidateSort), [prematchAll]);
   const goalsCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: goalsValueEdge(match) }))
     .filter((row) => isValueCandidate(row.edge))
@@ -1237,7 +1249,12 @@ export default function DashboardClient({ feed, nowMs }) {
   const hdaPicks = hdaCandidates.slice(0, 5);
   const goalsGroups = groupLineCandidates(goalsCandidates, "goals", 2);
   const cornersGroups = groupLineCandidates(cornersCandidates, "corners", 2);
-  const topBets = [...hdaCandidates.map((row) => ({ ...row, type: "HDA" })), ...goalsCandidates.map((row) => ({ ...row, type: "入球" })), ...cornersCandidates.map((row) => ({ ...row, type: "角球" }))]
+  const topBets = [
+    ...hdaCandidates.map((row) => ({ ...row, type: "HDA" })),
+    ...handicapCandidates.map((row) => ({ ...row, type: "讓球" })),
+    ...goalsCandidates.map((row) => ({ ...row, type: "入球" })),
+    ...cornersCandidates.map((row) => ({ ...row, type: "角球" })),
+  ]
     .sort(candidateSort)
     .slice(0, 3);
 
@@ -1282,7 +1299,7 @@ export default function DashboardClient({ feed, nowMs }) {
     return detail.channels.some((row) => row.key === coverageGap && !row.available);
   }).length;
   const stale = prematchAll.filter((m) => ["stale", "missing"].includes(freshness(m, clockMs).key)).length;
-  const valueCandidates = hdaCandidates.length + goalsCandidates.length + cornersCandidates.length;
+  const valueCandidates = hdaCandidates.length + handicapCandidates.length + goalsCandidates.length + cornersCandidates.length;
   const oddsAlerts = prematchAll.filter((m) => Number.isFinite(Number(m.oddsMovement?.rawOddsChangePct)) && Math.abs(Number(m.oddsMovement.rawOddsChangePct)) >= 10).length;
   const modelReady = prematchAll.filter((m) => modelCoverageCount(m) > 0).length;
   const priorityOne = prematchAll.filter((m) => reviewPriority(m, clockMs).band === "p1").length;
@@ -1314,7 +1331,7 @@ export default function DashboardClient({ feed, nowMs }) {
     focus: ["NEXT 24H · 投注重點", "先按 Edge 級別及幅度，再按模型 coverage、Review 及開賽時間"],
     live: ["LIVE NOW", "只顯示 HKJC 正在售賣嘅即場市場"],
     all: ["Upcoming 24H", "按開賽時間排序"],
-    gaps: ["Multi-market 精算", "HDA / 入球 / 角球按現價 EV 排序；Probability Gap 作第二重門檻"],
+    gaps: ["Multi-market 精算", "HDA / 讓球 / 入球 / 角球按現價 EV 排序；各市場再用獨立 evidence gate"],
     odds: ["賠率大幅變動", `${oddsAlerts} 場達 ±10% · 按變動幅度排序`],
     missing: ["資料缺口", "按缺少 channel 數量排序 · HK / FB / DC / PI / FM / PW / MS / CTX / ENG"],
     stale: ["過時資料", "超過 6 小時未更新"],
@@ -1443,7 +1460,7 @@ export default function DashboardClient({ feed, nowMs }) {
             <span>QUANT EDGE</span>
             <h2>精算投注</h2>
             <p style={{ margin:"4px 0 0", color:"#617a6c", fontSize:9, fontWeight:750 }}>
-              Value = 現價 EV 過門檻 + 模型概率高過 HKJC fair 足夠幅度 · 高賠率唔會靠細 gap 誤升級
+              HDA/大細/角球：EV + Probability Gap · 讓球：EV + family 支持 + 模型分歧 · 全部同價值分級
             </p>
           </div>
           <button type="button" onClick={() => selectFilter("gaps")}>查看更多 →</button>
@@ -1457,7 +1474,7 @@ export default function DashboardClient({ feed, nowMs }) {
               ))}
             </div>
           </>
-        ) : <div className="ft5-empty">暫時未有同時通過 EV + Probability Gap 雙重門檻嘅 Value 候選</div>}
+        ) : <div className="ft5-empty">暫時未有通過 EV + evidence gate 嘅 Value 候選</div>}
       </section>
 
       {liveMatches.length > 0 && filter !== "live" && (
