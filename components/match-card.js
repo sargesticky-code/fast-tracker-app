@@ -13,6 +13,7 @@ import {
   formatOdds,
   freshness,
   goalsValueEdge,
+  handicapValueEdge,
   leagueDisplayName,
   coverageStatusMeta,
   modelAgreement,
@@ -218,19 +219,27 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const strongEdge = edge?.band === "STRONG_VALUE";
   const valueEdgeFlag = edge?.band === "VALUE";
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
-  const handicapAdvice = match.handicapAdvice || null;
-  const handicapSide = handicapAdvice?.selection === "HOME" ? "主" : handicapAdvice?.selection === "AWAY" ? "客" : "—";
+  const handicapAdvice = handicapValueEdge(match);
   const handicapLine = match.handicap?.line ?? null;
-  const handicapOdds = handicapAdvice?.odds ?? (handicapAdvice?.selection === "HOME" ? match.handicap?.home : match.handicap?.away);
-  const handicapEdge = Number(handicapAdvice?.edgePct);
+  const handicapOdds = handicapAdvice?.odds ?? null;
+  const handicapEvPct = Number.isFinite(Number(handicapAdvice?.expectedValue))
+    ? Number(handicapAdvice.expectedValue) * 100
+    : null;
+  const handicapBand = handicapAdvice?.band === "STRONG_VALUE" ? "強 VALUE"
+    : handicapAdvice?.band === "VALUE" ? "VALUE"
+      : handicapAdvice?.band === "LEAN" ? "LEAN"
+        : handicapAdvice?.band === "WATCH" ? "觀望" : "PASS";
   const handicapSummary = handicapLine == null
     ? { text:"NO LINE", detail:"HKJC 未有讓球盤", positive:false }
-    : handicapAdvice?.status === "NO_MODEL"
-      ? { text:"讓球 " + handicapLine, detail:handicapAdvice?.reason || "缺少模型", positive:false }
+    : !handicapAdvice
+      ? { text:"讓球 " + handicapLine, detail:"未有足夠模型 + HKJC 盤口建立 AH EV", positive:false }
       : {
-          text: handicapSide + " " + handicapLine + (handicapOdds ? " @" + formatOdds(handicapOdds) : ""),
-          detail: (handicapAdvice?.status || "—") + (Number.isFinite(handicapEdge) ? " · Edge " + (handicapEdge >= 0 ? "+" : "") + handicapEdge.toFixed(1) + "%" : "") + (handicapAdvice?.explanation ? " · " + handicapAdvice.explanation : ""),
-          positive: handicapAdvice?.status === "VALUE"
+          text: (handicapAdvice.selectionLabel || "讓球 " + handicapLine) + (handicapOdds ? " @" + formatOdds(handicapOdds) : ""),
+          detail: handicapBand
+            + (handicapEvPct == null ? "" : " · EV " + (handicapEvPct >= 0 ? "+" : "") + handicapEvPct.toFixed(1) + "%")
+            + " · 支援 " + Number(handicapAdvice.supportCount || 0) + "/" + Number(handicapAdvice.familyCount || 0)
+            + (Number.isFinite(Number(handicapAdvice.dispersion)) ? " · 分歧 " + (Number(handicapAdvice.dispersion) * 100).toFixed(1) + "pp" : ""),
+          positive: ["LEAN","VALUE","STRONG_VALUE"].includes(handicapAdvice.band)
         };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
   const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
@@ -239,13 +248,14 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
     && ((handicapAdvice?.selection === "HOME" && agreement.side === "H") || (handicapAdvice?.selection === "AWAY" && agreement.side === "A"))
       ? 10 : 0;
   const handicapQuality = marketQuality({
-    evPct: Number.isFinite(Number(handicapAdvice?.expectedValuePct)) ? Number(handicapAdvice.expectedValuePct) : Number.isFinite(handicapEdge) ? handicapEdge : null,
+    evPct: handicapEvPct,
     gapPp: null,
     odds: handicapOdds,
     freshnessKey: fresh.key,
     coveragePercent: coveragePctForRank,
     consensusBonus: hdcConsensusBonus,
-    hasModel: handicapAdvice?.status !== "NO_MODEL",
+    hasModel: Boolean(handicapAdvice),
+    band: handicapAdvice?.band,
   });
   const goalsOdds = goalsEdge ? binaryOdds(match.goals, goalsEdge.key) : null;
   const goalsQuality = marketQuality({
@@ -270,7 +280,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const secondaryMarkets = [
     {
       key: "HANDICAP",
-      rank: handicapQuality.score + (handicapAdvice?.status === "VALUE" ? 30 : handicapAdvice?.status === "LEAN" ? 12 : 0),
+      rank: handicapQuality.score + (handicapAdvice?.band === "STRONG_VALUE" ? 34 : handicapAdvice?.band === "VALUE" ? 26 : handicapAdvice?.band === "LEAN" ? 12 : 0),
       available: handicapLine != null,
       node: (
         <div className={"ft5-odd ft5-total-pick" + (handicapSummary.positive ? " edge-target" : "")}>
