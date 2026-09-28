@@ -253,7 +253,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const decisionDetail = [
     match.decisionMarket || null,
     match.decisionSelection || null,
-    Number.isFinite(Number(match.decisionEdge)) ? ((Number(match.decisionEdge) >= 0 ? "+" : "") + (Number(match.decisionEdge) * 100).toFixed(1) + "pp") : null,
+    Number.isFinite(Number(match.decisionEdge)) ? ((Number(match.decisionEdge) >= 0 ? "+" : "") + (Number(match.decisionEdge) * 100).toFixed(1) + "%") : null,
   ].filter(Boolean).join(" · ");
   const rowClass = [
     "ft5-match-card",
