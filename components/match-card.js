@@ -220,7 +220,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
         };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
   const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
-  const coveragePctForRank = Number(completeness?.percent);
+  const coveragePctForRank = Number(dataCompleteness(match)?.percent);
   const hdcConsensusBonus = agreement?.key === "agree"
     && ((handicapAdvice?.selection === "HOME" && agreement.side === "H") || (handicapAdvice?.selection === "AWAY" && agreement.side === "A"))
       ? 10 : 0;
