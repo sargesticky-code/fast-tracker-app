@@ -160,6 +160,20 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const strongEdge = edge?.value >= 0.10;
   const valueEdgeFlag = edge?.value >= 0.05;
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
+  const handicapAdvice = match.handicapAdvice || null;
+  const handicapSide = handicapAdvice?.selection === "HOME" ? "主" : handicapAdvice?.selection === "AWAY" ? "客" : "—";
+  const handicapLine = match.handicap?.line ?? null;
+  const handicapOdds = handicapAdvice?.odds ?? (handicapAdvice?.selection === "HOME" ? match.handicap?.home : match.handicap?.away);
+  const handicapEdge = Number(handicapAdvice?.edgePct);
+  const handicapSummary = handicapLine == null
+    ? { text:"NO LINE", detail:"HKJC 未有讓球盤", positive:false }
+    : handicapAdvice?.status === "NO_MODEL"
+      ? { text:"讓球 " + handicapLine, detail:handicapAdvice?.reason || "缺少模型", positive:false }
+      : {
+          text: handicapSide + " " + handicapLine + (handicapOdds ? " @" + formatOdds(handicapOdds) : ""),
+          detail: (handicapAdvice?.status || "—") + (Number.isFinite(handicapEdge) ? " · Edge " + (handicapEdge >= 0 ? "+" : "") + handicapEdge.toFixed(1) + "%" : "") + (handicapAdvice?.explanation ? " · " + handicapAdvice.explanation : ""),
+          positive: handicapAdvice?.status === "VALUE"
+        };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
   const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
   const storyScript = match.storySummary?.matchScript || null;
@@ -368,6 +382,9 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
             </div>
             <div className={marketOddsClass(edge, "A")}>
               <span>客</span><b>{formatOdds(match.odds?.away)}</b>
+            </div>
+            <div className={"ft5-odd ft5-total-pick" + (handicapSummary.positive ? " edge-target" : "")}>
+              <span>讓球</span><b>{handicapSummary.text}</b><small>{handicapSummary.detail}</small>
             </div>
             <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
               <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
