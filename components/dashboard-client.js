@@ -66,8 +66,20 @@ function hasActionableDataAlert(match, nowMs) {
 
 function bestMarketEdge(match) {
   return [valueEdge(match), goalsValueEdge(match), cornersValueEdge(match)]
-    .filter((edge) => edge && Number.isFinite(Number(edge.value)) && Number(edge.value) > 0)
-    .sort((a, b) => Number(b.value) - Number(a.value))[0] || null;
+    .filter((edge) => edge && Number.isFinite(Number(edge.expectedValue)) && Number(edge.expectedValue) > 0)
+    .sort((a, b) => Number(b.expectedValue) - Number(a.expectedValue))[0] || null;
+}
+
+function valueBandRank(edge) {
+  if (edge?.band === "STRONG_VALUE") return 4;
+  if (edge?.band === "VALUE") return 3;
+  if (edge?.band === "LEAN") return 2;
+  if (edge?.band === "WATCH") return 1;
+  return 0;
+}
+
+function isValueCandidate(edge) {
+  return edge?.band === "STRONG_VALUE" || edge?.band === "VALUE";
 }
 
 function cacheMatch(match) {
@@ -96,10 +108,17 @@ function MarketPickRow({ match, edge, type }) {
     odds = binaryOdds(match.corners, edge.key);
     modelProbability = edge.key === "O" ? Number(edge.model?.over) : Number(edge.model?.under);
   }
-  const fairProbability = Number.isFinite(modelProbability) ? modelProbability - Number(edge.value || 0) : null;
+  modelProbability = Number.isFinite(Number(edge?.modelProbability)) ? Number(edge.modelProbability) : modelProbability;
+  const fairProbability = Number.isFinite(Number(edge?.marketProbability))
+    ? Number(edge.marketProbability)
+    : Number.isFinite(modelProbability)
+      ? modelProbability - Number(edge.value || 0)
+      : null;
+  const evPct = Number.isFinite(Number(edge?.expectedValue)) ? Number(edge.expectedValue) * 100 : null;
+  const gapPp = Number.isFinite(Number(edge?.value)) ? Number(edge.value) * 100 : null;
   const formula = Number.isFinite(modelProbability) && Number.isFinite(fairProbability)
-    ? `模型 ${(modelProbability * 100).toFixed(1)}% − fair ${(fairProbability * 100).toFixed(1)}%`
-    : "模型概率 − HKJC fair";
+    ? `模型 ${(modelProbability * 100).toFixed(1)}% · fair ${(fairProbability * 100).toFixed(1)}% · gap ${gapPp == null ? "—" : (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "pp"}`
+    : "模型概率 vs HKJC fair";
 
   return (
     <a
@@ -120,8 +139,9 @@ function MarketPickRow({ match, edge, type }) {
         <b>{formatOdds(odds)}</b>
       </div>
       <div className="market-pick-number edge-number">
-        <span>精算 Edge</span>
-        <b>+{(edge.value * 100).toFixed(1)}pp</b>
+        <span>現價 EV</span>
+        <b>{evPct == null ? "—" : (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "%"}</b>
+        <small>{formula}</small>
       </div>
     </a>
   );
@@ -628,7 +648,7 @@ function TopBetsHead() {
       <span>#</span>
       <span>賽事 / 模型</span>
       <span>精算選擇 / 現價</span>
-      <span>精算 Edge</span>
+      <span>現價 EV / Gap</span>
     </div>
   );
 }
@@ -660,12 +680,20 @@ function TopBetCard({ row, index = 0, changeType = null }) {
     probability = edge.key === "O" ? Number(edge.model?.over) : Number(edge.model?.under);
   }
 
-  const modelProbability = Number.isFinite(probability) ? probability : null;
-  const marketFairProbability = modelProbability == null ? null : modelProbability - Number(edge.value || 0);
+  const modelProbability = Number.isFinite(Number(edge?.modelProbability))
+    ? Number(edge.modelProbability)
+    : Number.isFinite(probability) ? probability : null;
+  const marketFairProbability = Number.isFinite(Number(edge?.marketProbability))
+    ? Number(edge.marketProbability)
+    : modelProbability == null ? null : modelProbability - Number(edge.value || 0);
   const modelPct = modelProbability == null ? "—" : (modelProbability * 100).toFixed(1) + "%";
   const fairPct = marketFairProbability == null ? "—" : (marketFairProbability * 100).toFixed(1) + "%";
   const edgePp = Number(edge.value || 0) * 100;
-  const quantBand = edgePp >= 10 ? "強 VALUE" : edgePp >= 5 ? "VALUE" : edgePp >= 2.5 ? "WATCH" : "PASS";
+  const evPct = Number(edge.expectedValue || 0) * 100;
+  const quantBand = edge.band === "STRONG_VALUE" ? "強 VALUE"
+    : edge.band === "VALUE" ? "VALUE"
+      : edge.band === "LEAN" ? "LEAN"
+        : edge.band === "WATCH" ? "觀望" : "PASS";
   const agreement = modelAgreement(match);
   const storyScript = match.storySummary?.matchScript || null;
   const storyAlignment = match.storySummary?.editorialAlignment || null;
@@ -722,10 +750,10 @@ function TopBetCard({ row, index = 0, changeType = null }) {
           <strong>@{formatOdds(odds)}</strong>
         </div>
         <div className="ft5-topbet-edge">
-          <span>精算 EDGE</span>
-          <b>+{edgePp.toFixed(1)}pp</b>
+          <span>現價 EV</span>
+          <b>{evPct >= 0 ? "+" : ""}{evPct.toFixed(1)}%</b>
           <small style={{ display:"block", marginTop:3, fontSize:8, fontWeight:850 }}>
-            {modelPct} − {fairPct}
+            Gap {edgePp >= 0 ? "+" : ""}{edgePp.toFixed(1)}pp · 模型 {modelPct} / fair {fairPct}
           </small>
           <em style={{ display:"inline-block", marginTop:5, borderRadius:999, padding:"2px 6px", background:"#f7fbf8", fontSize:8, fontStyle:"normal", fontWeight:950 }}>
             {quantBand}
@@ -1166,19 +1194,15 @@ export default function DashboardClient({ feed, nowMs }) {
   }, [liveIdsKey]);
 
   const byFocus = useMemo(() => [...prematchAll].sort((a, b) => {
-    const aEdge = Number(valueEdge(a)?.value);
-    const bEdge = Number(valueEdge(b)?.value);
-    const edgeBand = (value) => (
-      Number.isFinite(value) && value >= 0.10 ? 3 :
-      Number.isFinite(value) && value >= 0.05 ? 2 :
-      Number.isFinite(value) && value > 0 ? 1 : 0
-    );
-
-    const bandDelta = edgeBand(bEdge) - edgeBand(aEdge);
+    const aValue = valueEdge(a);
+    const bValue = valueEdge(b);
+    const bandDelta = valueBandRank(bValue) - valueBandRank(aValue);
     if (bandDelta) return bandDelta;
 
-    if (edgeBand(aEdge) > 0 && edgeBand(bEdge) > 0 && aEdge !== bEdge) {
-      return bEdge - aEdge;
+    const aEv = Number(aValue?.expectedValue);
+    const bEv = Number(bValue?.expectedValue);
+    if (Number.isFinite(aEv) && Number.isFinite(bEv) && aEv !== bEv) {
+      return bEv - aEv;
     }
 
     const coverageDelta = modelCoverageCount(b) - modelCoverageCount(a);
@@ -1190,29 +1214,38 @@ export default function DashboardClient({ feed, nowMs }) {
     return new Date(a.kickoff) - new Date(b.kickoff);
   }), [prematchAll, clockMs]);
 
+  const candidateSort = (a, b) => {
+    const bandDelta = valueBandRank(b.edge) - valueBandRank(a.edge);
+    if (bandDelta) return bandDelta;
+    const evDelta = Number(b.edge?.expectedValue || 0) - Number(a.edge?.expectedValue || 0);
+    if (evDelta) return evDelta;
+    return Number(b.edge?.value || 0) - Number(a.edge?.value || 0);
+  };
   const hdaCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: valueEdge(match) }))
-    .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
-    .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
+    .filter((row) => isValueCandidate(row.edge))
+    .sort(candidateSort), [prematchAll]);
   const goalsCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: goalsValueEdge(match) }))
-    .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
-    .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
+    .filter((row) => isValueCandidate(row.edge))
+    .sort(candidateSort), [prematchAll]);
   const cornersCandidates = useMemo(() => prematchAll
     .map((match) => ({ match, edge: cornersValueEdge(match) }))
-    .filter((row) => row.edge?.value >= 0.05 && row.edge.value < 0.60)
-    .sort((a, b) => b.edge.value - a.edge.value), [prematchAll]);
+    .filter((row) => isValueCandidate(row.edge))
+    .sort(candidateSort), [prematchAll]);
 
   const hdaPicks = hdaCandidates.slice(0, 5);
   const goalsGroups = groupLineCandidates(goalsCandidates, "goals", 2);
   const cornersGroups = groupLineCandidates(cornersCandidates, "corners", 2);
-  const topBets = [...hdaCandidates.map((row) => ({ ...row, type: "HDA" })), ...goalsCandidates.map((row) => ({ ...row, type: "入球" })), ...cornersCandidates.map((row) => ({ ...row, type: "角球" }))].sort((a, b) => b.edge.value - a.edge.value).slice(0, 3);
+  const topBets = [...hdaCandidates.map((row) => ({ ...row, type: "HDA" })), ...goalsCandidates.map((row) => ({ ...row, type: "入球" })), ...cornersCandidates.map((row) => ({ ...row, type: "角球" }))]
+    .sort(candidateSort)
+    .slice(0, 3);
 
   let matches = byFocus;
   if (filter === "all") matches = [...prematchAll].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   if (filter === "gaps") {
     matches = prematchAll.filter((m) => bestMarketEdge(m))
-      .sort((a, b) => Number(bestMarketEdge(b)?.value || 0) - Number(bestMarketEdge(a)?.value || 0));
+      .sort((a, b) => Number(bestMarketEdge(b)?.expectedValue || 0) - Number(bestMarketEdge(a)?.expectedValue || 0));
   }
   if (filter === "odds") {
     matches = prematchAll
@@ -1281,7 +1314,7 @@ export default function DashboardClient({ feed, nowMs }) {
     focus: ["NEXT 24H · 投注重點", "先按 Edge 級別及幅度，再按模型 coverage、Review 及開賽時間"],
     live: ["LIVE NOW", "只顯示 HKJC 正在售賣嘅即場市場"],
     all: ["Upcoming 24H", "按開賽時間排序"],
-    gaps: ["Multi-market 精算 Edge", "HDA / 入球 / 角球按「模型概率 − HKJC 去水後公平概率」排序；單位 pp"],
+    gaps: ["Multi-market 精算", "HDA / 入球 / 角球按現價 EV 排序；Probability Gap 作第二重門檻"],
     odds: ["賠率大幅變動", `${oddsAlerts} 場達 ±10% · 按變動幅度排序`],
     missing: ["資料缺口", "按缺少 channel 數量排序 · HK / FB / DC / PI / FM / PW / MS / CTX / ENG"],
     stale: ["過時資料", "超過 6 小時未更新"],
@@ -1410,7 +1443,7 @@ export default function DashboardClient({ feed, nowMs }) {
             <span>QUANT EDGE</span>
             <h2>精算投注</h2>
             <p style={{ margin:"4px 0 0", color:"#617a6c", fontSize:9, fontWeight:750 }}>
-              Edge = 模型概率 − HKJC 去水後公平概率 · +5pp↑ 先列入 Value 候選
+              Value = 現價 EV 過門檻 + 模型概率高過 HKJC fair 足夠幅度 · 高賠率唔會靠細 gap 誤升級
             </p>
           </div>
           <button type="button" onClick={() => selectFilter("gaps")}>查看更多 →</button>
@@ -1424,7 +1457,7 @@ export default function DashboardClient({ feed, nowMs }) {
               ))}
             </div>
           </>
-        ) : <div className="ft5-empty">暫時未有達到 +5pp 精算 Edge 門檻嘅候選</div>}
+        ) : <div className="ft5-empty">暫時未有同時通過 EV + Probability Gap 雙重門檻嘅 Value 候選</div>}
       </section>
 
       {liveMatches.length > 0 && filter !== "live" && (
