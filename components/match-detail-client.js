@@ -207,10 +207,32 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
         <b>{available ? (state || "AVAILABLE") : ""}</b>
       </div>
       {probs ? (
-        <div className="model-hda-strip">
-          {probs.map((row) => (
-            <div key={row.key}><span>{row.key}</span><strong>{pct(row.value, 1)}</strong></div>
-          ))}
+        <div className="model-hda-strip" style={{ display:"grid", gap:5 }}>
+          <div style={{ display:"flex", height:11, overflow:"hidden", borderRadius:999, background:"#e9eeeb" }}>
+            {[
+              ["H", values.home, "#2f80ed"],
+              ["D", values.draw, "#f2b134"],
+              ["A", values.away, "#e05a5a"],
+            ].map(([key, value, color]) => (
+              <span
+                key={key}
+                title={key + " " + pct(value, 1)}
+                style={{ width:(Math.max(0, Number(value) || 0) * 100) + "%", background:color }}
+              />
+            ))}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:5 }}>
+            {[
+              ["H", values.home, "#2f80ed"],
+              ["D", values.draw, "#f2b134"],
+              ["A", values.away, "#e05a5a"],
+            ].map(([key, value, color], index) => (
+              <div key={key} style={{ display:"flex", alignItems:"center", gap:4, justifyContent:index===0?"flex-start":index===2?"flex-end":"center" }}>
+                <i style={{ width:7, height:7, borderRadius:2, background:color }} />
+                <span>{key}</span><strong>{pct(value, 1)}</strong>
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <div
@@ -380,6 +402,11 @@ function matchFromDetailPayload(payload, matchId) {
       line: fixture.chl_line || null,
       over: allowCurrentPrice ? n(fixture.chl_over) : null,
       under: allowCurrentPrice ? n(fixture.chl_under) : null,
+    },
+    handicap: {
+      line: fixture.hdc_line || null,
+      home: allowCurrentPrice ? n(fixture.hdc_home) : null,
+      away: allowCurrentPrice ? n(fixture.hdc_away) : null,
     },
     health: {
       status: fixtureFreshness === "FRESH" ? "DETAIL_FALLBACK" : "DETAIL_FALLBACK_STALE",
@@ -702,7 +729,20 @@ export default function MatchDetailClient() {
   const goalsLineModel = match.forebetDetail?.goalsCurrentLine || null;
   const cornersLineModel = match.forebetDetail?.cornersCurrentLine || null;
   const totalsAdvice = story?.marketAdvice || analysis?.marketAdvice || {};
-  const handicapAdvice = totalsAdvice.handicap || null;
+  const directHandicapAdvice = match.handicapAdvice || null;
+  const handicapAdvice = totalsAdvice.handicap || (directHandicapAdvice ? {
+    selection: directHandicapAdvice.selection,
+    selectionLabel: directHandicapAdvice.selection === "HOME"
+      ? (match.homeZh || match.home || "主") + " " + (match.handicap?.line || "")
+      : directHandicapAdvice.selection === "AWAY"
+        ? (match.awayZh || match.away || "客") + " " + (match.handicap?.line || "")
+        : "—",
+    currentOdds: directHandicapAdvice.odds,
+    expectedValuePct: directHandicapAdvice.edgePct,
+    action: directHandicapAdvice.status,
+    method: directHandicapAdvice.method,
+    explanation: directHandicapAdvice.explanation,
+  } : null);
   const goalsAdvice = totalsAdvice.goals || null;
   const cornersAdvice = totalsAdvice.corners || null;
   const totalAdviceTone = (row) => {
