@@ -399,8 +399,11 @@ function buildHandicapAdvice(opts: {
   if (side === null || ev === null || ev <= 0) candidateClass = "NO_EDGE";
   else if (opts.families.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
   else if (evDispersion !== null && evDispersion > 0.18) candidateClass = "WATCH_MODEL_SPLIT";
-  else if (ev >= 0.12 && supportRatio >= 0.66) candidateClass = "STRONG_VALUE_CANDIDATE";
-  else if (ev >= 0.05 && supportRatio >= 0.50) candidateClass = "VALUE_CANDIDATE";
+  // Asian handicap has push/half-win settlement, so there is no clean
+  // probability-gap equivalent. Use EV + independent-family support +
+  // dispersion as the second evidence gate instead.
+  else if (ev >= 0.12 && supportRatio >= 0.75 && (evDispersion === null || evDispersion <= 0.12)) candidateClass = "STRONG_VALUE_CANDIDATE";
+  else if (ev >= 0.05 && supportRatio >= 0.50 && (evDispersion === null || evDispersion <= 0.15)) candidateClass = "VALUE_CANDIDATE";
   else if (ev >= 0.02) candidateClass = "LEAN";
   else candidateClass = "WATCH";
 
@@ -418,7 +421,12 @@ function buildHandicapAdvice(opts: {
   const evText = ev === null ? "—" : `${ev >= 0 ? "+" : ""}${(ev * 100).toFixed(1)}%`;
   let advice = "亞洲讓球：模型計算後未見正期望值。";
   if (side && ev !== null && ev > 0) {
-    advice = `${action === "WATCH" ? "觀望" : action === "LEAN" ? "輕微傾向" : "Value 候選"} ${selectionLabel} @ ${odds?.toFixed(2) ?? "—"}；模型衍生 EV ${evText}，${supportCount}/${Math.max(1, familyEvs.length)} 個 evidence family 為正值${evDispersion !== null ? `，模型 EV 分歧 ${(evDispersion * 100).toFixed(1)}pp` : ""}。`;
+    const supportText = `${supportCount}/${Math.max(1, familyEvs.length)} 個 evidence family 為正值`;
+    const dispersionText = evDispersion !== null ? `，模型 EV 分歧 ${(evDispersion * 100).toFixed(1)}pp` : "";
+    const whyWatch = action === "WATCH"
+      ? "；EV 雖正，但 family 數量、支持率或模型分歧未過 Value gate"
+      : "";
+    advice = `${action === "WATCH" ? "觀望" : action === "LEAN" ? "輕微傾向" : action.includes("STRONG") ? "強 Value 候選" : "Value 候選"} ${selectionLabel} @ ${odds?.toFixed(2) ?? "—"}；模型衍生 EV ${evText}，${supportText}${dispersionText}${whyWatch}。`;
   }
 
   return {
