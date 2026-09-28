@@ -124,7 +124,7 @@ function totalMarketSummary(match, edge, market, label) {
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + formula + " = +" + (Number(edge.value) * 100).toFixed(1) + "pp",
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + formula + " = +" + (Number(edge.value) * 100).toFixed(1) + "%",
     positive: Number(edge.value) >= 0.025,
   };
 }
@@ -142,7 +142,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const away = match.awayZh || match.away;
   const rawMove = Number(match.oddsMovement?.rawOddsChangePct);
   const hasMove = Number.isFinite(rawMove) && Math.abs(rawMove) >= 10;
-  const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "pp" : "—";
+  const edgeText = edge ? (edge.value >= 0 ? "+" : "") + (edge.value * 100).toFixed(1) + "%" : "—";
   const pick = edge ? outcomeLabel(edge.key) : "—";
   const selectedOdds = edge ? edgeOdds(match, edge.key) : null;
   const selectedModelProbability = edge?.key === "H" ? Number(model?.home)
@@ -333,21 +333,31 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
               {coverageMeta.tone !== "rich" ? <small className={"ft5-health-inline health-" + coverageMeta.tone}>{coverageMeta.label}</small> : null}
             </div>
           </div>
-          <div className="ft5-probs" aria-label="HDA model probability">
-            <div className={selectedClass(edge, "H")}>
-              <span>H</span>
-              <b>{pct(model?.home)}</b>
-              <i className="ft5-prob-bar"><em style={{ width: Math.max(0, Math.min(100, Number(model?.home) * 100 || 0)) + "%" }} /></i>
+          <div className="ft5-probs" aria-label="HDA model probability" style={{ display:"grid", gap:5 }}>
+            <div style={{ display:"flex", width:"100%", height:12, overflow:"hidden", borderRadius:999, background:"#e9eeeb" }}>
+              {[
+                ["H", model?.home, "#2f80ed"],
+                ["D", model?.draw, "#f2b134"],
+                ["A", model?.away, "#e05a5a"],
+              ].map(([key, value, color]) => (
+                <span
+                  key={key}
+                  title={key + " " + pct(value)}
+                  style={{ width:Math.max(0, Math.min(100, Number(value) * 100 || 0)) + "%", background:color }}
+                />
+              ))}
             </div>
-            <div className={selectedClass(edge, "D")}>
-              <span>D</span>
-              <b>{pct(model?.draw)}</b>
-              <i className="ft5-prob-bar"><em style={{ width: Math.max(0, Math.min(100, Number(model?.draw) * 100 || 0)) + "%" }} /></i>
-            </div>
-            <div className={selectedClass(edge, "A")}>
-              <span>A</span>
-              <b>{pct(model?.away)}</b>
-              <i className="ft5-prob-bar"><em style={{ width: Math.max(0, Math.min(100, Number(model?.away) * 100 || 0)) + "%" }} /></i>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5 }}>
+              {[
+                ["H", model?.home, "#2f80ed"],
+                ["D", model?.draw, "#f2b134"],
+                ["A", model?.away, "#e05a5a"],
+              ].map(([key, value, color], index) => (
+                <div className={selectedClass(edge, key)} key={key} style={{ display:"flex", alignItems:"center", gap:4, justifyContent:index===0?"flex-start":index===2?"flex-end":"center" }}>
+                  <i aria-hidden="true" style={{ width:7, height:7, flex:"0 0 7px", borderRadius:2, background:color }} />
+                  <span>{key}</span><b>{pct(value)}</b>
+                </div>
+              ))}
             </div>
           </div>
         </div>
