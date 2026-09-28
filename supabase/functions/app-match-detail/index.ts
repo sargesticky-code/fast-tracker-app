@@ -51,7 +51,7 @@ Deno.serve(async(req:Request)=>{
 
   const [
     fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,
-    playerStatus,lineups,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch
+    playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch
   ]=await Promise.all([
     one("hkjc_upcoming_current"),
     one("hkjc_live_odds_current"),
@@ -66,6 +66,7 @@ Deno.serve(async(req:Request)=>{
     one("api_football_event_map"),
     many("phase2_player_status_evidence"),
     many("phase2_match_lineup_evidence"),
+    many("phase2_lineup_strength_current"),
     many("phase2_manager_evidence"),
     many("prediction_evidence_current","*","private"),
     one("multisource_consensus_current","*","private"),
@@ -77,7 +78,7 @@ Deno.serve(async(req:Request)=>{
   const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
   const fixtureSource = fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : "MISSING";
   const errors:any={};
-  for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
+  for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
     if((v as any).error) errors[k]=(v as any).error;
   }
 
@@ -102,6 +103,7 @@ Deno.serve(async(req:Request)=>{
       eventMap:eventMap.data,
       playerStatus:playerStatus.data,
       lineup:lineups.data,
+      lineupStrength:lineupStrength.data,
       managers:managers.data,
     },
     scenario:scenario.data,
