@@ -108,6 +108,25 @@ function EvidenceItem({ icon, label, value, detail = null, tone = "", children =
   );
 }
 
+function BinaryMarketBar({ market, edge, overLabel = "大", underLabel = "細" }) {
+  const fair = binaryFair(market?.over, market?.under);
+  const over = Number(fair?.over);
+  const under = Number(fair?.under);
+  if (!Number.isFinite(over) || !Number.isFinite(under)) return null;
+  return (
+    <div style={{ display:"grid", gap:3, marginTop:4 }}>
+      <div style={{ display:"flex", height:7, overflow:"hidden", borderRadius:999, background:"#e9eeeb" }}>
+        <span title={overLabel + " " + (over * 100).toFixed(0) + "%"} style={{ width:(over * 100) + "%", background:"#2f80ed" }} />
+        <span title={underLabel + " " + (under * 100).toFixed(0) + "%"} style={{ width:(under * 100) + "%", background:"#e05a5a" }} />
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", fontSize:6.8, fontWeight:900, color:"#687a71" }}>
+        <span style={{ color:edge?.key==="O" ? "#245fa8" : undefined }}>{overLabel} {(over * 100).toFixed(0)}%</span>
+        <span style={{ color:edge?.key==="U" ? "#a64b4b" : undefined }}>{underLabel} {(under * 100).toFixed(0)}%</span>
+      </div>
+    </div>
+  );
+}
+
 function totalMarketSummary(match, edge, market, label) {
   const line = market?.line;
   if (line == null || line === "") return { label, text: "NO LINE", detail: "HKJC 未有盤口", positive: false };
@@ -398,9 +417,11 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
             </div>
             <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
               <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
+              <BinaryMarketBar market={match.goals} edge={goalsEdge} />
             </div>
             <div className={"ft5-odd ft5-total-pick" + (cornersSummary.positive ? " edge-target" : "")}>
               <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
+              <BinaryMarketBar market={match.corners} edge={cornersEdge} />
             </div>
           </div>
         </div>
