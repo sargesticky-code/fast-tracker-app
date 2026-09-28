@@ -632,9 +632,12 @@ function buildBinaryAdvice(opts: {
   else if (selection === null || expectedValue === null || expectedValue <= 0) candidateClass = "NO_EDGE";
   else if (models.length < 2) candidateClass = "WATCH_SINGLE_SOURCE";
   else if (dispersion !== null && dispersion > 0.18) candidateClass = "WATCH_MODEL_SPLIT";
-  else if (expectedValue >= 0.08 && supportRatio >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidateClass = "STRONG_VALUE_CANDIDATE";
-  else if (expectedValue >= 0.04 && supportRatio >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidateClass = "VALUE_CANDIDATE";
-  else if (expectedValue >= 0.02) candidateClass = "LEAN";
+  // Same dual gate as HDA: actual-price EV plus a meaningful model-vs-fair
+  // probability gap. This prevents long prices from amplifying tiny probability
+  // disagreements into misleading Value labels.
+  else if (expectedValue >= 0.08 && (edge ?? -1) >= 0.06 && supportRatio >= 0.66 && (dispersion === null || dispersion <= 0.12)) candidateClass = "STRONG_VALUE_CANDIDATE";
+  else if (expectedValue >= 0.04 && (edge ?? -1) >= 0.03 && supportRatio >= 0.50 && (dispersion === null || dispersion <= 0.15)) candidateClass = "VALUE_CANDIDATE";
+  else if (expectedValue >= 0.02 && (edge ?? -1) >= 0.015) candidateClass = "LEAN";
   else candidateClass = "WATCH";
 
   const action = candidateClass === "DATA_RISK" ? "NO_BET"
@@ -665,7 +668,10 @@ function buildBinaryAdvice(opts: {
       : candidateClass === "LEAN"
         ? "輕微傾向"
         : "觀察";
-    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；現價 EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}，模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}（機率差 ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}），${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}。`;
+    const thinGapNote = expectedValuePct !== null && expectedValuePct >= 4 && edgePp !== null && edgePp < 3
+      ? "；EV 雖高但機率差不足 3pp，可能受高賠率放大，只列觀望"
+      : "";
+    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；現價 EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}，模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}（機率差 ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}），${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}${thinGapNote}。`;
   }
 
   return {
