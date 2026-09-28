@@ -412,6 +412,27 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
   );
 }
 
+function StrengthBar({ team, data }) {
+  const pct = Number.isFinite(Number(data?.lineup_strength_pct)) ? Number(data.lineup_strength_pct) : null;
+  const conf = Number.isFinite(Number(data?.lineup_confidence_pct)) ? Number(data.lineup_confidence_pct) : null;
+  const label = data?.lineup_strength_label || "資料不足";
+  return (
+    <div style={{padding:"10px 12px",border:"1px solid #dce6df",borderRadius:13,background:"#fff"}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+        <b style={{fontSize:12,color:palette.ink}}>{team}</b>
+        <b style={{fontSize:18,color:palette.ink}}>{pct == null ? "—" : Math.round(pct) + "%"}</b>
+      </div>
+      <div style={{height:7,borderRadius:999,background:"#e8eeea",overflow:"hidden",marginTop:7}}>
+        {pct != null ? <div style={{height:"100%",width:Math.max(0,Math.min(100,pct))+"%",background:"linear-gradient(90deg,#77a98b,#2a7753)",borderRadius:999}} /> : null}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:6,fontSize:9,color:palette.muted,fontWeight:800}}>
+        <span>{label}</span>
+        <span>{conf == null ? "可信度 —" : "可信度 " + Math.round(conf) + "%"}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function LineupPanel() {
   const [payload, setPayload] = useState(null);
   const [id, setId] = useState(null);
@@ -465,6 +486,10 @@ export default function LineupPanel() {
     const evidenceSources = meta?.evidenceSources || [...new Set(rows.map((r) => r?.source_name).filter(Boolean))];
     const playerStatus = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
+    const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
+      : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
+    const homeStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "HOME") || null;
+    const awayStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "AWAY") || null;
 
     const statusNames = new Set(playerStatus
       .filter((r) => /OUT|INJUR|SUSPEND|DOUBT|UNAVAILABLE/i.test(statusLabel(r)))
@@ -474,7 +499,7 @@ export default function LineupPanel() {
     return {
       rows, home, away, homeStarters, awayStarters, homeBench, awayBench,
       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
-      playerStatus, managers, conflicts,
+      playerStatus, managers, conflicts, homeStrength, awayStrength,
       homeFormation: normalizeFormation(formation(homeStarters)),
       awayFormation: normalizeFormation(formation(awayStarters)),
       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
@@ -516,6 +541,11 @@ export default function LineupPanel() {
               <Metric label="AWAY XI" value={view.awayStarters.length + "/11"} detail={view.awayFormation || "formation pending"} />
               <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : "prediction evidence"} />
             </div>
+          </div>
+
+          <div className="lineup-strength-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,marginTop:13}}>
+            <StrengthBar team={view.homeTeam} data={view.homeStrength} />
+            <StrengthBar team={view.awayTeam} data={view.awayStrength} />
           </div>
 
           <div style={{display:"flex",gap:6,overflowX:"auto",marginTop:13,paddingBottom:1}}>
@@ -599,7 +629,7 @@ export default function LineupPanel() {
 
       <style>{`
         @media (max-width: 820px) {
-          .pro-lineup-grid { grid-template-columns: 1fr !important; }
+          .pro-lineup-grid, .lineup-strength-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 520px) {
           .pro-lineup-grid { gap: 9px !important; }
