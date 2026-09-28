@@ -1009,6 +1009,7 @@ Deno.serve(async (req: Request) => {
   const healthOk = live ? Boolean(market && decisionFamilies.length) : phase1HealthOk;
   const fresh = live ? liveFresh : String(r.hkjc_freshness || "").toUpperCase() === "FRESH";
   const pipelineGate = String(r.decision || "").toUpperCase();
+  const calibrationPending = pipelineGate.includes("CALIBRATION") || pipelineGate === "";
 
   // A hard NO_BET is now reserved for cases where the live calculation itself is not trustworthy.
   // Calibration and partial Phase 1 coverage may limit staking confidence, but must not erase a real edge.
@@ -1057,6 +1058,9 @@ Deno.serve(async (req: Request) => {
     expectedValuePctNow !== null && expectedValuePctNow >= 4 && edgePpNow !== null && edgePpNow < 3
       ? "EV 雖高但機率差不足 3pp，高賠率放大效應：只列觀望"
       : null,
+    calibrationPending && bestOdds !== null && bestOdds >= 8
+      ? "高賠率尾部風險：Phase 5 calibration 未完成，Strong Value 上限降為 Value"
+      : null,
     dispersion !== null ? `模型分歧 ${(dispersion * 100).toFixed(1)}pp` : null,
     live ? `${liveMetricCount} 項 live metrics` : null,
     liveContradiction ? "即場走勢與預期矛盾，降為觀望" : null,
@@ -1075,7 +1079,7 @@ Deno.serve(async (req: Request) => {
   // Use a dual gate: actual-price EV must be positive AND the model-market
   // probability gap must be large enough. This prevents long odds from turning
   // a tiny probability disagreement into a misleading "Strong Value".
-  else if ((best.expectedValue ?? -1) >= 0.08 && (best.edge ?? -1) >= 0.06 && agreement >= 0.66 && confidenceScore >= 65) candidate = "STRONG_VALUE_CANDIDATE";
+  else if ((best.expectedValue ?? -1) >= 0.08 && (best.edge ?? -1) >= 0.06 && agreement >= 0.66 && confidenceScore >= 65 && !(calibrationPending && (bestOdds ?? 0) >= 8)) candidate = "STRONG_VALUE_CANDIDATE";
   else if ((best.expectedValue ?? -1) >= 0.04 && (best.edge ?? -1) >= 0.03 && agreement >= 0.50 && confidenceScore >= 50) candidate = "VALUE_CANDIDATE";
   else if ((best.expectedValue ?? -1) >= 0.02 && (best.edge ?? -1) >= 0.015 && confidenceScore >= 40) candidate = "LEAN";
   else candidate = "WATCH";
