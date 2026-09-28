@@ -127,6 +127,31 @@ function BinaryMarketBar({ market, edge, overLabel = "大", underLabel = "細" }
   );
 }
 
+function marketQuality({ edgePct = null, odds = null, freshnessKey, coveragePercent, consensusBonus = 0, hasModel = true }) {
+  const e = Number(edgePct);
+  const o = Number(odds);
+  let score = 0;
+  const reasons = [];
+  if (Number.isFinite(e)) {
+    score += Math.max(-20, Math.min(55, e * 2.2));
+    if (e >= 10) reasons.push("Edge強");
+    else if (e >= 5) reasons.push("Edge正");
+    else if (e > 0) reasons.push("微正Edge");
+  }
+  if (hasModel) { score += 12; reasons.push("有模型"); }
+  if (freshnessKey === "fresh") { score += 14; reasons.push("資料新"); }
+  else if (freshnessKey === "warn") score += 4;
+  else if (freshnessKey === "stale") { score -= 22; reasons.push("資料舊"); }
+  if (Number.isFinite(coveragePercent)) {
+    score += Math.max(0, Math.min(14, coveragePercent / 7));
+    if (coveragePercent >= 80) reasons.push("覆蓋高");
+  }
+  if (Number.isFinite(o) && o > 1 && o <= 10) score += 6;
+  if (Number.isFinite(o) && o > 10) { score -= 10; reasons.push("賠率偏極端"); }
+  if (consensusBonus > 0) { score += consensusBonus; reasons.push("模型同向"); }
+  return { score, reasons: reasons.slice(0, 3) };
+}
+
 function totalMarketSummary(match, edge, market, label) {
   const line = market?.line;
   if (line == null || line === "") return { label, text: "NO LINE", detail: "HKJC 未有盤口", positive: false };
@@ -195,35 +220,67 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
         };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
   const cornersSummary = totalMarketSummary(match, cornersEdge, match.corners, "角球");
+  const coveragePctForRank = Number(completeness?.percent);
+  const hdcConsensusBonus = agreement?.key === "agree"
+    && ((handicapAdvice?.selection === "HOME" && agreement.side === "H") || (handicapAdvice?.selection === "AWAY" && agreement.side === "A"))
+      ? 10 : 0;
+  const handicapQuality = marketQuality({
+    edgePct: Number.isFinite(handicapEdge) ? handicapEdge : null,
+    odds: handicapOdds,
+    freshnessKey: fresh.key,
+    coveragePercent: coveragePctForRank,
+    consensusBonus: hdcConsensusBonus,
+    hasModel: handicapAdvice?.status !== "NO_MODEL",
+  });
+  const goalsOdds = goalsEdge ? binaryOdds(match.goals, goalsEdge.key) : null;
+  const goalsQuality = marketQuality({
+    edgePct: goalsEdge ? Number(goalsEdge.value) * 100 : null,
+    odds: goalsOdds,
+    freshnessKey: fresh.key,
+    coveragePercent: coveragePctForRank,
+    hasModel: Boolean(goalsEdge?.model),
+  });
+  const cornersOdds = cornersEdge ? binaryOdds(match.corners, cornersEdge.key) : null;
+  const cornersQuality = marketQuality({
+    edgePct: cornersEdge ? Number(cornersEdge.value) * 100 : null,
+    odds: cornersOdds,
+    freshnessKey: fresh.key,
+    coveragePercent: coveragePctForRank,
+    hasModel: Boolean(cornersEdge?.model),
+  });
   const secondaryMarkets = [
     {
       key: "HANDICAP",
-      rank: handicapAdvice?.status === "VALUE" ? 100 + Math.max(0, handicapEdge || 0) : handicapAdvice?.status === "LEAN" ? 35 + Math.max(0, handicapEdge || 0) : 5,
+      rank: handicapQuality.score + (handicapAdvice?.status === "VALUE" ? 30 : handicapAdvice?.status === "LEAN" ? 12 : 0),
       available: handicapLine != null,
       node: (
         <div className={"ft5-odd ft5-total-pick" + (handicapSummary.positive ? " edge-target" : "")}>
-          <span>讓球</span><b>{handicapSummary.text}</b><small>{handicapSummary.detail}</small>
+          <span>讓球</span><b>{handicapSummary.text}</b>
+          <small>{handicapSummary.detail}</small>
+          {handicapQuality.reasons.length ? <small style={{ fontWeight:900 }}>點解排前：{handicapQuality.reasons.join(" · ")}</small> : null}
         </div>
       ),
     },
     {
       key: "GOALS",
-      rank: goalsEdge && Number(goalsEdge.value) > 0 ? 70 + Number(goalsEdge.value) * 100 : 10,
+      rank: goalsQuality.score + (goalsSummary.positive ? 24 : 0),
       available: match.goals?.line != null,
       node: (
         <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
           <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
+          {goalsQuality.reasons.length ? <small style={{ fontWeight:900 }}>點解排前：{goalsQuality.reasons.join(" · ")}</small> : null}
           <BinaryMarketBar market={match.goals} edge={goalsEdge} />
         </div>
       ),
     },
     {
       key: "CORNERS",
-      rank: cornersEdge && Number(cornersEdge.value) > 0 ? 70 + Number(cornersEdge.value) * 100 : 10,
+      rank: cornersQuality.score + (cornersSummary.positive ? 24 : 0),
       available: match.corners?.line != null,
       node: (
         <div className={"ft5-odd ft5-total-pick" + (cornersSummary.positive ? " edge-target" : "")}>
           <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
+          {cornersQuality.reasons.length ? <small style={{ fontWeight:900 }}>點解排前：{cornersQuality.reasons.join(" · ")}</small> : null}
           <BinaryMarketBar market={match.corners} edge={cornersEdge} />
         </div>
       ),
