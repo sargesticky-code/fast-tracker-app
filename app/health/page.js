@@ -107,26 +107,26 @@ export default async function HealthPage(){
     missing:missingRows.length,
   };
   return <main className="shell detail-shell">
-    <div className="detail-top"><Link href="/" className="back">← 賽事</Link><span>Phase 1 · canonical health</span></div>
-    <section className="detail-hero"><p className="eyebrow">FAST TRACKER 2026</p><h1>Data Health</h1><p>Canonical database狀態。Source真係冇model，同system未完成capture/matching會分開顯示。</p></section>
-    <section className="health-strip"><div><b>{upcoming.length}</b><span>Upcoming</span></div><div><b>{live.length}</b><span>Live</span></div><div><b>{stats.forebet}</b><span>Forebet</span></div><div><b>{stats.multisource}</b><span>Multi-source</span></div></section>
-    <section className="panel"><div className="panel-title"><div><p>HEARTBEAT</p><h2>Direct data pipelines</h2></div><span>自動更新</span></div>
+    <div className="detail-top"><Link href="/" className="back">← 返回賽事</Link><span>後台 · 系統狀態</span></div>
+    <section className="detail-hero"><p className="eyebrow">FAST TRACKER 2026 · 後台</p><h1>系統狀態</h1><p>集中睇資料有冇更新、預測覆蓋同需要處理嘅問題。前台唔再顯示呢啲技術資訊。</p></section>
+    <section className="health-strip"><div><b>{upcoming.length}</b><span>未開賽</span></div><div><b>{live.length}</b><span>即場</span></div><div><b>{stats.modeled}</b><span>有預測</span></div><div><b>{stats.missing}</b><span>需留意</span></div></section>
+    <section className="panel"><div className="panel-title"><div><p>資料更新</p><h2>主要資料來源</h2></div><span>自動更新</span></div>
       <div className="health-list">
-        <div><span>HKJC Upcoming authority<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
-        <div><span>HKJC Live odds<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
-        <div><span>Live score / stats<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
-        <div><span>Live layer guard<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
-        <div><span>Live upstream deploy<small style={{display:"block"}}>expected build vs production host</small></span><b>{heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
-        <div><span>Supabase live shadow<small style={{display:"block"}}>native fixture identity prewarm · 2-min cadence</small></span><b>{heartbeats.LIVE_SOURCE_SHADOW?.status || "—"} · {heartbeats.LIVE_SOURCE_SHADOW?.value || "—"}</b></div>
-        <div><span>Live shadow compare<small style={{display:"block"}}>coverage · score · source ID · minute drift · detail</small></span><b>{heartbeats.LIVE_SHADOW_COMPARE?.status || "—"} · {heartbeats.LIVE_SHADOW_COMPARE?.value || "—"}</b></div>
-        <div><span>Phase 3 identity<small style={{display:"block"}}>verified source-match registry</small></span><b>{heartbeats.PHASE3_IDENTITY_REGISTRY?.status || "—"} · {heartbeats.PHASE3_IDENTITY_REGISTRY?.value || "—"}</b></div>
-        <div><span>Dashboard routes<small style={{display:"block"}}>全 current feed resolver + representative detail/legacy probes</small></span><b>{routeGuard.status || "—"} · {routeCurrentCount-routeUnresolved.length}/{routeCurrentCount} resolved · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
+        <div><span>HKJC 賽前賠率<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
+        <div><span>HKJC 即場賠率<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
+        <div><span>即場比分及數據<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
+        <div><span>即場資料檢查<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
+        <div><span>即場資料服務<small style={{display:"block"}}>expected build vs production host</small></span><b>{heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
+        <div><span>備用即場資料<small style={{display:"block"}}>native fixture identity prewarm · 2-min cadence</small></span><b>{heartbeats.LIVE_SOURCE_SHADOW?.status || "—"} · {heartbeats.LIVE_SOURCE_SHADOW?.value || "—"}</b></div>
+        <div><span>即場資料比對<small style={{display:"block"}}>coverage · score · source ID · minute drift · detail</small></span><b>{heartbeats.LIVE_SHADOW_COMPARE?.status || "—"} · {heartbeats.LIVE_SHADOW_COMPARE?.value || "—"}</b></div>
+        <div><span>賽事配對<small style={{display:"block"}}>verified source-match registry</small></span><b>{heartbeats.PHASE3_IDENTITY_REGISTRY?.status || "—"} · {heartbeats.PHASE3_IDENTITY_REGISTRY?.value || "—"}</b></div>
+        <div><span>頁面連結檢查<small style={{display:"block"}}>全 current feed resolver + representative detail/legacy probes</small></span><b>{routeGuard.status || "—"} · {routeCurrentCount-routeUnresolved.length}/{routeCurrentCount} resolved · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
       </div>
     </section>
-    <section className="panel"><div className="panel-title"><div><p>MARKETS</p><h2>24H Intelligence Coverage</h2></div><span>{stats.total} matches</span></div>
-      <div className="health-list"><div><span>Forebet predicted score</span><b>{coverage.score}/{stats.total}</b></div><div><span>Goals O/U evidence</span><b>{coverage.goals}/{stats.total}</b></div><div><span>Corners evidence</span><b>{coverage.corners}/{stats.total}</b></div><div><span>Multi-source evidence</span><b>{coverage.multi}/{stats.total}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
+    <section className="panel"><div className="panel-title"><div><p>市場資料</p><h2>24小時資料覆蓋</h2></div><span>{stats.total} 場</span></div>
+      <div className="health-list"><div><span>預測比分</span><b>{coverage.score}/{stats.total}</b></div><div><span>入球大細資料</span><b>{coverage.goals}/{stats.total}</b></div><div><span>角球大細資料</span><b>{coverage.corners}/{stats.total}</b></div><div><span>多來源預測</span><b>{coverage.multi}/{stats.total}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
     </section>
-    <section className="panel"><div className="panel-title"><div><p>MODEL SOURCES</p><h2>真實 source coverage</h2></div><span>{matches.length} matches</span></div>
+    <section className="panel"><div className="panel-title"><div><p>預測來源</p><h2>模型資料狀態</h2></div><span>{matches.length} 場</span></div>
       <div className="health-list">
         <div><span>Forebet<small style={{display:"block"}}>Model / Fixture only / Source absent</small></span><b>{sourceCoverage.forebet.model} / {sourceCoverage.forebet.fixture} / {sourceCoverage.forebet.absent}</b></div>
         <div><span>DC / Pi<small style={{display:"block"}}>Model / Fail-closed / Identity block</small></span><b>{sourceCoverage.dcpi.model} / {sourceCoverage.dcpi.fail} / {sourceCoverage.dcpi.identity}</b></div>
@@ -135,12 +135,12 @@ export default async function HealthPage(){
         <div><span>External context fallback<small style={{display:"block"}}>FotMob exact/verified fixture · Detail · Lineup</small></span><b>{sourceContextCoverage.matched} / {sourceContextCoverage.detail} / {sourceContextCoverage.lineup}</b></div>
       </div>
     </section>
-    <section className="panel"><div className="panel-title"><div><p>QUALITY</p><h2>Coverage</h2></div><span>{feed.source}</span></div>
+    <section className="panel"><div className="panel-title"><div><p>資料質素</p><h2>需要處理</h2></div><span>後台</span></div>
       <div className="health-list"><div><span>過時資料</span><b>{stats.stale}</b></div><div><span>缺 evidence</span><b>{stats.missing}</b></div><div><span>Source已check但冇model</span><b>{(classes.SOURCE_NO_MODEL||0)+(classes.SOURCE_FIXTURE_ONLY||0)}</b></div><div><span>Source / scan不可用</span><b>{classes.SOURCE_UNAVAILABLE||0}</b></div><div><span>Capture/check待完成</span><b>{classes.CAPTURE_OR_CHECK_PENDING||0}</b></div><div><span>Matching需覆核</span><b>{classes.MATCHING_REVIEW||0}</b></div><div><span>Feed window</span><b>{feed.windowHours}h</b></div><div><span>Generated</span><b>{new Date(feed.generatedAt).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"})}</b></div></div>
     </section>
-    {gapRows.length>0&&<section className="panel"><div className="panel-title"><div><p>GAPS</p><h2>Coverage未完整賽事</h2></div><span>{gapRows.length}</span></div>
+    {gapRows.length>0&&<section className="panel"><div className="panel-title"><div><p>待處理</p><h2>資料未完整賽事</h2></div><span>{gapRows.length}</span></div>
       <div className="health-list">{gapRows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · FB {m.health?.forebetCoverageStatus||"—"} · DC/PI {m.health?.dcPiCoverageStatus||"—"} · FORM {m.health?.formCoverageStatus||"—"} · MULTI {m.health?.multisourceCoverageStatus||"—"}{m.sourceContext ? ` · CTX ${m.sourceContext.source} ${Math.round(Number(m.sourceContext.matchConfidence||0)*100)}%` : ""}</small></span><b>{unifiedCoverageStatus(m)}</b></div>)}</div>
     </section>}
-    <section className="panel"><div className="panel-title"><div><p>POLICY</p><h2>Phase 1 safeguards</h2></div></div><p className="fineprint">HKJC係 betting universe。缺 source 就顯示 NO DATA；stale唔當current；未check同source無model唔會混為一談；Decision engine保持validation-gated，未有足夠校準唔輸出正式投注指令。</p></section>
+    <section className="panel"><div className="panel-title"><div><p>系統原則</p><h2>資料保護</h2></div></div><p className="fineprint">HKJC 賽事作為主要投注範圍。資料不足會清楚標示，不會用舊資料扮最新資料；來源未確認時亦不會自行補假數據。詳細技術狀態保留喺後台供排錯使用。</p></section>
   </main>;
 }
