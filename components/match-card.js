@@ -160,7 +160,7 @@ function marketQuality({ evPct = null, gapPp = null, odds = null, freshnessKey, 
 
 function totalMarketSummary(match, edge, market, label) {
   const line = market?.line;
-  if (line == null || line === "") return { label, text: "NO LINE", detail: "HKJC 未有盤口", positive: false };
+  if (line == null || line === "") return { label, text: "未有盤口", detail: "HKJC 暫未提供", positive: false };
   if (!edge || !Number.isFinite(Number(edge.expectedValue)) || Number(edge.expectedValue) <= 0) {
     return { label, text: "暫不選 · " + line, detail: "現價未見投注價值", positive: false };
   }
@@ -230,15 +230,15 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
       : handicapAdvice?.band === "LEAN" ? "LEAN"
         : handicapAdvice?.band === "WATCH" ? "觀望" : "PASS";
   const handicapSummary = handicapLine == null
-    ? { text:"NO LINE", detail:"HKJC 未有讓球盤", positive:false }
+    ? { text:"未有讓球盤", detail:"HKJC 暫未提供", positive:false }
     : !handicapAdvice
       ? { text:"讓球 " + handicapLine, detail:"未有足夠模型 + HKJC 盤口建立 AH EV", positive:false }
       : {
           text: (handicapAdvice.selectionLabel || "讓球 " + handicapLine) + (handicapOdds ? " @" + formatOdds(handicapOdds) : ""),
           detail: handicapBand
-            + (handicapEvPct == null ? "" : " · EV " + (handicapEvPct >= 0 ? "+" : "") + handicapEvPct.toFixed(1) + "%")
+            + (handicapEvPct == null ? "" : " · 價值 " + (handicapEvPct >= 0 ? "+" : "") + handicapEvPct.toFixed(1) + "%")
             + " · 支援 " + Number(handicapAdvice.supportCount || 0) + "/" + Number(handicapAdvice.familyCount || 0)
-            + (Number.isFinite(Number(handicapAdvice.dispersion)) ? " · 分歧 " + (Number(handicapAdvice.dispersion) * 100).toFixed(1) + "pp" : ""),
+            + (Number.isFinite(Number(handicapAdvice.dispersion)) ? " · 模型分歧 " + (Number(handicapAdvice.dispersion) * 100).toFixed(1) + "pp" : ""),
           positive: ["LEAN","VALUE","STRONG_VALUE"].includes(handicapAdvice.band)
         };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
@@ -505,12 +505,13 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
+            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>投注建議</span>
             <b>{pick}</b>
-            <small>{selectedOdds ? "@" + formatOdds(selectedOdds) : "—"}</small>
+            <small>{selectedOdds ? "賠率 @" + formatOdds(selectedOdds) : "未有賠率"}</small>
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
-              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>{strongEdge ? "★ " : valueEdgeFlag ? "↑ " : ""}價值 · {quantBand === "STRONG_VALUE" ? "強" : quantBand === "VALUE" ? "有價值" : quantBand}</span>
+              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>{strongEdge ? "★ " : valueEdgeFlag ? "↑ " : ""}{quantBand}</span>
               <b>{edgeText}</b>
               <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
             </div>
@@ -545,10 +546,10 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
 
         <div className="ft5-evidence-ribbon" aria-label="match evidence summary">
           <EvidenceItem icon="score" label="預測比分" value={scriptScore || "—"} detail={scriptShapeLabel || null} />
-          <EvidenceItem icon="form" label="Form" value={homeFormCode && awayFormCode ? homeFormCode + " / " + awayFormCode : homeFormCode || awayFormCode || "—"} />
-          <EvidenceItem icon="model" label="DC xG" value={dcXgText || "—"} />
-          {Number.isFinite(bttsYes) ? <EvidenceItem icon="btts" label="BTTS" value={Math.round(bttsYes * 100) + "%"} /> : null}
-          <EvidenceItem icon="decision" label="Engine" value={decisionValue} detail={decisionDetail || null} />
+          <EvidenceItem icon="form" label="近期狀態" value={homeFormCode && awayFormCode ? homeFormCode + " / " + awayFormCode : homeFormCode || awayFormCode || "—"} />
+          <EvidenceItem icon="model" label="預期入球" value={dcXgText || "—"} />
+          {Number.isFinite(bttsYes) ? <EvidenceItem icon="btts" label="雙方入球" value={Math.round(bttsYes * 100) + "%"} /> : null}
+          <EvidenceItem icon="decision" label="系統建議" value={decisionValue} detail={decisionDetail || null} />
           <EvidenceItem
             icon="source"
             label={
