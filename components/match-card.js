@@ -535,7 +535,8 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
-            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>首選投注</span>\n            <strong className={"ft5-confidence ft5-confidence-" + confidenceLevel.tone} style={{display:"inline-block",marginLeft:6,fontSize:8}}>{confidenceLevel.label}</strong>
+            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>首選投注</span>
+            <strong className={"ft5-confidence ft5-confidence-" + confidenceLevel.tone} style={{display:"inline-block",marginLeft:6,fontSize:8}}>{confidenceLevel.label}</strong>
             <b>{pick}</b>
             <small>{selectedOdds ? "賠率 @" + formatOdds(selectedOdds) : "未有賠率"}</small>
             <em style={{display:"block",marginTop:3,fontSize:7,fontStyle:"normal",fontWeight:850,color:"#6f8177"}}>{edge && Number(edge.expectedValue) > 0 ? "按現價值排序" : "現價未見明顯優勢"}</em>
@@ -545,7 +546,8 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
               <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>{strongEdge ? "★ " : valueEdgeFlag ? "↑ " : ""}{quantBand}</span>
               <b>{edgeText}</b>
               <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
-              {primaryReasons.length ? <small style={{display:"block",marginTop:3,fontSize:7,fontWeight:900,color:primaryReasons.some((r)=>r.startsWith("⚠"))?"#995247":"#35684d"}}>{primaryReasons.join("｜")}</small> : null}\n              {holisticReady.length ? <small style={{display:"block",marginTop:3,fontSize:6.8,fontWeight:850,color:"#718078"}}>{holisticReady.map((r)=>r.label).join("｜")}</small> : null}
+              {primaryReasons.length ? <small style={{display:"block",marginTop:3,fontSize:7,fontWeight:900,color:primaryReasons.some((r)=>r.startsWith("⚠"))?"#995247":"#35684d"}}>{primaryReasons.join("｜")}</small> : null}
+              {holisticReady.length ? <small style={{display:"block",marginTop:3,fontSize:6.8,fontWeight:850,color:"#718078"}}>{holisticReady.map((r)=>r.label).join("｜")}</small> : null}
             </div>
             {hasMove ? (
               <div className="ft5-move-chip">
