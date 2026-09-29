@@ -1520,8 +1520,8 @@ export default function DashboardClient({ feed, nowMs }) {
             <div className="ft5-table-head" aria-hidden="true">
               <span>時間 / 賽事</span>
               <span>預測 / 主和客</span>
-              <span>投注建議 / 價值 / 變動</span>
-              <span>賠率</span>
+              <span>★ 投注建議 / 價值</span>
+              <span>市場賠率</span>
             </div>
             <div className="ft5-match-list ft5-list-enter" key={filter}>
               {matches.length
