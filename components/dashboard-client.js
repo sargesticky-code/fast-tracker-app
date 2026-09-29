@@ -114,6 +114,8 @@ function MarketPickRow({ match, edge, type }) {
       ? modelProbability - Number(edge.value || 0)
       : null;
   const evPct = Number.isFinite(Number(edge?.expectedValue)) ? Number(edge.expectedValue) * 100 : null;
+  const modelPct = Number.isFinite(modelProbability) ? (modelProbability * 100).toFixed(1) + "%" : "—";
+  const fairPct = Number.isFinite(fairProbability) ? (fairProbability * 100).toFixed(1) + "%" : "—";
   const gapPp = Number.isFinite(Number(edge?.value)) ? Number(edge.value) * 100 : null;
   const formula = Number.isFinite(modelProbability) && Number.isFinite(fairProbability)
     ? `模型 ${(modelProbability * 100).toFixed(1)}% · fair ${(fairProbability * 100).toFixed(1)}% · gap ${gapPp == null ? "—" : (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "pp"}`
@@ -1532,9 +1534,9 @@ export default function DashboardClient({ feed, nowMs }) {
 
       <footer className="ft5-bottom-nav">
         <button className={filter === "focus" ? "selected" : ""} type="button" onClick={() => selectFilter("focus")}>首頁</button>
-        <button className={filter === "live" ? "selected" : ""} type="button" onClick={() => selectFilter("live")}>Live</button>
-        <button className={filter === "gaps" ? "selected" : ""} type="button" onClick={() => selectFilter("gaps")}>精算</button>
-        <a href="/health/">系統</a>
+        <button className={filter === "live" ? "selected" : ""} type="button" onClick={() => selectFilter("live")}>● 即場</button>
+        <button className={filter === "gaps" ? "selected" : ""} type="button" onClick={() => selectFilter("gaps")}>★ 價值</button>
+        <a href="/health/">⚙ 系統</a>
       </footer>
     </main>
   );
