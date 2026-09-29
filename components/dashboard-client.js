@@ -118,8 +118,8 @@ function MarketPickRow({ match, edge, type }) {
   const fairPct = Number.isFinite(fairProbability) ? (fairProbability * 100).toFixed(1) + "%" : "—";
   const gapPp = Number.isFinite(Number(edge?.value)) ? Number(edge.value) * 100 : null;
   const formula = Number.isFinite(modelProbability) && Number.isFinite(fairProbability)
-    ? `模型 ${(modelProbability * 100).toFixed(1)}% · fair ${(fairProbability * 100).toFixed(1)}% · gap ${gapPp == null ? "—" : (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "pp"}`
-    : "模型概率 vs HKJC fair";
+    ? `模型 ${(modelProbability * 100).toFixed(1)}% · 市場約 ${(fairProbability * 100).toFixed(1)}% · 差距 ${gapPp == null ? "—" : (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "百分點"}`
+    : "模型預測 vs 市場概率";
 
   return (
     <a
@@ -449,7 +449,7 @@ function liveRecommendationMeta(analysis) {
   if (action === "NO_BET") { label = "暫不下注"; tone = "pass"; }
   else if (action === "PASS") { label = "暫時跳過"; tone = "pass"; }
   else if (action.includes("STRONG")) { label = "強 Value"; tone = "strong"; }
-  else if (action.includes("VALUE")) { label = "Value"; tone = "value"; }
+  else if (action.includes("VALUE")) { label = "有價值"; tone = "value"; }
   else if (action.includes("LEAN")) { label = "輕微傾向"; tone = "lean"; }
   else if (action === "WATCH") { label = "觀望"; tone = "watch"; }
 
@@ -585,7 +585,7 @@ function LiveMatchRow({ match, analysis = null, changeType = null, nowMs = Date.
           </div>
           <div className="ft5-live-reco-metrics">
             <span><small>現價 EV</small><b>{recommendation.ev == null ? "—" : (recommendation.ev >= 0 ? "+" : "") + recommendation.ev.toFixed(1) + "%"}</b></span>
-            <span><small>機率差</small><b>{recommendation.edge == null ? "—" : (recommendation.edge >= 0 ? "+" : "") + recommendation.edge.toFixed(1) + "pp"}</b></span>
+            <span><small>機率差</small><b>{recommendation.edge == null ? "—" : (recommendation.edge >= 0 ? "+" : "") + recommendation.edge.toFixed(1) + "百分點"}</b></span>
             <span><small>信心</small><b>{recommendation.confidence == null ? "—" : Math.round(recommendation.confidence)}</b></span>
           </div>
         </div>
@@ -607,12 +607,12 @@ function LiveTableHead() {
 
 
 function modelSourceLabel(match) {
-  if (match.multi) return "Multi-source";
-  if (match.forebet) return "Forebet";
-  if (match.dc) return "Dixon-Coles";
-  if (match.pi) return "Pi Rating";
-  if (match.form) return "Team-Form";
-  return "NO MODEL";
+  if (match.multi) return "綜合預測";
+  if (match.forebet) return "比分預測";
+  if (match.dc) return "入球模型";
+  if (match.pi) return "實力評分";
+  if (match.form) return "近期狀態";
+  return "未有預測";
 }
 
 function hdaProbability(match, key) {
@@ -691,12 +691,12 @@ function TopBetCard({ row, index = 0, changeType = null }) {
   const edgePp = Number.isFinite(Number(edge.value)) ? Number(edge.value) * 100 : null;
   const evPct = Number(edge.expectedValue || 0) * 100;
   const supportText = type === "讓球"
-    ? `${Number(edge.supportCount || 0)}/${Number(edge.familyCount || 0)} family${Number.isFinite(Number(edge.dispersion)) ? " · 分歧 " + (Number(edge.dispersion) * 100).toFixed(1) + "pp" : ""}`
-    : `Gap ${edgePp == null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"} · 模型 ${modelPct} / fair ${fairPct}`;
-  const quantBand = edge.band === "STRONG_VALUE" ? "強 VALUE"
-    : edge.band === "VALUE" ? "VALUE"
-      : edge.band === "LEAN" ? "LEAN"
-        : edge.band === "WATCH" ? "觀望" : "PASS";
+    ? `${Number(edge.supportCount || 0)}/${Number(edge.familyCount || 0)} family${Number.isFinite(Number(edge.dispersion)) ? " · 分歧 " + (Number(edge.dispersion) * 100).toFixed(1) + "百分點" : ""}`
+    : `差距 ${edgePp == null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "百分點"} · 模型 ${modelPct} / 市場約 ${fairPct}`;
+  const quantBand = edge.band === "STRONG_VALUE" ? "強價值"
+    : edge.band === "VALUE" ? "有價值"
+      : edge.band === "LEAN" ? "輕微價值"
+        : edge.band === "WATCH" ? "觀望" : "暫不選";
   const agreement = modelAgreement(match);
   const storyScript = match.storySummary?.matchScript || null;
   const storyAlignment = match.storySummary?.editorialAlignment || null;
