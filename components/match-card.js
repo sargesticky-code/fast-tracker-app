@@ -32,12 +32,12 @@ function pct(value) {
 }
 
 function modelLabel(match) {
-  if (match.multi) return "Multi";
-  if (match.forebet) return "Forebet";
-  if (match.dc) return "Dixon-Coles";
-  if (match.pi) return "Pi Rating";
-  if (match.form) return "Team-Form";
-  return "NO MODEL";
+  if (match.multi) return "綜合預測";
+  if (match.forebet) return "比分預測";
+  if (match.dc) return "入球模型";
+  if (match.pi) return "實力評分";
+  if (match.form) return "近期狀態";
+  return "未有預測";
 }
 
 function edgeOdds(match, key) {
@@ -136,9 +136,9 @@ function marketQuality({ evPct = null, gapPp = null, odds = null, freshnessKey, 
   const reasons = [];
   if (Number.isFinite(ev)) {
     score += Math.max(-20, Math.min(46, ev * 1.9));
-    if (band === "STRONG_VALUE") reasons.push("強Value");
-    else if (band === "VALUE") reasons.push("Value");
-    else if (band === "LEAN") reasons.push("正EV");
+    if (band === "STRONG_VALUE") reasons.push("強價值");
+    else if (band === "VALUE") reasons.push("有價值");
+    else if (band === "LEAN") reasons.push("輕微價值");
     else if (ev > 0) reasons.push("EV正");
   }
   if (Number.isFinite(gap)) {
@@ -162,7 +162,7 @@ function totalMarketSummary(match, edge, market, label) {
   const line = market?.line;
   if (line == null || line === "") return { label, text: "NO LINE", detail: "HKJC 未有盤口", positive: false };
   if (!edge || !Number.isFinite(Number(edge.expectedValue)) || Number(edge.expectedValue) <= 0) {
-    return { label, text: "PASS · " + line, detail: "現價 EV ≤ 0%", positive: false };
+    return { label, text: "暫不選 · " + line, detail: "現價未見投注價值", positive: false };
   }
   const odds = Number.isFinite(Number(edge.odds)) ? Number(edge.odds) : binaryOdds(market, edge.key);
   const fair = binaryFair(market?.over, market?.under);
@@ -174,17 +174,17 @@ function totalMarketSummary(match, edge, market, label) {
     : edge.key === "O" ? Number(fair?.over) : Number(fair?.under);
   const evPct = Number(edge.expectedValue) * 100;
   const gapPp = Number(edge.value) * 100;
-  const band = edge.band === "STRONG_VALUE" ? "強Value"
-    : edge.band === "VALUE" ? "Value"
-      : edge.band === "LEAN" ? "Lean"
-        : edge.band === "WATCH" ? "觀望" : "Pass";
+  const band = edge.band === "STRONG_VALUE" ? "強價值"
+    : edge.band === "VALUE" ? "有價值"
+      : edge.band === "LEAN" ? "輕微價值"
+        : edge.band === "WATCH" ? "觀望" : "暫不選";
   const formula = Number.isFinite(modelP) && Number.isFinite(fairP)
-    ? "模型 " + (modelP * 100).toFixed(1) + "% / fair " + (fairP * 100).toFixed(1) + "%"
-    : "模型 vs HKJC fair";
+    ? "模型 " + (modelP * 100).toFixed(1) + "% / 市場約 " + (fairP * 100).toFixed(1) + "%"
+    : "模型預測 vs 市場概率";
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "EV " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "% · Gap " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "pp · " + band + " · " + formula,
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "EV " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + % · 差距 " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "百分點 · " + band + " · " + formula,
     positive: ["LEAN","VALUE","STRONG_VALUE"].includes(edge.band),
   };
 }
@@ -210,8 +210,8 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const selectedModelProbability = Number.isFinite(Number(edge?.modelProbability)) ? Number(edge.modelProbability) : null;
   const selectedFairProbability = Number.isFinite(Number(edge?.marketProbability)) ? Number(edge.marketProbability) : null;
   const edgeFormula = Number.isFinite(selectedModelProbability) && Number.isFinite(selectedFairProbability)
-    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + "% / fair " + (selectedFairProbability * 100).toFixed(1) + "%" + (edgeGapPp == null ? "" : " · Gap " + (edgeGapPp >= 0 ? "+" : "") + edgeGapPp.toFixed(1) + "pp")
-    : "模型概率 vs HKJC fair";
+    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + % / 市場約 " + (selectedFairProbability * 100).toFixed(1) + "%" + (edgeGapPp == null ? "" : " · 差距 " + (edgeGapPp >= 0 ? "+" : "") + edgeGapPp.toFixed(1) + "百分點")
+    : "模型預測 vs 市場概率";
   const quantBand = edge?.band === "STRONG_VALUE" ? "強 VALUE"
     : edge?.band === "VALUE" ? "VALUE"
       : edge?.band === "LEAN" ? "LEAN"
