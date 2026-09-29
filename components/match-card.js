@@ -139,7 +139,7 @@ function marketQuality({ evPct = null, gapPp = null, odds = null, freshnessKey, 
     if (band === "STRONG_VALUE") reasons.push("強價值");
     else if (band === "VALUE") reasons.push("有價值");
     else if (band === "LEAN") reasons.push("輕微價值");
-    else if (ev > 0) reasons.push("EV正");
+    else if (ev > 0) reasons.push("有正價值");
   }
   if (Number.isFinite(gap)) {
     score += Math.max(-8, Math.min(12, gap * 0.8));
@@ -184,7 +184,7 @@ function totalMarketSummary(match, edge, market, label) {
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "EV " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "% · 差距 " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "百分點 · " + band + " · " + formula,
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "價值 " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "% · 差距 " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "百分點 · " + band + " · " + formula,
     positive: ["LEAN","VALUE","STRONG_VALUE"].includes(edge.band),
   };
 }
@@ -225,20 +225,20 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const handicapEvPct = Number.isFinite(Number(handicapAdvice?.expectedValue))
     ? Number(handicapAdvice.expectedValue) * 100
     : null;
-  const handicapBand = handicapAdvice?.band === "STRONG_VALUE" ? "強 VALUE"
-    : handicapAdvice?.band === "VALUE" ? "VALUE"
-      : handicapAdvice?.band === "LEAN" ? "LEAN"
-        : handicapAdvice?.band === "WATCH" ? "觀望" : "PASS";
+  const handicapBand = handicapAdvice?.band === "STRONG_VALUE" ? "強價值"
+    : handicapAdvice?.band === "VALUE" ? "有價值"
+      : handicapAdvice?.band === "LEAN" ? "輕微價值"
+        : handicapAdvice?.band === "WATCH" ? "觀望" : "暫不選";
   const handicapSummary = handicapLine == null
     ? { text:"未有讓球盤", detail:"HKJC 暫未提供", positive:false }
     : !handicapAdvice
-      ? { text:"讓球 " + handicapLine, detail:"未有足夠模型 + HKJC 盤口建立 AH EV", positive:false }
+      ? { text:"讓球 " + handicapLine, detail:"資料未足夠計算讓球價值", positive:false }
       : {
           text: (handicapAdvice.selectionLabel || "讓球 " + handicapLine) + (handicapOdds ? " @" + formatOdds(handicapOdds) : ""),
           detail: handicapBand
             + (handicapEvPct == null ? "" : " · 價值 " + (handicapEvPct >= 0 ? "+" : "") + handicapEvPct.toFixed(1) + "%")
             + " · 支援 " + Number(handicapAdvice.supportCount || 0) + "/" + Number(handicapAdvice.familyCount || 0)
-            + (Number.isFinite(Number(handicapAdvice.dispersion)) ? " · 模型分歧 " + (Number(handicapAdvice.dispersion) * 100).toFixed(1) + "pp" : ""),
+            + (Number.isFinite(Number(handicapAdvice.dispersion)) ? " · 模型分歧 " + (Number(handicapAdvice.dispersion) * 100).toFixed(1) + "百分點" : ""),
           positive: ["LEAN","VALUE","STRONG_VALUE"].includes(handicapAdvice.band)
         };
   const goalsSummary = totalMarketSummary(match, goalsEdge, match.goals, "入球");
@@ -315,7 +315,13 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
       ),
     },
   ].filter((row) => row.available).sort((a, b) => b.rank - a.rank);
-  const visibleSecondaryMarkets = secondaryMarkets.slice(0, 2);
+  const recommendedSecondaryMarkets = secondaryMarkets.filter((row) => {
+    if (row.key === "HANDICAP") return ["LEAN","VALUE","STRONG_VALUE"].includes(handicapAdvice?.band) && Number(handicapAdvice?.expectedValue) > 0;
+    if (row.key === "GOALS") return goalsSummary.positive && Number(goalsEdge?.expectedValue) > 0;
+    if (row.key === "CORNERS") return cornersSummary.positive && Number(cornersEdge?.expectedValue) > 0;
+    return false;
+  });
+  const visibleSecondaryMarkets = recommendedSecondaryMarkets.slice(0, 2);
   const hiddenSecondaryCount = Math.max(0, secondaryMarkets.length - visibleSecondaryMarkets.length);
   const storyScript = match.storySummary?.matchScript || null;
   const editorialAlignment = match.storySummary?.editorialAlignment || null;
@@ -538,7 +544,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
             {visibleSecondaryMarkets.map((row) => <div key={row.key}>{row.node}</div>)}
             {hiddenSecondaryCount > 0 ? (
               <div className="ft5-odd ft5-total-pick" style={{ opacity:.72 }}>
-                <span>更多</span><b>+{hiddenSecondaryCount} 市場</b><small>完整盤口及模型分析請入 Detail</small>
+                <span>其他市場</span><b>+{hiddenSecondaryCount}</b><small>完整盤口及分析請入詳情</small>
               </div>
             ) : null}
           </div>
