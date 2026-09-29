@@ -134,13 +134,13 @@ function MarketPickRow({ match, edge, type }) {
         <b>{selection}</b>
       </div>
       <div className="market-pick-number">
-        <span>Odds</span>
+        <span>賠率</span>
         <b>{formatOdds(odds)}</b>
       </div>
       <div className="market-pick-number edge-number">
-        <span>現價 EV</span>
+        <span>價值</span>
         <b>{evPct == null ? "—" : (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "%"}</b>
-        <small>{formula}</small>
+        <small>{evPct == null ? "未有足夠資料" : `模型估值 ${modelPct ?? "—"} · 市場約 ${fairPct ?? "—"}`}</small>
       </div>
     </a>
   );
@@ -509,11 +509,11 @@ function LiveMatchRow({ match, analysis = null, changeType = null, nowMs = Date.
       <div className="ft5-live-grid">
         <div className="ft5-live-fixture">
           <div className="ft5-live-meta">
-            <span className="live-dot">LIVE</span>
+            <span className="live-dot">即場</span>
             <b>{minuteText}</b>
             <small>{league}</small>
-            {shadow ? <span className={`shadow-chip shadow-${String(shadow.status || "WAIT").toLowerCase()}`}>{shadow.status || "WAIT"}</span> : null}
-            {healthNote ? <span className="ft5-live-health-note">{healthNote}</span> : null}
+            
+            
           </div>
           <div className="ft5-live-scoreline">
             <b>{homeName}</b>
@@ -751,7 +751,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
           <strong>@{formatOdds(odds)}</strong>
         </div>
         <div className="ft5-topbet-edge">
-          <span>現價 EV</span>
+          <span>價值</span>
           <b>{evPct >= 0 ? "+" : ""}{evPct.toFixed(1)}%</b>
           <small style={{ display:"block", marginTop:3, fontSize:8, fontWeight:850 }}>
             {supportText}
@@ -1380,19 +1380,19 @@ export default function DashboardClient({ feed, nowMs }) {
             </div>
           </div>
           <div className="ft5-header-status">
-            <span className="ft5-live-pill">Syncing</span>
-            <small>正在讀取 Supabase 最新 HKJC / Models / Live data</small>
+            <span className="ft5-live-pill">更新中</span>
+            <small>正在讀取最新賽事、賠率及預測</small>
           </div>
         </header>
-        <div className="ft5-pipeline">同步最新資料中 · 不顯示 build-time 舊賠率</div>
+        <div className="ft5-pipeline">正在更新最新資料</div>
         <section className="ft5-section">
           <div className="ft5-fixture-controls">
             <div className="ft5-fixture-heading">
-              <b>NEXT 24H</b>
-              <span>正在建立最新 Betting Board</span>
+              <b>未來24小時</b>
+              <span>正在整理最新賽事</span>
             </div>
           </div>
-          <div className="ft5-empty">讀取最新 HKJC 市場及模型 evidence…</div>
+          <div className="ft5-empty">正在讀取最新賠率及預測…</div>
         </section>
       </main>
     );
@@ -1412,16 +1412,16 @@ export default function DashboardClient({ feed, nowMs }) {
         </div>
 
         <div className="ft5-header-stats" aria-label="dashboard summary">
-          <div><span>24H</span><b>{prematchAll.length}</b></div>
-          <div><span>VALUE</span><b>{valueCandidates}</b></div>
-          <div><span>MODEL</span><b>{modelReady}</b></div>
-          <div className={priorityOne ? "priority" : ""}><span>P1 REVIEW</span><b>{priorityOne}</b></div>
-          <div className={dataAlerts ? "warn" : ""}><span>ALERT</span><b>{dataAlerts}</b></div>
+          <div><span>24小時賽事</span><b>{prematchAll.length}</b></div>
+          <div><span>價值精選</span><b>{valueCandidates}</b></div>
+          <div><span>有預測</span><b>{modelReady}</b></div>
+          
+          
         </div>
 
         <div className="ft5-header-status">
-          <span className="ft5-live-pill">{isLive ? "Live data" : "Fallback"}</span>
-          <small>Live age {compactAge(liveAge)} · Feed {formatDashboardUpdate(currentFeed.generatedAt || currentFeed.updatedAt)} · {UI_BUILD}</small>
+          <span className="ft5-live-pill">{isLive ? "資料已更新" : "使用最近資料"}</span>
+          <small>最後更新 {formatDashboardUpdate(currentFeed.generatedAt || currentFeed.updatedAt)}</small>
         </div>
       </header>
 
