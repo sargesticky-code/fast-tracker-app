@@ -210,12 +210,12 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const selectedModelProbability = Number.isFinite(Number(edge?.modelProbability)) ? Number(edge.modelProbability) : null;
   const selectedFairProbability = Number.isFinite(Number(edge?.marketProbability)) ? Number(edge.marketProbability) : null;
   const edgeFormula = Number.isFinite(selectedModelProbability) && Number.isFinite(selectedFairProbability)
-    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + % / 市場約 " + (selectedFairProbability * 100).toFixed(1) + "%" + (edgeGapPp == null ? "" : " · 差距 " + (edgeGapPp >= 0 ? "+" : "") + edgeGapPp.toFixed(1) + "百分點")
+    ? "模型 " + (selectedModelProbability * 100).toFixed(1) + "% / 市場約 " + (selectedFairProbability * 100).toFixed(1) + "%" + (edgeGapPp == null ? "" : " · 差距 " + (edgeGapPp >= 0 ? "+" : "") + edgeGapPp.toFixed(1) + "百分點")
     : "模型預測 vs 市場概率";
-  const quantBand = edge?.band === "STRONG_VALUE" ? "強 VALUE"
-    : edge?.band === "VALUE" ? "VALUE"
-      : edge?.band === "LEAN" ? "LEAN"
-        : edge?.band === "WATCH" ? "觀望" : "PASS";
+  const quantBand = edge?.band === "STRONG_VALUE" ? "強價值"
+    : edge?.band === "VALUE" ? "有價值"
+      : edge?.band === "LEAN" ? "輕微價值"
+        : edge?.band === "WATCH" ? "觀望" : "暫不選";
   const strongEdge = edge?.band === "STRONG_VALUE";
   const valueEdgeFlag = edge?.band === "VALUE";
   const staleRisk = fresh.key === "stale" || coverageMeta.tone === "danger";
