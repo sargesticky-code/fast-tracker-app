@@ -30,13 +30,11 @@ import {
 } from "@/lib/fast-tracker";
 
 const filters = [
-  ["focus", "優先"],
-  ["live", "Live"],
+  ["focus", "重點"],
+  ["live", "即場"],
   ["all", "全部"],
-  ["gaps", "Edge"],
-  ["odds", "賠率"],
-  ["missing", "缺資料"],
-  ["stale", "過時"],
+  ["gaps", "價值精選"],
+  ["odds", "賠率變動"],
 ];
 
 function hdaOdds(match, key) {
@@ -525,13 +523,8 @@ function LiveMatchRow({ match, analysis = null, changeType = null, nowMs = Date.
         </div>
 
         <div className="ft5-live-readout">
-          <div className="ft5-live-control-board">
-            <div><span>PRE</span><b>{shadow ? shadowSideLabel(match, shadow.expectedSide) : "—"}</b></div>
-            <div><span>LIVE CTRL</span><b>{shadow ? shadowSideLabel(match, shadow.actualSide) : "—"}</b></div>
-            <div className={"ft5-live-alignment is-" + alignment.key}><span>走勢</span><b>{alignment.label}</b></div>
-            <div><span>CTRL SCORE</span><b>{Number.isFinite(controlScore) ? controlScore.toFixed(0) : "—"}</b></div>
-            <div><span>CONTEXT</span><b>{Number.isFinite(contextCoverage) ? contextCoverage.toFixed(0) + "%" : "—"}</b></div>
-            <div><span>METRICS</span><b>{shadow?.metricCount || 0}</b></div>
+          <div className="ft5-live-control-board ft5-live-control-simple">
+            <div className={"ft5-live-alignment is-" + alignment.key}><span>即場走勢</span><b>{alignment.label}</b></div>
           </div>
           {!showStats ? (
             <small className="ft5-live-data-note">
@@ -647,9 +640,9 @@ function TopBetsHead() {
   return (
     <div className="ft5-topbets-head" aria-hidden="true">
       <span>#</span>
-      <span>賽事 / 模型</span>
-      <span>精算選擇 / 現價</span>
-      <span>現價 EV / 支持</span>
+      <span>賽事 / 預測</span>
+      <span>精選投注 / 賠率</span>
+      <span>價值 / 理由</span>
     </div>
   );
 }
@@ -1328,13 +1321,13 @@ export default function DashboardClient({ feed, nowMs }) {
   ].filter(Boolean);
 
   const headings = {
-    focus: ["NEXT 24H · 投注重點", "先按 Edge 級別及幅度，再按模型 coverage、Review 及開賽時間"],
-    live: ["LIVE NOW", "只顯示 HKJC 正在售賣嘅即場市場"],
-    all: ["Upcoming 24H", "按開賽時間排序"],
-    gaps: ["Multi-market 精算", "HDA / 讓球 / 入球 / 角球按現價 EV 排序；各市場再用獨立 evidence gate"],
-    odds: ["賠率大幅變動", `${oddsAlerts} 場達 ±10% · 按變動幅度排序`],
-    missing: ["資料缺口", "按缺少 channel 數量排序 · HK / FB / DC / PI / FM / PW / MS / CTX / ENG"],
-    stale: ["過時資料", "超過 6 小時未更新"],
+    focus: ["24小時投注重點", "最值得留意嘅賽事、投注方向同價值"],
+    live: ["即場賽事", "正在進行嘅賽事、比分、賠率同投注建議"],
+    all: ["未來24小時", "按開賽時間排序"],
+    gaps: ["價值精選", "按現時賠率比較模型預測，集中顯示較有價值嘅投注選擇"],
+    odds: ["賠率變動", `${oddsAlerts} 場有明顯變動 · 按幅度排序`],
+    missing: ["後台資料檢查", "資料完整度及來源狀態"],
+    stale: ["後台更新檢查", "資料更新狀態"],
   };
 
   function filterCount(key) {
@@ -1432,35 +1425,15 @@ export default function DashboardClient({ feed, nowMs }) {
         </div>
       </header>
 
-      {pipelineWarnings.length > 0 && (
-        <div className="ft5-pipeline">
-          資料延遲：{pipelineWarnings.join(" · ")}
-        </div>
-      )}
-
-      <CoverageBoard
-        matches={prematchAll}
-        liveMatches={liveMatches}
-        selectedGap={coverageGap}
-        onSelectGap={selectCoverageGap}
-        onSelectLive={() => selectFilter("live")}
-        nowMs={clockMs}
-      />
-
-      <ActionQueue
-        matches={prematchAll}
-        selectedAction={actionFilter}
-        onSelectAction={selectActionFilter}
-        nowMs={clockMs}
-      />
+      {/* Technical pipeline, coverage and action-queue diagnostics are kept out of the public dashboard. */}
 
       <section className="ft5-section ft5-topbets-wrap">
         <div className="ft5-topbets-title">
           <div>
-            <span>QUANT EDGE</span>
-            <h2>精算投注</h2>
+            <span>VALUE PICKS</span>
+            <h2>價值精選</h2>
             <p style={{ margin:"4px 0 0", color:"#617a6c", fontSize:9, fontWeight:750 }}>
-              HDA/大細/角球：EV + Probability Gap · 讓球：EV + family 支持 + 模型分歧 · 全部同價值分級
+              模型預測同現時賠率有明顯差距嘅選擇，集中睇投注方向、賠率同價值
             </p>
           </div>
           <button type="button" onClick={() => selectFilter("gaps")}>查看更多 →</button>
@@ -1474,14 +1447,14 @@ export default function DashboardClient({ feed, nowMs }) {
               ))}
             </div>
           </>
-        ) : <div className="ft5-empty">暫時未有通過 EV + evidence gate 嘅 Value 候選</div>}
+        ) : <div className="ft5-empty">暫時未有足夠價值嘅精選投注</div>}
       </section>
 
       {liveMatches.length > 0 && filter !== "live" && (
         <section className="ft5-live-zone">
           <div className="live-zone-head">
-            <div><span>HKJC LIVE</span><h2>即場賽事</h2></div>
-            <button type="button" onClick={() => selectFilter("live")}>全部 Live →</button>
+            <div><span>即場</span><h2>即場賽事</h2></div>
+            <button type="button" onClick={() => selectFilter("live")}>查看全部 →</button>
           </div>
           <LiveTableHead />
           <div className="live-list">
@@ -1495,16 +1468,16 @@ export default function DashboardClient({ feed, nowMs }) {
           <div className="ft5-fixture-heading">
             <b>{
               filter === "live"
-                ? "LIVE NOW"
+                ? "即場賽事"
                 : filter === "missing" && selectedActionMeta
                   ? "ACTION · " + selectedActionMeta.label
                   : filter === "missing" && selectedCoverageMeta
                     ? "MISSING · " + selectedCoverageMeta.short
-                    : "NEXT 24H"
+                    : "未來24小時"
             }</b>
             <span>{
               filter === "live"
-                ? "HKJC Live markets"
+                ? "即場比分、賠率及建議"
                 : filter === "missing" && selectedActionMeta
                   ? missing + " 場 · " + selectedActionMeta.channels.join("/")
                   : filter === "missing" && selectedCoverageMeta
@@ -1544,9 +1517,9 @@ export default function DashboardClient({ feed, nowMs }) {
           <div className="ft5-fixture-table">
             <div className="ft5-table-head" aria-hidden="true">
               <span>時間 / 賽事</span>
-              <span>模型 / H D A / 狀態</span>
-              <span>投注位 / Edge / Move</span>
-              <span>HKJC 市場</span>
+              <span>預測 / 主和客</span>
+              <span>投注建議 / 價值 / 變動</span>
+              <span>賠率</span>
             </div>
             <div className="ft5-match-list ft5-list-enter" key={filter}>
               {matches.length
