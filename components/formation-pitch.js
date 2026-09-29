@@ -25,15 +25,13 @@ function positionFor(player, index, total, flip) {
     return { left: `${x}%`, top: `${flip ? 100 - yBase : yBase}%` };
   }
 
-  // Safe fallback: distribute unknown positions so the UI never becomes a blank card.
-  const x = 12 + ((index % 4) / 3) * 76;
-  const band = Math.floor(index / 4);
-  const y = 10 + (band / Math.max(1, Math.ceil(total / 4) - 1)) * 80;
-  return { left: `${x}%`, top: `${flip ? 100 - y : y}%` };
+  // Fail closed: never invent a pitch position when the source has no verified grid/slot.
+  return null;
 }
 
 function PlayerMarker({ player, index, total, flip, tone }) {
   const pos = positionFor(player, index, total, flip);
+  if (!pos) return null;
   return (
     <div className="ft-lineup-player" style={pos} title={player?.player_name || player?.name || "Player"}>
       <div className={`ft-lineup-shirt ${tone || "home"}`}>
