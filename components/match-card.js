@@ -511,9 +511,10 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
-            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>投注建議</span>
+            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>首選投注</span>
             <b>{pick}</b>
             <small>{selectedOdds ? "賠率 @" + formatOdds(selectedOdds) : "未有賠率"}</small>
+            <em style={{display:"block",marginTop:3,fontSize:7,fontStyle:"normal",fontWeight:850,color:"#6f8177"}}>{edge && Number(edge.expectedValue) > 0 ? "按現價值排序" : "現價未見明顯優勢"}</em>
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
