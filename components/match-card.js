@@ -144,13 +144,13 @@ function marketQuality({ evPct = null, gapPp = null, odds = null, freshnessKey, 
   if (Number.isFinite(gap)) {
     score += Math.max(-8, Math.min(12, gap * 0.8));
   }
-  if (hasModel) { score += 12; reasons.push("有模型"); }
-  if (freshnessKey === "fresh") { score += 14; reasons.push("資料新"); }
+  if (hasModel) { score += 12; reasons.push("模型支持"); }
+  if (freshnessKey === "fresh") { score += 14; reasons.push("資料最新"); }
   else if (freshnessKey === "warn") score += 4;
   else if (freshnessKey === "stale") { score -= 22; reasons.push("資料舊"); }
   if (Number.isFinite(coveragePercent)) {
     score += Math.max(0, Math.min(14, coveragePercent / 7));
-    if (coveragePercent >= 80) reasons.push("覆蓋高");
+    if (coveragePercent >= 80) reasons.push("資料充足");
   }
   if (Number.isFinite(o) && o > 1 && o <= 10) score += 6;
   if (Number.isFinite(o) && o > 10) { score -= 10; reasons.push("賠率偏極端"); }
@@ -286,7 +286,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
         <div className={"ft5-odd ft5-total-pick" + (handicapSummary.positive ? " edge-target" : "")}>
           <span>讓球</span><b>{handicapSummary.text}</b>
           <small>{handicapSummary.detail}</small>
-          {handicapQuality.reasons.length ? <small style={{ fontWeight:900 }}>點解排前：{handicapQuality.reasons.join(" · ")}</small> : null}
+          {handicapQuality.reasons.length ? <small style={{ fontWeight:900 }}>理由：{handicapQuality.reasons.join("｜")}</small> : null}
         </div>
       ),
     },
@@ -297,7 +297,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
       node: (
         <div className={"ft5-odd ft5-total-pick" + (goalsSummary.positive ? " edge-target" : "")}>
           <span>{goalsSummary.label}</span><b>{goalsSummary.text}</b><small>{goalsSummary.detail}</small>
-          {goalsQuality.reasons.length ? <small style={{ fontWeight:900 }}>點解排前：{goalsQuality.reasons.join(" · ")}</small> : null}
+          {goalsQuality.reasons.length ? <small style={{ fontWeight:900 }}>理由：{goalsQuality.reasons.join("｜")}</small> : null}
           <BinaryMarketBar market={match.goals} edge={goalsEdge} />
         </div>
       ),
@@ -309,7 +309,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
       node: (
         <div className={"ft5-odd ft5-total-pick" + (cornersSummary.positive ? " edge-target" : "")}>
           <span>{cornersSummary.label}</span><b>{cornersSummary.text}</b><small>{cornersSummary.detail}</small>
-          {cornersQuality.reasons.length ? <small style={{ fontWeight:900 }}>點解排前：{cornersQuality.reasons.join(" · ")}</small> : null}
+          {cornersQuality.reasons.length ? <small style={{ fontWeight:900 }}>理由：{cornersQuality.reasons.join("｜")}</small> : null}
           <BinaryMarketBar market={match.corners} edge={cornersEdge} />
         </div>
       ),
@@ -335,6 +335,12 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const scriptScore = storyScript?.predictedScore || match.forebetDetail?.predictedScore || null;
   const editorialContradict = Number(editorialAlignment?.contradict || 0);
   const editorialSupport = Number(editorialAlignment?.support || 0);
+  const primaryReasons = [
+    agreement?.key === "agree" ? "模型同向" : agreement?.key === "split" ? "⚠ 模型分歧" : null,
+    edgeGapPp != null && edgeGapPp >= 5 ? "市場低估" : null,
+    fresh.key === "fresh" ? "資料最新" : fresh.key === "stale" ? "⚠ 資料偏舊" : null,
+    editorialContradict > 0 ? "⚠ 球評有分歧" : editorialSupport > 0 ? "球評支持" : null,
+  ].filter(Boolean).slice(0, 3);
   const sourceContext = match.sourceContext || null;
   const sourceContextVerified = sourceContext && Number(sourceContext.matchConfidence) >= 0.94;
   const sourceContextDetail = sourceContextVerified
@@ -521,6 +527,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
               <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>{strongEdge ? "★ " : valueEdgeFlag ? "↑ " : ""}{quantBand}</span>
               <b>{edgeText}</b>
               <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
+              {primaryReasons.length ? <small style={{display:"block",marginTop:3,fontSize:7,fontWeight:900,color:primaryReasons.some((r)=>r.startsWith("⚠"))?"#995247":"#35684d"}}>{primaryReasons.join("｜")}</small> : null}
             </div>
             {hasMove ? (
               <div className="ft5-move-chip">
