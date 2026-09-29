@@ -184,7 +184,7 @@ function totalMarketSummary(match, edge, market, label) {
   return {
     label,
     text: binarySideName(edge.key) + " " + line,
-    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "EV " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + % · 差距 " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "百分點 · " + band + " · " + formula,
+    detail: (odds ? "@" + formatOdds(odds) + " · " : "") + "EV " + (evPct >= 0 ? "+" : "") + evPct.toFixed(1) + "% · 差距 " + (gapPp >= 0 ? "+" : "") + gapPp.toFixed(1) + "百分點 · " + band + " · " + formula,
     positive: ["LEAN","VALUE","STRONG_VALUE"].includes(edge.band),
   };
 }
