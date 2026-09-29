@@ -448,10 +448,10 @@ function liveRecommendationMeta(analysis) {
   let tone = "pending";
   if (action === "NO_BET") { label = "暫不下注"; tone = "pass"; }
   else if (action === "PASS") { label = "暫時跳過"; tone = "pass"; }
-  else if (action.includes("STRONG")) { label = "強 Value"; tone = "strong"; }
-  else if (action.includes("VALUE")) { label = "有價值"; tone = "value"; }
-  else if (action.includes("LEAN")) { label = "輕微傾向"; tone = "lean"; }
-  else if (action === "WATCH") { label = "觀望"; tone = "watch"; }
+  else if (action.includes("STRONG")) { label = "🔥 重點"; tone = "strong"; }
+  else if (action.includes("VALUE")) { label = "✓ 可考慮"; tone = "value"; }
+  else if (action.includes("LEAN")) { label = "✓ 可考慮"; tone = "lean"; }
+  else if (action === "WATCH") { label = "👀 觀望"; tone = "watch"; }
 
   return {
     label,
@@ -501,6 +501,20 @@ function LiveMatchRow({ match, analysis = null, changeType = null, nowMs = Date.
     possession: stats?.possession || null,
   };
   const recommendation = liveRecommendationMeta(analysis);
+  const preMatchBand = String(match?.valueEdge?.band || match?.edge?.band || "").toUpperCase();
+  const preMatchSide = String(match?.valueEdge?.key || match?.edge?.key || "");
+  const liveSide = String(analysis?.decision?.selectionKey || analysis?.decision?.side || "");
+  const regime = analysis?.fhre?.regime || analysis?.regime?.state || shadow?.regime || null;
+  const regimeStable = Boolean(analysis?.fhre?.stable ?? analysis?.regime?.stable ?? shadow?.regimeStable);
+  const preMatchStrong = ["STRONG_VALUE","VALUE"].includes(preMatchBand);
+  const sameDirection = preMatchSide && liveSide && (preMatchSide === liveSide);
+  const holisticLiveReasons = [
+    preMatchStrong ? "賽前有價值" : null,
+    sameDirection ? "賽前即場同向" : preMatchSide && liveSide ? "⚠ 賽前即場轉向" : null,
+    regime ? (regimeStable ? "FHRE 穩定 " : "FHRE ") + String(regime).replaceAll("_"," ") : null,
+    alignment?.key && alignment.key !== "balanced" ? "走勢 " + alignment.label : null,
+    freshnessDiag.hasLag ? "⚠ 即場資料延遲" : "即場資料正常",
+  ].filter(Boolean).slice(0, 3);
 
   return (
     <a
@@ -581,12 +595,12 @@ function LiveMatchRow({ match, analysis = null, changeType = null, nowMs = Date.
           <div className="ft5-live-reco-copy">
             <span>即場建議 · {recommendation.label}</span>
             <b>{recommendation.selection}{recommendation.odds != null ? " @" + recommendation.odds.toFixed(2) : ""}</b>
-            <small>{recommendation.explanation}</small>
+            <small>{recommendation.explanation}</small>\n            {holisticLiveReasons.length ? <em style={{display:"block",marginTop:4,fontSize:7,fontStyle:"normal",fontWeight:900,color:holisticLiveReasons.some((r)=>r.startsWith("⚠"))?"#995247":"#35684d"}}>{holisticLiveReasons.join("｜")}</em> : null}
           </div>
           <div className="ft5-live-reco-metrics">
-            <span><small>現價 EV</small><b>{recommendation.ev == null ? "—" : (recommendation.ev >= 0 ? "+" : "") + recommendation.ev.toFixed(1) + "%"}</b></span>
-            <span><small>機率差</small><b>{recommendation.edge == null ? "—" : (recommendation.edge >= 0 ? "+" : "") + recommendation.edge.toFixed(1) + "百分點"}</b></span>
-            <span><small>信心</small><b>{recommendation.confidence == null ? "—" : Math.round(recommendation.confidence)}</b></span>
+            <span><small>現價值</small><b>{recommendation.ev == null ? "—" : (recommendation.ev >= 0 ? "+" : "") + recommendation.ev.toFixed(1) + "%"}</b></span>
+            <span><small>市場低估</small><b>{recommendation.edge == null ? "—" : (recommendation.edge >= 0 ? "+" : "") + recommendation.edge.toFixed(1) + "百分點"}</b></span>
+            <span><small>信心</small><b>{recommendation.confidence == null ? recommendation.label : Math.round(recommendation.confidence) + "%"}</b></span>
           </div>
         </div>
       </div>
@@ -597,9 +611,7 @@ function LiveMatchRow({ match, analysis = null, changeType = null, nowMs = Date.
 function LiveTableHead() {
   return (
     <div className="ft5-live-table-head" aria-hidden="true">
-      <span>Live 賽事 / 比分</span>
-      <span>比賽走勢 / Stats</span>
-      <span>HKJC 即場市場</span>
+      <span>即場賽事 / 比分</span>\n      <span>比賽走勢 / 數據</span>\n      <span>即場賠率</span>
     </div>
   );
 }
