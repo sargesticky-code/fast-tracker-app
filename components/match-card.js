@@ -372,6 +372,24 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
   const sourceMatrix = dataCoverageMatrix(match);
   const availableSources = completeness.available;
   const coverageTone = completeness.percent >= 80 ? "good" : completeness.percent >= 55 ? "warn" : "danger";
+  const lineupStrength = Number(match?.lineupStrength?.combined ?? match?.humanFactors?.lineupStrength ?? match?.sourceContext?.lineupStrength);
+  const gsSignal = match?.graphSandwich || match?.gsSignal || match?.sandwich || null;
+  const fhreSignal = match?.fhre || match?.liveModel?.fhre || match?.regimeModel || null;
+  const holisticEvidence = [
+    { key:"models", ready: agreement?.count >= 2, positive: agreement?.key === "agree", label: agreement?.key === "agree" ? "多模型同向" : agreement?.key === "split" ? "模型有分歧" : "模型資料" },
+    { key:"human", ready: Number.isFinite(lineupStrength), positive: Number.isFinite(lineupStrength) && lineupStrength >= 70, label: Number.isFinite(lineupStrength) ? "人腳 " + Math.round(lineupStrength) + "%" : "人腳待更新" },
+    { key:"gs", ready: Boolean(gsSignal), positive: Boolean(gsSignal?.aligned ?? gsSignal?.positive ?? gsSignal?.support), label: gsSignal ? "GS 已分析" : "GS 待資料" },
+    { key:"fhre", ready: Boolean(fhreSignal), positive: Boolean(fhreSignal?.stable ?? fhreSignal?.positive ?? fhreSignal?.support), label: fhreSignal ? "FHRE 已分析" : "FHRE 待即場" },
+  ];
+  const holisticReady = holisticEvidence.filter((row) => row.ready);
+  const holisticPositive = holisticReady.filter((row) => row.positive).length;
+  const confidenceLevel = staleRisk || agreement?.key === "split"
+    ? { label:"👀 觀望", tone:"watch" }
+    : strongEdge && holisticPositive >= 2
+      ? { label:"🔥 重點", tone:"strong" }
+      : (valueEdgeFlag || edge?.band === "LEAN") && holisticReady.length >= 1
+        ? { label:"✓ 可考慮", tone:"consider" }
+        : { label:"👀 觀望", tone:"watch" };
   const selectedGapDiagnostic = coverageGap ? dataGapDiagnostic(match, coverageGap, nowMs) : null;
   const selectedGapAction = coverageGap ? dataGapAction(match, coverageGap, nowMs) : null;
   const actionRows = actionFilter
@@ -517,7 +535,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
 
         <div className="ft5-cell ft5-pick-cell">
           <div className="ft5-pick-main">
-            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>首選投注</span>
+            <span style={{fontSize:7,fontWeight:950,color:"#74857c"}}>首選投注</span>\n            <strong className={"ft5-confidence ft5-confidence-" + confidenceLevel.tone} style={{display:"inline-block",marginLeft:6,fontSize:8}}>{confidenceLevel.label}</strong>
             <b>{pick}</b>
             <small>{selectedOdds ? "賠率 @" + formatOdds(selectedOdds) : "未有賠率"}</small>
             <em style={{display:"block",marginTop:3,fontSize:7,fontStyle:"normal",fontWeight:850,color:"#6f8177"}}>{edge && Number(edge.expectedValue) > 0 ? "按現價值排序" : "現價未見明顯優勢"}</em>
@@ -527,7 +545,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
               <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>{strongEdge ? "★ " : valueEdgeFlag ? "↑ " : ""}{quantBand}</span>
               <b>{edgeText}</b>
               <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
-              {primaryReasons.length ? <small style={{display:"block",marginTop:3,fontSize:7,fontWeight:900,color:primaryReasons.some((r)=>r.startsWith("⚠"))?"#995247":"#35684d"}}>{primaryReasons.join("｜")}</small> : null}
+              {primaryReasons.length ? <small style={{display:"block",marginTop:3,fontSize:7,fontWeight:900,color:primaryReasons.some((r)=>r.startsWith("⚠"))?"#995247":"#35684d"}}>{primaryReasons.join("｜")}</small> : null}\n              {holisticReady.length ? <small style={{display:"block",marginTop:3,fontSize:6.8,fontWeight:850,color:"#718078"}}>{holisticReady.map((r)=>r.label).join("｜")}</small> : null}
             </div>
             {hasMove ? (
               <div className="ft5-move-chip">
