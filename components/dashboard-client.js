@@ -726,7 +726,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
           <div>
             <span>{formatKickoff(match.kickoff)}</span>
             <small>{leagueDisplayName(match.leagueZh || match.league)}</small>
-            <small>{modelSourceLabel(match)}</small>
+            
             <small className={"ft5-consensus ft5-consensus-" + agreement.key}>{agreement.label}</small>
             {scriptBits.length ? (
               <small
@@ -740,7 +740,7 @@ function TopBetCard({ row, index = 0, changeType = null }) {
                   fontWeight:900,
                 }}
               >
-                MATCH SCRIPT · {scriptBits.join(" · ")}
+                賽事走勢 · {scriptBits.join(" · ")}
               </small>
             ) : null}
           </div>
@@ -1472,9 +1472,9 @@ export default function DashboardClient({ feed, nowMs }) {
               filter === "live"
                 ? "即場賽事"
                 : filter === "missing" && selectedActionMeta
-                  ? "ACTION · " + selectedActionMeta.label
+                  ? "待處理 · " + selectedActionMeta.label
                   : filter === "missing" && selectedCoverageMeta
-                    ? "MISSING · " + selectedCoverageMeta.short
+                    ? "資料未齊 · " + selectedCoverageMeta.short
                     : "未來24小時"
             }</b>
             <span>{
@@ -1512,7 +1512,7 @@ export default function DashboardClient({ feed, nowMs }) {
             <div className="live-list">
             {liveMatches.length
               ? liveMatches.map((match) => <LiveMatchRow key={match.id} match={match} analysis={liveAnalysisMap[String(match.id)] || null} nowMs={clockMs} changeType={changeMap[String(match.id)] || null} />)
-              : <div className="ft5-empty">暫時冇符合 freshness gate 嘅 HKJC Live 賽事</div>}
+              : <div className="ft5-empty">暫時未有符合更新要求嘅即場賽事</div>}
             </div>
           </div>
         ) : (
