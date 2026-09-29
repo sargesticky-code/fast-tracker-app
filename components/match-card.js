@@ -429,7 +429,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
                 background:"#f8faf8",
               }}
             >
-              <span style={{ fontSize:7, fontWeight:950, color:"#76877e" }}>MATCH SCRIPT</span>
+              <span style={{ fontSize:7, fontWeight:950, color:"#76877e" }}>賽事走勢</span>
               {scriptShapeLabel ? <b style={{ fontSize:8, color:"#2f6349" }}>{scriptShapeLabel}</b> : null}
               {scriptScore ? <small style={{ fontSize:8, color:"#53685c", fontWeight:850 }}>{scriptScore}</small> : null}
               {editorialContradict ? <em style={{ fontSize:7, color:"#9a4e45", fontStyle:"normal", fontWeight:900 }}>球評反向 {editorialContradict}</em> : null}
@@ -453,9 +453,9 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
                 fontSize:7.5,
                 fontWeight:850,
               }}
-              title="External fixture context only — does not change model probability or Edge"
+              title="補充賽事資料，不會改變模型預測或價值計算"
             >
-              <span>SOURCE CTX</span>
+              <span>補充資料</span>
               <b>{sourceContextDetail}</b>
               <small>{Math.round(Number(sourceContext.matchConfidence) * 100)}%</small>
             </div>
