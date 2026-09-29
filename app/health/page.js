@@ -98,6 +98,17 @@ export default async function HealthPage(){
     detail:matches.filter(m=>m.sourceContext?.detailAvailable).length,
     lineup:matches.filter(m=>m.sourceContext?.lineupAvailable).length,
   };
+  const statusIcon=(status)=>{
+    const s=String(status||"").toUpperCase();
+    if(["OK","SUCCESS","HEALTHY","FRESH","READY"].some(x=>s.includes(x))) return "🟢";
+    if(["WARN","STALE","PARTIAL","PENDING"].some(x=>s.includes(x))) return "🟡";
+    if(["FAIL","ERROR","DOWN","BLOCK"].some(x=>s.includes(x))) return "🔴";
+    return "⚪";
+  };
+  const coverageBar=(value,total)=>{
+    const pct=total>0?Math.max(0,Math.min(100,Math.round(value/total*100))):0;
+    return <span style={{display:"inline-flex",alignItems:"center",gap:7,minWidth:120}}><i style={{display:"inline-block",width:70,height:8,borderRadius:99,overflow:"hidden",background:"#e7ece9"}}><i style={{display:"block",height:"100%",width:pct+"%",background:pct>=80?"#2f9e62":pct>=50?"#d6a11d":"#d65b5b"}} /></i><b>{pct}%</b></span>;
+  };
   const stats={
     total:matches.length,
     modeled:matches.filter(m=>modelCoverageCount(m)>0).length,
@@ -109,22 +120,22 @@ export default async function HealthPage(){
   return <main className="shell detail-shell">
     <div className="detail-top"><Link href="/" className="back">← 返回賽事</Link><span>後台 · 系統狀態</span></div>
     <section className="detail-hero"><p className="eyebrow">FAST TRACKER 2026 · 後台</p><h1>系統狀態</h1><p>集中睇資料有冇更新、預測覆蓋同需要處理嘅問題。前台唔再顯示呢啲技術資訊。</p></section>
-    <section className="health-strip"><div><b>{upcoming.length}</b><span>未開賽</span></div><div><b>{live.length}</b><span>即場</span></div><div><b>{stats.modeled}</b><span>有預測</span></div><div><b>{stats.missing}</b><span>需留意</span></div></section>
+    <section className="health-strip"><div><b>🗓 {upcoming.length}</b><span>未開賽</span></div><div><b>● {live.length}</b><span>即場</span></div><div><b>✓ {stats.modeled}</b><span>有預測</span></div><div><b>{stats.missing>0?"🟡":"🟢"} {stats.missing}</b><span>需留意</span></div></section>
     <section className="panel"><div className="panel-title"><div><p>資料更新</p><h2>主要資料來源</h2></div><span>自動更新</span></div>
       <div className="health-list">
         <div><span>HKJC 賽前賠率<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
         <div><span>HKJC 即場賠率<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
         <div><span>即場比分及數據<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
-        <div><span>即場資料檢查<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
-        <div><span>即場資料服務<small style={{display:"block"}}>expected build vs production host</small></span><b>{heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
-        <div><span>備用即場資料<small style={{display:"block"}}>native fixture identity prewarm · 2-min cadence</small></span><b>{heartbeats.LIVE_SOURCE_SHADOW?.status || "—"} · {heartbeats.LIVE_SOURCE_SHADOW?.value || "—"}</b></div>
-        <div><span>即場資料比對<small style={{display:"block"}}>coverage · score · source ID · minute drift · detail</small></span><b>{heartbeats.LIVE_SHADOW_COMPARE?.status || "—"} · {heartbeats.LIVE_SHADOW_COMPARE?.value || "—"}</b></div>
-        <div><span>賽事配對<small style={{display:"block"}}>verified source-match registry</small></span><b>{heartbeats.PHASE3_IDENTITY_REGISTRY?.status || "—"} · {heartbeats.PHASE3_IDENTITY_REGISTRY?.value || "—"}</b></div>
-        <div><span>頁面連結檢查<small style={{display:"block"}}>全 current feed resolver + representative detail/legacy probes</small></span><b>{routeGuard.status || "—"} · {routeCurrentCount-routeUnresolved.length}/{routeCurrentCount} resolved · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
+        <div><span>即場資料檢查<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{statusIcon(heartbeats.LIVE_LAYER_GUARD?.status)} {heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
+        <div><span>即場資料服務<small style={{display:"block"}}>expected build vs production host</small></span><b>{statusIcon(heartbeats.LIVE_UPSTREAM_DEPLOY?.status)} {heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
+        <div><span>備用即場資料<small style={{display:"block"}}>native fixture identity prewarm · 2-min cadence</small></span><b>{statusIcon(heartbeats.LIVE_SOURCE_SHADOW?.status)} {heartbeats.LIVE_SOURCE_SHADOW?.status || "—"} · {heartbeats.LIVE_SOURCE_SHADOW?.value || "—"}</b></div>
+        <div><span>即場資料比對<small style={{display:"block"}}>coverage · score · source ID · minute drift · detail</small></span><b>{statusIcon(heartbeats.LIVE_SHADOW_COMPARE?.status)} {heartbeats.LIVE_SHADOW_COMPARE?.status || "—"} · {heartbeats.LIVE_SHADOW_COMPARE?.value || "—"}</b></div>
+        <div><span>賽事配對<small style={{display:"block"}}>verified source-match registry</small></span><b>{statusIcon(heartbeats.PHASE3_IDENTITY_REGISTRY?.status)} {heartbeats.PHASE3_IDENTITY_REGISTRY?.status || "—"} · {heartbeats.PHASE3_IDENTITY_REGISTRY?.value || "—"}</b></div>
+        <div><span>頁面連結檢查<small style={{display:"block"}}>全 current feed resolver + representative detail/legacy probes</small></span><b>{statusIcon(routeGuard.status)} {routeGuard.status || "—"} · {routeCurrentCount-routeUnresolved.length}/{routeCurrentCount} 正常 · {heartbeatAge("FRONTEND_ROUTE_GUARD")}</b></div>
       </div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>市場資料</p><h2>24小時資料覆蓋</h2></div><span>{stats.total} 場</span></div>
-      <div className="health-list"><div><span>預測比分</span><b>{coverage.score}/{stats.total}</b></div><div><span>入球大細資料</span><b>{coverage.goals}/{stats.total}</b></div><div><span>角球大細資料</span><b>{coverage.corners}/{stats.total}</b></div><div><span>多來源預測</span><b>{coverage.multi}/{stats.total}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
+      <div className="health-list"><div><span>⚽ 預測比分</span><b>{coverageBar(coverage.score,stats.total)}</b></div><div><span>↕ 入球大細</span><b>{coverageBar(coverage.goals,stats.total)}</b></div><div><span>🚩 角球大細</span><b>{coverageBar(coverage.corners,stats.total)}</b></div><div><span>◎ 多來源預測</span><b>{coverageBar(coverage.multi,stats.total)}</b></div><div><span>Goals 可直接比較 / Line mismatch</span><b>{lineStatus.goalsComparable} / {lineStatus.goalsMismatch}</b></div><div><span>Corners 可直接比較 / Line mismatch</span><b>{lineStatus.cornersComparable} / {lineStatus.cornersMismatch}</b></div></div>
     </section>
     <section className="panel"><div className="panel-title"><div><p>預測來源</p><h2>模型資料狀態</h2></div><span>{matches.length} 場</span></div>
       <div className="health-list">
