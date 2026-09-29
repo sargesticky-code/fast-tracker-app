@@ -496,7 +496,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
               ].map(([key, value, color], index) => (
                 <div className={selectedClass(edge, key)} key={key} style={{ display:"flex", alignItems:"center", gap:4, justifyContent:index===0?"flex-start":index===2?"flex-end":"center" }}>
                   <i aria-hidden="true" style={{ width:7, height:7, flex:"0 0 7px", borderRadius:2, background:color }} />
-                  <span>{key}</span><b>{pct(value)}</b>
+                  <span>{key === "H" ? "主" : key === "D" ? "和" : "客"}</span><b>{pct(value)}</b>
                 </div>
               ))}
             </div>
@@ -510,13 +510,13 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
           </div>
           <div className="ft5-signal-stack">
             <div className={"ft5-edge-chip" + (strongEdge ? " strong" : valueEdgeFlag ? " positive" : "")}>
-              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>現價 EV · {quantBand}</span>
+              <span style={{ display:"block", fontSize:7, fontWeight:950, color:"#6c7f74" }}>{strongEdge ? "★ " : valueEdgeFlag ? "↑ " : ""}價值 · {quantBand === "STRONG_VALUE" ? "強" : quantBand === "VALUE" ? "有價值" : quantBand}</span>
               <b>{edgeText}</b>
               <small style={{ display:"block", marginTop:2, fontSize:6.8, lineHeight:1.15, color:"#76877e", fontWeight:800 }}>{edgeFormula}</small>
             </div>
             {hasMove ? (
               <div className="ft5-move-chip">
-                <span>MOVE</span>
+                <span>{rawMove > 0 ? "↑ 賠率" : "↓ 賠率"}</span>
                 <b>{rawMove > 0 ? "+" : ""}{rawMove.toFixed(1)}%</b>
               </div>
             ) : null}
