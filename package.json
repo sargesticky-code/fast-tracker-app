@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "npm run check:ui && next build",
+    "start": "next start",
+    "check:ui": "node scripts/check-visible-escapes.mjs"
   },
   "dependencies": {
     "next": "16.3.5",
