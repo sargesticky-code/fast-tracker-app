@@ -220,3 +220,34 @@ button,input{font:inherit}
   .ft-league-section-title{border-radius:8px}
   .ft-table-section .ft-table-wrap{border-radius:0}
 }
+
+.ft-odds-triplet{display:grid!important;grid-template-columns:repeat(3,1fr);gap:3px;padding:6px!important}
+.ft-odds-triplet span{display:flex;flex-direction:column;align-items:center;gap:1px;background:#f4f7fa;border:1px solid #e0e7ee;border-radius:6px;padding:3px 2px;min-width:0}
+.ft-odds-triplet small{font-size:8px;color:var(--ft-muted);font-weight:800}
+.ft-odds-triplet b{font-size:10px;color:#233b52}
+.ft-featured{padding:0}
+.ft-featured-main{width:100%;padding:12px;display:flex;flex-direction:column;gap:5px}
+.ft-featured-main>small{color:var(--ft-muted);font-size:10px}
+.ft-featured-main>strong{color:var(--ft-red);font-size:14px}
+.ft-featured-main>span{font-weight:700;font-size:13px}
+.ft-featured-main .ft-prob-visual{margin-top:4px}
+.ft-featured-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:3px}
+.ft-featured-meta>span{background:#f6f9fc;border:1px solid #e4ebf1;border-radius:7px;padding:6px 8px;font-size:10px;display:flex;justify-content:space-between;align-items:center}
+.ft-featured-meta b{font-size:11px}
+.ft-value-rail{padding:5px 9px 9px}
+.ft-value-rail>a{display:grid;grid-template-columns:1fr 28px 48px;gap:6px;align-items:center;text-decoration:none;color:var(--ft-text);padding:8px 2px;border-bottom:1px solid #edf1f5}
+.ft-value-rail>a:last-child{border-bottom:0}
+.ft-value-rail>a:hover{background:#f7fbff}
+.ft-value-rail>a>div{display:flex;flex-direction:column;min-width:0}
+.ft-value-rail strong,.ft-value-rail span{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ft-value-rail strong{font-size:11px}
+.ft-value-rail small{font-size:9px;color:var(--ft-muted);margin-top:2px}
+.ft-value-rail>a>b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--ft-yellow);font-size:11px}
+.ft-value-rail>a>em{font-style:normal;color:var(--ft-green);font-size:11px;font-weight:900;text-align:right}
+.ft-rail-empty{padding:12px 4px;color:var(--ft-muted);font-size:11px;text-align:center}
+
+@media(max-width:900px){
+  .ft-odds-triplet{grid-template-columns:repeat(3,1fr)!important}
+  .ft-odds-triplet span{padding:4px 2px}
+  .ft-odds-triplet b{font-size:11px}
+}
