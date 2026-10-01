@@ -155,3 +155,68 @@ button,input{font:inherit}
 .ft-calendar .rdp-day_button{width:34px;height:34px;border-radius:50%}
 .ft-calendar .rdp-selected .rdp-day_button{font-weight:900}
 .ft-calendar .rdp-weekday{font-size:10px;color:var(--ft-muted);font-weight:800}
+
+.ft-grouped-board{display:flex;flex-direction:column;gap:12px}
+.ft-table-section{display:flex;flex-direction:column;gap:6px}
+.ft-league-section-title{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#eaf2f8;border:1px solid var(--ft-line);border-radius:8px 8px 0 0;color:#213f5a}
+.ft-league-section-title strong{font-size:13px}
+.ft-league-section-title span{font-size:10px;color:var(--ft-muted);font-weight:700}
+.ft-table-section .ft-table-wrap{border-radius:0 0 10px 10px}
+.ft-prob-visual{width:100%;display:flex;flex-direction:column;gap:4px}
+.ft-prob-numbers{display:grid;grid-template-columns:repeat(3,1fr);font-size:9px;font-weight:800;gap:3px}
+.ft-prob-numbers span:nth-child(1){color:#1673d1}
+.ft-prob-numbers span:nth-child(2){color:#6c7884}
+.ft-prob-numbers span:nth-child(3){color:#d98400}
+.ft-prob-strip{height:7px;display:flex;border-radius:999px;overflow:hidden;background:#edf1f5;box-shadow:inset 0 0 0 1px #dce4eb}
+.ft-prob-strip i{display:block;height:100%}
+.ft-prob-strip .home{background:#2f80ed}
+.ft-prob-strip .draw{background:#9aa8b6}
+.ft-prob-strip .away{background:#f2a71b}
+.ft-match-row.is-value{box-shadow:inset 3px 0 0 var(--ft-green)}
+.ft-match-row.is-value .ft-edge{background:#e7f8ef;padding:4px 6px;border-radius:999px}
+.ft-match-row.is-live{box-shadow:inset 3px 0 0 var(--ft-red)}
+.ft-match-row.is-live.is-value{box-shadow:inset 3px 0 0 var(--ft-red), inset 6px 0 0 var(--ft-green)}
+.ft-match-row.is-live .ft-team-names strong:after{content:" LIVE";font-size:8px;margin-left:5px;color:var(--ft-red);letter-spacing:.5px}
+.ft-match-row.is-live .ft-score-cell strong{color:var(--ft-red)}
+
+@media(max-width:900px){
+  .ft-table-head{display:none}
+  .ft-table-wrap{overflow:visible;border:0;background:transparent}
+  .ft-table-body{display:flex;flex-direction:column;gap:8px}
+  .ft-match-row,
+  .ft-table-head,.ft-match-row{
+    min-width:0;
+  }
+  .ft-match-row{
+    display:grid;
+    grid-template-columns:1.5fr .72fr .72fr .72fr;
+    grid-template-areas:
+      "team team team team"
+      "prob prob prob prob"
+      "pred correct goals edge"
+      "weather score odds odds";
+    gap:0;
+    border:1px solid var(--ft-line);
+    border-radius:10px;
+    overflow:hidden;
+    min-height:0;
+    box-shadow:0 1px 3px #12263b0b;
+  }
+  .ft-match-row>div{border-right:1px solid #edf1f5;border-top:1px solid #edf1f5;padding:7px 8px}
+  .ft-match-row>div:nth-child(1){grid-area:team;border-top:0}
+  .ft-match-row>div:nth-child(2){grid-area:prob}
+  .ft-match-row>div:nth-child(3){grid-area:pred}
+  .ft-match-row>div:nth-child(4){grid-area:correct}
+  .ft-match-row>div:nth-child(5){grid-area:goals}
+  .ft-match-row>div:nth-child(6){grid-area:weather}
+  .ft-match-row>div:nth-child(7){grid-area:edge}
+  .ft-match-row>div:nth-child(8){grid-area:score}
+  .ft-match-row>div:nth-child(9){grid-area:odds}
+  .ft-team-cell{padding:9px!important}
+  .ft-team-names strong,.ft-team-names span{font-size:13px}
+  .ft-probs{padding:8px 10px!important}
+  .ft-prob-numbers{font-size:10px}
+  .ft-prob-strip{height:8px}
+  .ft-league-section-title{border-radius:8px}
+  .ft-table-section .ft-table-wrap{border-radius:0}
+}
