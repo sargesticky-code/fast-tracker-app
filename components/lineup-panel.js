@@ -79,35 +79,20 @@ function shortName(value, max = 12) {
   return text.length > max ? text.slice(0, max - 1) + "…" : text;
 }
 
-function slotPoint(row, index, total, formationValue) {
-  const slot = String(row?.formation_slot || "");
-  const m = slot.match(/(\d+)\s*[:.-]\s*(\d+)/);
-  if (m) {
-    const line = Math.max(1, Math.min(5, Number(m[1])));
-    const col = Math.max(1, Math.min(5, Number(m[2])));
-    return {
-      x: 8 + ((line - 1) / 4) * 84,
-      y: 10 + ((col - 1) / 4) * 80,
-    };
+function slotPoint(row) {
+  const candidates = [
+    row?.formation_slot, row?.grid, row?.slot,
+    row?.raw?.formation_slot, row?.raw?.grid, row?.raw?.slot,
+  ];
+  for (const value of candidates) {
+    const m = String(value || "").match(/(\d+)\s*[:.-]\s*(\d+)/);
+    if (!m) continue;
+    const line = Number(m[1]);
+    const col = Number(m[2]);
+    if (!Number.isInteger(line) || !Number.isInteger(col) || line < 1 || line > 5 || col < 1 || col > 5) continue;
+    return { x: 8 + ((line - 1) / 4) * 84, y: 10 + ((col - 1) / 4) * 80 };
   }
-
-  const isKeeper = String(row?.role || "").toLowerCase().includes("goalkeeper") || index === 0;
-  if (isKeeper) return { x: 8, y: 50 };
-
-  const parts = String(formationValue || "4-4-2").split("-").map(Number).filter((n) => Number.isFinite(n) && n > 0);
-  const outfield = Math.max(1, total - 1);
-  let cursor = 0;
-  for (let lineIndex = 0; lineIndex < parts.length; lineIndex += 1) {
-    const lineCount = parts[lineIndex];
-    if (index - 1 < cursor + lineCount) {
-      const within = index - 1 - cursor;
-      const x = 28 + (parts.length <= 1 ? 0 : (lineIndex / (parts.length - 1)) * 60);
-      const y = ((within + 1) / (lineCount + 1)) * 100;
-      return { x, y };
-    }
-    cursor += lineCount;
-  }
-  return { x: 50 + ((index - 1) / outfield) * 38, y: ((index % 5) + 1) * 16 };
+  return null;
 }
 
 function playerFlags(row) {
@@ -492,7 +477,7 @@ export default function LineupPanel() {
     const awayStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "AWAY") || null;
 
     const statusNames = new Set(playerStatus
-      .filter((r) => /OUT|INJUR|SUSPEND|DOUBT|UNAVAILABLE/i.test(statusLabel(r)))
+      .filter((r) => ["OUT", "SUSPENDED", "SUSPENSION", "UNAVAILABLE"].includes(statusLabel(r)))
       .map((r) => String(statusName(r)).toLowerCase()));
     const conflicts = rows.filter((r) => statusNames.has(String(r?.player_name || "").toLowerCase()));
 
