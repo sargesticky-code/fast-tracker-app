@@ -4,6 +4,7 @@ import "./forebet-dashboard.css";
 import "./dashboard-polish.css";
 import "./detail-polish.css";
 import "./homepage.css";
+import "react-day-picker/style.css";
 
 export const metadata = {
   title: "Fast Tracker 2026",
