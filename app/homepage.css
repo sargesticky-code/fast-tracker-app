@@ -145,3 +145,13 @@ button,input{font:inherit}
   .ft-footer-banner>div strong{font-size:12px}
   .ft-footer-banner button{font-size:11px;padding:8px 11px}
 }
+
+.ft-side-link.active{background:#e9f4ff;color:var(--ft-blue);font-weight:800;box-shadow:inset 3px 0 0 var(--ft-blue)}
+.ft-calendar .rdp-root{--rdp-accent-color:var(--ft-blue);--rdp-accent-background-color:#e9f4ff;margin:8px auto 12px;font-size:12px}
+.ft-calendar .rdp-months{justify-content:center}
+.ft-calendar .rdp-month_caption{justify-content:center;font-weight:800}
+.ft-calendar .rdp-nav{gap:4px}
+.ft-calendar .rdp-button_previous,.ft-calendar .rdp-button_next{border-radius:8px}
+.ft-calendar .rdp-day_button{width:34px;height:34px;border-radius:50%}
+.ft-calendar .rdp-selected .rdp-day_button{font-weight:900}
+.ft-calendar .rdp-weekday{font-size:10px;color:var(--ft-muted);font-weight:800}
