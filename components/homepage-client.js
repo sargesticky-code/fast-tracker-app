@@ -57,6 +57,51 @@ const popularLeagues = [
   "MLS",
 ];
 
+const leagueEnglishMap = {
+  "英格蘭超級聯賽":"Premier League","英超":"Premier League","EPL":"Premier League",
+  "英格蘭冠軍聯賽":"Championship","英冠":"Championship","ED1":"Championship",
+  "英格蘭甲組聯賽":"League One","英甲":"League One","ED2":"League One",
+  "英格蘭乙組聯賽":"League Two","英乙":"League Two","ED3":"League Two",
+  "德國甲組聯賽":"Bundesliga","德甲":"Bundesliga","GSL":"Bundesliga","DE1":"Bundesliga",
+  "德國乙組聯賽":"2. Bundesliga","德乙":"2. Bundesliga",
+  "西班牙甲組聯賽":"LaLiga","西甲":"LaLiga","SFL":"LaLiga",
+  "西班牙乙組聯賽":"LaLiga 2","西乙":"LaLiga 2","SF2":"LaLiga 2",
+  "意大利甲組聯賽":"Serie A","意甲":"Serie A","ISA":"Serie A",
+  "意大利乙組聯賽":"Serie B","意乙":"Serie B",
+  "法國甲組聯賽":"Ligue 1","法甲":"Ligue 1","FFL":"Ligue 1",
+  "法國乙組聯賽":"Ligue 2","法乙":"Ligue 2","FF2":"Ligue 2",
+  "荷蘭甲組聯賽":"Eredivisie","荷甲":"Eredivisie","DFL":"Eredivisie","NL1":"Eredivisie",
+  "荷蘭乙組聯賽":"Eerste Divisie","荷乙":"Eerste Divisie","DF2":"Eerste Divisie","NL2":"Eerste Divisie",
+  "葡萄牙超級聯賽":"Primeira Liga","葡超":"Primeira Liga","PFL":"Primeira Liga",
+  "比利時甲組聯賽":"Belgian Pro League","比甲":"Belgian Pro League","BFL":"Belgian Pro League",
+  "蘇格蘭超級聯賽":"Scottish Premiership","蘇超":"Scottish Premiership","SPL":"Scottish Premiership",
+  "美國職業聯賽":"MLS","美職":"MLS","MLS":"MLS",
+  "歐洲聯賽冠軍盃":"UEFA Champions League","歐聯":"UEFA Champions League","UCL":"UEFA Champions League",
+  "歐霸盃":"UEFA Europa League","歐霸":"UEFA Europa League","UEL":"UEFA Europa League",
+  "歐洲協會聯賽":"UEFA Conference League","歐協聯":"UEFA Conference League","UEC":"UEFA Conference League",
+  "歐洲國家聯賽":"UEFA Nations League","歐國聯":"UEFA Nations League","ENL":"UEFA Nations League",
+  "國際賽":"International","INT":"International",
+  "中北美國家聯賽":"CONCACAF Nations League","中北國聯":"CONCACAF Nations League","CNL":"CONCACAF Nations League",
+};
+
+function englishLeagueName(match) {
+  const candidates = [
+    match?.leagueEn,
+    match?.competitionEn,
+    match?.league,
+    match?.competition,
+  ].filter(Boolean);
+  for (const value of candidates) {
+    const raw = String(value).trim();
+    if (!raw) continue;
+    if (leagueEnglishMap[raw]) return leagueEnglishMap[raw];
+    const upper = raw.toUpperCase();
+    if (leagueEnglishMap[upper]) return leagueEnglishMap[upper];
+    if (!/[\u3400-\u9fff]/.test(raw)) return raw;
+  }
+  return "Football";
+}
+
 function normalizedTriplet(match) {
   const model = preferredModel(match);
   if (!model) return null;
@@ -205,7 +250,7 @@ function PredictionsTable({ matches }) {
           return (
             <a className="ft-match-row" href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
               <div className="ft-team-cell">
-                <div className="ft-league-tag">{leagueDisplayName(match.league || match.competition || "")}</div>
+                <div className="ft-league-tag">{englishLeagueName(match)}</div>
                 <div className="ft-team-names">
                   <strong>{match.home || match.homeZh || "Home"}</strong>
                   <span>{match.away || match.awayZh || "Away"}</span>
@@ -356,7 +401,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     let rows = matches.filter((m) => {
-      const league = leagueDisplayName(m.league || m.competition || "");
+      const league = englishLeagueName(m);
       if (activeLeague && league !== activeLeague) return false;
       if (q) {
         const haystack = [m.home, m.away, m.homeZh, m.awayZh, league].filter(Boolean).join(" ").toLowerCase();
@@ -404,15 +449,17 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
           <div className="ft-daybar">
             {[-2,-1,0,1,2].map((offset) => {
-              const label = offset === 0 ? "Today" : offset === -1 ? "Tue" : offset === -2 ? "Mon" : offset === 1 ? "Thu" : "Fri";
+              const d = new Date(selectedDate || now);
+              d.setDate(d.getDate() + offset);
+              const label = offset === 0 ? "Today" : d.toLocaleDateString("en-GB", { weekday: "short" });
               return <button key={offset} className={dayOffset === offset && activeMode === "today" ? "active" : ""} onClick={() => { setDayOffset(offset); setActiveMode("today"); }}>{label}</button>;
             })}
             <label className="ft-form-toggle"><span>Show form</span><input type="checkbox" checked={showForm} onChange={e => setShowForm(e.target.checked)} /><i /></label>
           </div>
 
-          <PredictionsTable matches={visible} />
+          <PredictionsTable matches={visible.slice(0, 6)} />
           <AdvertSlot variant="wide" />
-          <PredictionsTable matches={visible.slice(6)} />
+          {visible.length > 6 && <PredictionsTable matches={visible.slice(6)} />}
 
           {showForm && (
             <section className="ft-form-note">
