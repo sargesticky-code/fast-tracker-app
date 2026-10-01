@@ -172,7 +172,8 @@ function AdvertSlot({ variant = "wide" }) {
         <strong>{variant === "wide" ? "970 × 250" : "300 × 250"}</strong>
         <small>Reserved for future advertising</small>
       </div>
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -223,9 +224,30 @@ function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChang
   );
 }
 
-function PredictionsTable({ matches }) {
+function ProbabilityStrip({ model }) {
+  const h = pct(model?.home);
+  const d = pct(model?.draw);
+  const a = pct(model?.away);
+  const hp = Number.isFinite(model?.home) ? Math.max(0, model.home * 100) : 0;
+  const dp = Number.isFinite(model?.draw) ? Math.max(0, model.draw * 100) : 0;
+  const ap = Number.isFinite(model?.away) ? Math.max(0, model.away * 100) : 0;
   return (
-    <div className="ft-table-wrap">
+    <div className="ft-prob-visual" title={`Home ${h}% · Draw ${d}% · Away ${a}%`}>
+      <div className="ft-prob-numbers"><span>H {h}%</span><span>D {d}%</span><span>A {a}%</span></div>
+      <div className="ft-prob-strip" aria-label="H D A probability distribution">
+        <i className="home" style={{ width: `${hp}%` }} />
+        <i className="draw" style={{ width: `${dp}%` }} />
+        <i className="away" style={{ width: `${ap}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function PredictionsTable({ matches, title = "" }) {
+  return (
+    <section className="ft-table-section">
+      {title && <div className="ft-league-section-title"><strong>{title}</strong><span>{matches.length} matches</span></div>}
+      <div className="ft-table-wrap">
       <div className="ft-table-head">
         <div>Home team<br />Away team</div>
         <div className="ft-prob-head">Prob. %<span><b>1</b><b>X</b><b>2</b></span></div>
@@ -247,8 +269,13 @@ function PredictionsTable({ matches }) {
           const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
+          const rowClasses = [
+            "ft-match-row",
+            match.liveNow ? "is-live" : "",
+            Number(edge?.expectedValue) >= 0.04 ? "is-value" : "",
+          ].filter(Boolean).join(" ");
           return (
-            <a className="ft-match-row" href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
+            <a className={rowClasses} href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
               <div className="ft-team-cell">
                 <div className="ft-league-tag">{englishLeagueName(match)}</div>
                 <div className="ft-team-names">
@@ -257,9 +284,7 @@ function PredictionsTable({ matches }) {
                   <small>{shortTime(match.kickoff)} · {dateKey(match.kickoff)}</small>
                 </div>
               </div>
-              <div className="ft-probs">
-                <span>{pct(model?.home)}</span><span>{pct(model?.draw)}</span><span>{pct(model?.away)}</span>
-              </div>
+              <div className="ft-probs"><ProbabilityStrip model={model} /></div>
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
@@ -420,6 +445,16 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     return rows.slice(0, 30);
   }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey]);
 
+  const groupedVisible = useMemo(() => {
+    const groups = new Map();
+    for (const match of visible) {
+      const league = englishLeagueName(match);
+      if (!groups.has(league)) groups.set(league, []);
+      groups.get(league).push(match);
+    }
+    return [...groups.entries()];
+  }, [visible]);
+
   return (
     <main className="ft-home">
       <header className="ft-top">
@@ -457,9 +492,14 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             <label className="ft-form-toggle"><span>Show form</span><input type="checkbox" checked={showForm} onChange={e => setShowForm(e.target.checked)} /><i /></label>
           </div>
 
-          <PredictionsTable matches={visible.slice(0, 6)} />
-          <AdvertSlot variant="wide" />
-          {visible.length > 6 && <PredictionsTable matches={visible.slice(6)} />}
+          <div className="ft-grouped-board">
+            {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
+              <div key={league}>
+                <PredictionsTable matches={rows} title={league} />
+                {index === 0 && <AdvertSlot variant="wide" />}
+              </div>
+            )) : <PredictionsTable matches={[]} />}
+          </div>
 
           {showForm && (
             <section className="ft-form-note">
