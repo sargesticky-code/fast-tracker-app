@@ -131,6 +131,14 @@ function sideFromTriplet(model) {
   return rows[0][0];
 }
 
+function oddsTriplet(match) {
+  return [
+    ["H", match?.odds?.home],
+    ["D", match?.odds?.draw],
+    ["A", match?.odds?.away],
+  ];
+}
+
 function dateKey(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
@@ -245,7 +253,10 @@ function ProbabilityStrip({ model }) {
 function PredictionsTable({ matches, title = "" }) {
   return (
     <section className="ft-table-section">
-      {title && <div className="ft-league-section-title"><strong>{title}</strong><span>{matches.length} matches</span></div>}
+      {title && <div className="ft-league-section-title">
+        <strong>{title}</strong>
+        <span>{matches.filter((m) => m.liveNow).length ? `${matches.filter((m) => m.liveNow).length} live · ` : ""}{matches.length} matches</span>
+      </div>}
       <div className="ft-table-wrap">
       <div className="ft-table-head">
         <div>Home team<br />Away team</div>
@@ -256,7 +267,7 @@ function PredictionsTable({ matches, title = "" }) {
         <div>Weather</div>
         <div>Edge</div>
         <div>Score</div>
-        <div>Odds</div>
+        <div>HKJC<br />odds</div>
       </div>
 
       <div className="ft-table-body">
@@ -293,7 +304,11 @@ function PredictionsTable({ matches, title = "" }) {
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
               </div>
-              <div>{formatOdds(bestOdds || match?.odds?.home)}</div>
+              <div className="ft-odds-triplet">
+                {oddsTriplet(match).map(([label, value]) => (
+                  <span key={label}><small>{label}</small><b>{formatOdds(value)}</b></span>
+                ))}
+              </div>
             </a>
           );
         }) : (
@@ -324,17 +339,49 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
 function FeaturedMatch({ match }) {
   if (!match) return null;
   const model = normalizedTriplet(match);
+  const edge = valueEdge(match);
   return (
     <section className="ft-right-card">
       <div className="ft-right-head">Featured match</div>
       <a href={matchDetailHref(match.id, "homepage-v1")} className="ft-featured">
-        <div>
+        <div className="ft-featured-main">
+          <small>{englishLeagueName(match)} · {formatKickoff(match.kickoff)}</small>
           <strong>{match.home || match.homeZh}</strong>
           <span>{match.away || match.awayZh}</span>
-          <small>{formatKickoff(match.kickoff)}</small>
+          <ProbabilityStrip model={model} />
+          <div className="ft-featured-meta">
+            <span>Pick <b>{sideFromTriplet(model)}</b></span>
+            <span>Edge <b>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</b></span>
+          </div>
         </div>
-        <b>{sideFromTriplet(model)}</b>
       </a>
+    </section>
+  );
+}
+
+function ValuePicks({ matches }) {
+  const picks = matches
+    .map((match) => ({ match, edge: valueEdge(match) }))
+    .filter(({ edge }) => Number.isFinite(edge?.expectedValue) && edge.expectedValue > 0)
+    .sort((a, b) => b.edge.expectedValue - a.edge.expectedValue)
+    .slice(0, 4);
+
+  return (
+    <section className="ft-right-card">
+      <div className="ft-right-head">Top value picks</div>
+      <div className="ft-value-rail">
+        {picks.length ? picks.map(({ match, edge }) => (
+          <a href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
+            <div>
+              <strong>{match.home || match.homeZh}</strong>
+              <span>vs {match.away || match.awayZh}</span>
+              <small>{englishLeagueName(match)}</small>
+            </div>
+            <b>{edge.key}</b>
+            <em>{(edge.expectedValue * 100).toFixed(1)}%</em>
+          </a>
+        )) : <div className="ft-rail-empty">No positive value signal right now</div>}
+      </div>
     </section>
   );
 }
@@ -345,6 +392,7 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
     <aside className="ft-rightbar">
       <CalendarPanel selectedDate={selectedDate} onSelectDate={onSelectDate} />
       <FeaturedMatch match={featured} />
+      <ValuePicks matches={matches} />
       <section className="ft-right-card">
         <div className="ft-right-head">Model coverage</div>
         <div className="ft-mini-list">
