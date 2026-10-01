@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/style.css";
 import {
   Search,
   Star,
@@ -130,7 +132,7 @@ function AdvertSlot({ variant = "wide" }) {
   );
 }
 
-function Sidebar({ counts }) {
+function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChange }) {
   const sections = [
     ["Predictions for TODAY", counts.today],
     ["LIVE predictions", counts.live],
@@ -150,20 +152,25 @@ function Sidebar({ counts }) {
 
       <section className="ft-side-card">
         <div className="ft-side-heading">FOOTBALL</div>
-        {sections.map(([label, count]) => (
-          <button className="ft-side-link" key={label}>
-            <span>{label}</span>
-            <span className="ft-count">{count}</span>
-          </button>
-        ))}
+        {sections.map(([label, count], index) => {
+          const modes = ["today","live","tomorrow","weekend","all","value"];
+          const mode = modes[index];
+          return (
+            <button className={`ft-side-link ${activeMode === mode ? "active" : ""}`} key={label} onClick={() => onModeChange(mode)}>
+              <span>{label}</span>
+              <span className="ft-count">{count}</span>
+            </button>
+          );
+        })}
         <button className="ft-side-link"><span>Top Predictions</span><ChevronRight size={15} /></button>
         <button className="ft-side-link"><span>Lists</span><ChevronRight size={15} /></button>
       </section>
 
       <section className="ft-side-card">
         <div className="ft-side-heading">POPULAR LEAGUES</div>
+        <button className={`ft-side-link compact ${activeLeague === "" ? "active" : ""}`} onClick={() => onLeagueChange("")}><span>All leagues</span><ChevronRight size={14} /></button>
         {popularLeagues.map((league) => (
-          <button className="ft-side-link compact" key={league}>
+          <button className={`ft-side-link compact ${activeLeague === league ? "active" : ""}`} key={league} onClick={() => onLeagueChange(league)}>
             <span>{league}</span><ChevronRight size={14} />
           </button>
         ))}
@@ -229,13 +236,18 @@ function PredictionsTable({ matches }) {
   );
 }
 
-function CalendarPanel() {
-  const days = Array.from({ length: 30 }, (_, i) => i + 1);
+function CalendarPanel({ selectedDate, onSelectDate }) {
   return (
     <section className="ft-right-card ft-calendar">
-      <div className="ft-calendar-title"><span>September 2026</span><small>Football predictions</small></div>
-      <div className="ft-weekdays">{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => <b key={d}>{d}</b>)}</div>
-      <div className="ft-days">{days.map((d) => <span className={d === 30 ? "active" : ""} key={d}>{String(d).padStart(2,"0")}</span>)}</div>
+      <div className="ft-calendar-title"><span>Match calendar</span><small>Choose a date to filter fixtures</small></div>
+      <DayPicker
+        mode="single"
+        selected={selectedDate}
+        onSelect={(date) => date && onSelectDate(date)}
+        defaultMonth={selectedDate}
+        weekStartsOn={1}
+        showOutsideDays
+      />
     </section>
   );
 }
@@ -258,11 +270,11 @@ function FeaturedMatch({ match }) {
   );
 }
 
-function RightRail({ matches }) {
+function RightRail({ matches, selectedDate, onSelectDate }) {
   const featured = matches.find((m) => valueEdge(m)?.expectedValue > 0.04) || matches[0];
   return (
     <aside className="ft-rightbar">
-      <CalendarPanel />
+      <CalendarPanel selectedDate={selectedDate} onSelectDate={onSelectDate} />
       <FeaturedMatch match={featured} />
       <section className="ft-right-card">
         <div className="ft-right-head">Model coverage</div>
@@ -299,6 +311,10 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   const [feed, setFeed] = useState(initialFeed || { matches: [] });
   const [dayOffset, setDayOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeMode, setActiveMode] = useState("today");
+  const [activeLeague, setActiveLeague] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date(nowMs || Date.now()));
 
   useEffect(() => {
     let cancelled = false;
@@ -334,16 +350,31 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     value: matches.filter(m => Number(valueEdge(m)?.expectedValue) >= 0.04).length,
   }), [matches, todayKey, tomorrowKey]);
 
-  const target = new Date(now);
+  const target = new Date(selectedDate || now);
   target.setDate(target.getDate() + dayOffset);
   const targetKey = dateKey(target);
 
   const visible = useMemo(() => {
-    const rows = matches
-      .filter((m) => dayOffset === 0 ? (m.liveNow || dateKey(m.kickoff) === targetKey) : dateKey(m.kickoff) === targetKey)
-      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
-    return rows.slice(0, 18);
-  }, [matches, dayOffset, targetKey]);
+    const q = query.trim().toLowerCase();
+    let rows = matches.filter((m) => {
+      const league = leagueDisplayName(m.league || m.competition || "");
+      if (activeLeague && league !== activeLeague) return false;
+      if (q) {
+        const haystack = [m.home, m.away, m.homeZh, m.awayZh, league].filter(Boolean).join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+
+      if (activeMode === "live") return Boolean(m.liveNow);
+      if (activeMode === "tomorrow") return dateKey(m.kickoff) === tomorrowKey;
+      if (activeMode === "weekend") return [0, 6].includes(new Date(m.kickoff).getDay());
+      if (activeMode === "all") return true;
+      if (activeMode === "value") return Number(valueEdge(m)?.expectedValue) >= 0.04;
+      return dayOffset === 0 ? (m.liveNow || dateKey(m.kickoff) === targetKey) : dateKey(m.kickoff) === targetKey;
+    });
+
+    rows = rows.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    return rows.slice(0, 30);
+  }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey]);
 
   return (
     <main className="ft-home">
@@ -352,7 +383,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <strong>FAST TRACKER <em>2026</em></strong>
           <small>FOOTBALL DATA · MODELS · VALUE BETS</small>
         </div>
-        <label className="ft-search"><Search size={17} /><input placeholder="Search team, league or match..." /></label>
+        <label className="ft-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search team, league or match..." /></label>
         <button className="ft-icon-button"><Star size={22} /></button>
         <button className="ft-icon-button"><MoreHorizontal size={22} /></button>
       </header>
@@ -364,7 +395,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       </nav>
 
       <div className="ft-layout">
-        <Sidebar counts={counts} />
+        <Sidebar counts={counts} activeMode={activeMode} onModeChange={setActiveMode} activeLeague={activeLeague} onLeagueChange={setActiveLeague} />
 
         <section className="ft-center">
           <div className="ft-page-heading">
@@ -375,7 +406,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <div className="ft-daybar">
             {[-2,-1,0,1,2].map((offset) => {
               const label = offset === 0 ? "Today" : offset === -1 ? "Tue" : offset === -2 ? "Mon" : offset === 1 ? "Thu" : "Fri";
-              return <button key={offset} className={dayOffset === offset ? "active" : ""} onClick={() => setDayOffset(offset)}>{label}</button>;
+              return <button key={offset} className={dayOffset === offset && activeMode === "today" ? "active" : ""} onClick={() => { setDayOffset(offset); setActiveMode("today"); }}>{label}</button>;
             })}
             <label className="ft-form-toggle"><span>Show form</span><input type="checkbox" checked={showForm} onChange={e => setShowForm(e.target.checked)} /><i /></label>
           </div>
@@ -394,7 +425,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <InternalPanel feed={feed} />
         </section>
 
-        <RightRail matches={visible.length ? visible : matches.slice(0, 10)} />
+        <RightRail matches={visible.length ? visible : matches.slice(0, 10)} selectedDate={selectedDate} onSelectDate={(date) => { setSelectedDate(date); setDayOffset(0); setActiveMode("today"); }} />
       </div>
 
       <footer className="ft-footer-banner">
