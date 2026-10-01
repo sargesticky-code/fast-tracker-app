@@ -172,8 +172,7 @@ function AdvertSlot({ variant = "wide" }) {
         <strong>{variant === "wide" ? "970 × 250" : "300 × 250"}</strong>
         <small>Reserved for future advertising</small>
       </div>
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -302,6 +301,7 @@ function PredictionsTable({ matches, title = "" }) {
         )}
       </div>
     </div>
+    </section>
   );
 }
 
