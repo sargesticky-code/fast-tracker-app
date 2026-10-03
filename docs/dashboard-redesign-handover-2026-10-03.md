@@ -731,3 +731,29 @@ Exact release-candidate source map is therefore:
 - PR11: recovered deployed live v7 source parity, bounded live reads/read-health, corrected multi-stage browser deadlines, summary-only detail refresh, bounded optional AI fetch.
 
 No runtime change occurred in this batch.
+
+
+### PR #11 final behavior verification
+
+A first exact docs-head run (`37141469471`) failed only on the new live deadline-cleanup assertion. That failure exposed a real cross-lane ordering race: a successful live response could be followed by a summary Phase-1 response that replaced the live state/source envelope. The implementation was corrected rather than weakening the assertion.
+
+The fix adds an effect-local `liveApplied` ordering gate. When a live payload has been applied, a later summary response may refresh core/model fields but preserves the newer `live` object, live/in-play flags and live-updated timestamp; it also does not overwrite the visible source label or live cache entry. A later successful live response with no matching fixture clears the gate, allowing normal summary state again.
+
+Final verified source/test implementation head: **`b2999ef339b40583f489b9fac968fd6bc179ecda`**.
+
+GitHub PR Build Verification **`37141684170` — SUCCESS**:
+- UI escape contract: passed;
+- English story cache/fallback: passed;
+- provider/market contract: passed;
+- real-evidence safety: passed;
+- evidence independence: passed;
+- player evidence identity: passed;
+- static build/routes: passed;
+- rendered behavior suite: **32/32 passed in 25.7s**;
+- dedicated test `live deadline cleanup permits a later live refresh after an aborted hang`: passed.
+
+Artifact: **`11280418041`**, `dashboard-redesign-f6ad2aa083ad6669f81a123ac75c7e7dc63e3931`, SHA256 **`483af7ba95cf9e0c17a59acc1c8e97bd292239c4f77a035e8726f1a17cca466c`**.
+
+Deployed-source parity checkpoint remains exact and independently auditable: deployed Supabase v7 bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`; exact recovered source persisted before edits at commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, 10,218 bytes.
+
+With this verification, the coherent review-only release candidate is PR6→PR8→PR9→PR10→PR11. Production remains unchanged in this batch.
