@@ -908,6 +908,63 @@ test("deadline cleanup permits a later retry and an aborted old response cannot 
   await expect(page.getByText("Old Feed FC", { exact: true })).toHaveCount(0);
 });
 
+test("live deadline cleanup permits a later live refresh after an aborted hang", async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeTimeout = AbortSignal.timeout.bind(AbortSignal);
+    Object.defineProperty(AbortSignal, "timeout", {
+      configurable: true,
+      value: (ms) => nativeTimeout(Math.min(Number(ms) || 0, 80)),
+    });
+  });
+
+  let liveCalls = 0;
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+  });
+  await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "detail_unavailable" }) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    liveCalls += 1;
+    if (liveCalls === 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      try {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
+      } catch {}
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        readHealth: { market: { status: "OK" }, score: { status: "OK" } },
+        matches: [{
+          id: "FBTEST1",
+          live: {
+            fetchedAt: new Date().toISOString(),
+            score: { text: "1-0", home: 1, away: 0, minute: 52, status: "LIVE" }
+          }
+        }]
+      })
+    });
+  });
+  await page.route("**/functions/v1/app-match-analysis?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "analysis_unavailable" }) });
+  });
+  await page.route("**/functions/v1/app-match-story?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "story_unavailable" }) });
+  });
+
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => liveCalls).toBe(1);
+  await page.waitForTimeout(140);
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+  await expect.poll(() => liveCalls).toBeGreaterThanOrEqual(2);
+  await expect(page.getByText("SUPABASE LIVE · ≤1m source", { exact: true })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("1-0", { exact: true }).first()).toBeVisible();
+});
+
 test("transport-unavailable detail remains unavailable rather than becoming fixture-absent", async ({ page }) => {
   await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "phase1_unavailable" }) });
