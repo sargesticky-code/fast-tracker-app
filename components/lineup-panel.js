@@ -539,14 +539,16 @@ export default function LineupPanel() {
 
   const tone = statusTone(view.status);
   const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
-  const ready = !identityBlocked && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
-  const homeCount = identityBlocked
+  const lineupPending = view.sourceRows.length === 0;
+  const countsUnknown = identityBlocked || lineupPending;
+  const ready = !countsUnknown && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
+  const homeCount = countsUnknown
     ? (view.homeStarters.length ? `${view.homeStarters.length}/11 resolved` : "—/11")
     : `${view.homeStarters.length}/11`;
-  const awayCount = identityBlocked
+  const awayCount = countsUnknown
     ? (view.awayStarters.length ? `${view.awayStarters.length}/11 resolved` : "—/11")
     : `${view.awayStarters.length}/11`;
-  const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked ? " · identity not complete" : ""}`;
+  const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked ? " · identity not complete" : lineupPending ? " · lineup pending" : ""}`;
   const tabs = [
     ["formation","Formation"],
     ["squad","Squad"],
