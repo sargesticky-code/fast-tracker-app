@@ -868,7 +868,7 @@ Deno.serve(async (req: Request) => {
 
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
-    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals
+    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals, formTotals
   ] = await Promise.all([
     one("human_factors_current"),
     one("api_football_event_map"),
@@ -883,6 +883,7 @@ Deno.serve(async (req: Request) => {
     one("live_expected_actual_current"),
     many("match_scenario_current"),
     one("model_predictions"),
+    one("form_predictions"),
   ]);
 
   const forebet = triplet(r.forebet_home, r.forebet_draw, r.forebet_away);
@@ -1193,6 +1194,31 @@ Deno.serve(async (req: Request) => {
       method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
     });
   }
+  const formRow:any = formTotals.data ?? null;
+  const formQuality = String(formRow?.quality ?? "").toUpperCase();
+  const formHomeGames = Number(formRow?.home_games ?? 0);
+  const formAwayGames = Number(formRow?.away_games ?? 0);
+  const formMean =
+    formQuality === "FORM_MODELED" &&
+    formHomeGames >= 8 &&
+    formAwayGames >= 8
+      ? (n(formRow?.form_xg_home) ?? 0) + (n(formRow?.form_xg_away) ?? 0)
+      : 0;
+  const formGoalsOver = formMean > 0 && goalsLine !== null
+    ? (live && resolvedLiveMinute !== null
+        ? liveResidualOver(formMean, currentGoalTotal, resolvedLiveMinute, currentGoalsLine, goalPaceRatio)
+        : poissonOver(formMean, goalsLine))
+    : null;
+  if (formGoalsOver !== null) {
+    goalsModels.push({
+      key: "FORM",
+      label: live ? "Team Form live residual" : "Team Form expected goals",
+      over: formGoalsOver,
+      weight: 0.9,
+      method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
+      sources: 1,
+    });
+  }
   const multiGoalsOver = p(r.multisource_ou_over);
   if (!live && goalsLine !== null && Math.abs(goalsLine - 2.5) < 0.001 && multiGoalsOver !== null) {
     goalsModels.push({
@@ -1480,6 +1506,20 @@ Deno.serve(async (req: Request) => {
         diagnostics: r.diagnostic_codes ?? [],
       },
       phase2: { quality: humanQuality, injuryHome, injuryAway, lineupConfirmed, playerRows: playerStatus.data.length, lineupRows: lineups.data.length, managerRows: managers.data.length },
+      goalsModelContext: {
+        teamForm: formGoalsOver === null ? null : {
+          quality: formQuality,
+          source: formRow?.model_source ?? null,
+          fetchedAt: formRow?.fetched_at ?? null,
+          homeGames: formHomeGames,
+          awayGames: formAwayGames,
+          homeVenueGames: Number(formRow?.home_venue_games ?? 0),
+          awayVenueGames: Number(formRow?.away_venue_games ?? 0),
+          expectedGoalsHome: n(formRow?.form_xg_home),
+          expectedGoalsAway: n(formRow?.form_xg_away),
+          method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
+        },
+      },
       phase3: liveState,
       phase4: movementData,
       markets: {
