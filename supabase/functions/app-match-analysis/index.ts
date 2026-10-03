@@ -7,6 +7,20 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+const DB_READ_TIMEOUT_MS = 15_000;
+const UPSTREAM_READ_TIMEOUT_MS = 45_000;
+function boundedDbFetch(input:any, init:any = {}) {
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
+}
+function createReadClient(url:string, key:string) {
+  return createClient(url, key, {
+    auth: { persistSession:false, autoRefreshToken:false },
+    db: { retry:false },
+    global: { fetch: boundedDbFetch },
+  });
+}
+
+
 function serverKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
@@ -876,15 +890,13 @@ Deno.serve(async (req: Request) => {
   const sbUrl = Deno.env.get("SUPABASE_URL") || "";
   const key = serverKey();
   if (!sbUrl || !key) return Response.json({ error: "server_config_missing" }, { status: 500, headers: cors });
-  const db = createClient(sbUrl, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const db = createReadClient(sbUrl, key);
 
   const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
-  if (baseResult.error) {
-    return Response.json({ error: "phase1_feed_failed", detail: oneError(baseResult.error) }, { status: 500, headers: cors });
-  }
+  const authorityRpcError = oneError(baseResult.error);
   const rows = Array.isArray(baseResult.data) ? baseResult.data : [];
   let r: any = rows.find((x: any) => String(x.hkjc_event_id) === id) || null;
-  let fallbackMode = false;
+  let fallbackMode = Boolean(authorityRpcError);
 
   if (!r) {
     const [matchRes, oddsRes, forebetRes, modelRes, formRes] = await Promise.all([
@@ -966,7 +978,11 @@ Deno.serve(async (req: Request) => {
           fr?.form_prob_home,
         ].filter((x)=>x!==null&&x!==undefined&&x!=="").length,
         unified_coverage_status:"DB_FALLBACK",
-        diagnostic_codes:["MATCH_NOT_IN_ACTIVE_FEED","DB_FALLBACK_FAIL_CLOSED"],
+        diagnostic_codes:[
+          "MATCH_NOT_IN_ACTIVE_FEED",
+          "DB_FALLBACK_FAIL_CLOSED",
+          ...(authorityRpcError ? ["AUTHORITY_RPC_DEGRADED"] : []),
+        ],
         live_now:false,
         hkjc_fetched_at:o?.fetched_at ?? m?.fetched_at ?? fb?.fetched_at ?? null,
       };
@@ -974,6 +990,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!r) {
+      const fallbackErrors = [matchRes.error, oddsRes.error, forebetRes.error, modelRes.error, formRes.error].filter(Boolean);
+      if (authorityRpcError || fallbackErrors.length) {
+        return Response.json({
+          error:"analysis_read_unavailable",
+          id,
+          authorityRpcError,
+          fallbackReadErrors:fallbackErrors.map(oneError),
+          semantics:"read_failure_not_fixture_absence",
+        }, {
+          status:503,
+          headers:{...cors,"Cache-Control":"no-store"}
+        });
+      }
       return Response.json({ error:"match_not_in_active_48h_feed", id }, {
         status:404,
         headers:{...cors,"Cache-Control":"no-store"}

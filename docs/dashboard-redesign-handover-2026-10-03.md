@@ -348,3 +348,65 @@ The **exact remaining blocker before English-cache/article quality can be measur
 Smallest concrete next task: **diagnose only the read-path tail/resource bottleneck for Phase-1/detail/story with existing logs and read-only timing evidence, identify the dominant blocking database/RPC/enrichment call, and prepare one reviewable non-production performance fix if the evidence isolates it.** Do not merge/release PR #6 or reopen bookmaker/provider scope in that step.
 
 No merge, deployment, Edge release, DB write/migration, generated-feed publication, new access or spending occurred in this measurement batch.
+
+
+## Production read-path saturation isolation and containment review — 2026-10-04
+
+### Assessment baseline
+
+- PR #6 docs-only head `43642e8540f9c17ede34c9227e1a9faabebcd2fc` completed CI run `37137366644` successfully. PR #6 remains unreleased and continues to represent the English story-summary repair, not production proof.
+- No new 150s browser polling was used for this diagnosis. Evidence came from existing unified logs, deployed source topology and narrow log aggregations.
+
+### Causal isolation
+
+The dominant failure is **selective Postgres/Data API saturation**, not the Phase-1 authority-scope migration and not Edge enrichment fanout alone.
+
+1. **Authority scope migration is not the regression.** Migration `20261003151456_scope_phase1_feed_to_authority_ids` completed before the failure window. Authority-RPC timing remained healthy immediately afterward:
+   - pre-scope sample: p50 ~1.72s, p95 ~10.56s;
+   - post-scope-early: p50 ~0.76s, p95/max ~12.86s;
+   - subsequent healthy/degrading window through ~15:45 UTC: p50 ~1.46s, p95 ~6.99s, 98/98 successful calls.
+2. **Saturation starts around 15:45 UTC.** In the saturated window the same `ft_internal_app_phase1_feed` REST RPC reached avg ~101s, p50 ~127.64s, p95 ~146.85s, max ~148.3s, with only 7/42 requests returning 200 in the measured slice.
+3. **Direct REST reads independently degrade.** Comparing the earlier period with the degraded period:
+   - `hkjc_upcoming_current`: earlier p95 ~5.47s → degraded p95 ~138.55s;
+   - `model_predictions`: ~5.04s → ~137.56s;
+   - `form_predictions`: ~3.06s → ~137.01s;
+   - `forebet_predictions`: ~5.98s → ~140.04s.
+   - `live_stats_current` remained comparatively healthy (degraded p95 ~1.05s), proving the database/API layer is not uniformly unavailable.
+4. **Postgres logs align exactly with the onset.** Five-minute buckets beginning 15:45 UTC show repeated statement timeouts, cron startup timeouts and SSL accept failures. Examples: 15:45 bucket = 6 statement timeouts / 10 cron startup timeouts / 6 SSL accept failures; 15:50 = 18 / 9 / 6; 16:05 = 6 / 18 / 7. This is consistent with connection/query saturation rather than a frontend/browser-only fault.
+5. **Source topology explains propagation.** Phase-1 summary blocks first on `ft_internal_app_phase1_feed` and skips enrichment when `view=summary`; therefore its 150s failure cannot be attributed to enrichment fanout. `app-match-analysis` also blocks on the same RPC before per-fixture reads. `app-match-story` waits on analysis + detail. `app-match-detail` independently fans out direct REST reads, several of which show the same 137–140s p95 tail. Retained FB6175 browser content is therefore older readable state and not evidence that fresh backend reads are healthy.
+
+### Review-only containment patch
+
+A single coherent containment patch is prepared on `review/read-path-failfast-v2`, stacked on PR #6 so English-language repair and performance containment remain review-distinct.
+
+- Public Phase-1/detail/analysis/story Supabase read clients set `db.retry=false` to avoid automatic transient retries amplifying a saturated pool.
+- PostgREST reads are bounded to 15 seconds using the supported Supabase custom-fetch/AbortSignal mechanism.
+- Story's upstream analysis/detail function reads are bounded to 45 seconds.
+- `app-match-analysis` no longer turns an authority-RPC read failure into an immediate generic 500. It uses the existing per-fixture fail-closed fallback, adds `AUTHORITY_RPC_DEGRADED`, and returns HTTP 503 `analysis_read_unavailable` with semantic marker `read_failure_not_fixture_absence` when both authority and fallback reads are unavailable.
+- No fixture identity, stale/reference-price actionability, unknown-not-zero semantics, model probability/Edge calculation, evidence independence or provenance logic is relaxed.
+
+The first draft performance PR #7 was closed without merge. Its CI run `37137914928` failed at the pre-existing English story contract before reaching the performance checks because that PR targeted raw `main`. The performance patch was therefore restacked cleanly as **draft PR #8** on top of PR #6 rather than weakening the English-story contract.
+
+Current performance source/test head before this doc commit: `c115b4c21445a33f99239ab0728f3121aa599c77`. PR #8 is temporarily targeted to `main` only to trigger the established PR Build Verification workflow; after CI assessment it must be retargeted to `review/english-story-summary-v1` so its review diff is performance-only.
+
+### Boundaries and smallest next action
+
+This patch is **containment, not a root database cure**. It should stop public reads from consuming the platform's full ~150s worker window and preserve truthful degraded semantics, but it cannot remove the underlying Postgres/cron saturation.
+
+Smallest next action after CI: if the review checks pass, retarget PR #8 back to PR #6, keep both unreleased, and perform no live deployment. The next independent production task should be a read-only workload/cron ownership review around the 15:45 saturation onset to identify which scheduled query family is exhausting database capacity before any schedule/DB change is proposed.
+
+No merge, deployment, Edge release, migration/DB write, feed publication, access expansion or spending occurred in this batch.
+
+
+### Read-path containment verification result
+
+- Canonical performance review: draft PR #8, head branch `review/read-path-failfast-v2`, base restored to `review/english-story-summary-v1` (PR #6). This keeps the English-language repair and performance containment as separate review layers.
+- Verified implementation/docs head: `8a9e7e6eef3d71ea3d988acb553b05f271aaf8e6`.
+- GitHub PR Build Verification run `37138137494`: **SUCCESS**.
+- Checks passed: visible UI escape check; English story cache/fallback contract; provider/market contract; real-evidence safety contract including the new bounded-read/fail-closed assertions; evidence-independence contract; player-identity contract; static build; static-route verification; rendered desktop/mobile flow.
+- Rendered public-flow suite: **22/22 passed** in 25.0s, including the existing missing-English-story-cache/upstream fallback case.
+- CI artifact: `11280045244`, `dashboard-redesign-1f189e08ba93162b5ae2acdeb8e46c5c93ed04a8`, SHA256 `98844a8f0ecd50e9884dba00c28ff606d8c1c1c16fe3bac34b27df387dae33c1`.
+- PR #7 remains closed/unmerged; its failed run `37137914928` stopped on the known raw-main English-story contract before evaluating the performance assertions and is not evidence against the patch.
+- PR #8 was temporarily pointed at `main` only to trigger the repository's established main-target PR workflow, then returned to PR #6 as base after the green run. No source deployment or merge occurred.
+
+Smallest next action remains **read-only scheduled-workload ownership isolation**: map the 15:45–16:15 cron startup-timeout buckets to the specific cron job IDs/functions and compare their normal vs saturated runtimes. Do not change schedules or database settings until one workload family is demonstrated to be the dominant capacity consumer.

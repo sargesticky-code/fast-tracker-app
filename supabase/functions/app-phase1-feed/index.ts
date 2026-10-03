@@ -7,6 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+const DB_READ_TIMEOUT_MS = 15_000;
+const UPSTREAM_READ_TIMEOUT_MS = 45_000;
+function boundedDbFetch(input:any, init:any = {}) {
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
+}
+function createReadClient(url:string, key:string) {
+  return createClient(url, key, {
+    auth: { persistSession:false, autoRefreshToken:false },
+    db: { retry:false },
+    global: { fetch: boundedDbFetch },
+  });
+}
+
+
 function num(v: unknown) {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
@@ -206,9 +220,7 @@ Deno.serve(async (req: Request) => {
     const serverKey = getServerKey();
     if (!supabaseUrl || !serverKey) throw new Error("server_config_missing");
 
-    const db = createClient(supabaseUrl, serverKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const db = createReadClient(supabaseUrl, serverKey);
 
     const { data, error } = await db.rpc("ft_internal_app_phase1_feed", {
       window_hours: hours,

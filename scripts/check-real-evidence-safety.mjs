@@ -5,6 +5,8 @@ const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
 const article = fs.readFileSync("components/evidence-article.js", "utf8");
 const sync = fs.readFileSync("supabase/functions/sync-fast-tracker/index.ts", "utf8");
 const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
+const phase1Feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
+const storyApi = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
 const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
 
 const checks = [
@@ -40,6 +42,11 @@ const checks = [
   [article.includes("Source reports status · player identity unresolved"), "article must label source-confirmed unresolved identity explicitly"],
   [article.includes("Evidence: {row.evidenceKey}"), "article must render durable player evidence keys"],
   [publicLogic.includes("independentEligible:false"), "public value logic must exclude aggregates with unproven source-record independence"],
+  [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("DB_READ_TIMEOUT_MS = 15_000")), "public read APIs must enforce the bounded 15s PostgREST deadline"],
+  [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
+  [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
+  [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
+  [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);

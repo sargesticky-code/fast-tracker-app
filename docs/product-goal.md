@@ -265,3 +265,31 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Exact blocker: production read-path reliability (Phase-1/detail/story hitting DB/REST/Edge tail and resource limits) prevents truthful fixture-level cache-hit/absence measurement.
 - [ ] Smallest next task: isolate the dominant slow read/RPC/enrichment call using existing logs/read-only timing, then prepare at most one non-production performance patch if evidence supports it; do not broaden into bookmaker/provider work.
 - [ ] PR #6 remains unreleased; no production release claim follows from its green CI.
+
+
+### Read-path saturation isolation — 2026-10-04
+
+- [x] PR #6 docs-only head `43642e8540f9c17ede34c9227e1a9faabebcd2fc` passed CI `37137366644`; English repair remains unreleased.
+- [x] Authority-scope migration `20261003151456` exonerated: post-scope RPC was initially healthy (p50 ~0.76s), and remained p50 ~1.46s / p95 ~6.99s until the later saturation onset.
+- [x] Saturated authority RPC measured at p50 ~127.64s / p95 ~146.85s, max ~148.3s.
+- [x] Direct REST degradation independently confirmed on `hkjc_upcoming_current`, `model_predictions`, `form_predictions`, and `forebet_predictions` (degraded p95 ~137–140s), while `live_stats_current` remained ~1.05s p95.
+- [x] Postgres saturation evidence begins around 15:45 UTC: repeated statement timeouts, cron startup timeouts and SSL accept failures.
+- [x] Phase-1 summary source topology proves enrichment fanout is not the primary cause because summary mode fails before enrichment; analysis shares the authority RPC and detail separately hits the degraded REST surfaces.
+- [x] One review-only containment patch prepared: 15s PostgREST read deadline, automatic DB retries disabled, 45s story upstream deadline, and fail-closed analysis fallback with explicit `read_failure_not_fixture_absence` semantics.
+- [x] Identity, unknown-not-zero, stale/reference gates, recommendation math, evidence independence and provenance safeguards remain unchanged.
+- [x] PR #7 closed unmerged because raw-main CI stopped on the known pre-existing English-story contract; the contract was not weakened.
+- [ ] Draft PR #8 `review/read-path-failfast-v2` is the canonical performance review, stacked on PR #6. Source/test head before docs: `c115b4c21445a33f99239ab0728f3121aa599c77`.
+- [ ] Run/assess the established PR Build Verification on the updated PR #8 head, then retarget PR #8 from temporary `main` back to `review/english-story-summary-v1` for a performance-only review diff.
+- [ ] Do not deploy either PR. After review verification, next task is read-only identification of the scheduled workload/cron family responsible for the ~15:45 database-capacity saturation.
+
+
+### Read-path containment review verification
+
+- [x] Canonical patch is draft PR #8, stacked on PR #6; PR #7 is closed/unmerged.
+- [x] Verified head `8a9e7e6eef3d71ea3d988acb553b05f271aaf8e6` passed GitHub run `37138137494`.
+- [x] New real-evidence contract assertions confirm 15s bounded PostgREST reads, disabled automatic DB retries, explicit read-failure-not-fixture-absence semantics, authority-RPC degradation provenance, and bounded story upstream reads.
+- [x] Provider/market, evidence independence, player identity, build/static routes and rendered desktop/mobile flows remained green; Playwright public flow = `22/22`.
+- [x] Artifact `11280045244`, digest `sha256:98844a8f0ecd50e9884dba00c28ff606d8c1c1c16fe3bac34b27df387dae33c1`.
+- [x] PR #8 base restored to `review/english-story-summary-v1` after workflow verification so its active review diff remains performance-only.
+- [ ] Production is unchanged; no claim is made that the containment patch has reduced live latency.
+- [ ] Next bounded task: read-only map cron job IDs active during the 15:45–16:15 saturation window to their functions/runtime distributions and identify one dominant workload family before proposing any schedule/DB change.
