@@ -114,15 +114,19 @@ function analysisPayload() {
       selectionLabel: "Northbridge FC",
       currentOdds: 2.2,
       oddsStatus: "CURRENT",
-      candidateClass: "VALUE_CANDIDATE",
-      action: "VALUE_CANDIDATE",
+      candidateClass: "WATCH",
+      action: "WATCH",
       expectedValuePct: 5.6,
-      candidateEdgePp: 4.2
+      candidateEdgePp: 4.2,
+      evidenceFamilyCount: 1,
+      supportCount: 1,
+      dispersion: null
     },
     evidence: {
       phase1Health: {
         sourceMode: "CANONICAL",
-        oddsUpdatedAt: new Date().toISOString()
+        priceObservedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        fetchedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString()
       }
     },
     story: {
@@ -225,6 +229,10 @@ for (const device of [
 
     await expect(page).toHaveURL(/details.*FBTEST1/);
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("1 model family", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not measurable with <2 families", { exact: true })).toBeVisible();
+  await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
     await expect(page.getByText("Predicted / provisional lineup")).toBeVisible();
