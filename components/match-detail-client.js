@@ -550,11 +550,17 @@ export default function MatchDetailClient() {
         const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 15000);
         if (!res.ok) return;
         const feed = await res.json();
-        if (cancelled) return;
+        if (cancelled || canonicalMissing) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           resolvedFresh = true;
-          setMatch(live);
+          setMatch((previous) => {
+            const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
+            const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
+            const previousAuthoritativeStale = previous?.health?.hkjcFreshness === "STALE";
+            if (previousAuthoritativeStale || previousStarted) return previous;
+            return live;
+          });
           setSource("SUPABASE · fresh");
           try {
             window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
