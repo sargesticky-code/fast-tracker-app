@@ -361,3 +361,20 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Production unchanged. Explicit release authorization is still required.
 - [ ] Missing source dependency: deployed `app-live-feed` implementation is not present in this repo, so server-side live-read deadline behavior remains unreviewed.
 - [ ] Next action without release authorization: review only. With explicit authorization: release PR6→PR8→PR9→PR10 and run one bounded homepage/detail acceptance sample, then stop.
+
+
+### Deployed live-feed source recovery + release-candidate review
+
+- [x] Current main remains `6c826bad04e7f31bb61a8e0a2816124dc4129872`; PR6→8→9→10 is ahead-only.
+- [x] Deployed `app-live-feed` recovered via Supabase read-source route: ACTIVE v7, id `7a1b99f1-d6dd-4fd5-9070-f6b29ebf95ad`, bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`.
+- [x] Exact deployed v7 source persisted unchanged on review commit `3306b803a67a7c6068d34619f8ae890f0f867fea` before modification.
+- [x] Deployed v7 had no explicit DB deadline and retained supabase-js 2.116.0 built-in PostgREST retries.
+- [x] Deployed v7 enrichment reads were concurrent after the market read, but score/stats/detail/shadow/heartbeat errors were ignored and therefore indistinguishable from legitimate no-row results.
+- [x] PR10 live single-flight behavior on an indefinitely hung request is now exact: it suppresses all later live refreshes until the hung request settles or component unmounts.
+- [x] Draft PR #11 adds 15s live DB bounds, `db.retry:false`, explicit enrichment `readHealth`, and a 35s browser live deadline outside the reviewed server DB window.
+- [x] Initial 15:44–15:48 initiating DB event remains unknown; no further generic root-cause probe is opened.
+- [ ] PR #11 must pass existing safety/build/rendered-flow CI plus the new live timeout-cleanup behavior case.
+- [ ] Current batch remains review-only; no runtime change.
+- [ ] Coherent release candidate after green CI: PR6→PR8→PR9→PR10→PR11.
+- [ ] Reverse rollback: PR11→PR10→PR9→PR8; PR6 independently reversible.
+- [ ] Existing UI/live-blocker authorization remains product authorization context; genuinely new approval is still required for DB/index/schema/compute, cron schedule changes, provider/feed expansion, spend or access expansion.
