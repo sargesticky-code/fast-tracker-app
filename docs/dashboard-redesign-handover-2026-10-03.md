@@ -76,4 +76,4 @@ No production deployment, merge, Edge Function deployment, migration application
 
 ## Next UI-focused gap
 
-After screenshot inspection, only concrete public presentation issues should be addressed next: utility-header overlap/stickiness, excessive vertical density, section ordering and small-screen readability. Provider/provenance expansion remains outside this dashboard-first batch.
+Screenshot inspection removed the remaining sticky utility/section-navigation overlap and the public technical-diagnostics row. The next bounded UI gap is now excessive vertical density and section ordering on very long mobile detail pages, plus a verified latest-head branch preview when the existing preview integration catches up. Provider/provenance expansion remains outside this dashboard-first batch.
