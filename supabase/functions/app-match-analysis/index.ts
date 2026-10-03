@@ -150,6 +150,23 @@ function statusIsPrematch(token: string) {
   return ["PREEVENT", "PREMATCH", "UPCOMING", "SCHEDULED", "NOTSTARTED"].includes(token);
 }
 
+function statusIsTerminal(token: string) {
+  return [
+    "FULLTIME",
+    "FINISHED",
+    "FT",
+    "ENDED",
+    "MATCHENDED",
+    "INPLAYMATCHENDED",
+    "AET",
+    "PEN",
+    "CANCELLED",
+    "CANCELED",
+    "VOID",
+    "ABANDONED",
+  ].includes(token);
+}
+
 function inferredLiveMinute(explicit: unknown, kickoff: unknown) {
   const direct = n(explicit);
   if (direct !== null) return clamp(Math.round(direct), 0, 100);
@@ -688,9 +705,9 @@ function buildBinaryAdvice(opts: {
     line,
     selection,
     selectionLabel,
-    currentOdds: opts.fallbackMode ? null : odds,
-    referenceOdds: opts.fallbackMode ? odds : null,
-    oddsStatus: opts.fallbackMode ? "REFERENCE_STALE" : "CURRENT",
+    currentOdds: (!opts.fresh || opts.fallbackMode) ? null : odds,
+    referenceOdds: (!opts.fresh || opts.fallbackMode) ? odds : null,
+    oddsStatus: (!opts.fresh || opts.fallbackMode) ? "REFERENCE_STALE" : "CURRENT",
     marketFairProbability: marketProbability,
     analystConsensusProbability: modelProbability,
     candidateEdgePp: edgePp,
@@ -810,8 +827,10 @@ Deno.serve(async (req: Request) => {
         multisource_ou_over:null,
         multisource_ou_under:null,
 
+        status:m?.status ?? null,
         health_status:"FALLBACK",
         hkjc_freshness:"DB_FALLBACK",
+        hkjc_price_changed_at:o?.odds_updated_at ?? null,
         decision:"CALIBRATION_PENDING_FALLBACK",
         decision_engine_version:"db_fallback_fail_closed_v2",
         evidence_channel_count:[
@@ -924,7 +943,9 @@ Deno.serve(async (req: Request) => {
   let live = Boolean(r.live_now) ||
     (statusIsLive(liveStatusToken) && kickoffStarted && withinLiveWindow && recentLiveEvidence) ||
     (kickoffStarted && withinLiveWindow && recentLiveEvidence);
-  if (statusIsPrematch(liveStatusToken) && Number.isFinite(kickoffMs) && kickoffMs > nowMs - 2 * 60 * 1000) {
+  if (statusIsTerminal(liveStatusToken)) {
+    live = false;
+  } else if (statusIsPrematch(liveStatusToken) && Number.isFinite(kickoffMs) && kickoffMs > nowMs - 2 * 60 * 1000) {
     live = false;
   }
 
@@ -1015,7 +1036,19 @@ Deno.serve(async (req: Request) => {
 
   const phase1HealthOk = String(r.health_status || "").toUpperCase() === "OK";
   const healthOk = live ? Boolean(market && decisionFamilies.length) : phase1HealthOk;
-  const fresh = live ? liveFresh : String(r.hkjc_freshness || "").toUpperCase() === "FRESH";
+  const prematchPriceAgeSeconds = secondsOld(
+    r.hkjc_price_changed_at ??
+    r.hkjc_odds_updated_at ??
+    r.hkjc_fetched_at
+  );
+  const prematchFresh = Boolean(
+    !kickoffStarted &&
+    !statusIsTerminal(liveStatusToken) &&
+    String(r.hkjc_freshness || "").toUpperCase() === "FRESH" &&
+    prematchPriceAgeSeconds !== null &&
+    prematchPriceAgeSeconds <= 6 * 60 * 60
+  );
+  const fresh = live ? liveFresh : prematchFresh;
   const pipelineGate = String(r.decision || "").toUpperCase();
   const calibrationPending = pipelineGate.includes("CALIBRATION") || pipelineGate === "";
 
@@ -1073,6 +1106,8 @@ Deno.serve(async (req: Request) => {
     live ? `${liveMetricCount} 項 live metrics` : null,
     liveContradiction ? "即場走勢與預期矛盾，降為觀望" : null,
     !fresh ? "市場價格 freshness 未通過" : null,
+    !live && kickoffStarted ? "賽事已開賽/完結，賽前價格只可作歷史參考" : null,
+    !live && prematchPriceAgeSeconds !== null ? `prematch price age ${Math.round(prematchPriceAgeSeconds)}s` : null,
     hardLiveDataGap ? "缺可靠比分／分鐘" : null,
     live && liveOddsAgeSeconds !== null ? `live price ${Math.round(liveOddsAgeSeconds)}s` : null,
   ].filter(Boolean);
@@ -1380,9 +1415,9 @@ Deno.serve(async (req: Request) => {
       market: "1X2",
       selection: bestSide,
       selectionLabel: selection,
-      currentOdds: fallbackMode ? null : bestOdds,
-      referenceOdds: fallbackMode ? bestOdds : null,
-      oddsStatus: fallbackMode ? "REFERENCE_STALE" : "CURRENT",
+      currentOdds: (!fresh || fallbackMode) ? null : bestOdds,
+      referenceOdds: (!fresh || fallbackMode) ? bestOdds : null,
+      oddsStatus: (!fresh || fallbackMode) ? "REFERENCE_STALE" : "CURRENT",
       marketFairProbability: marketProb,
       analystConsensusProbability: bestProb,
       candidateEdgePp: edgePpNow,
@@ -1430,7 +1465,9 @@ Deno.serve(async (req: Request) => {
       familySupport,
       phase1Health: {
         status: r.health_status,
-        freshness: r.hkjc_freshness,
+        freshness: fresh ? "FRESH" : "STALE",
+        upstreamFreshness: r.hkjc_freshness,
+        priceAgeSeconds: live ? liveOddsAgeSeconds : prematchPriceAgeSeconds,
         sourceMode: fallbackMode ? "DB_FALLBACK_FAIL_CLOSED" : "CANONICAL_ACTIVE_FEED",
         evidenceChannelCount: r.evidence_channel_count,
         unifiedCoverageStatus: r.unified_coverage_status,
