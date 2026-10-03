@@ -139,13 +139,16 @@ function oddsTriplet(match) {
 }
 
 function MarketOdds({ match, marketKey = "HDA" }) {
+  const currentGoals = match?.liveNow && match?.live?.goals ? match.live.goals : match?.goals;
+  const currentCorners = match?.liveNow && match?.live?.corners ? match.live.corners : match?.corners;
+  const currentOdds = match?.liveNow && match?.live?.odds ? match.live.odds : match?.odds;
   if (marketKey === "GOALS") {
     return (
       <div className="ft-market-odds">
-        <small>Goals {match?.goals?.line ?? "—"}</small>
+        <small>{match?.liveNow ? "LIVE " : ""}Goals {currentGoals?.line ?? "—"}</small>
         <div>
-          <span><b>O</b>{formatOdds(match?.goals?.over)}</span>
-          <span><b>U</b>{formatOdds(match?.goals?.under)}</span>
+          <span><b>O</b>{formatOdds(currentGoals?.over)}</span>
+          <span><b>U</b>{formatOdds(currentGoals?.under)}</span>
         </div>
       </div>
     );
@@ -153,19 +156,20 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   if (marketKey === "CORNERS") {
     return (
       <div className="ft-market-odds">
-        <small>Corners {match?.corners?.line ?? "—"}</small>
+        <small>{match?.liveNow ? "LIVE " : ""}Corners {currentCorners?.line ?? "—"}</small>
         <div>
-          <span><b>O</b>{formatOdds(match?.corners?.over)}</span>
-          <span><b>U</b>{formatOdds(match?.corners?.under)}</span>
+          <span><b>O</b>{formatOdds(currentCorners?.over)}</span>
+          <span><b>U</b>{formatOdds(currentCorners?.under)}</span>
         </div>
       </div>
     );
   }
+  const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
-      <small>HKJC HDA</small>
+      <small>{match?.liveNow ? "LIVE HKJC HDA" : "HKJC HDA"}</small>
       <div>
-        {oddsTriplet(match).map(([label, value]) => (
+        {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
         ))}
       </div>
@@ -188,6 +192,7 @@ function shortTime(value) {
 function scoreText(match) {
   const live = match?.live || {};
   const pairs = [
+    [live?.score?.home, live?.score?.away],
     [live.homeScore, live.awayScore],
     [live.home, live.away],
     [live.scoreHome, live.scoreAway],
@@ -196,13 +201,14 @@ function scoreText(match) {
   for (const [h, a] of pairs) {
     if (Number.isFinite(Number(h)) && Number.isFinite(Number(a))) return `${h} - ${a}`;
   }
+  if (typeof live?.score?.text === "string" && live.score.text.trim()) return live.score.text;
   if (typeof live.score === "string" && live.score.trim()) return live.score;
   return "—";
 }
 
 function liveLabel(match) {
   if (!match?.liveNow) return "";
-  const minute = match?.live?.minute ?? match?.minute;
+  const minute = match?.live?.score?.minute ?? match?.live?.minute ?? match?.minute;
   return Number.isFinite(Number(minute)) ? `${minute}'` : "LIVE";
 }
 
@@ -306,7 +312,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
       <div className="ft-table-body">
         {matches.length ? matches.map((match) => {
           const model = normalizedTriplet(match);
-          const edge = valueEdge(match);
+          const edge = match.liveNow ? null : valueEdge(match);
           const market = match.market || fairMarket(match.odds);
           const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
           const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
