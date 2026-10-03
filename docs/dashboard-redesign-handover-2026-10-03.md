@@ -147,8 +147,7 @@ The Goals & corners panel is now the next visible density target: when market-sp
 
 Implemented on draft PR #2:
 - supported Goals and Corners probability rows keep the existing rich signal layout;
-- unsupported/no-model rows are compact and do not render invented EV, probability or value;
-- each unsupported row keeps its exact public market identity, HKJC line, Over/Under prices, quote observation time and current/stale/reference state visible;
+- unsupported/no-model rows are compact and do not render invented EV, probability or value;- each unsupported row keeps its exact public market identity, HKJC line, Over/Under prices, quote observation time and current/stale/reference state visible;
 - the exact market-specific model-gate reason remains visible in the compact row;
 - no-line rows explicitly state that no same-line comparison can be made;
 - secondary market metadata is available under a native keyboard-accessible disclosure;
@@ -268,3 +267,47 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
 - Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
 - Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
 - No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
+
+## Frontend route-guard v5 source parity — 2026-10-03
+
+- Non-production review branch: `review/frontend-route-guard-v5-parity`.
+- Production remains unchanged; this review does not redeploy any Edge Function or frontend.
+- Current public Cloudflare release remains `https://fast-tracker-app.sargesticky.workers.dev/`.
+- Deployed `frontend-route-guard`: version **5**, platform digest `108c3b70282d48359a57f7815fe5b530a59877903e37b388f67837666f87aee4`.
+- Exact deployed v5 source is now persisted as Git blob `98625ce90965c4d08c4c1f44a7b82b387bd41d0d`, source-sync commit `cd92c5c2ada3138ecac926aab80126d5711a382f`.
+- Previous repository source on production main was blob `f651fb5cb6ff3d255f4ffb225e45bc3c695aed37`; it represented the older v4 routing assumptions.
+- Captured pre-v5 production guard identity: v4 digest `69a5048eeb6b8c4c59f7b740b4768c565890ab40334a788c4f0d15c1ca8297b6`.
+- Drift arose because v5 was deployed directly during the bounded production recovery to align health checks with the already-active Cloudflare static/query routing model, and the chat was interrupted before the exact deployed bytes were copied back into the repository. This review closes source-control drift only; it does not change runtime behavior.
+- Behavioral delta from repo v4 to deployed v5 is limited to:
+  1. accepting the real static health-page markers;
+  2. probing `/details/?id=...` rather than requiring static `/match/<id>`;
+  3. retaining supported query-style `/match/?id=...` probing;
+  4. removing the obsolete requirement that an arbitrary unknown path must return a hard 404 under Cloudflare SPA/static fallback;
+  5. removing obsolete legacy-match-marker checks tied to Railway-style routes;
+  6. revising the healthy-route summary text;
+  7. tagging successful heartbeats `CONTENT_AWARE_V4_STATIC`;
+  8. tagging exception heartbeats with the same version.
+- Existing recovery state remains preserved: RPC migration `20261003151456_scope_phase1_feed_to_authority_ids`, `app-phase1-feed` v56, `app-match-story` v27, summary-mode small-sample latency evidence, stale/reference-only non-actionability, unknown != zero, and current provider/book/market/line/price/as-of semantics.
+- Still open: full-feed enrichment tail latency, real desktop/mobile end-to-end acceptance beyond current browser evidence, broader football-intelligence completeness, multi-bookmaker overlap, Forebet/current provider gaps and unresolved canonical IDs.
+
+
+## Replacement-chat continuation checkpoint — 2026-10-04
+
+This is the canonical continuation after the prior dashboard-redesign conversation reached its maximum length. Do not restart or revive the superseded conversations. Normal Chat mode / Medium remains the implementation surface; Codex is supervision-only and must not be used for local implementation/testing.
+
+Preserved state from the predecessor handover (reported there; re-verify before relying on it for new claims):
+- GitHub production main was reported at `6c826bad04e7f31bb61a8e0a2816124dc4129872`; PR #5 is the non-production review branch `review/frontend-route-guard-v5-parity`.
+- Exact deployed frontend-route-guard v5 source parity was reported at source-sync commit `cd92c5c2ada3138ecac926aab80126d5711a382f`, deployed digest `108c3b70282d48359a57f7815fe5b530a59877903e37b388f67837666f87aee4`, Git blob `98625ce90965c4d08c4c1f44a7b82b387bd41d0d`; no redeploy or behavior change is part of that parity review.
+- PR #5 changed only the route-guard source plus durable docs. Its CI run `37135058477` failed a pre-existing story contract: the Phase-1 feed source advertises `zh-HK` while the story contract requires `en`. PR #5 itself does not touch either feed or story implementation.
+- Cloudflare production/non-production behavior, Railway old-snapshot behavior, Phase-1 RPC/feed/story deployed versions, and earlier latency/live checks remain historical evidence only until independently re-read.
+
+Current bounded task:
+1. keep PR #5 unreleased and preserve all production restrictions;
+2. fix only the pre-existing English story-summary language mismatch on a non-production review branch;
+3. prefer a genuinely English cached summary when one exists; otherwise return a truthful missing-English fallback;
+4. never translate or invent unsupported evidence, and do not alter recommendation mathematics, market-family gates, stale/reference non-actionability, canonical identity gates, or unknown-not-zero semantics;
+5. validate the contract plus affected homepage → detail → article paths through GitHub CI because local sandbox/npm/DNS is not the trusted route;
+6. perform read-only live comparisons separately from deterministic CI fixtures and label each evidence class accurately;
+7. no merge, production deployment, Edge release, migration/DB mutation, generated-feed publication, access expansion, or spending in this batch.
+
+Open product gaps remain broader than this fix: summary sample insufficiency/full enrichment tail, real desktop/mobile interaction acceptance, canonical IDs, multiple genuine bookmakers/overlap, Forebet coverage, substantial attributable English articles, and the unresolved Railway fresh-source route.
