@@ -820,7 +820,11 @@ for (const lane of ["feed", "detail", "live", "analysis", "story"]) {
     };
 
     await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
-      if (lane === "feed") return maybeDelay(route, fixtureFeed());
+      if (lane === "feed") {
+        const url = new URL(route.request().url());
+        expect(url.searchParams.get("view")).toBe("summary");
+        return maybeDelay(route, fixtureFeed());
+      }
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
     });
     await page.route("**/functions/v1/app-match-detail?**", async (route) => {
