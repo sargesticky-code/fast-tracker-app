@@ -536,6 +536,7 @@ export default function MatchDetailClient() {
     let resolvedFresh = false;
     let canonicalMissing = false;
     let authoritativeDetailBlocksFeed = false;
+    let liveApplied = false;
     const requestsInFlight = {
       match: false,
       detail: false,
@@ -562,13 +563,25 @@ export default function MatchDetailClient() {
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
             const previousAuthoritativeStale = previous?.health?.hkjcFreshness === "STALE";
             if (previousAuthoritativeStale || previousStarted) return previous;
+            if (liveApplied && previous?.live) {
+              return {
+                ...live,
+                liveNow: true,
+                inPlay: true,
+                liveEligible: true,
+                live: previous.live,
+                updatedAt: previous.updatedAt || live.updatedAt,
+              };
+            }
             return live;
           });
-          setSource("SUPABASE · fresh");
-          try {
-            window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
-            window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
-          } catch {}
+          if (!liveApplied) {
+            setSource("SUPABASE · fresh");
+            try {
+              window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
+              window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
+            } catch {}
+          }
         }
       } catch {}
       finally { requestsInFlight.match = false; }
@@ -652,6 +665,7 @@ export default function MatchDetailClient() {
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;
         const hasLive = payload.matches.some((row) => String(row.id) === String(matchId));
+        liveApplied = hasLive;
         if (hasLive) resolvedFresh = true;
         setMatch((previous) => {
           const merged = mergeLiveMatch(previous, payload, matchId);
