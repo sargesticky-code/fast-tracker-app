@@ -24,6 +24,7 @@ import {
 
 const UI_BUILD = "ENGLISH-EVIDENCE-ARTICLE-20261003-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
+const DETAIL_SUMMARY_FEED_URL = FEED_URL + "&view=summary";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 const ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis";
@@ -549,7 +550,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.match) return;
       requestsInFlight.match = true;
       try {
-        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 20000);
+        const res = await fetchWithDeadline(DETAIL_SUMMARY_FEED_URL, { cache: "default" }, 20000);
         if (!res.ok) return;
         const feed = await res.json();
         if (cancelled || canonicalMissing || authoritativeDetailBlocksFeed) return;
@@ -577,7 +578,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.detail) return;
       requestsInFlight.detail = true;
       try {
-        const res = await singleFlightFetch(`match-detail:${matchId}`, DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "no-store" }, 20000);
+        const res = await singleFlightFetch(`match-detail:${matchId}`, DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "no-store" }, 35000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -616,7 +617,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.analysis) return;
       requestsInFlight.analysis = true;
       try {
-        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 35000);
+        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 70000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -632,7 +633,7 @@ export default function MatchDetailClient() {
         const res = await fetchWithDeadline(
           STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=en&style=professional",
           { cache: "default" },
-          65000
+          120000
         );
         if (!res.ok) return;
         const payload = await res.json();
