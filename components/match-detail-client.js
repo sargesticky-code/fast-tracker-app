@@ -547,7 +547,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.match) return;
       requestsInFlight.match = true;
       try {
-        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 15000);
+        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 20000);
         if (!res.ok) return;
         const feed = await res.json();
         if (cancelled || canonicalMissing) return;
@@ -575,7 +575,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.detail) return;
       requestsInFlight.detail = true;
       try {
-        const res = await fetchWithDeadline(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 15000);
+        const res = await fetchWithDeadline(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 20000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -613,7 +613,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.analysis) return;
       requestsInFlight.analysis = true;
       try {
-        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 30000);
+        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 35000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -629,7 +629,7 @@ export default function MatchDetailClient() {
         const res = await fetchWithDeadline(
           STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=en&style=professional",
           { cache: "default" },
-          45000
+          65000
         );
         if (!res.ok) return;
         const payload = await res.json();
@@ -643,7 +643,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.live) return;
       requestsInFlight.live = true;
       try {
-        const res = await fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" }, 12000);
+        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;
