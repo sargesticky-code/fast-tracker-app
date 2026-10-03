@@ -373,22 +373,11 @@ for (const device of [
 
     await expect(page).toHaveURL(/details.*FBTEST1/);
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("1 model family", { exact: true })).toBeVisible();
-  await expect(page.getByText("Not measurable with <2 families", { exact: true })).toBeVisible();
-  await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
-  await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
-    await expect(page.getByText("WATCH · Under 4.5", { exact: true })).toBeVisible();
-    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · HKJC_RESULTS)", { exact: true })).toBeVisible();
-    await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
-    await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
-    await expect(page.getByText("Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.", { exact: true })).toBeVisible();
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
-    await expect(page.getByText("Predicted / provisional lineup")).toBeVisible();
-    await expect(page.getByText("This is unknown coverage, not zero injuries.")).toBeVisible();
-    await expect(page.getByText("Home 8 / Away 8 matches · venue 4/4")).toBeVisible();
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
-    await expect(page.getByText("A lineup downgrade or adverse price move would weaken the case.")).toBeVisible();
+    await expect(page.getByText("Predicted / provisional lineup", { exact: true })).toBeVisible();
+    await expect(page.getByText("Unknown — not zero absences", { exact: true })).toBeVisible();
 
     await expect(page.getByRole("navigation", { name: "Match detail sections" })).toBeVisible();
     await expect(page.getByText("Which models support the current position?", { exact: true })).toBeVisible();
@@ -396,9 +385,60 @@ for (const device of [
     await expect(page.getByText("Recent form comparison", { exact: true })).toBeVisible();
     await expect(page.getByText("Previous meetings", { exact: true })).toBeVisible();
     await expect(page.getByText("Human factors and lineups", { exact: true })).toBeVisible();
-    await expect(page.getByText("Model detail", { exact: true })).toBeVisible();
+
+    const articleDetails = page.locator("#analysis details.ft-article-deep");
+    const articleSummary = articleDetails.locator(":scope > summary");
+    await expect(articleSummary.getByText("Full evidence article", { exact: true })).toBeVisible();
+    expect(await articleDetails.evaluate(el => el.open)).toBe(false);
+    await expect(page.getByText("1 model family", { exact: true })).toBeHidden();
+    await articleSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await articleDetails.evaluate(el => el.open)).toBe(true);
+    await expect(page.getByText("1 model family", { exact: true })).toBeVisible();
+    await expect(page.getByText("Not measurable with <2 families", { exact: true })).toBeVisible();
+    await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
+    await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
+    await expect(page.getByText("WATCH · Under 4.5", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · HKJC_RESULTS)", { exact: true })).toBeVisible();
+    await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
+    await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.", { exact: true })).toBeVisible();
+    await expect(page.getByText("A lineup downgrade or adverse price move would weaken the case.")).toBeVisible();
+
+    const h2hDetails = page.locator("details.h2h-deep-dive");
+    const h2hSummary = h2hDetails.locator(":scope > summary");
+    await expect(h2hSummary.getByText("Meeting details", { exact: true })).toBeVisible();
+    expect(await h2hDetails.evaluate(el => el.open)).toBe(false);
+    await h2hSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await h2hDetails.evaluate(el => el.open)).toBe(true);
+
+    const modelDetails = page.locator("details.model-detail-disclosure");
+    const modelSummary = modelDetails.locator(":scope > summary");
+    await expect(modelSummary.getByText("Model detail", { exact: true })).toBeVisible();
+    expect(await modelDetails.evaluate(el => el.open)).toBe(false);
+    await modelSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await modelDetails.evaluate(el => el.open)).toBe(true);
+    await expect(page.getByText("Open model details", { exact: true })).toBeVisible();
+
     await page.getByRole("link", { name: "Team news" }).click();
     await expect(page.locator("#team-news")).toBeVisible();
+    await expect(page.getByText("Confirmed absences", { exact: true })).toBeVisible();
+    await expect(page.getByText("Official XI", { exact: true })).toBeVisible();
+
+    await page.screenshot({ path: `test-results/dashboard-${device.name}-detail-expanded.png`, fullPage: true });
+
+    await articleSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await articleDetails.evaluate(el => el.open)).toBe(false);
+    await h2hSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await h2hDetails.evaluate(el => el.open)).toBe(false);
+    await modelSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await modelDetails.evaluate(el => el.open)).toBe(false);
+
     const renderedText = await page.locator("body").innerText();
     expect(renderedText).not.toMatch(/[\u3400-\u9fff]/);
 
@@ -419,7 +459,7 @@ test("article remains readable when English story cache/upstream is unavailable"
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Northbridge FC vs Riverside United: evidence-based match analysis")).toBeVisible();
-  await expect(page.getByText("No verified player-status evidence is currently available. This is unknown coverage, not zero injuries.")).toBeVisible();
+  await expect(page.getByText("Unknown — not zero absences", { exact: true })).toBeVisible();
   await expect(page.getByText("舊中文建議不可直接顯示")).toHaveCount(0);
 });
 
@@ -444,6 +484,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
+  await page.locator("#analysis details.ft-article-deep > summary").click();
   await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
 });
 
@@ -468,6 +509,7 @@ test("canonical confirmed player status keeps durable source attribution", async
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   const article = page.locator("#analysis");
+  await article.locator("details.ft-article-deep > summary").click();
   await expect(article.getByText(/G\. Segal/)).toBeVisible({ timeout: 10000 });
   await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toBeVisible();
   await expect(article.getByText(/Evidence: phase2_player_status_evidence:178/)).toBeVisible();
@@ -483,6 +525,7 @@ test("source-confirmed player with unresolved identity never becomes a confirmed
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   const article = page.locator("#analysis");
+  await article.locator("details.ft-article-deep > summary").click();
   await expect(article.getByText(/Nico O'Reilly/)).toBeVisible({ timeout: 10000 });
   await expect(article.getByText("Source reports status · player identity unresolved", { exact: true })).toBeVisible();
   await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
@@ -497,6 +540,7 @@ test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   const article = page.locator("#analysis");
+  await article.locator("details.ft-article-deep > summary").click();
   await expect(article.getByText("H · Lukas Provod", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(article.getByText("Unconfirmed status · player identity unresolved", { exact: true })).toBeVisible();
   await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
