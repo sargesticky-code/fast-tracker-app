@@ -16,5 +16,8 @@
     "react-dom": "19.3.0",
     "recharts": "3.10.1",
     "react-day-picker": "^9.11.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   }
 }
