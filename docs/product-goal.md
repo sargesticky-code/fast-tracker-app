@@ -237,3 +237,15 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] GitHub CI must pass `check:story`, full build/static-route checks and affected rendered homepage → detail → article tests before this review can be accepted.
 - [ ] Real live English-cache availability remains to be measured read-only; deterministic CI fallback coverage does not prove current production cache completeness.
 - [ ] Production remains unchanged until a separate authorized release gate.
+
+
+### English story-summary bounded review result — 2026-10-04
+
+- [x] Phase-1 feed review code selects cached public story summaries with `language=en`; it does not reuse `zh-HK` cache rows as English.
+- [x] Deterministic English fallback uses English team names and structured decision/market/status fields instead of copying source-language story prose.
+- [x] Non-English commentary body text and raw source-language invalidators are excluded from English narrative output; no translation or fabricated evidence is introduced.
+- [x] English O/U labels are derived from structured OVER/UNDER selection and line values.
+- [x] GitHub CI source head `ea071a9844d72432aaa5d94f663fe2f0ec166a69`, run `37136039808`, passed all contracts/build/static routes and `22/22` rendered public-flow tests.
+- [x] Review artifact: `11278278901`, digest `sha256:db9bad0cf295f29fc960ea6dba68db3eb938ada154b0a871503439f025532fe7`.
+- [ ] Real production remains unchanged and still shows the prior mixed-language deterministic story in read-only snapshots; release/live verification is a separate gate.
+- [ ] Real English-cache availability and substantive attributable-English-article coverage remain product gaps; this language-boundary repair does not claim those broader goals are complete.
