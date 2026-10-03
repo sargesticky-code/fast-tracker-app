@@ -29,19 +29,23 @@ function evidenceKey(table:string,row:any){
   const id=String(row?.id??"").trim();
   return id ? `${table}:${id}` : `${table}:${String(row?.hkjc_event_id||"unknown")}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
 }
-function playerClaimFingerprint(row:any){
+function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
   return [
     String(row?.hkjc_event_id||""),
     normalizedSide(row?.team_side)||"?",
-    String(row?.player_key||""),
+    canonicalIdentity || "UNRESOLVED:" + compactToken(row?.player_name||row?.raw?.player?.name||row?.raw?.player_name||row?.player_key||"unknown"),
     compactToken(row?.status_type),
     compactToken(row?.status_value),
   ].join("|");
 }
-function annotatePlayerEvidence(row:any,canonicalKeys:Set<string>,table:string){
+function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalName:string,teamKey:string}>,table:string){
   const playerKey=String(row?.player_key||"").trim();
   const side=normalizedSide(row?.team_side);
-  const canonical=Boolean(playerKey&&canonicalKeys.has(playerKey));
+  const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
+  const canonical=Boolean(canonicalPlayer);
+  const canonicalIdentity=canonicalPlayer
+    ? compactToken(canonicalPlayer.teamKey) + ":" + compactToken(canonicalPlayer.canonicalName)
+    : null;
   const sourceConfirmed=row?.confirmed===true;
   const identityStatus=canonical?"CANONICAL":"UNRESOLVED";
   const factStatus=sourceConfirmed&&canonical
@@ -55,8 +59,9 @@ function annotatePlayerEvidence(row:any,canonicalKeys:Set<string>,table:string){
     evidence_key:evidenceKey(table,row),
     source_link:row?.source_url||null,
     identity_status:identityStatus,
+    canonical_player_identity:canonicalIdentity,
     fact_status:factStatus,
-    record_group:playerClaimFingerprint(row),
+    record_group:playerClaimFingerprint(row,canonicalIdentity),
   };
 }
 function normalizeH2H(row:any,error:any){
@@ -129,16 +134,19 @@ Deno.serve(async(req:Request)=>{
 
   const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
-  let canonicalKeys=new Set<string>();
+  let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string}>();
   let canonicalPlayerError:any=null;
   if(playerKeys.length){
-    const canonicalPlayers=await db.from("phase2_players").select("player_key").in("player_key",playerKeys);
+    const canonicalPlayers=await db.from("phase2_players").select("player_key,canonical_name,team_key").in("player_key",playerKeys);
     if(canonicalPlayers.error) canonicalPlayerError=cleanError(canonicalPlayers.error);
-    else canonicalKeys=new Set((canonicalPlayers.data||[]).map((row:any)=>String(row.player_key)));
+    else canonicalPlayersByKey=new Map((canonicalPlayers.data||[]).map((row:any)=>[
+      String(row.player_key),
+      {canonicalName:String(row.canonical_name||row.player_key),teamKey:String(row.team_key||"")}
+    ]));
   }
   if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
-  const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalKeys,"phase2_player_status_evidence"));
-  const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalKeys,"phase2_match_lineup_evidence"));
+  const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence"));
+  const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence"));
 
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
   const arbRows=[...(arbMarket.data||[])].sort((a:any,b:any)=>Number(b.net_roi_pct||0)-Number(a.net_roi_pct||0));
