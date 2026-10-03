@@ -44,9 +44,21 @@ function currentQuote(match, analysis, story) {
     analysis?.governance?.sourceMode,
     analysis?.evidence?.phase1Health?.sourceMode,
   ].map((value) => String(value || "").toUpperCase()).filter(Boolean);
-  // Fail closed if any authoritative layer marks the price stale/reference-only.
+  const matchStatus = String(match?.status || "").toUpperCase().replace(/[\s_-]+/g, "");
+  const terminalStatus = ["FULLTIME","FINISHED","FT","ENDED","MATCHENDED","INPLAYMATCHENDED","AET","PEN","CANCELLED","CANCELED","VOID","ABANDONED"].includes(matchStatus);
+  const kickoffMs = match?.kickoff ? new Date(match.kickoff).getTime() : NaN;
+  const kickoffStarted = Number.isFinite(kickoffMs) && kickoffMs <= Date.now() + 2 * 60 * 1000;
+  const priceObserved = match?.oddsUpdatedAt || match?.health?.hkjcPriceChangedAt || null;
+  const priceObservedMs = priceObserved ? new Date(priceObserved).getTime() : NaN;
+  const priceAgeMinutes = Number.isFinite(priceObservedMs) ? (Date.now() - priceObservedMs) / 60000 : null;
+  // Fail closed if any authoritative layer marks the quote stale, if the
+  // prematch quote is older than six hours, or if the match has already started.
   const stale = oddsStatuses.some((value) => value.includes("STALE"))
-    || sourceModes.some((value) => value.includes("FALLBACK"));
+    || sourceModes.some((value) => value.includes("FALLBACK"))
+    || terminalStatus
+    || kickoffStarted
+    || (priceAgeMinutes !== null && priceAgeMinutes > 360)
+    || String(match?.health?.hkjcFreshness || "").toUpperCase() === "STALE";
   const side = decision.selection || null;
   const fallback =
     side === "H" ? match?.odds?.home :
