@@ -48,6 +48,9 @@ jobs:
       - name: Check provider and bookmaker contract
         run: npm run check:market-contract
 
+      - name: Check real-evidence safety gates
+        run: npm run check:real-evidence
+
       - name: Build static app
         id: static_build
         shell: bash
