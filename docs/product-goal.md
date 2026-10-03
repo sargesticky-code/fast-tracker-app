@@ -2,6 +2,8 @@
 
 ## Product goal
 
+**Dashboard-first priority — 3 October 2026:** visible public UI work takes precedence over further expansive provider/provenance audits in this review batch. Existing statistics are adequate to build the coherent public experience now; unresolved data/source gaps remain explicit and must not be filled with invented values.
+
 Fast Tracker is being built as a mature, English-first football intelligence website. The public product should be information-dense, responsive and easy to scan, using Forebet as a structure/usability reference while keeping Fast Tracker's own navy/blue/yellow identity and its own information architecture.
 
 The target is not a cosmetic homepage. The product must connect real fixtures, canonical identities, market prices, model evidence, team/player context, live state and readable recommendation articles into one coherent public flow.
@@ -24,10 +26,10 @@ Do not invent replacement phases. Reuse and verify the existing work:
 
 ### 1. Public product and deployment
 
-- [ ] English public homepage with league/date/live/value navigation, search, combined H/D/A probability strip, prices, predictions, match detail links and planned ad positions.
+- [x] English public homepage on PR #2 has league/date/live/value navigation, search, combined H/D/A probability strip, HDA/goals/corners market-price switching, predictions, live-score presentation, match detail links and planned ad positions. Production cutover is still separate.
 - [x] Responsive desktop/mobile flows verified on the PR-head rendered artifact; production URL verification remains separate.
 - [x] Internal engineering/coverage diagnostics moved out of the public homepage and available in `/system`.
-- [ ] Suitable maintained open-source components used where they reduce bespoke UI risk.
+- [x] Suitable maintained open-source components are used where they reduce bespoke UI risk (including Lucide icons, DayPicker and Playwright-rendered review checks).
 - [ ] Repository branches, PRs and deployment targets are audited before releases.
 - [ ] Railway/Cloudflare roles are verified from current configuration and reachable deployment evidence; a failure on a standby target is not treated as the sole release blocker.
 - [ ] PR #2 remains unmerged until build/render/data-flow verification passes.
@@ -67,7 +69,7 @@ Do not invent replacement phases. Reuse and verify the existing work:
 
 Each substantial match preview/article must include:
 
-- [ ] Readable English headline and conclusion.
+- [x] Readable English headline and conclusion are rendered in the public evidence article, with a coordinated responsive editorial layout on PR #2.
 - [ ] Match context.
 - [ ] Specific sourced statistics with period/sample size.
 - [ ] Team/lineup/injury news with confirmed/predicted/unresolved status.
@@ -88,7 +90,7 @@ Each substantial match preview/article must include:
 - [x] Fixture tests verify missing-English-story and stale-price fail-closed behavior; FB6114 adds real missing-provider/player-status and zero-H2H evidence verification.
 - [ ] Market-specific stale/family gates and Team Form goals wiring are fixture-tested; real FB6231 verifies a fresh single-family goals calculation, but a real fresh >=2-family goals fixture is still required before Value-path verification.
 - [x] Desktop and mobile homepage-to-detail/article flows pass Playwright on the PR artifact.
-- [ ] Verify actual public and preview URLs.
+- [ ] Verify actual public and preview URLs. PR CI now publishes desktop/mobile rendered screenshots as a durable review artifact; this is not a production-deployment claim.
 - [ ] Record recommendation outcomes/calibration only where genuine historical results permit it.
 - [ ] Do not advertise a win rate or success claim that has not been measured.
 - [ ] A phase is complete only when there is an artifact plus appropriate verification.
