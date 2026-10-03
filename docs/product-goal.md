@@ -30,6 +30,8 @@ Do not invent replacement phases. Reuse and verify the existing work:
 - [x] Responsive desktop/mobile homepage → filters → match detail sections → evidence article flows are verified on the PR-head rendered artifact; production URL verification remains separate.
 - [x] Internal engineering/coverage diagnostics moved out of the public homepage and available in `/system`.
 - [x] Lower public match-detail sections (model consensus, goals/corners, team form, H2H, human factors and lineups) use the same English navy/blue/yellow visual system and preserve unknown/fail-closed states.
+- [x] Progressive disclosure keeps decision/status, bookmaker price, article conclusion, model consensus, team form and Team News immediately scannable while full article evidence, deep model rows, H2H meeting detail and the full lineup tool remain keyboard-accessible on demand.
+- [x] Full lineup tooling follows the decision/intelligence flow instead of preceding it; the main Team News safety/unknown state stays visible in the public flow.
 - [x] Suitable maintained open-source components are used where they reduce bespoke UI risk (including Lucide icons, DayPicker and Playwright-rendered review checks).
 - [ ] Repository branches, PRs and deployment targets are audited before releases.
 - [ ] Railway/Cloudflare roles are verified from current configuration and reachable deployment evidence; a failure on a standby target is not treated as the sole release blocker.
@@ -90,7 +92,7 @@ Each substantial match preview/article must include:
 - [ ] Verify canonical identity joins and unresolved-identity behaviour.
 - [x] Fixture tests verify missing-English-story and stale-price fail-closed behavior; FB6114 adds real missing-provider/player-status and zero-H2H evidence verification.
 - [ ] Market-specific stale/family gates and Team Form goals wiring are fixture-tested; real FB6231 verifies a fresh single-family goals calculation, but a real fresh >=2-family goals fixture is still required before Value-path verification.
-- [x] Desktop and mobile homepage-to-filters-to-detail-sections-to-article flows pass Playwright on the PR artifact, including an English-only rendered-public-page assertion and horizontal-overflow check.
+- [x] Desktop and mobile homepage-to-filters-to-detail-sections-to-article flows pass Playwright on the PR artifact, including English-only public copy, horizontal-overflow checks, decision-before-full-lineup ordering, and keyboard Enter open/close verification for article/model/H2H/full-lineup disclosures.
 - [ ] Verify actual public and preview URLs. PR CI now publishes desktop/mobile rendered screenshots as a durable review artifact; this is not a production-deployment claim.
 - [ ] Record recommendation outcomes/calibration only where genuine historical results permit it.
 - [ ] Do not advertise a win rate or success claim that has not been measured.
