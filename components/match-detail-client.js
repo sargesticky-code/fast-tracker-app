@@ -1841,22 +1841,30 @@ export default function MatchDetailClient() {
               </div>
             </div>
 
-            <div className="h2h-metrics">
-              <div><span>H2H goals</span><b>{h2hHomeGoals} - {h2hAwayGoals}</b></div>
-              <div><span>Avg total goals</span><b>{Number.isFinite(h2hAvgGoals) ? h2hAvgGoals.toFixed(2) : "—"}</b></div>
-              <div><span>Recent sequence</span><b>{h2h.last5 || "—"}</b></div>
-            </div>
-
-            <div className="h2h-list">
-              {h2hMeetings.map((row, index) => (
-                <div className="h2h-row" key={(row.match_id || row.hkjc_event_id || "h2h") + "-" + index}>
-                  <span className={"h2h-result h2h-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
-                  <span className="h2h-date">{formatFormDate(row.kickoff_hkt)}</span>
-                  <b>{row.home || "—"} <strong>{row.home_goals ?? "—"}-{row.away_goals ?? "—"}</strong> {row.away || "—"}</b>
-                  <small>{row.tournament || "—"}</small>
+            <details className="h2h-deep-dive">
+              <summary>
+                <span>Meeting details</span>
+                <small>Goals, recent sequence and match-by-match history</small>
+              </summary>
+              <div className="h2h-deep-body">
+                <div className="h2h-metrics">
+                  <div><span>H2H goals</span><b>{h2hHomeGoals} - {h2hAwayGoals}</b></div>
+                  <div><span>Avg total goals</span><b>{Number.isFinite(h2hAvgGoals) ? h2hAvgGoals.toFixed(2) : "—"}</b></div>
+                  <div><span>Recent sequence</span><b>{h2h.last5 || "—"}</b></div>
                 </div>
-              ))}
-            </div>
+
+                <div className="h2h-list">
+                  {h2hMeetings.map((row, index) => (
+                    <div className="h2h-row" key={(row.match_id || row.hkjc_event_id || "h2h") + "-" + index}>
+                      <span className={"h2h-result h2h-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
+                      <span className="h2h-date">{formatFormDate(row.kickoff_hkt)}</span>
+                      <b>{row.home || "—"} <strong>{row.home_goals ?? "—"}-{row.away_goals ?? "—"}</strong> {row.away || "—"}</b>
+                      <small>{row.tournament || "—"}</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </details>
           </>
         ) : (
           <div className="h2h-empty">
@@ -1881,13 +1889,14 @@ export default function MatchDetailClient() {
         </p>
       </section>
 
-      <section className="panel model-intelligence-panel">
-        <div className="panel-title">
+      <details className="panel model-intelligence-panel model-detail-disclosure">
+        <summary className="panel-disclosure-summary">
           <div><p>MODEL INTELLIGENCE</p><h2>Model detail</h2></div>
           <span>{modelCardsAvailable}/5 H/D/A models available</span>
-        </div>
-        <p className="panel-intro">Start with consensus, then expand model detail only when needed. H / D / A and edge remain aligned for quick comparison.</p>
-        <ModelScoreboard rows={coreModelRows} targetSide={primarySide} market={market} />
+        </summary>
+        <div className="panel-disclosure-body">
+          <p className="panel-intro">Consensus stays visible above. Expand here for the full H / D / A scoreboard and model-by-model statistics.</p>
+          <ModelScoreboard rows={coreModelRows} targetSide={primarySide} market={market} />
         <details className="model-deep-dive">
           <summary>Open model details</summary>
           <div className="model-intel-grid">
@@ -1989,7 +1998,8 @@ export default function MatchDetailClient() {
           />
           </div>
         </details>
-      </section>
+        </div>
+      </details>
 
       {hasMovement && (
         <section className="panel odds-signal-panel">
