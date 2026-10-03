@@ -343,6 +343,11 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
             <strong>Fixture feed temporarily unavailable</strong>
             <small>Fixture counts remain unknown until the next successful source refresh.</small>
           </div>
+        ) : feedState?.status === "loading" ? (
+          <div className="ft-empty">
+            <strong>Loading current fixtures…</strong>
+            <small>Waiting for the live fixture feed.</small>
+          </div>
         ) : (
           <div className="ft-empty">No fixtures are available in the current feed.</div>
         )}
