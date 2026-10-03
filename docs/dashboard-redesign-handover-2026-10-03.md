@@ -147,8 +147,7 @@ The Goals & corners panel is now the next visible density target: when market-sp
 
 Implemented on draft PR #2:
 - supported Goals and Corners probability rows keep the existing rich signal layout;
-- unsupported/no-model rows are compact and do not render invented EV, probability or value;
-- each unsupported row keeps its exact public market identity, HKJC line, Over/Under prices, quote observation time and current/stale/reference state visible;
+- unsupported/no-model rows are compact and do not render invented EV, probability or value;- each unsupported row keeps its exact public market identity, HKJC line, Over/Under prices, quote observation time and current/stale/reference state visible;
 - the exact market-specific model-gate reason remains visible in the compact row;
 - no-line rows explicitly state that no same-line comparison can be made;
 - secondary market metadata is available under a native keyboard-accessible disclosure;
@@ -291,3 +290,24 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
 - Existing recovery state remains preserved: RPC migration `20261003151456_scope_phase1_feed_to_authority_ids`, `app-phase1-feed` v56, `app-match-story` v27, summary-mode small-sample latency evidence, stale/reference-only non-actionability, unknown != zero, and current provider/book/market/line/price/as-of semantics.
 - Still open: full-feed enrichment tail latency, real desktop/mobile end-to-end acceptance beyond current browser evidence, broader football-intelligence completeness, multi-bookmaker overlap, Forebet/current provider gaps and unresolved canonical IDs.
 
+
+## Replacement-chat continuation checkpoint — 2026-10-04
+
+This is the canonical continuation after the prior dashboard-redesign conversation reached its maximum length. Do not restart or revive the superseded conversations. Normal Chat mode / Medium remains the implementation surface; Codex is supervision-only and must not be used for local implementation/testing.
+
+Preserved state from the predecessor handover (reported there; re-verify before relying on it for new claims):
+- GitHub production main was reported at `6c826bad04e7f31bb61a8e0a2816124dc4129872`; PR #5 is the non-production review branch `review/frontend-route-guard-v5-parity`.
+- Exact deployed frontend-route-guard v5 source parity was reported at source-sync commit `cd92c5c2ada3138ecac926aab80126d5711a382f`, deployed digest `108c3b70282d48359a57f7815fe5b530a59877903e37b388f67837666f87aee4`, Git blob `98625ce90965c4d08c4c1f44a7b82b387bd41d0d`; no redeploy or behavior change is part of that parity review.
+- PR #5 changed only the route-guard source plus durable docs. Its CI run `37135058477` failed a pre-existing story contract: the Phase-1 feed source advertises `zh-HK` while the story contract requires `en`. PR #5 itself does not touch either feed or story implementation.
+- Cloudflare production/non-production behavior, Railway old-snapshot behavior, Phase-1 RPC/feed/story deployed versions, and earlier latency/live checks remain historical evidence only until independently re-read.
+
+Current bounded task:
+1. keep PR #5 unreleased and preserve all production restrictions;
+2. fix only the pre-existing English story-summary language mismatch on a non-production review branch;
+3. prefer a genuinely English cached summary when one exists; otherwise return a truthful missing-English fallback;
+4. never translate or invent unsupported evidence, and do not alter recommendation mathematics, market-family gates, stale/reference non-actionability, canonical identity gates, or unknown-not-zero semantics;
+5. validate the contract plus affected homepage → detail → article paths through GitHub CI because local sandbox/npm/DNS is not the trusted route;
+6. perform read-only live comparisons separately from deterministic CI fixtures and label each evidence class accurately;
+7. no merge, production deployment, Edge release, migration/DB mutation, generated-feed publication, access expansion, or spending in this batch.
+
+Open product gaps remain broader than this fix: summary sample insufficiency/full enrichment tail, real desktop/mobile interaction acceptance, canonical IDs, multiple genuine bookmakers/overlap, Forebet coverage, substantial attributable English articles, and the unresolved Railway fresh-source route.
