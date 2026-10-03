@@ -890,7 +890,7 @@ Deno.serve(async (req: Request) => {
   const sbUrl = Deno.env.get("SUPABASE_URL") || "";
   const key = serverKey();
   if (!sbUrl || !key) return Response.json({ error: "server_config_missing" }, { status: 500, headers: cors });
-  const db = createClient(sbUrl, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const db = createReadClient(sbUrl, key);
 
   const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
   if (baseResult.error) {
