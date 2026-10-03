@@ -701,3 +701,33 @@ Proposed review stack if PR #11 CI is green:
 Rollback should be reverse dependency order: PR11 → PR10 → PR9 → PR8. PR6 remains independently reversible based on English-story acceptance. No DB migration rollback is involved.
 
 Smallest next action after PR #11 CI: keep the stack unreleased in this batch. If CI passes, the next unblocked task is a release-candidate review/merge-release operation under the existing UI/live-blocker authorization, followed by one bounded homepage + detail/live acceptance sample. Do not resume generic DB root-cause probing.
+
+
+### Combined deadline correction + final PR #11 implementation checkpoint
+
+The combined-stack review found that PR10's original browser deadlines were not all outside the **full multi-stage** server paths. This was corrected before release-candidate acceptance:
+
+- Homepage remains `view=summary` with a 20s client deadline; summary mode avoids the heavy Phase-1 enrichment chain and is bounded by the single 15s authority RPC read.
+- Match-detail `refreshMatch` now also uses `view=summary` instead of the full Phase-1 feed. This removes a hidden risk where the 20s client deadline could expire while full Phase-1 continued through sequential enrichment/history phases.
+- Shared `app-match-detail` browser deadline is now **35s** in both `MatchDetailClient` and `LineupPanel`, outside its main 15s Promise.all phase plus optional 15s canonical-player phase.
+- `app-match-analysis` browser deadline is now **70s**, covering its possible authority RPC → fallback lookup → enrichment → canonical-player sequence, each DB phase bounded at 15s.
+- `app-match-story` now gives the optional AI provider fetch its own **15s** AbortSignal. Its browser deadline is **120s**, outside the reviewed 45s upstream analysis/detail phase plus bounded commentary/cache/AI/save stages. Narrative refresh cadence remains 5 minutes, so this longer single-flight window prevents overlap rather than increasing polling pressure.
+- Recovered `app-live-feed` uses a 15s market phase followed by one concurrent 15s enrichment/heartbeat phase; browser live deadline is **35s**.
+
+The review live endpoint also no longer exposes raw PostgREST error text. Public output uses stable `readHealth` statuses/reasons and top-level `semantics: read_failure_not_fixture_absence`; detailed errors remain server-side.
+
+Behavior coverage was extended so the delayed detail-page Phase-1 lane asserts `view=summary`, and a dedicated live timeout case forces an abort, verifies the live in-flight gate clears, triggers a later refresh, and confirms live score/source state can update afterward.
+
+Final source/test implementation head before docs: **`d07278390a83c7c0aaf513a087eb2cd69d97071e`**.
+
+Remaining review note, not blocker: full Phase-1 still contains multiple sequential enrichment/history reads when explicitly requested without `view=summary`; the release candidate avoids using that heavy path for periodic detail-page refresh. The full endpoint itself remains bounded per DB request but does not yet have one whole-handler wall-clock budget. This is acceptable for this release candidate because the periodic public consumers in the reviewed UI use summary mode, while full enrichment is not put on the short polling loop.
+
+Exact release-candidate source map is therefore:
+- main: `6c826bad04e7f31bb61a8e0a2816124dc4129872`
+- PR6: English cache/fallback repair
+- PR8: 15s public PostgREST reads + retries disabled + fail-closed read semantics
+- PR9: browser single-flight/backpressure
+- PR10: behavior-proven cross-lane ordering + shared detail dedupe
+- PR11: recovered deployed live v7 source parity, bounded live reads/read-health, corrected multi-stage browser deadlines, summary-only detail refresh, bounded optional AI fetch.
+
+No runtime change occurred in this batch.
