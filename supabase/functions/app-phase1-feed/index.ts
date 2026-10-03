@@ -220,9 +220,7 @@ Deno.serve(async (req: Request) => {
     const serverKey = getServerKey();
     if (!supabaseUrl || !serverKey) throw new Error("server_config_missing");
 
-    const db = createClient(supabaseUrl, serverKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const db = createReadClient(supabaseUrl, serverKey);
 
     const { data, error } = await db.rpc("ft_internal_app_phase1_feed", {
       window_hours: hours,
