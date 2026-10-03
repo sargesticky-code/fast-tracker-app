@@ -147,8 +147,11 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
 
   const lineup = lineupState(deep);
   const lineups = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
-  const confirmedLineups = lineups.filter((row) => row.confirmed === true).length;
-  const provisionalLineups = lineups.filter((row) => row.confirmed !== true).length;
+  const confirmedStarters = lineups.filter((row) => row.confirmed === true && row.starter === true).length;
+  const confirmedBench = lineups.filter((row) => row.confirmed === true && row.starter === false).length;
+  const provisionalStarters = lineups.filter((row) => row.confirmed !== true && row.starter === true).length;
+  const provisionalBench = lineups.filter((row) => row.confirmed !== true && row.starter === false).length;
+  const unresolvedRole = lineups.filter((row) => row.starter !== true && row.starter !== false).length;
   const players = playerRows(deep);
   const facts = sampleRows(deep);
   const form = deep?.models?.form || null;
@@ -221,7 +224,15 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
           <h3>Lineups and player availability</h3>
           <div className={"ft-lineup-state ft-lineup-" + lineup[0].toLowerCase()}>
             <strong>{lineup[1]}</strong>
-            <span>{lineups.length ? confirmedLineups + " confirmed rows · " + provisionalLineups + " provisional/unconfirmed rows" : "No lineup rows are currently available"}</span>
+            <span>{lineups.length
+              ? [
+                  confirmedStarters + " confirmed starters",
+                  confirmedBench ? confirmedBench + " confirmed substitutes/bench" : null,
+                  provisionalStarters ? provisionalStarters + " provisional starters" : null,
+                  provisionalBench ? provisionalBench + " provisional substitutes/bench" : null,
+                  unresolvedRole ? unresolvedRole + " rows with unresolved starter/bench role" : null,
+                ].filter(Boolean).join(" · ")
+              : "No lineup rows are currently available"}</span>
           </div>
           {players.length ? players.map((row) => (
             <div className="ft-article-evidence-row" key={row.key}>
