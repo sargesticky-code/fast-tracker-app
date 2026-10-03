@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 const analysis = fs.readFileSync("supabase/functions/app-match-analysis/index.ts", "utf8");
+const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
 
 const required = [
   "function provenanceGroup",
@@ -8,7 +9,13 @@ const required = [
   "function collapseCorrelatedBinaryModels",
   "const models = collapseCorrelatedBinaryModels(rawModels)",
   "const independentFamilies = collapseCorrelatedFamilies(families)",
+  'provenanceGroup: "MULTISOURCE_AGGREGATE"',
+  "independentEligible: false",
 ];
+if (!publicLogic.includes("collapseProvenanceFamilies(rows)") || !publicLogic.includes("independentEligible:false")) {
+  console.error("Public flow must also count only provenance-distinct evidence and keep unknown-lineage aggregates supplemental");
+  process.exit(1);
+}
 for (const token of required) {
   if (!analysis.includes(token)) {
     console.error("Missing evidence-independence contract:", token);
