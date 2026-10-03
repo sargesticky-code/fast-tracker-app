@@ -474,7 +474,7 @@ test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   const article = page.locator("#analysis");
-  await expect(article.getByText(/Lukas Provod/)).toBeVisible({ timeout: 10000 });
+  await expect(article.getByText("H · Lukas Provod", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(article.getByText("Unconfirmed status · player identity unresolved", { exact: true })).toBeVisible();
   await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
 });
