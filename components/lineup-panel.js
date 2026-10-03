@@ -520,8 +520,17 @@ export default function LineupPanel() {
   ];
 
   return (
-    <section style={{maxWidth:1180,margin:"14px auto 0",padding:"0 16px"}} aria-label="Professional lineup module">
-      <div style={{border:"1px solid #cedbe6",borderRadius:9,background:"#f7fafc",boxShadow:"0 4px 14px rgba(11,42,74,.08)",overflow:"hidden"}}>
+    <section style={{maxWidth:1180,margin:"10px auto 18px",padding:"0 16px"}} aria-label="Professional lineup module">
+      <details className="lineup-tool-disclosure">
+        <summary>
+          <div>
+            <span>FULL LINEUP TOOL</span>
+            <strong>{view.homeTeam} vs {view.awayTeam}</strong>
+            <small>{tone.text} · {view.homeStarters.length}/11 home · {view.awayStarters.length}/11 away</small>
+          </div>
+          <b>Open lineups</b>
+        </summary>
+      <div style={{border:"1px solid #cedbe6",borderRadius:"0 0 9px 9px",background:"#f7fafc",boxShadow:"0 4px 14px rgba(11,42,74,.08)",overflow:"hidden"}}>
         <div style={{padding:"15px 16px",background:"#fff",borderBottom:"1px solid "+palette.line}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
             <div>
@@ -626,8 +635,65 @@ export default function LineupPanel() {
           <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? "Complete 11v11 available" : "Waiting for complete 11v11"}</small>
         </div>
       </div>
+      </details>
 
       <style>{`
+        .lineup-tool-disclosure{
+          border:1px solid #cedbe6;
+          border-radius:9px;
+          background:#fff;
+          overflow:hidden;
+          box-shadow:0 3px 10px rgba(11,42,74,.06);
+        }
+        .lineup-tool-disclosure > summary{
+          list-style:none;
+          cursor:pointer;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
+          min-height:50px;
+          padding:9px 12px;
+          background:linear-gradient(90deg,#e8f1f8,#f8fafc);
+        }
+        .lineup-tool-disclosure > summary::-webkit-details-marker{display:none}
+        .lineup-tool-disclosure > summary:focus-visible{
+          outline:3px solid #f4bd12;
+          outline-offset:-3px;
+        }
+        .lineup-tool-disclosure > summary div{min-width:0}
+        .lineup-tool-disclosure > summary span{
+          display:block;
+          font-size:8px;
+          font-weight:950;
+          letter-spacing:.08em;
+          color:#50708c;
+        }
+        .lineup-tool-disclosure > summary strong{
+          display:block;
+          margin-top:2px;
+          font-size:13px;
+          color:#173f63;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        .lineup-tool-disclosure > summary small{
+          display:block;
+          margin-top:2px;
+          font-size:9px;
+          color:#718397;
+        }
+        .lineup-tool-disclosure > summary > b{
+          flex:0 0 auto;
+          font-size:9px;
+          color:#1b5f91;
+          padding:5px 8px;
+          border:1px solid #c8d9e7;
+          border-radius:999px;
+          background:#fff;
+        }
+        .lineup-tool-disclosure[open] > summary > b::after{content:" · close"}
         @media (max-width: 820px) {
           .pro-lineup-grid, .lineup-strength-grid { grid-template-columns: 1fr !important; }
         }
