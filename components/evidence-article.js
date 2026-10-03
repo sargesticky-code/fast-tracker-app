@@ -301,7 +301,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
               </small>
               <small>
                 {analysis.marketAdvice.goals.models?.length
-                  ? analysis.marketAdvice.goals.models.map((m) => safe(m.label) + " (" + safe(m.method) + ")").join(" · ")
+                  ? analysis.marketAdvice.goals.models.map((m) => safe(m.label) + " (" + safe(m.method) + " · " + safe(m.provenanceGroup, "provenance unknown") + ")").join(" · ")
                   : "No usable goals model evidence"}
               </small>
             </div>
@@ -309,6 +309,24 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
         </div>
         <div>
           <h3>Market evidence boundary</h3>
+          {analysis?.evidence?.goalsModelContext?.dixonColes ? (
+            <div className="ft-article-evidence-row">
+              <span>Dixon-Coles goals input</span>
+              <strong>
+                Expected goals {price(analysis.evidence.goalsModelContext.dixonColes.expectedGoalsHome)}
+                {" – "}
+                {price(analysis.evidence.goalsModelContext.dixonColes.expectedGoalsAway)}
+              </strong>
+              <small>
+                Training sample {analysis.evidence.goalsModelContext.dixonColes.trainingMatches || "unknown"} matches
+                {" · "}Source: {safe(analysis.evidence.goalsModelContext.dixonColes.source, "Unknown")}
+              </small>
+              <small>
+                Competition: {safe(analysis.evidence.goalsModelContext.dixonColes.league, "Unknown")}
+                {" · "}Historical period: {analysis.evidence.goalsModelContext.dixonColes.period || "not recorded in the current model artifact"}
+              </small>
+            </div>
+          ) : null}
           {analysis?.evidence?.goalsModelContext?.teamForm ? (
             <div className="ft-article-evidence-row">
               <span>Team Form goals input</span>
