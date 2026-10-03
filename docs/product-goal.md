@@ -322,3 +322,20 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Production remains unchanged; no live-latency/concurrency improvement is claimed.
 - [ ] Initial 15:45 trigger remains unresolved; polling is proven as an amplifier, not proven as the initiating cause.
 - [ ] Next bounded task: one read-only 15:44–15:48 wait/query-fingerprint review if diagnostics are available; otherwise stop and leave the initiating DB event unknown.
+
+
+### Transition fingerprint + behavior-proof gate — 2026-10-04
+
+- [x] One bounded 15:44–15:48 Postgres-log transition pass completed; no further generic root-cause retries planned.
+- [x] Earliest captured slowdown: `ft_refresh_live_layer_guard()` ~22.16s at 15:44:22 and ~21.50s at 15:46:21.
+- [x] First captured statement-timeout fingerprints: `ft_internal_app_phase1_feed` 15:46:40, `phase4_value_api` 15:46:50, `phase2_match_lineup_evidence` 15:46:51; cron startup failures and SSL resets follow around 15:48.
+- [x] By 15:48:19, even the postgres-exporter `pg_stat_activity` connection-count query timed out, supporting broad DB/connection pressure at that stage.
+- [x] No historical wait-event / blocking-PID / lock graph is available; initiating event remains **unknown**.
+- [x] Existing 22 mocked flows were insufficient to prove delayed coalescing, timeout cleanup/retry, stale ordering, unavailable-vs-absent or English-summary/detail fallback coherence.
+- [x] Cross-lane race fixed on review branch: delayed Phase-1 cannot resurrect canonical-missing fixture or override authoritative stale/terminal detail/source label.
+- [x] Browser deadlines aligned outside PR #8 server bounds: homepage/full/detail 20s; analysis 35s; story 65s. Live remains single-flight with no shorter client timeout because source-controlled server bound is missing.
+- [x] Five new delayed/concurrency/truthfulness Playwright cases added; English-story-unavailable flow extended with homepage cached-summary evidence.
+- [ ] Draft PR #10 must pass established GitHub CI including the expanded rendered behavior suite.
+- [ ] PR #10 base must be restored to PR #9 after CI verification; all PRs remain unreleased.
+- [ ] Missing dependency: source-controlled `app-live-feed` implementation and historical 15:44–15:48 wait/lock diagnostics.
+- [ ] Release requires separate explicit authorization; release order PR6→PR8→PR9→PR10, rollback reverse order.
