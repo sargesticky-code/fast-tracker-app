@@ -405,3 +405,22 @@ Routine development, testing, debugging and transitions between already agreed p
 - [x] Deployed v7 parity source checkpoint: commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, Supabase bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`.
 - [x] Coherent unreleased candidate = PR6→PR8→PR9→PR10→PR11.
 - [ ] Production remains unchanged in this review-only batch.
+
+
+### Production release + live acceptance checkpoint — 2026-10-04
+
+- [x] Reviewed stack released in exact order PR6→PR8→PR9→PR10→PR11.
+- [x] Production/main release commit: `1bd2e2143aa95029875dbb3d172c18335653b21c`.
+- [x] Cloudflare Git deployment succeeded: Build `b99a75c2-6e5b-4294-b625-3ee565292a99`, Version `d05c0a3e-a31b-4c9a-bcce-53ce4b720d55`.
+- [x] Railway deliberately not redeployed: current public service deployment still points to old commit `cf4e3a0d7e7af46d026aef2a50c81703a17f92f0`; Railway redeploy would replay that snapshot.
+- [x] Edge releases verified byte-for-byte against merged main: phase1 v57, detail v18, analysis v33, story v28, live v8.
+- [x] Real desktop Cloudflare homepage HTTP 200; summary feed 503 at ~15.2–15.5s; UI says feed temporarily unavailable and fixture counts unknown.
+- [x] Real mobile Cloudflare homepage HTTP 200 at 390×844; same truthful unavailable/unknown behavior.
+- [x] Real fallback fixture FB6175 desktop/mobile: detail page HTTP 200; detail endpoint 200; Phase-1/live feeds 503 at ~15s; UI truthfully says canonical fixture unavailable.
+- [x] Production unavailable≠absent semantics are therefore live-verified in two distinct cases.
+- [x] Old 90–150s request tail is not reproduced in this bounded sample; affected public reads terminate around the reviewed 15s DB bound.
+- [ ] No current fixture was delivered, so live homepage→current-detail continuity is not yet accepted.
+- [ ] No substantive attributable English article was observed live; do not claim article acceptance from mocked CI.
+- [ ] HKJC/current-market article evidence, current live stats, stale-ordering and real production coalescing remain unverified because no current fixture was available.
+- [ ] Overall product goal remains incomplete.
+- [ ] Exact next dependency: targeted read-only review of `ft_internal_app_phase1_feed` / summary authority RPC hitting the 15s bound. DB/index/function/migration/compute changes require separate authorization.
