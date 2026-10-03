@@ -533,10 +533,21 @@ export default function MatchDetailClient() {
     let cancelled = false;
     let resolvedFresh = false;
     let canonicalMissing = false;
+    const requestsInFlight = {
+      match: false,
+      detail: false,
+      analysis: false,
+      story: false,
+      live: false,
+    };
+    const fetchWithDeadline = (url, options = {}, timeoutMs = 15000) =>
+      fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) });
 
     async function refreshMatch() {
+      if (cancelled || requestsInFlight.match) return;
+      requestsInFlight.match = true;
       try {
-        const res = await fetch(FEED_URL, { cache: "default" });
+        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 15000);
         if (!res.ok) return;
         const feed = await res.json();
         if (cancelled) return;
@@ -551,11 +562,14 @@ export default function MatchDetailClient() {
           } catch {}
         }
       } catch {}
+      finally { requestsInFlight.match = false; }
     }
 
     async function refreshDetail() {
+      if (cancelled || requestsInFlight.detail) return;
+      requestsInFlight.detail = true;
       try {
-        const res = await fetch(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" });
+        const res = await fetchWithDeadline(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 15000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -586,34 +600,44 @@ export default function MatchDetailClient() {
           resolvedFresh = true;
         }
       } catch {}
+      finally { requestsInFlight.detail = false; }
     }
 
     async function refreshAnalysis() {
+      if (cancelled || requestsInFlight.analysis) return;
+      requestsInFlight.analysis = true;
       try {
-        const res = await fetch(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" });
+        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 30000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
         setAnalysis(payload);
       } catch {}
+      finally { requestsInFlight.analysis = false; }
     }
 
     async function refreshStory() {
+      if (cancelled || requestsInFlight.story) return;
+      requestsInFlight.story = true;
       try {
-        const res = await fetch(
+        const res = await fetchWithDeadline(
           STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=en&style=professional",
-          { cache: "default" }
+          { cache: "default" },
+          45000
         );
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
         setStory(payload);
       } catch {}
+      finally { requestsInFlight.story = false; }
     }
 
     async function refreshLive() {
+      if (cancelled || requestsInFlight.live) return;
+      requestsInFlight.live = true;
       try {
-        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
+        const res = await fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" }, 12000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;
@@ -631,6 +655,7 @@ export default function MatchDetailClient() {
         });
         if (hasLive) setSource("SUPABASE LIVE · ≤1m source");
       } catch {}
+      finally { requestsInFlight.live = false; }
     }
 
     Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail()]).then(() => {
