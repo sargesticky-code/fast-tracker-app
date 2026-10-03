@@ -468,9 +468,14 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
   useEffect(() => {
     let cancelled = false;
+    let refreshInFlight = false;
     async function refresh() {
+      if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
+      refreshInFlight = true;
       try {
-        const res = await fetch(HOMEPAGE_FEED_URL);
+        const res = await fetch(HOMEPAGE_FEED_URL, {
+          signal: AbortSignal.timeout(15000),
+        });
         if (!res.ok) {
           let message = `HTTP ${res.status}`;
           try {
@@ -491,6 +496,8 @@ export default function HomepageClient({ initialFeed, nowMs }) {
         }
       } catch {
         if (!cancelled) setFeedState({ status: "error", message: "Feed refresh request failed" });
+      } finally {
+        refreshInFlight = false;
       }
     }
     refresh();

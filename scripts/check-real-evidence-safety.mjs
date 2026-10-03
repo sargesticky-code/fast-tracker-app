@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const analysis = fs.readFileSync("supabase/functions/app-match-analysis/index.ts", "utf8");
 const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
+const homepage = fs.readFileSync("components/homepage-client.js", "utf8");
 const article = fs.readFileSync("components/evidence-article.js", "utf8");
 const sync = fs.readFileSync("supabase/functions/sync-fast-tracker/index.ts", "utf8");
 const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
@@ -47,6 +48,10 @@ const checks = [
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
+  [homepage.includes("let refreshInFlight = false") && homepage.includes("AbortSignal.timeout(15000)"), "homepage polling must remain single-flight with a bounded browser deadline"],
+  [detail.includes("const requestsInFlight = {") && detail.includes("if (cancelled || requestsInFlight.live) return;"), "detail live polling must coalesce overlapping requests"],
+  [detail.includes("fetchWithDeadline(LIVE_FEED_URL") && detail.includes("12000"), "detail live polling must keep a bounded browser deadline"],
+  [detail.includes("requestsInFlight.match") && detail.includes("requestsInFlight.detail") && detail.includes("requestsInFlight.analysis") && detail.includes("requestsInFlight.story"), "detail full/detail/narrative lanes must remain single-flight"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);

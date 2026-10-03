@@ -410,3 +410,85 @@ No merge, deployment, Edge release, migration/DB write, feed publication, access
 - PR #8 was temporarily pointed at `main` only to trigger the repository's established main-target PR workflow, then returned to PR #6 as base after the green run. No source deployment or merge occurred.
 
 Smallest next action remains **read-only scheduled-workload ownership isolation**: map the 15:45–16:15 cron startup-timeout buckets to the specific cron job IDs/functions and compare their normal vs saturated runtimes. Do not change schedules or database settings until one workload family is demonstrated to be the dominant capacity consumer.
+
+
+## Cron timeout ownership + public-read overlap diagnosis — 2026-10-04
+
+This batch stayed read-only for production/database state. One nonproduction frontend containment patch was prepared after the evidence demonstrated a sustained request-amplification mechanism; no schedule, cron, DB object, migration, deployment or release was changed.
+
+### Cron job timeout map (15:45–16:15 UTC)
+
+Timeout counts from Postgres logs:
+- job 17 — `select public.ft_refresh_live_shadow_compare_guard();` — 13 startup timeouts.
+- job 6 — HTTP enqueue job, cadence/matching Edge calls identify it as the `live-score-direct` lane — 13.
+- job 14 — `select public.ft_refresh_live_layer_guard();` — 10.
+- job 4 — HTTP enqueue job, cadence/matching Edge calls identify it as `hkjc-live-direct` — 10.
+- job 16 — HTTP enqueue job, cadence/matching Edge calls identify it as `live-source-shadow` — 6.
+- job 28 — HTTP enqueue job, cadence/matching Edge calls identify it as `phase4-polymarket-quotes` — 5.
+- job 8 — direct SQL INSERT-style snapshot job; command text is multiline/opaque in available Postgres logs — 5. Exact table ownership could not be recovered because the live `cron.job` catalog read itself timed out.
+- job 15 — `select public.ft_refresh_phase3_identity_registry();` — 4.
+- job 23 — `select phase4.refresh_core();` — 4.
+- job 13 — HTTP/guard lane correlated with `frontend-route-guard` cadence — 2.
+- job 37 — `select private.ft_safe_refresh_phase1_core();` — 2.
+- one each: job 7 (cadence/matching Edge calls = `hkjc-upcoming-direct`), job 25 (`phase4-polymarket-match-discovery` lane), job 26 (`select phase4.verify_polymarket_candidates();`), job 32 (exact command logged: `phase15-flashscore-scout?force=1`), job 34 (`select public.snapshot_phase2_lineup_coverage();`), job 36 (HTTP enqueue; exact target unavailable from current catalog/log text).
+
+The missing exact commands for job 8/job 36 are a diagnostic limitation, not grounds to infer their purpose. A direct `cron.job` catalog query was attempted once and failed with `Connection terminated due to connection timeout`; it was not retried.
+
+### Healthy runtime / concurrency comparison
+
+Before saturation, the frequent cron work was generally short:
+- job 4/6 HTTP enqueue operations complete in hundreds of milliseconds at the pg_cron layer; their downstream Edge functions averaged ~5.46s (`hkjc-live-direct`, p95 ~13.5s) and ~3.88s (`live-score-direct`, p95 ~6.35s).
+- job 16's `live-source-shadow` downstream function averaged ~5.19s (p95 ~12.38s).
+- job 28's `phase4-polymarket-quotes` was longer but lower-frequency: avg ~22.18s, p95/max ~34.10s.
+- `frontend-route-guard` averaged ~7.04s (p95 ~14.84s); `phase4-polymarket-match-discovery` ~4.94s; `hkjc-upcoming-direct` ~5.71s; `phase15-flashscore-scout` ~24.37s (p95 ~27.75s).
+- direct SQL cron examples immediately before saturation were also short: at 15:40 job 26 completed in ~0.21s, coverage guard job 12 in ~0.32s, Phase 4 core job 23 in ~0.95s; at 15:44 phase3 identity job 15 completed in ~0.71s. Job 37 Phase-1 core refresh examples were ~3.9–4.7s.
+
+During the saturated window, most cron jobs fail to **start**, rather than starting and then monopolizing execution. The few cron-triggered live functions that still resolve remain comparatively short: `hkjc-live-direct` ~4.38s and `live-score-direct` ~5.73s in the measured degraded slice. This makes the broad cron-startup-timeout pattern evidence of database/scheduler pressure, not evidence that one of these cron functions is the sole cause.
+
+### Strongest sustained workload signal: overlapping public reads
+
+Function-log request starts inferred from response timestamp minus execution time show a step-change:
+- 15:35 bucket: `app-live-feed` 19 + `app-phase1-feed` 19 + detail 12; all succeeded, with p50 roughly 0.96s / 4.09s / 1.59s.
+- 15:40 bucket: `app-live-feed` 15 + `app-phase1-feed` 18 + detail 13 + 2 analysis + 1 story; all succeeded, p50s roughly 1.1–5.9s.
+- 15:45 bucket: `app-live-feed` 30 (p50 ~90.3s, 9 successes), `app-phase1-feed` 20 (p50 ~90.3s, 7 successes), detail 15 (p50 ~150.1s, 4 successes), plus analysis/story failures. Cron startup timeouts begin minutes later.
+- 15:50 onward: the same public read lanes continue arriving while p50s sit near the 150s worker limit; many buckets have zero successful Phase-1/detail requests.
+
+Source review shows a concrete amplification mechanism:
+- homepage refreshes Phase-1 every 60s with no in-flight guard and previously no browser deadline;
+- detail refreshes live every 10s, full feed + detail every 60s, analysis + story every 5m, and also triggers live/full/detail on visibility/page-show;
+- the old code had no per-lane single-flight guard, so when a request lived for 90–150s, later timer ticks could stack additional requests from the same tab.
+
+This **does not prove the initial 15:45 database slowdown was caused by frontend polling**. The initial trigger remains unresolved and could involve selective query contention, connection-pool/global capacity pressure, or another workload. However, no deadlock-specific evidence was observed in the sampled Postgres logs, while statement timeouts, SSL accept failures and cron startup failures support capacity/connection pressure. Because `live_stats_current` stayed healthy while model/fixture/form/Forebet reads degraded, the evidence is selective rather than a uniform database outage.
+
+### Reviewable remediation: frontend request backpressure
+
+Draft PR #9 (`review/frontend-read-backpressure-v1`) is stacked on PR #8 and changes only frontend request behavior:
+- homepage Phase-1 refresh becomes single-flight and has a 15s browser deadline;
+- detail lanes are independent single-flight lanes for full feed, detail, analysis, story and live;
+- browser deadlines are full/detail 15s, live 12s, analysis 30s, story 45s;
+- existing polling cadences remain unchanged; an interval tick is coalesced when its lane already has an in-flight request.
+
+Expected effect: cap request concurrency per tab and prevent degraded 90–150s backend requests from multiplying through timer/visibility/page-show overlap. This is a containment measure; it is not a claim that the database root cause is solved.
+
+Validation: established GitHub PR Build Verification must keep all English/story/provider/real-evidence/identity/static/rendered-flow contracts green; source contract now explicitly checks homepage/detail single-flight + bounded-deadline behavior. Production validation would require a separately authorized release followed by live request-concurrency/tail-latency comparison; that release is **not authorized in this batch**.
+
+Rollback: revert PR #9 only; PR #6 English repair and PR #8 server-side fail-fast containment remain separate stacked reviews. No DB rollback is involved.
+
+Missing authorization for any stronger remediation: changing cron schedules/cadence, disabling jobs, changing DB indexes/settings/compute, merging PRs, or deploying/releasing would all require a separate explicit production/change authorization.
+
+Smallest next action after CI: keep PR #9 unreleased, restore its base to PR #8, and if green, perform one read-only query-family/source review focused on what changed immediately before 15:45 (including lock/wait visibility if diagnostics recover) rather than modifying cron schedules on correlation alone.
+
+
+### Frontend backpressure review verification
+
+- Canonical frontend containment review: draft PR #9, `review/frontend-read-backpressure-v1` → `review/read-path-failfast-v2` (PR #8). Stack remains PR #6 English repair → PR #8 backend read fail-fast → PR #9 frontend single-flight/backpressure.
+- Verified source/docs head: `d5282260685f2b6957f04000129b5e6b1616dfcd`.
+- GitHub PR Build Verification run `37139054527`: **SUCCESS**.
+- All existing contracts remained green: English story, provider/market, real-evidence safety (including new frontend backpressure assertions), evidence independence, player identity, static build/routes, rendered desktop/mobile flow.
+- Rendered suite: **22/22 passed** in 26.9s.
+- Artifact `11279722987`: `dashboard-redesign-c98c852b0afcda92f2214da6b99661854d3d3e15`, SHA256 `88382bc9eff1facfdde3c13648a59c46b8c2268e84ab2981b009b31b3a2132ea`.
+- PR #9 was temporarily pointed at `main` only to trigger the established workflow, then restored to PR #8 as base after the green run. No merge/deploy/release occurred.
+
+The patch's expected effect is deliberately bounded: under a 90–150s backend slowdown, one browser tab can no longer stack repeated requests in the same lane on every timer/visibility trigger. It should reduce amplification and cap per-tab concurrency, but it does not prove or repair the initiating database event.
+
+Smallest next action: keep PRs #6/#8/#9 unreleased. If database diagnostics recover, perform one bounded read-only review of the **initial 15:44–15:48 transition**: query active/wait events or statement fingerprints around the first statement-timeout/SSL-accept failures, and compare them with the public-read request start surge. Only if a specific query/lock/workload fingerprint is demonstrated should a DB/index/cron remediation be proposed. If those diagnostics remain unavailable, do not retry indefinitely; retain frontend/backend containment as review evidence and leave the initial trigger unresolved.
