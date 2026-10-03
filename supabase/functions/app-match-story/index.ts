@@ -702,9 +702,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const upstreamHeaders = { Authorization:`Bearer ${key}`, apikey:key };
+    const upstreamSignal = AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS);
     const [analysisRes, detailRes] = await Promise.all([
-      fetch(`${sbUrl}/functions/v1/app-match-analysis?id=${encodeURIComponent(id)}`, { headers:upstreamHeaders }),
-      fetch(`${sbUrl}/functions/v1/app-match-detail?id=${encodeURIComponent(id)}`, { headers:upstreamHeaders }).catch(() => null),
+      fetch(`${sbUrl}/functions/v1/app-match-analysis?id=${encodeURIComponent(id)}`, { headers:upstreamHeaders, signal:upstreamSignal }),
+      fetch(`${sbUrl}/functions/v1/app-match-detail?id=${encodeURIComponent(id)}`, { headers:upstreamHeaders, signal:upstreamSignal }).catch(() => null),
     ]);
     if (!analysisRes.ok) {
       return Response.json({
