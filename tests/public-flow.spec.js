@@ -209,7 +209,7 @@ for (const device of [
     await expect(page.getByText("Predicted / provisional lineup")).toBeVisible();
     await expect(page.getByText("This is unknown coverage, not zero injuries.")).toBeVisible();
     await expect(page.getByText("Home 8 / Away 8 matches · venue 4/4")).toBeVisible();
-    await expect(page.getByText("2.20", { exact: true })).toBeVisible();
+    await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
     await expect(page.getByText("A lineup downgrade or adverse price move would weaken the case.")).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
