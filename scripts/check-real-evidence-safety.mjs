@@ -3,6 +3,7 @@ import fs from "node:fs";
 const analysis = fs.readFileSync("supabase/functions/app-match-analysis/index.ts", "utf8");
 const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
 const article = fs.readFileSync("components/evidence-article.js", "utf8");
+const sync = fs.readFileSync("supabase/functions/sync-fast-tracker/index.ts", "utf8");
 
 const checks = [
   [analysis.includes("function statusIsTerminal"), "analysis must recognize terminal match states"],
@@ -26,6 +27,8 @@ const checks = [
   [detail.includes("fallbackStale || previousStarted"), "stale authoritative detail must replace cached prematch price state"],
   [article.includes("confirmedStarters"), "article must distinguish starters from confirmed bench rows"],
   [article.includes("kickoffStarted"), "article must independently fail closed after kickoff"],
+  [sync.includes('batchSize=300'), "sync upsert helper must support bounded batch sizing"],
+  [sync.includes('"hkjc_event_id",false,50)'), "HKJC odds sync must use smaller batches after observed statement timeout"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
