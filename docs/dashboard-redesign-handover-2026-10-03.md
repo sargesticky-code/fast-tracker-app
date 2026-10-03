@@ -77,3 +77,34 @@ No production deployment, merge, Edge Function deployment, migration application
 ## Next UI-focused gap
 
 Screenshot inspection removed the remaining sticky utility/section-navigation overlap and the public technical-diagnostics row. The next bounded UI gap is now excessive vertical density and section ordering on very long mobile detail pages, plus a verified latest-head branch preview when the existing preview integration catches up. Provider/provenance expansion remains outside this dashboard-first batch.
+
+
+## Mobile hierarchy and progressive disclosure batch — 2026-10-03
+
+Implemented on draft PR #2:
+- decision/status and current HKJC market-price context now precede the full lineup tool;
+- article headline, conclusion, bookmaker/market/observed price/decision state and a visible safety strip remain outside any disclosure;
+- visible safety strip always exposes price state, lineup confirmation state and player-status coverage, including explicit unknown-not-zero wording;
+- full article samples, detailed player evidence, market-specific boundaries, reasoning/counterevidence and provenance are available under the native `Full evidence article` disclosure;
+- model consensus remains visible; the full H/D/A scoreboard and model-by-model detail are behind `Model detail`;
+- H2H win/draw/loss scoreboard remains visible; goals, sequence and match-by-match history are behind `Meeting details`;
+- the full formation/squad/availability/source lineup tool is moved after the main intelligence flow and is collapsed by default;
+- Team Form and compact Team News remain visible without expansion;
+- all disclosures use native `<details>/<summary>` semantics with visible keyboard focus treatment.
+
+Verification:
+- mocked fixture rendered checks exercise homepage market filters → detail → native disclosure open/close → article/Team News on both 1440px desktop and 390px mobile;
+- keyboard Enter is used to open and close article, H2H, model detail and full lineup tool disclosures;
+- tests assert the decision precedes the full lineup tool in document order;
+- stale-price protection remains visible while the article is collapsed;
+- missing player-status coverage remains visibly unknown rather than zero while collapsed;
+- canonical confirmed / source-confirmed unresolved / ambiguous player evidence tests still open the full evidence disclosure and verify row-level safety behavior;
+- both collapsed and expanded detail screenshots are generated.
+
+Rendered CI uses mocked fixture/API responses for deterministic safety coverage. It is not proof of the latest public endpoint body or production deployment.
+
+No merge, production deployment, Edge Function release, migration, generated-feed publication, wider scraping, credential change or spend was performed.
+
+## Next concrete UI gap
+
+The next bounded UI issue is **empty-state density**: when Market Comparison has no real comparable value signal and Team Form has no recent history, those panels still consume more mobile height than their information value warrants. Compress those no-data states into concise, expandable summaries while preserving the exact unknown/no-model reason and full statistics when data exists.
