@@ -376,7 +376,7 @@ for (const device of [
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
-    await expect(page.getByText("Predicted / provisional lineup", { exact: true })).toBeVisible();
+    await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Predicted / provisional lineup", { exact: true })).toBeVisible();
     await expect(page.getByText("Unknown — not zero absences", { exact: true })).toBeVisible();
 
     await expect(page.getByRole("navigation", { name: "Match detail sections" })).toBeVisible();
@@ -483,7 +483,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
+  await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
   await page.locator("#analysis details.ft-article-deep > summary").click();
   await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
 });
@@ -553,6 +553,6 @@ test("official source lineup with unresolved player identity remains partial", a
   await page.goto("http://127.0.0.1:4173/");
   await page.locator('a[href*="FBTEST1"]').first().click();
 
-  await expect(page.getByText("Official lineup source confirmed · player identity reconciliation incomplete", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Official lineup source confirmed · player identity reconciliation incomplete", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toHaveCount(0);
 });
