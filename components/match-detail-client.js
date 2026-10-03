@@ -370,16 +370,27 @@ function matchFromDetailPayload(payload, matchId) {
     return Number.isFinite(x) ? x : null;
   };
   const fixtureFetchedAt = fixture.fetched_at || fixture.updated_at || null;
+  const priceObservedAt = fixture.odds_updated_at || fixtureFetchedAt || null;
   const fixtureAgeMinutes = fixtureFetchedAt ? (Date.now() - new Date(fixtureFetchedAt).getTime()) / 60000 : Infinity;
-  const fixtureFreshness = Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 90
-    ? "FRESH"
-    : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 360
-      ? "AGING"
-      : "STALE";
+  const priceAgeMinutes = priceObservedAt ? (Date.now() - new Date(priceObservedAt).getTime()) / 60000 : Infinity;
+  const kickoffMs = fixture.kickoff_hkt ? new Date(fixture.kickoff_hkt).getTime() : NaN;
+  const kickoffStarted = Number.isFinite(kickoffMs) && kickoffMs <= Date.now() + 2 * 60 * 1000;
+  const terminalStatus = ["FULLTIME","FINISHED","FT","ENDED","MATCHENDED","INPLAYMATCHENDED","AET","PEN","CANCELLED","CANCELED","VOID","ABANDONED"]
+    .includes(String(fixture.status || "").toUpperCase().replace(/[\s_-]+/g, ""));
+  const fixtureFreshness =
+    terminalStatus || kickoffStarted || !Number.isFinite(priceAgeMinutes) || priceAgeMinutes > 360
+      ? "STALE"
+      : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 90
+        ? "FRESH"
+        : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 360
+          ? "AGING"
+          : "STALE";
   const allowCurrentPrice = fixtureFreshness === "FRESH";
   return {
     id: String(fixture.hkjc_event_id || matchId),
     kickoff: fixture.kickoff_hkt || null,
+    status: fixture.status || null,
+    oddsUpdatedAt: priceObservedAt,
     league: fixture.tournament || "",
     home: fixture.home_en || fixture.home_zh || "",
     away: fixture.away_en || fixture.away_zh || "",
@@ -413,6 +424,8 @@ function matchFromDetailPayload(payload, matchId) {
       status: fixtureFreshness === "FRESH" ? "DETAIL_FALLBACK" : "DETAIL_FALLBACK_STALE",
       hkjcFreshness: fixtureFreshness,
       hkjcFetchedAt: fixtureFetchedAt,
+      hkjcPriceChangedAt: priceObservedAt,
+      hkjcPriceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
       evidenceChannelCount: 0,
       unifiedCoverageStatus: "HKJC_ONLY",
     },
