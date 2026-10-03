@@ -19,11 +19,5 @@ export default function LegacyRouteRedirect() {
     }
   }, []);
 
-  return (
-    <main className="shell detail-shell">
-      <section className="panel">
-        <p className="fineprint">Redirecting to the latest Supabase match view…</p>
-      </section>
-    </main>
-  );
+  return null;
 }
