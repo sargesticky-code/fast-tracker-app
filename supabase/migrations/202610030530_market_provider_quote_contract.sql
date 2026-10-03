@@ -41,6 +41,7 @@ on conflict (provider_key) do update set
 
 create table if not exists public.market_quote_observations (
   id bigint generated always as identity primary key,
+  quote_key text not null unique,
   canonical_match_id text not null,
   provider_key text not null references public.market_provider_registry(provider_key),
   market text not null check (market in ('HDA','ASIAN_HANDICAP','GOALS','BTTS','CORNERS')),
@@ -55,22 +56,13 @@ create table if not exists public.market_quote_observations (
   ingested_at timestamptz not null default now()
 );
 
-create unique index if not exists uq_market_quote_observation
-on public.market_quote_observations (
-  canonical_match_id,
-  provider_key,
-  market,
-  selection,
-  coalesce(line, -999999::numeric),
-  coalesce(observed_at, '1970-01-01 00:00:00+00'::timestamptz)
-);
-
 create index if not exists ix_market_quote_match_market
 on public.market_quote_observations(canonical_match_id,market,observed_at desc);
 
 create or replace view public.market_quote_current as
 select distinct on (canonical_match_id,provider_key,market,selection,coalesce(line,-999999::numeric))
   id,
+  quote_key,
   canonical_match_id,
   provider_key,
   market,
