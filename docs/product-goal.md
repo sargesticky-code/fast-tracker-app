@@ -86,7 +86,7 @@ Each substantial match preview/article must include:
 - [ ] Verify article claims against stored evidence.
 - [ ] Verify canonical identity joins and unresolved-identity behaviour.
 - [x] Fixture tests verify missing-English-story and stale-price fail-closed behavior; FB6114 adds real missing-provider/player-status and zero-H2H evidence verification.
-- [ ] Verify market-specific calculations with fixtures that actually contain the required market.
+- [ ] Fixture tests cover market-specific stale/family gates; real FB6114 verifies historical goals/corners lines and unavailable current AH, but another real fresh fixture is still required for live market-specific calculation verification.
 - [x] Desktop and mobile homepage-to-detail/article flows pass Playwright on the PR artifact.
 - [ ] Verify actual public and preview URLs.
 - [ ] Record recommendation outcomes/calibration only where genuine historical results permit it.
@@ -98,3 +98,10 @@ Each substantial match preview/article must include:
 Major changes are holistic alterations, not isolated visual patches. Before changing a component, audit its upstream data, identity/freshness dependencies, market calculations, article/evidence consumers and rendered user flow. Batch related changes into reviewable commits/PRs. Each progress report should state: what changed, why, verification/evidence, remaining gaps and the next dependency-ordered step.
 
 Routine development, testing, debugging and transitions between already agreed phases are authorized without repeated “continue?” prompts. Real access, credential, spending and production-release gates still require their genuine controls.
+
+
+### Deployment/migration review
+
+- [x] Production market-quote migration review artifact exists with prerequisites, access-policy checks, validation sequence and non-destructive recovery steps.
+- [ ] Production market-quote migration applied — **approval required; not performed**.
+- [ ] Updated analysis/sync Edge Functions deployed — **production release gate; not performed**.
