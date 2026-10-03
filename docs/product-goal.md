@@ -281,3 +281,15 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Draft PR #8 `review/read-path-failfast-v2` is the canonical performance review, stacked on PR #6. Source/test head before docs: `c115b4c21445a33f99239ab0728f3121aa599c77`.
 - [ ] Run/assess the established PR Build Verification on the updated PR #8 head, then retarget PR #8 from temporary `main` back to `review/english-story-summary-v1` for a performance-only review diff.
 - [ ] Do not deploy either PR. After review verification, next task is read-only identification of the scheduled workload/cron family responsible for the ~15:45 database-capacity saturation.
+
+
+### Read-path containment review verification
+
+- [x] Canonical patch is draft PR #8, stacked on PR #6; PR #7 is closed/unmerged.
+- [x] Verified head `8a9e7e6eef3d71ea3d988acb553b05f271aaf8e6` passed GitHub run `37138137494`.
+- [x] New real-evidence contract assertions confirm 15s bounded PostgREST reads, disabled automatic DB retries, explicit read-failure-not-fixture-absence semantics, authority-RPC degradation provenance, and bounded story upstream reads.
+- [x] Provider/market, evidence independence, player identity, build/static routes and rendered desktop/mobile flows remained green; Playwright public flow = `22/22`.
+- [x] Artifact `11280045244`, digest `sha256:98844a8f0ecd50e9884dba00c28ff606d8c1c1c16fe3bac34b27df387dae33c1`.
+- [x] PR #8 base restored to `review/english-story-summary-v1` after workflow verification so its active review diff remains performance-only.
+- [ ] Production is unchanged; no claim is made that the containment patch has reduced live latency.
+- [ ] Next bounded task: read-only map cron job IDs active during the 15:45–16:15 saturation window to their functions/runtime distributions and identify one dominant workload family before proposing any schedule/DB change.
