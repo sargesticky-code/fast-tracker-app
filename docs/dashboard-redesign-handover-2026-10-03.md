@@ -268,3 +268,14 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
 - Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
 - Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
 - No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
+
+
+## English cached story-summary repair review — 2026-10-04
+
+- Non-production review branch: `review/english-story-summary-v1`, created from current `main`; production remains unchanged.
+- Pre-existing CI defect reproduced from PR #5 evidence: `scripts/check-english-story-contract.mjs` requires the Phase-1 feed to prefer English cached story summaries, while `app-phase1-feed` queried `match_interpretations.language = "zh-HK"`.
+- Bounded source repair changes only that cache selector to `language = "en"`. It does not translate stored Chinese text, invent English prose, or alter recommendation mathematics, market-family gates, stale/reference actionability, canonical identity, or unknown-not-zero behavior.
+- When no English cached summary exists, the feed leaves the story summary absent. Existing detail/article behavior must therefore use the English story endpoint/deterministic evidence-grounded fallback rather than surfacing a Chinese cache entry.
+- Verification route is GitHub Actions, not local sandbox/npm/DNS. Required checks: English story contract, build/static routes, rendered homepage → detail → article flow, and existing stale/missing-English safety tests.
+- Read-only live comparisons remain separate evidence and must not be represented as proof of the unreleased branch.
+- No merge, production deployment, Edge release, migration/DB mutation, generated-feed publication, access expansion, or spending is authorized in this batch.
