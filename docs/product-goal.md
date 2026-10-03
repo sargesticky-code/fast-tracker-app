@@ -228,3 +228,12 @@ Routine development, testing, debugging and transitions between already agreed p
 - Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
 - Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
 - No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
+
+
+## English story-summary cache selector review — 2026-10-04
+
+- [x] Review source now prefers cached `match_interpretations` rows with `language = en` instead of `zh-HK` for the public Phase-1 story summary.
+- [x] Missing English cache remains missing; review code does not translate or reuse a Chinese cached summary as English.
+- [ ] GitHub CI must pass `check:story`, full build/static-route checks and affected rendered homepage → detail → article tests before this review can be accepted.
+- [ ] Real live English-cache availability remains to be measured read-only; deterministic CI fallback coverage does not prove current production cache completeness.
+- [ ] Production remains unchanged until a separate authorized release gate.
