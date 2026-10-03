@@ -349,10 +349,10 @@ index 8651a5b..66e1222 100644
        </main>
      );
 diff --git a/docs/REDESIGN_CHECKLIST.md b/docs/REDESIGN_CHECKLIST.md
-index da56a16..855f5bb 100644
+index da56a16..b37726d 100644
 --- a/docs/REDESIGN_CHECKLIST.md
 +++ b/docs/REDESIGN_CHECKLIST.md
-@@ -62,3 +62,22 @@ Before stopping a redesign session, record:
+@@ -62,3 +62,46 @@ Before stopping a redesign session, record:
  - what was deliberately not changed;
  - mocked vs real verification status;
  - next concrete UI gap.
@@ -375,11 +375,35 @@ index da56a16..855f5bb 100644
 +- Safety gates remain fail-closed: unknown is not zero; unresolved canonical fixture/player identity is not promoted; stale/reference-only prices remain non-actionable / NO_BET.
 +- Still outstanding before dashboard delivery: production Phase-1 RPC 57014 tail latency; live story fix not released/verified against the real endpoint; current canonical fixture/feed recovery not proven; real-device/live mobile acceptance remains separate from deterministic CI mobile coverage.
 +- No merge, production/preview deployment, Edge release, migration, DB write, generated feed publication, access expansion or spending is authorized by this checkpoint.
++
++## Focused PR4 source review acceptance — 2026-10-03
++
++- Reviewed source base remains `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #4 source revision `acf362499f0f0ce293a975be24b0ff004eb962a2` was reviewed against the exact base and its directly affected dependencies.
++- Six executable source/test blobs at that revision:
++  - homepage `74f9487aef1d3ea82f8857866c0a4ed55d622d76`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `83f51b47d38399a35a03fb709c07b43a9bc307b5`
++  - recovery browser flow `0495f7e99426dab2279c585824ec0d29c06bf8f8`
++- One actionable review defect was found and fixed before acceptance: after a successful fixture refresh followed by an outage, retained rows were visible without an explicit stale/freshness warning. The UI now labels them as cached and states that freshness is unknown until refresh recovers.
++- Race precedence is now covered in both orders: a fresh Phase-1 fixture survives a later `fixtureSource=MISSING` detail response, and a later fresh Phase-1 fixture can recover the route after the missing-detail state was shown. Detail/lineup identity remains fail-closed while canonical detail identity is unresolved.
++- Source-confirmed unresolved lineup/player rows remain outside confirmed XI counts; unresolved counts render `—/11` or resolved-only counts, never a false zero.
++- Story numeric guards use `num(...)` before Corners/avg-goals formatting and do not enter missing-object dereference branches.
++- Revised CI-only carrier head: `a499db6e49c23803720d4f2aeeaf7cbced0f6151`.
++- Revised carrier CI run `37127248110`: SUCCESS; exact baseline/apply/blob/doc checks, contracts, static build, and 29/29 Playwright cases passed in 26.2s.
++- Revised screenshot artifact: `11275733021`, name `dashboard-redesign-f1e9d88a19e94465037d2e40a7b0b486cfff30fc`, digest `sha256:ce5380478ab1de3521160903a26156013cc099e82748ff3325c48c892ab5973e`.
++- PR #3 remains a CI verification carrier; neither carrier head is deployed patched source.
++- CI screenshots and browser cases remain deterministic/mocked coverage, not evidence that the live Supabase feed/story or real mobile device is healthy.
++- Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
++- Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
++- No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
 diff --git a/docs/dashboard-redesign-handover-2026-10-03.md b/docs/dashboard-redesign-handover-2026-10-03.md
-index e0d7ec0..50510f0 100644
+index e0d7ec0..c220f33 100644
 --- a/docs/dashboard-redesign-handover-2026-10-03.md
 +++ b/docs/dashboard-redesign-handover-2026-10-03.md
-@@ -177,3 +177,22 @@ The next bounded delivery gap is to make the redesigned dashboard reviewable thr
+@@ -177,3 +177,46 @@ The next bounded delivery gap is to make the redesigned dashboard reviewable thr
  - do not turn this into a provider census or scraping expansion.
  
  Until that is verified, CI screenshots remain the authoritative exact-head review surface and no claim should be made that the public Workers/Railway UI serves the review branch.
@@ -402,11 +426,35 @@ index e0d7ec0..50510f0 100644
 +- Safety gates remain fail-closed: unknown is not zero; unresolved canonical fixture/player identity is not promoted; stale/reference-only prices remain non-actionable / NO_BET.
 +- Still outstanding before dashboard delivery: production Phase-1 RPC 57014 tail latency; live story fix not released/verified against the real endpoint; current canonical fixture/feed recovery not proven; real-device/live mobile acceptance remains separate from deterministic CI mobile coverage.
 +- No merge, production/preview deployment, Edge release, migration, DB write, generated feed publication, access expansion or spending is authorized by this checkpoint.
++
++## Focused PR4 source review acceptance — 2026-10-03
++
++- Reviewed source base remains `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #4 source revision `acf362499f0f0ce293a975be24b0ff004eb962a2` was reviewed against the exact base and its directly affected dependencies.
++- Six executable source/test blobs at that revision:
++  - homepage `74f9487aef1d3ea82f8857866c0a4ed55d622d76`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `83f51b47d38399a35a03fb709c07b43a9bc307b5`
++  - recovery browser flow `0495f7e99426dab2279c585824ec0d29c06bf8f8`
++- One actionable review defect was found and fixed before acceptance: after a successful fixture refresh followed by an outage, retained rows were visible without an explicit stale/freshness warning. The UI now labels them as cached and states that freshness is unknown until refresh recovers.
++- Race precedence is now covered in both orders: a fresh Phase-1 fixture survives a later `fixtureSource=MISSING` detail response, and a later fresh Phase-1 fixture can recover the route after the missing-detail state was shown. Detail/lineup identity remains fail-closed while canonical detail identity is unresolved.
++- Source-confirmed unresolved lineup/player rows remain outside confirmed XI counts; unresolved counts render `—/11` or resolved-only counts, never a false zero.
++- Story numeric guards use `num(...)` before Corners/avg-goals formatting and do not enter missing-object dereference branches.
++- Revised CI-only carrier head: `a499db6e49c23803720d4f2aeeaf7cbced0f6151`.
++- Revised carrier CI run `37127248110`: SUCCESS; exact baseline/apply/blob/doc checks, contracts, static build, and 29/29 Playwright cases passed in 26.2s.
++- Revised screenshot artifact: `11275733021`, name `dashboard-redesign-f1e9d88a19e94465037d2e40a7b0b486cfff30fc`, digest `sha256:ce5380478ab1de3521160903a26156013cc099e82748ff3325c48c892ab5973e`.
++- PR #3 remains a CI verification carrier; neither carrier head is deployed patched source.
++- CI screenshots and browser cases remain deterministic/mocked coverage, not evidence that the live Supabase feed/story or real mobile device is healthy.
++- Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
++- Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
++- No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
 diff --git a/docs/product-goal.md b/docs/product-goal.md
-index 7231796..284abc9 100644
+index 7231796..d79ca0a 100644
 --- a/docs/product-goal.md
 +++ b/docs/product-goal.md
-@@ -137,3 +137,22 @@ Routine development, testing, debugging and transitions between already agreed p
+@@ -137,3 +137,46 @@ Routine development, testing, debugging and transitions between already agreed p
  - [ ] External player-ID ingestion map for FOTMOB/Flashscore to canonical `phase2_players` — exact upstream identity dependency, not solved by fuzzy promotion.
  
  - [x] Rendered responsive coverage includes populated/partial/empty Goals/Corners states on desktop and mobile, including keyboard expansion of secondary market metadata and homepage → detail → markets → article flow.
@@ -429,6 +477,30 @@ index 7231796..284abc9 100644
 +- Safety gates remain fail-closed: unknown is not zero; unresolved canonical fixture/player identity is not promoted; stale/reference-only prices remain non-actionable / NO_BET.
 +- Still outstanding before dashboard delivery: production Phase-1 RPC 57014 tail latency; live story fix not released/verified against the real endpoint; current canonical fixture/feed recovery not proven; real-device/live mobile acceptance remains separate from deterministic CI mobile coverage.
 +- No merge, production/preview deployment, Edge release, migration, DB write, generated feed publication, access expansion or spending is authorized by this checkpoint.
++
++## Focused PR4 source review acceptance — 2026-10-03
++
++- Reviewed source base remains `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #4 source revision `acf362499f0f0ce293a975be24b0ff004eb962a2` was reviewed against the exact base and its directly affected dependencies.
++- Six executable source/test blobs at that revision:
++  - homepage `74f9487aef1d3ea82f8857866c0a4ed55d622d76`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `83f51b47d38399a35a03fb709c07b43a9bc307b5`
++  - recovery browser flow `0495f7e99426dab2279c585824ec0d29c06bf8f8`
++- One actionable review defect was found and fixed before acceptance: after a successful fixture refresh followed by an outage, retained rows were visible without an explicit stale/freshness warning. The UI now labels them as cached and states that freshness is unknown until refresh recovers.
++- Race precedence is now covered in both orders: a fresh Phase-1 fixture survives a later `fixtureSource=MISSING` detail response, and a later fresh Phase-1 fixture can recover the route after the missing-detail state was shown. Detail/lineup identity remains fail-closed while canonical detail identity is unresolved.
++- Source-confirmed unresolved lineup/player rows remain outside confirmed XI counts; unresolved counts render `—/11` or resolved-only counts, never a false zero.
++- Story numeric guards use `num(...)` before Corners/avg-goals formatting and do not enter missing-object dereference branches.
++- Revised CI-only carrier head: `a499db6e49c23803720d4f2aeeaf7cbced0f6151`.
++- Revised carrier CI run `37127248110`: SUCCESS; exact baseline/apply/blob/doc checks, contracts, static build, and 29/29 Playwright cases passed in 26.2s.
++- Revised screenshot artifact: `11275733021`, name `dashboard-redesign-f1e9d88a19e94465037d2e40a7b0b486cfff30fc`, digest `sha256:ce5380478ab1de3521160903a26156013cc099e82748ff3325c48c892ab5973e`.
++- PR #3 remains a CI verification carrier; neither carrier head is deployed patched source.
++- CI screenshots and browser cases remain deterministic/mocked coverage, not evidence that the live Supabase feed/story or real mobile device is healthy.
++- Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
++- Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
++- No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
 diff --git a/scripts/check-recovery-source-contract.mjs b/scripts/check-recovery-source-contract.mjs
 new file mode 100644
 index 0000000..83f51b4
@@ -530,10 +602,10 @@ index 84d0a61..bb018da 100644
    }
 diff --git a/tests/recovery-flow.spec.js b/tests/recovery-flow.spec.js
 new file mode 100644
-index 0000000..0495f7e
+index 0000000..cd51f66
 --- /dev/null
 +++ b/tests/recovery-flow.spec.js
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,223 @@
 +const { test, expect } = require("@playwright/test");
 +
 +const json = (route, body, status = 200) =>
@@ -674,6 +746,7 @@ index 0000000..0495f7e
 +  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
 +  await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
 +  await expect(page.locator(".ft-result-count")).toContainText("cached matches · feed unavailable");
++  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-cached-outage.png", fullPage: true });
 +});
 +
 +test("fresh feed match wins when missing canonical detail resolves later", async ({ page }) => {
@@ -684,6 +757,7 @@ index 0000000..0495f7e
 +  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
 +  const summary = page.locator("details.lineup-tool-disclosure > summary");
 +  await expect(summary).toContainText("CANONICAL FIXTURE UNRESOLVED");
++  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-race-fresh-first.png", fullPage: true });
 +});
 +
 +test("fresh feed match can recover the route after missing canonical detail resolves first", async ({ page }) => {
@@ -692,6 +766,7 @@ index 0000000..0495f7e
 +
 +  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
 +  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-race-detail-first.png", fullPage: true });
 +});
 +
 +test("missing canonical fixture exits loading and unresolved lineup identity stays unknown", async ({ page }) => {
@@ -718,4 +793,39 @@ index 0000000..0495f7e
 +  await expect(summary).toContainText("—/11 home");
 +  await expect(summary).toContainText("identity not complete");
 +  await expect(summary).not.toContainText("0/11 home");
++});
++
++test("mobile cached outage state is visibly marked freshness unknown", async ({ page }) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await page.addInitScript(() => {
++    const nativeSetInterval = window.setInterval.bind(window);
++    window.setInterval = (fn, delay, ...args) =>
++      nativeSetInterval(fn, delay === 60000 ? 150 : delay, ...args);
++  });
++  await routeRecoveryApis(page, { feed: "freshThenOutage" });
++  await page.goto("http://127.0.0.1:4173/");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
++  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-cached-outage.png", fullPage: true });
++});
++
++test("mobile fresh-first race keeps fresh match visible", async ({ page }) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", detailDelayMs: 180 });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-race-fresh-first.png", fullPage: true });
++});
++
++test("mobile detail-first race recovers to fresh match", async ({ page }) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", feedDelayMs: 180 });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-race-detail-first.png", fullPage: true });
 +});
