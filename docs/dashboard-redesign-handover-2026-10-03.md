@@ -268,3 +268,61 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
 - Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
 - Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
 - No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
+
+
+## Bounded production recovery checkpoint — 2026-10-03 15:11–15:41 UTC
+
+Authorization basis:
+- Human instruction in Chat: **“fix everything holistically now”**.
+- Before any write, Chat explicitly narrowed that instruction to the measured backend/RPC recovery path and stated that changes would remain bounded and reversible.
+- No expanded credentials/access, paid source, scraping expansion or invented data was introduced.
+
+Exact persisted production changes:
+- Applied Supabase migration `20261003151456_scope_phase1_feed_to_authority_ids`.
+  - Scope: constrain `private.market_current` and `private.prediction_evidence_current` aggregation inside `public.ft_internal_app_phase1_feed(integer)` to the current authority IDs.
+  - Pre-apply semantic parity check returned zero market/evidence diff rows across the then-current authority set.
+- Deployed `app-match-story` **v27**, current platform digest `cc040f4fe4bf8267ebf3675fe74438b4b0e221ac5860fa602bf3e6ed3981308d`.
+  - Repository source blob `bb018da84110b4782632fdf9deb9fa1ab34b0875` is byte-for-byte equal to deployed source.
+  - Null-safe Forebet/corners guards prevent absent data from being dereferenced or converted to invented zeroes.
+- Deployed `app-phase1-feed` **v56**, current platform digest `3dc1652a693e691d0cb3644d41a6c836dc783030151eab6d99b40f9a05eff77c`.
+  - Repository source blob `d4fe3769ddc4c1483959d6b296330a68c0a19abf` is byte-for-byte equal to deployed source.
+  - Adds bounded `view=summary` mode for homepage first paint while retaining full mode for system/detail consumers.
+  - Independent enrichment reads were started concurrently; homepage no longer forces `cache: "no-store"`.
+- Deployed `frontend-route-guard` **v5**, current platform digest `108c3b70282d48359a57f7815fe5b530a59877903e37b388f67837666f87aee4`.
+  - Guard now validates the actual Cloudflare static/query routing model instead of obsolete Railway-only path assumptions.
+  - **Source drift remains:** deployed v5 is not yet represented by the repository file at current main; do not call this closed until the exact v5 source is persisted/reviewed.
+- Updated `system_config.dashboard_primary_url` from the stale Railway URL to the active Cloudflare public URL `https://fast-tracker-app.sargesticky.workers.dev/`.
+- Main commits produced by this bounded recovery:
+  - `105cd460114090ee2e7aeb5342a5b8b3e6a8d17d` — reduce Phase-1 feed latency / honor short cache.
+  - `1db0132c43397e089aa7d17f06c58e288448e2a3` — English-first public detail labels.
+  - `25e4fe3ad3f739cc45665865d0a2d31c0bc8fc03` — pending lineup counts remain unknown (`—/11`), not zero.
+  - `7fedf752998b4312b08281ae630a3008bb07e593` — summary/full feed split.
+  - `6c826bad04e7f31bb61a8e0a2816124dc4129872` — current live score/current live HKJC prices on homepage cards; prematch edge is not relabelled as a live edge.
+- Recovery source baseline before these main commits: `ce9528d2702fd0a162daa20cadba6427fef45117`.
+
+Measured / rendered verification:
+- Full Phase-1 RPC was profiled after authority scoping at roughly sub-100ms SQL execution in a quiet EXPLAIN run, but full Edge mode still shows multi-second network/enrichment tail and is **not claimed solved**.
+- In observed v56 logs, `?hours=24&view=summary` had no 5xx and materially lower latency than full mode; first measured summary request was 1.487s. A later small sample (4 requests) showed avg 2.693s, p50 3.926s, max 4.675s; full v56 requests remained materially slower.
+- Public Cloudflare build for current main `6c826bad...` completed successfully:
+  - Build ID `b18428e2-7255-49d5-b6cd-d3c407a23d8b`
+  - Version ID `f69746c8-1fc9-4ba3-b873-8415a135d54b`
+- Real public homepage rendered current live score and current live HKJC HDA prices (for example Reading–Bradford and Almeria–Burgos) rather than the prior flat-field fallback.
+- Real detail page `/details/?id=FB6175&ui=homepage-v1` rendered English team/league labels.
+- The same real detail page marked the article price as **Not current / Stale or reference only** and displayed **“Stale-price protection is active”**; the narrative was explicitly non-actionable until a fresh market observation is available.
+- Missing/pending lineup evidence is preserved as unknown and is not promoted to a confirmed zero count.
+
+Rollback evidence:
+- Frontend/repository rollback boundary is exact: parent before this production recovery series is `ce9528d2702fd0a162daa20cadba6427fef45117`; each recovery commit above has a normal single-parent chain and can be reverted independently.
+- Immediately observed pre-release Edge states during this chat were:
+  - `app-phase1-feed` v54, digest `49df35243527a04ac1f627189b50e9ed641a7e976c79c6a4f88b7d200a74f990`.
+  - `app-match-story` v26, digest `eadfa31e0f80b137599a470fecd059879f6603ba05118c95c497a989323b5abd`.
+  - `frontend-route-guard` v4, digest `69a5048eeb6b8c4c59f7b740b4768c565890ab40334a788c4f0d15c1ca8297b6`.
+- RPC rollback SQL was not separately committed as a standalone artifact before migration application; therefore do not claim a one-command RPC rollback artifact exists. Recovery remains reconstructable from repository migration history plus the recorded pre-change function inspection, but a durable exact rollback SQL artifact is still a documentation gap.
+
+Still unverified / deliberately not expanded:
+- Full-feed multi-second latency remains; summary mode reduces homepage cost but does not solve all Edge enrichment latency.
+- `frontend-route-guard` v5 repository source parity remains open.
+- Current second-bookmaker overlap remains unverified; no “best price”/multi-bookmaker claim is authorized.
+- Forebet outage/coverage gaps, unresolved FotMob/Flashscore canonical IDs, missing source URLs/training periods and broader provider work remain unchanged.
+- No claim of real-device mobile acceptance was added.
+- Existing identity/freshness rules remain: real stats only, unknown ≠ zero, provider/book/market/line/price/as-of preserved, stale/reference-only prices non-actionable.
