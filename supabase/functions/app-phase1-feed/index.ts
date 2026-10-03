@@ -281,7 +281,7 @@ Deno.serve(async (req: Request) => {
         .from("match_interpretations")
         .select("hkjc_event_id,match_script:payload->matchScript,editorial_alignment:payload->editorialAlignment")
         .in("hkjc_event_id", eventIds)
-        .eq("language", "zh-HK")
+        .eq("language", "en")
         .eq("style", "professional");
       if (storyError) {
         console.error("story_summary_query_failed", storyError);

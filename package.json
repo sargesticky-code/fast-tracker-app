@@ -6,13 +6,23 @@
     "dev": "next dev",
     "build": "npm run check:ui && next build",
     "start": "next start",
-    "check:ui": "node scripts/check-visible-escapes.mjs"
+    "check:ui": "node scripts/check-visible-escapes.mjs",
+    "check:story": "node scripts/check-english-story-contract.mjs",
+    "check:market-contract": "node scripts/check-market-provider-contract.mjs",
+    "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
+    "check:evidence-independence": "node scripts/check-evidence-independence.mjs",
+    "check:player-evidence": "node scripts/check-player-evidence-identity.mjs"
   },
   "dependencies": {
+    "@withqwerty/campos-stadia": "0.1.0-beta.6",
+    "lucide-react": "^0.468.0",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "recharts": "3.10.1",
-    "@withqwerty/campos-stadia": "0.1.0-beta.6"
+    "react-day-picker": "^9.11.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   }
 }

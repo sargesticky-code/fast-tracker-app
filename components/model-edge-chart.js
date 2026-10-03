@@ -36,7 +36,7 @@ function EdgeTooltip({ active, payload, marketPct }) {
   return (
     <div className="model-edge-tooltip">
       <strong>{row.model}</strong>
-      <span>模型 {row.probability.toFixed(1)}%</span>
+      <span>Model {row.probability.toFixed(1)}%</span>
       <span>HKJC fair {marketPct == null ? "—" : marketPct.toFixed(1) + "%"}</span>
       <b>{row.edge == null ? "—" : (row.edge >= 0 ? "+" : "") + row.edge.toFixed(1) + "% edge"}</b>
     </div>
@@ -63,7 +63,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
     return (
       <div className="model-edge-empty">
         <span>MULTI-MODEL VIEW</span>
-        <p>暫時未有足夠模型資料做 visual comparison。</p>
+        <p>There is not enough model evidence for a visual comparison yet.</p>
       </div>
     );
   }
@@ -75,11 +75,11 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
       <div className="model-edge-chart-head">
         <div>
           <span>MULTI-MODEL VIEW</span>
-          <h3>各模型對目前投注位嘅支持程度</h3>
+          <h3>Model support for the current market position</h3>
         </div>
         <div className="model-support-score">
           <strong>{support}/{data.length}</strong>
-          <span>高於 HKJC fair</span>
+          <span>above HKJC fair</span>
         </div>
       </div>
 
@@ -129,8 +129,8 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
       </div>
 
       <div className="model-edge-legend">
-        <span><i className="support"></i>高過市場 = 支持目前 Edge</span>
-        <span><i className="against"></i>低過市場 = 唔支持</span>
+        <span><i className="support"></i>Above market = supports the current edge</span>
+        <span><i className="against"></i>Below market = does not support it</span>
       </div>
     </div>
   );

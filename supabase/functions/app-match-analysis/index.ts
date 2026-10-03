@@ -34,7 +34,7 @@ function p(v: unknown): number | null {
 }
 
 type T = { home: number; draw: number; away: number };
-type Family = { key: string; label: string; probs: T; weight: number; sources?: number };
+type Family = { key: string; label: string; probs: T; weight: number; sources?: number; provenanceGroup?: string; memberKeys?: string[]; independentEligible?: boolean };
 
 function triplet(h: unknown, d: unknown, a: unknown): T | null {
   const home = p(h), draw = p(d), away = p(a);
@@ -61,6 +61,43 @@ function weighted(items: Family[]): T | null {
     draw: items.reduce((s, x) => s + x.probs.draw * x.weight, 0) / w,
     away: items.reduce((s, x) => s + x.probs.away * x.weight, 0) / w,
   };
+}
+
+function provenanceGroup(sourceValue: unknown, fallback: string) {
+  const source = String(sourceValue || "").toLowerCase();
+  if (source.includes("forebet")) return "FOREBET";
+  if (source.includes("brazilianfootball") || source.includes("brazil serie b full-league")) return "BRAZILIANFOOTBALL_SHARED";
+  if (source.includes("football-data.co.uk") || source.includes("football data co uk")) return "FOOTBALL_DATA_CO_UK";
+  if (source.includes("martj42")) return "MARTJ42_INTERNATIONAL_RESULTS";
+  if (source.includes("hkjc")) return "HKJC_RESULTS";
+  return fallback;
+}
+
+function knownProvenanceGroup(sourceValue: unknown) {
+  const group = provenanceGroup(sourceValue, "UNKNOWN");
+  return group === "UNKNOWN" ? null : group;
+}
+
+function collapseCorrelatedFamilies(items: Family[]): Family[] {
+  const grouped = new Map<string, Family[]>();
+  for (const item of items.filter((row) => row.independentEligible !== false)) {
+    const key = item.provenanceGroup || item.key;
+    grouped.set(key, [...(grouped.get(key) || []), item]);
+  }
+  return [...grouped.entries()].map(([group, members]) => {
+    if (members.length === 1) return { ...members[0], provenanceGroup: group, memberKeys: [members[0].key] };
+    const w = members.reduce((sum, item) => sum + item.weight, 0);
+    const probs = weighted(members) || members[0].probs;
+    return {
+      key: members.map((item) => item.key).join("+"),
+      label: members.map((item) => item.label).join(" + ") + " (shared history)",
+      probs,
+      weight: w > 0 ? w / members.length : 1,
+      sources: members.reduce((sum, item) => sum + Math.max(1, Number(item.sources || 1)), 0),
+      provenanceGroup: group,
+      memberKeys: members.map((item) => item.key),
+    };
+  });
 }
 
 function pick(t: T | null): "H" | "D" | "A" | null {
@@ -148,6 +185,23 @@ function statusIsLive(token: string) {
 
 function statusIsPrematch(token: string) {
   return ["PREEVENT", "PREMATCH", "UPCOMING", "SCHEDULED", "NOTSTARTED"].includes(token);
+}
+
+function statusIsTerminal(token: string) {
+  return [
+    "FULLTIME",
+    "FINISHED",
+    "FT",
+    "ENDED",
+    "MATCHENDED",
+    "INPLAYMATCHENDED",
+    "AET",
+    "PEN",
+    "CANCELLED",
+    "CANCELED",
+    "VOID",
+    "ABANDONED",
+  ].includes(token);
 }
 
 function inferredLiveMinute(explicit: unknown, kickoff: unknown) {
@@ -493,6 +547,62 @@ function oneError(e: any) {
   return e ? { code: e.code ?? null, message: e.message ?? String(e) } : null;
 }
 
+function normalizedSide(value:any){
+  const side=String(value||"").trim().toUpperCase();
+  if(side==="H"||side==="HOME") return "H";
+  if(side==="A"||side==="AWAY") return "A";
+  return null;
+}
+function compactToken(value:any){
+  return String(value||"").trim().toLowerCase().replace(/\s+/g," ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+}
+function evidenceKey(table:string,row:any,idFallback:string){
+  const rowId=String(row?.id??"").trim();
+  return rowId ? `${table}:${rowId}` : `${table}:${idFallback}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
+}
+function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
+  return [
+    String(row?.hkjc_event_id||""),
+    normalizedSide(row?.team_side)||"?",
+    canonicalIdentity || "UNRESOLVED:" + compactToken(row?.player_name||row?.raw?.player?.name||row?.raw?.player_name||row?.player_key||"unknown"),
+    compactToken(row?.status_type),
+    compactToken(row?.status_value),
+  ].join("|");
+}
+function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalName:string,teamKey:string}>,table:string,idFallback:string){
+  const playerKey=String(row?.player_key||"").trim();
+  const side=normalizedSide(row?.team_side);
+  const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
+  const canonical=Boolean(canonicalPlayer);
+  const canonicalIdentity=canonicalPlayer
+    ? compactToken(canonicalPlayer.teamKey) + ":" + compactToken(canonicalPlayer.canonicalName)
+    : null;
+  const sourceConfirmed=row?.confirmed===true;
+  const factStatus=sourceConfirmed&&canonical
+    ?"CONFIRMED"
+    : sourceConfirmed
+      ?"SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"
+      :"UNCONFIRMED";
+  return {
+    ...row,
+    team_side:side||row?.team_side||null,
+    evidence_key:evidenceKey(table,row,idFallback),
+    source_link:row?.source_url||null,
+    identity_status:canonical?"CANONICAL":"UNRESOLVED",
+    fact_status:factStatus,
+    record_group:playerClaimFingerprint(row),
+  };
+}
+function uniqueConfirmedClaims(rows:any[]){
+  const out=new Map<string,any>();
+  for(const row of rows){
+    if(row?.fact_status!=="CONFIRMED") continue;
+    const key=String(row?.record_group||"");
+    if(!out.has(key)) out.set(key,row);
+  }
+  return [...out.values()];
+}
+
 type BinaryModel = {
   key: string;
   label: string;
@@ -500,7 +610,36 @@ type BinaryModel = {
   weight: number;
   sources?: number;
   method?: string;
+  provenanceGroup?: string;
+  memberKeys?: string[];
+  independentEligible?: boolean;
 };
+
+
+function collapseCorrelatedBinaryModels(items: BinaryModel[]): BinaryModel[] {
+  const grouped = new Map<string, BinaryModel[]>();
+  for (const item of items.filter((row) => row.independentEligible !== false)) {
+    const key = item.provenanceGroup || item.key;
+    grouped.set(key, [...(grouped.get(key) || []), item]);
+  }
+  return [...grouped.entries()].map(([group, members]) => {
+    if (members.length === 1) return { ...members[0], provenanceGroup: group, memberKeys: [members[0].key] };
+    const w = members.reduce((sum, item) => sum + item.weight, 0);
+    const over = w > 0
+      ? members.reduce((sum, item) => sum + item.over * item.weight, 0) / w
+      : members.reduce((sum, item) => sum + item.over, 0) / members.length;
+    return {
+      key: members.map((item) => item.key).join("+"),
+      label: members.map((item) => item.label).join(" + ") + " (shared history)",
+      over,
+      weight: w > 0 ? w / members.length : 1,
+      sources: members.reduce((sum, item) => sum + Math.max(1, Number(item.sources || 1)), 0),
+      method: "CORRELATED_SOURCE_GROUP",
+      provenanceGroup: group,
+      memberKeys: members.map((item) => item.key),
+    };
+  });
+}
 
 function fairBinary(overOddsValue: unknown, underOddsValue: unknown) {
   const overOdds = n(overOddsValue);
@@ -579,7 +718,8 @@ function buildBinaryAdvice(opts: {
 }) {
   const line = n(opts.lineValue);
   const market = fairBinary(opts.overOdds, opts.underOdds);
-  const models = opts.models.filter((m) => Number.isFinite(m.over) && m.over >= 0 && m.over <= 1 && m.weight > 0);
+  const rawModels = opts.models.filter((m) => Number.isFinite(m.over) && m.over >= 0 && m.over <= 1 && m.weight > 0);
+  const models = collapseCorrelatedBinaryModels(rawModels);
   const weight = models.reduce((s, m) => s + m.weight, 0);
   const modelOver = weight > 0 ? models.reduce((s, m) => s + m.over * m.weight, 0) / weight : null;
   const modelUnder = modelOver === null ? null : 1 - modelOver;
@@ -688,9 +828,9 @@ function buildBinaryAdvice(opts: {
     line,
     selection,
     selectionLabel,
-    currentOdds: opts.fallbackMode ? null : odds,
-    referenceOdds: opts.fallbackMode ? odds : null,
-    oddsStatus: opts.fallbackMode ? "REFERENCE_STALE" : "CURRENT",
+    currentOdds: (!opts.fresh || opts.fallbackMode) ? null : odds,
+    referenceOdds: (!opts.fresh || opts.fallbackMode) ? odds : null,
+    oddsStatus: (!opts.fresh || opts.fallbackMode) ? "REFERENCE_STALE" : "CURRENT",
     marketFairProbability: marketProbability,
     analystConsensusProbability: modelProbability,
     candidateEdgePp: edgePp,
@@ -715,6 +855,9 @@ function buildBinaryAdvice(opts: {
       weight: m.weight,
       sources: m.sources ?? 1,
       method: m.method ?? null,
+      provenanceGroup: m.provenanceGroup ?? m.key,
+      memberKeys: m.memberKeys ?? [m.key],
+      independentEligible: m.independentEligible !== false,
     })),
     advice,
   };
@@ -810,8 +953,10 @@ Deno.serve(async (req: Request) => {
         multisource_ou_over:null,
         multisource_ou_under:null,
 
+        status:m?.status ?? null,
         health_status:"FALLBACK",
         hkjc_freshness:"DB_FALLBACK",
+        hkjc_price_changed_at:o?.odds_updated_at ?? null,
         decision:"CALIBRATION_PENDING_FALLBACK",
         decision_engine_version:"db_fallback_fail_closed_v2",
         evidence_channel_count:[
@@ -849,7 +994,7 @@ Deno.serve(async (req: Request) => {
 
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
-    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals
+    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals, formTotals
   ] = await Promise.all([
     one("human_factors_current"),
     one("api_football_event_map"),
@@ -864,7 +1009,24 @@ Deno.serve(async (req: Request) => {
     one("live_expected_actual_current"),
     many("match_scenario_current"),
     one("model_predictions"),
+    one("form_predictions"),
   ]);
+
+
+  const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
+  const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
+  let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string}>();
+  let playerIdentityError:any=null;
+  if(playerKeys.length){
+    const canonicalPlayers=await db.from("phase2_players").select("player_key,canonical_name,team_key").in("player_key",playerKeys);
+    if(canonicalPlayers.error) playerIdentityError=oneError(canonicalPlayers.error);
+    else canonicalPlayersByKey=new Map((canonicalPlayers.data||[]).map((row:any)=>[
+      String(row.player_key),
+      {canonicalName:String(row.canonical_name||row.player_key),teamKey:String(row.team_key||"")}
+    ]));
+  }
+  const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence",id));
+  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence",id));
 
   const forebet = triplet(r.forebet_home, r.forebet_draw, r.forebet_away);
   const dc = triplet(r.dc_home, r.dc_draw, r.dc_away);
@@ -874,9 +1036,29 @@ Deno.serve(async (req: Request) => {
   const internal = avgTriplets([dc, pi].filter(Boolean) as T[]);
 
   const families: Family[] = [];
-  if (forebet) families.push({ key: "FOREBET", label: "Forebet", probs: forebet, weight: 1 });
-  if (internal) families.push({ key: "INTERNAL", label: "Dixon-Coles + Pi family", probs: internal, weight: 1 });
-  if (form) families.push({ key: "FORM", label: "Team Form", probs: form, weight: 0.9 });
+  if (forebet) families.push({ key: "FOREBET", label: "Forebet", probs: forebet, weight: 1, provenanceGroup: "FOREBET" });
+  if (internal) {
+    const provenance = knownProvenanceGroup(modelTotals.data?.model_source ?? r.internal_model_source);
+    families.push({
+      key: "INTERNAL",
+      label: "Dixon-Coles + Pi family",
+      probs: internal,
+      weight: 1,
+      provenanceGroup: provenance ?? "INTERNAL_UNKNOWN",
+      independentEligible: Boolean(provenance),
+    });
+  }
+  if (form) {
+    const provenance = knownProvenanceGroup(formTotals.data?.model_source);
+    families.push({
+      key: "FORM",
+      label: "Team Form",
+      probs: form,
+      weight: 0.9,
+      provenanceGroup: provenance ?? "FORM_UNKNOWN",
+      independentEligible: Boolean(provenance),
+    });
+  }
   const multiCount = Number(r.multisource_count ?? r.multisource_member_count ?? 0);
   if (multi) families.push({
     key: "MULTI",
@@ -884,7 +1066,13 @@ Deno.serve(async (req: Request) => {
     probs: multi,
     weight: multiCount >= 2 ? 0.75 : 0.35,
     sources: multiCount,
+    // Member provenance is not sufficiently explicit to prove disjointness
+    // from Forebet/other external predictions, so it is kept as its own
+    // uncertainty bucket rather than being treated as method-level evidence.
+    provenanceGroup: "MULTISOURCE_AGGREGATE",
+    independentEligible: false,
   });
+  const independentFamilies = collapseCorrelatedFamilies(families);
 
   const home = r.home_zh || r.home_en || "主隊";
   const away = r.away_zh || r.away_en || "客隊";
@@ -924,7 +1112,9 @@ Deno.serve(async (req: Request) => {
   let live = Boolean(r.live_now) ||
     (statusIsLive(liveStatusToken) && kickoffStarted && withinLiveWindow && recentLiveEvidence) ||
     (kickoffStarted && withinLiveWindow && recentLiveEvidence);
-  if (statusIsPrematch(liveStatusToken) && Number.isFinite(kickoffMs) && kickoffMs > nowMs - 2 * 60 * 1000) {
+  if (statusIsTerminal(liveStatusToken)) {
+    live = false;
+  } else if (statusIsPrematch(liveStatusToken) && Number.isFinite(kickoffMs) && kickoffMs > nowMs - 2 * 60 * 1000) {
     live = false;
   }
 
@@ -957,10 +1147,10 @@ Deno.serve(async (req: Request) => {
 
   const dcMean = (n(modelTotals.data?.dc_xg_home) ?? 0) + (n(modelTotals.data?.dc_xg_away) ?? 0);
   const prematchTotalMean = n(r.forebet_avg_goals) ?? (dcMean > 0 ? dcMean : 2.7);
-  const prematchConsensus = weighted(families);
+  const prematchConsensus = weighted(independentFamilies);
   const canStateAdjust = Boolean(live && prematchConsensus && scorePair && resolvedLiveMinute !== null);
   const decisionFamilies: Family[] = canStateAdjust
-    ? families.map((f) => ({
+    ? independentFamilies.map((f) => ({
         ...f,
         probs: liveStateAdjustedTriplet(
           f.probs,
@@ -971,7 +1161,7 @@ Deno.serve(async (req: Request) => {
           shadow,
         ),
       }))
-    : families;
+    : independentFamilies;
 
   const consensus = weighted(decisionFamilies);
   const market = live ? liveMarket : fairMarket(r);
@@ -1015,7 +1205,19 @@ Deno.serve(async (req: Request) => {
 
   const phase1HealthOk = String(r.health_status || "").toUpperCase() === "OK";
   const healthOk = live ? Boolean(market && decisionFamilies.length) : phase1HealthOk;
-  const fresh = live ? liveFresh : String(r.hkjc_freshness || "").toUpperCase() === "FRESH";
+  const prematchPriceAgeSeconds = secondsOld(
+    r.hkjc_price_changed_at ??
+    r.hkjc_odds_updated_at ??
+    r.hkjc_fetched_at
+  );
+  const prematchFresh = Boolean(
+    !kickoffStarted &&
+    !statusIsTerminal(liveStatusToken) &&
+    String(r.hkjc_freshness || "").toUpperCase() === "FRESH" &&
+    prematchPriceAgeSeconds !== null &&
+    prematchPriceAgeSeconds <= 6 * 60 * 60
+  );
+  const fresh = live ? liveFresh : prematchFresh;
   const pipelineGate = String(r.decision || "").toUpperCase();
   const calibrationPending = pipelineGate.includes("CALIBRATION") || pipelineGate === "";
 
@@ -1073,6 +1275,8 @@ Deno.serve(async (req: Request) => {
     live ? `${liveMetricCount} 項 live metrics` : null,
     liveContradiction ? "即場走勢與預期矛盾，降為觀望" : null,
     !fresh ? "市場價格 freshness 未通過" : null,
+    !live && kickoffStarted ? "賽事已開賽/完結，賽前價格只可作歷史參考" : null,
+    !live && prematchPriceAgeSeconds !== null ? `prematch price age ${Math.round(prematchPriceAgeSeconds)}s` : null,
     hardLiveDataGap ? "缺可靠比分／分鐘" : null,
     live && liveOddsAgeSeconds !== null ? `live price ${Math.round(liveOddsAgeSeconds)}s` : null,
   ].filter(Boolean);
@@ -1142,6 +1346,7 @@ Deno.serve(async (req: Request) => {
       over: typeof forebetGoals === "number" ? forebetGoals : forebetGoals.over,
       weight: 1,
       method: live ? "LIVE_RESIDUAL_POISSON" : forebetGoals.method,
+      provenanceGroup: "FOREBET",
     });
   }
   const dcGoalsOver = dcMean > 0 && goalsLine !== null
@@ -1156,6 +1361,35 @@ Deno.serve(async (req: Request) => {
       over: dcGoalsOver,
       weight: 0.9,
       method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
+      provenanceGroup: knownProvenanceGroup(modelTotals.data?.model_source) ?? "DIXON_COLES_UNKNOWN",
+      independentEligible: Boolean(knownProvenanceGroup(modelTotals.data?.model_source)),
+    });
+  }
+  const formRow:any = formTotals.data ?? null;
+  const formQuality = String(formRow?.quality ?? "").toUpperCase();
+  const formHomeGames = Number(formRow?.home_games ?? 0);
+  const formAwayGames = Number(formRow?.away_games ?? 0);
+  const formMean =
+    formQuality === "FORM_MODELED" &&
+    formHomeGames >= 8 &&
+    formAwayGames >= 8
+      ? (n(formRow?.form_xg_home) ?? 0) + (n(formRow?.form_xg_away) ?? 0)
+      : 0;
+  const formGoalsOver = formMean > 0 && goalsLine !== null
+    ? (live && resolvedLiveMinute !== null
+        ? liveResidualOver(formMean, currentGoalTotal, resolvedLiveMinute, currentGoalsLine, goalPaceRatio)
+        : poissonOver(formMean, goalsLine))
+    : null;
+  if (formGoalsOver !== null) {
+    goalsModels.push({
+      key: "FORM",
+      label: live ? "Team Form live residual" : "Team Form expected goals",
+      over: formGoalsOver,
+      weight: 0.9,
+      method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
+      sources: 1,
+      provenanceGroup: knownProvenanceGroup(formRow?.model_source) ?? "TEAM_FORM_UNKNOWN",
+      independentEligible: Boolean(knownProvenanceGroup(formRow?.model_source)),
     });
   }
   const multiGoalsOver = p(r.multisource_ou_over);
@@ -1167,6 +1401,8 @@ Deno.serve(async (req: Request) => {
       weight: multiCount >= 2 ? 0.75 : 0.35,
       sources: Math.max(1, multiCount),
       method: "NATIVE_OU25",
+      provenanceGroup: "MULTISOURCE_AGGREGATE",
+      independentEligible: false,
     });
   }
 
@@ -1229,9 +1465,21 @@ Deno.serve(async (req: Request) => {
       ? `HKJC live 現價 ${oddsText}`
       : `現價 ${oddsText}`;
 
-  const lineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
-  const injuryHome = Number(human.data?.raw?.injury_count_home ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="HOME").length ?? 0);
-  const injuryAway = Number(human.data?.raw?.injury_count_away ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="AWAY").length ?? 0);
+  const sourceLineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
+  const confirmedStatusClaims = uniqueConfirmedClaims(playerStatusRowsAnnotated);
+  const unresolvedStatusRows = playerStatusRowsAnnotated.filter((row:any)=>row.fact_status!=="CONFIRMED");
+  const confirmedLineupRows = lineupRowsAnnotated.filter((row:any)=>row.fact_status==="CONFIRMED");
+  const unresolvedLineupRows = lineupRowsAnnotated.filter((row:any)=>row.fact_status!=="CONFIRMED");
+  const lineupConfirmed = sourceLineupConfirmed && unresolvedLineupRows.length===0 && confirmedLineupRows.length>0;
+  // Count only canonically resolved, source-confirmed player claims. Multiple
+  // providers describing the same underlying player/status record collapse by
+  // record_group rather than becoming false independent corroboration.
+  const injuryHome = confirmedStatusClaims.length
+    ? confirmedStatusClaims.filter((x:any)=>normalizedSide(x.team_side)==="H").length
+    : null;
+  const injuryAway = confirmedStatusClaims.length
+    ? confirmedStatusClaims.filter((x:any)=>normalizedSide(x.team_side)==="A").length
+    : null;
   const humanQuality = human.data?.quality ?? (eventMap.data ? "MAPPED" : "NO_DATA");
 
   const liveState = live ? {
@@ -1261,7 +1509,7 @@ Deno.serve(async (req: Request) => {
   const marketSentence = market && consensus
     ? `${live ? "HKJC live" : "HKJC"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}；${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型中心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}。`
     : "市場或模型資料未足以建立可比較機率。";
-  const humanSentence = `Phase 2：${humanQuality}；傷停 evidence 主/客 ${injuryHome}/${injuryAway}；正選 ${lineupConfirmed ? "已確認" : "未確認"}。`;
+  const humanSentence = `Phase 2: ${humanQuality}; canonically resolved player-status claims home/away ${injuryHome ?? "unknown"}/${injuryAway ?? "unknown"}; unresolved player-status rows ${unresolvedStatusRows.length}; lineup ${lineupConfirmed ? "confirmed with resolved identities" : sourceLineupConfirmed ? "source-confirmed but identity reconciliation incomplete" : "not confirmed"}.`;
   const liveSentence = liveState
     ? `Phase 3：${liveState.minute ?? "—"}' ${liveState.score || "—"}；Expected-vs-Actual ${liveState.shadowStatus || "WAIT"}，預期控制 ${liveState.expectedSide || "—"}、實際控制 ${liveState.actualSide || "—"}，${liveState.metricCount} 個 live metrics。`
     : "Phase 3：賽事未進入可用 live evidence 狀態。";
@@ -1272,7 +1520,7 @@ Deno.serve(async (req: Request) => {
   if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");
   if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
   if (families.length < 2) invalidators.push("獨立 evidence family 少於 2");
-  if (!lineupConfirmed && !live) invalidators.push("Official XI 尚未確認");
+  if (!lineupConfirmed && !live) invalidators.push(sourceLineupConfirmed ? "Official XI source 已確認，但球員 identity reconciliation 未完整" : "Official XI 尚未確認");
   if (dispersion !== null && dispersion > 0.18) invalidators.push("模型分歧較大");
   if (!productionValidated) invalidators.push("Phase 5 calibration 未完成：只限制自動注碼，不取消人工 recommendation");
   if (liveState?.shadowStatus && ["CONTRADICTION","REJECT","RISK"].some(k => String(liveState.shadowStatus).toUpperCase().includes(k))) {
@@ -1350,9 +1598,10 @@ Deno.serve(async (req: Request) => {
   };
 
   const errors: any = {};
-  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,upcomingOdds,liveShadow,scenarios,modelTotals })) {
+  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,upcomingOdds,liveShadow,scenarios,modelTotals,formTotals })) {
     if ((v as any).error) errors[k] = (v as any).error;
   }
+  if (playerIdentityError) errors.playerIdentity = playerIdentityError;
 
   return Response.json({
     generatedAt: new Date().toISOString(),
@@ -1368,9 +1617,9 @@ Deno.serve(async (req: Request) => {
       market: "1X2",
       selection: bestSide,
       selectionLabel: selection,
-      currentOdds: fallbackMode ? null : bestOdds,
-      referenceOdds: fallbackMode ? bestOdds : null,
-      oddsStatus: fallbackMode ? "REFERENCE_STALE" : "CURRENT",
+      currentOdds: (!fresh || fallbackMode) ? null : bestOdds,
+      referenceOdds: (!fresh || fallbackMode) ? bestOdds : null,
+      oddsStatus: (!fresh || fallbackMode) ? "REFERENCE_STALE" : "CURRENT",
       marketFairProbability: marketProb,
       analystConsensusProbability: bestProb,
       candidateEdgePp: edgePpNow,
@@ -1413,18 +1662,80 @@ Deno.serve(async (req: Request) => {
     evidence: {
       market,
       consensus,
-      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, probabilities:f.probs, pick:pick(f.probs) })),
+      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, provenanceGroup:f.provenanceGroup ?? f.key, memberKeys:f.memberKeys ?? [f.key], independentEligible:f.independentEligible !== false, probabilities:f.probs, pick:pick(f.probs) })),
+      supplementalFamilies: families.filter(f => f.independentEligible === false).map(f => ({ key:f.key, label:f.label, provenanceGroup:f.provenanceGroup ?? f.key, reason:"member source-record lineage is not explicit enough to prove independence", probabilities:f.probs })),
       prematchConsensus,
       familySupport,
       phase1Health: {
         status: r.health_status,
-        freshness: r.hkjc_freshness,
+        freshness: fresh ? "FRESH" : "STALE",
+        upstreamFreshness: r.hkjc_freshness,
+        priceObservedAt: live
+          ? (liveOddsRow?.odds_updated_at ?? liveOddsRow?.fetched_at ?? r.live_odds_updated_at ?? r.live_fetched_at ?? null)
+          : (r.hkjc_price_changed_at ?? r.hkjc_odds_updated_at ?? r.hkjc_fetched_at ?? null),
+        fetchedAt: live
+          ? (liveOddsRow?.fetched_at ?? r.live_fetched_at ?? null)
+          : (r.hkjc_fetched_at ?? null),
+        priceAgeSeconds: live ? liveOddsAgeSeconds : prematchPriceAgeSeconds,
         sourceMode: fallbackMode ? "DB_FALLBACK_FAIL_CLOSED" : "CANONICAL_ACTIVE_FEED",
         evidenceChannelCount: r.evidence_channel_count,
         unifiedCoverageStatus: r.unified_coverage_status,
         diagnostics: r.diagnostic_codes ?? [],
+        evidenceKey: `hkjc_odds_current:${id}`,
+        sourceUrl: r.hkjc_source_url ?? null,
       },
-      phase2: { quality: humanQuality, injuryHome, injuryAway, lineupConfirmed, playerRows: playerStatus.data.length, lineupRows: lineups.data.length, managerRows: managers.data.length },
+      phase2: {
+        quality: humanQuality,
+        injuryHome,
+        injuryAway,
+        lineupConfirmed,
+        sourceLineupConfirmed,
+        playerRows: playerStatusRowsAnnotated.length,
+        confirmedPlayerClaims: confirmedStatusClaims.length,
+        unresolvedPlayerRows: unresolvedStatusRows.length,
+        lineupRows: lineupRowsAnnotated.length,
+        confirmedLineupRows: confirmedLineupRows.length,
+        unresolvedLineupRows: unresolvedLineupRows.length,
+        managerRows: managers.data.length,
+        playerStatusEvidence: playerStatusRowsAnnotated,
+        lineupEvidence: lineupRowsAnnotated,
+      },
+      goalsModelContext: {
+        teamForm: formGoalsOver === null ? null : {
+          quality: formQuality,
+          source: formRow?.model_source ?? null,
+          historySource: formRow?.raw?.history_source ?? null,
+          externalLatestDate: formRow?.raw?.external_latest_date ?? null,
+          fetchedAt: formRow?.fetched_at ?? null,
+          homeGames: formHomeGames,
+          awayGames: formAwayGames,
+          homeVenueGames: Number(formRow?.home_venue_games ?? 0),
+          awayVenueGames: Number(formRow?.away_venue_games ?? 0),
+          expectedGoalsHome: n(formRow?.form_xg_home),
+          expectedGoalsAway: n(formRow?.form_xg_away),
+          provenanceGroup: knownProvenanceGroup(formRow?.model_source) ?? "TEAM_FORM_UNKNOWN",
+          independentEvidenceEligible: Boolean(knownProvenanceGroup(formRow?.model_source)),
+          evidenceKey: `form_predictions:${id}`,
+          sourceUrl: formRow?.raw?.source_url ?? null,
+          method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
+        },
+        dixonColes: dcGoalsOver === null ? null : {
+          quality: modelTotals.data?.quality ?? null,
+          source: modelTotals.data?.model_source ?? null,
+          league: modelTotals.data?.model_league ?? null,
+          fetchedAt: modelTotals.data?.fetched_at ?? null,
+          trainingMatches: Number(modelTotals.data?.training_matches ?? 0),
+          teamMatchQuality: n(modelTotals.data?.team_match_quality),
+          expectedGoalsHome: n(modelTotals.data?.dc_xg_home),
+          expectedGoalsAway: n(modelTotals.data?.dc_xg_away),
+          provenanceGroup: knownProvenanceGroup(modelTotals.data?.model_source) ?? "DIXON_COLES_UNKNOWN",
+          independentEvidenceEligible: Boolean(knownProvenanceGroup(modelTotals.data?.model_source)),
+          period: null,
+          evidenceKey: `model_predictions:${id}`,
+          sourceUrl: modelTotals.data?.raw?.source_url ?? null,
+          method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
+        },
+      },
       phase3: liveState,
       phase4: movementData,
       markets: {

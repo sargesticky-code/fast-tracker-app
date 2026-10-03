@@ -37,7 +37,67 @@ async function markAppliedHashes(){
   }
   return rows.length;
 }
-async function upsert(t:string,rows:Record<string,unknown>[],conflict:string,ignore=false){let total=0;for(let i=0;i<rows.length;i+=300){const {error}=await db.from(t).upsert(rows.slice(i,i+300),{onConflict:conflict,ignoreDuplicates:ignore});if(error)throw new Error(`${t}: ${error.message}`);total+=Math.min(300,rows.length-i)}return total}
+async function upsert(t:string,rows:Record<string,unknown>[],conflict:string,ignore=false,batchSize=300){let total=0;const size=Math.max(1,Math.min(300,Math.trunc(batchSize)||300));for(let i=0;i<rows.length;i+=size){const {error}=await db.from(t).upsert(rows.slice(i,i+size),{onConflict:conflict,ignoreDuplicates:ignore});if(error)throw new Error(`${t}: ${error.message}`);total+=Math.min(size,rows.length-i)}return total}
+function quoteKey(provider:string,eventId:unknown,market:string,selection:string,lineValue:unknown,observedAt:unknown){
+  return [provider,text(eventId)||"UNKNOWN",market,selection,text(lineValue)||"NA",ts(observedAt)||"NA"].join("|");
+}
+function quoteRow(provider:string,eventId:unknown,market:string,selection:string,lineValue:unknown,priceValue:unknown,observedAt:unknown,confidence:unknown,raw:Record<string,string>){
+  const price=num(priceValue);
+  if(!text(eventId)||price===null||price<=1)return null;
+  return {
+    quote_key:quoteKey(provider,eventId,market,selection,lineValue,observedAt),
+    canonical_match_id:text(eventId),
+    provider_key:provider,
+    market,
+    selection,
+    line:num(lineValue),
+    decimal_price:price,
+    observed_at:ts(observedAt),
+    source_record_id:text(raw.bet365_fixture_id||raw.match_id||raw.snapshot_slot_hkt),
+    identity_confidence:num(confidence),
+    status:"OBSERVED",
+    source_payload:raw
+  };
+}
+async function syncMarketQuotes(hkjcRows:Record<string,string>[]){
+  const rows:Record<string,unknown>[]=[];
+  for(const r of hkjcRows){
+    const observed=r.odds_updated_at||r.fetched_at_hkt;
+    for(const [market,selection,lineValue,priceValue] of [
+      ["HDA","H",null,r.had_home],["HDA","D",null,r.had_draw],["HDA","A",null,r.had_away],
+      ["GOALS","OVER",r.hil_line,r.hil_over],["GOALS","UNDER",r.hil_line,r.hil_under],
+      ["CORNERS","OVER",r.chl_line,r.chl_over],["CORNERS","UNDER",r.chl_line,r.chl_under]
+    ] as const){
+      const q=quoteRow("HKJC",r.hkjc_event_id,market,selection,lineValue,priceValue,observed,null,r);
+      if(q)rows.push(q);
+    }
+  }
+
+  const bet365=await optionalAsset("bet365_current.csv");
+  for(const r of bet365){
+    const observed=r.fetched_at_hkt;
+    for(const [selection,priceValue] of [["H",r.bet365_home],["D",r.bet365_draw],["A",r.bet365_away]] as const){
+      const q=quoteRow("BET365",r.hkjc_event_id,"HDA",selection,null,priceValue,observed,r.match_quality,r);
+      if(q)rows.push(q);
+    }
+  }
+
+  const oddsmath=await optionalAsset("oddsmath_current.csv");
+  for(const r of oddsmath){
+    const observed=r.captured_at_hkt||r.snapshot_slot_hkt;
+    for(const [selection,priceValue] of [["H",r.odds_home],["D",r.odds_draw],["A",r.odds_away]] as const){
+      const q=quoteRow("ODDSMATH",r.hkjc_event_id,"HDA",selection,null,priceValue,observed,r.match_confidence,r);
+      if(q)rows.push(q);
+    }
+  }
+
+  return {
+    total:await upsert("market_quote_observations",rows,"quote_key"),
+    hkjc:rows.filter((r:any)=>r.provider_key==="HKJC").length,
+    bet365:rows.filter((r:any)=>r.provider_key==="BET365").length,
+    oddsmath:rows.filter((r:any)=>r.provider_key==="ODDSMATH").length,
+  };
+}
 async function hash(s:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,"0")).join("")}
 async function authorized(req:Request){const c=req.headers.get("x-fast-tracker-cron")||"";if(c){const {data}=await db.from("system_config").select("value").eq("key","cron_secret_sha256").maybeSingle();if(data?.value&&(await hash(c))===data.value)return true}const a=req.headers.get("authorization")||"";if(!a.toLowerCase().startsWith("bearer "))return false;try{const {payload}=await jwtVerify(a.slice(7).trim(),JWKS,{issuer:ISSUER,audience:AUD});return payload.repository===REPO&&REFS.has(String(payload.ref||""))}catch{return false}}
 async function stubs(rows:Record<string,string>[],s:{event:string,kickoff?:string,league?:string,home?:string,away?:string}){const seen=new Map<string,Record<string,unknown>>();for(const r of rows){const e=text(r[s.event]);if(!e||seen.has(e))continue;seen.set(e,{hkjc_event_id:e,kickoff_hkt:s.kickoff?ts(r[s.kickoff]):null,tournament:s.league?text(r[s.league]):null,home_en:s.home?text(r[s.home]):null,away_en:s.away?text(r[s.away]):null,status:"HISTORICAL_STUB",selling:false,in_play:false,raw:{edge_sync_stub:true}})}return upsert("matches",[...seen.values()],"hkjc_event_id",true)}
@@ -49,7 +109,7 @@ async function telemetryAssets(){const specs=[
 ["APWIN","apwin_current.csv","hkjc_event_id","league","home_team","away_team"],
 ["ACC","acc_current.csv","hkjc_event_id","league","home_team","away_team"],["BCL","bcl_current.csv","hkjc_event_id","league","home_team","away_team"],["FRB","frb_current.csv","hkjc_event_id","league","home_team","away_team"],["FST","fst_current.csv","hkjc_event_id","league","home_team","away_team"],["PRE","pre_current.csv","hkjc_event_id","league","home_team","away_team"],["STA","sta_current.csv","hkjc_event_id","league","home_team","away_team"]] as const;
 const out:Record<string,unknown>={};for(const [source,file,event,competition,home,away] of specs){const rows=await optionalAsset(file);if(rows.length)out[source]={rows:rows.length,paths:await identityTelemetry(source,rows.filter(r=>r[event]),{event,competition,home,away})};else out[source]={rows:0,paths:null,asset:file,status:"NOT_PRESENT"}}return out}
-async function current(){const out:Record<string,unknown>={};const h=await asset("hkjc_current.csv");out.matches=await upsert("matches",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),hkjc_match_id:text(r.match_id),kickoff_hkt:ts(r.kickoff_hkt),status:text(r.status),tournament:text(r.tournament),home_en:text(r.home_en),away_en:text(r.away_en),home_zh:text(r.home_zh),away_zh:text(r.away_zh),pools:text(r.pools),pool_status:text(r.pool_status),in_play:bool(r.in_play),selling:bool(r.selling),fetched_at:ts(r.fetched_at_hkt),source_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id");out.hkjc_odds=await upsert("hkjc_odds_current",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),had_home:num(r.had_home),had_draw:num(r.had_draw),had_away:num(r.had_away),hil_line:text(r.hil_line),hil_over:num(r.hil_over),hil_under:num(r.hil_under),chl_line:text(r.chl_line),chl_over:num(r.chl_over),chl_under:num(r.chl_under),fetched_at:ts(r.fetched_at_hkt),odds_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id");
+async function current(){const out:Record<string,unknown>={};const h=await asset("hkjc_current.csv");out.matches=await upsert("matches",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),hkjc_match_id:text(r.match_id),kickoff_hkt:ts(r.kickoff_hkt),status:text(r.status),tournament:text(r.tournament),home_en:text(r.home_en),away_en:text(r.away_en),home_zh:text(r.home_zh),away_zh:text(r.away_zh),pools:text(r.pools),pool_status:text(r.pool_status),in_play:bool(r.in_play),selling:bool(r.selling),fetched_at:ts(r.fetched_at_hkt),source_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id");out.hkjc_odds=await upsert("hkjc_odds_current",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),had_home:num(r.had_home),had_draw:num(r.had_draw),had_away:num(r.had_away),hil_line:text(r.hil_line),hil_over:num(r.hil_over),hil_under:num(r.hil_under),chl_line:text(r.chl_line),chl_over:num(r.chl_over),chl_under:num(r.chl_under),fetched_at:ts(r.fetched_at_hkt),odds_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id",false,50);out.market_quotes=await syncMarketQuotes(h);
 try{
 const h2h=await optionalAsset("h2h_summary.csv");
 out.h2h=await upsert("match_h2h_current",h2h.filter(r=>r.hkjc_event_id).map(r=>({
