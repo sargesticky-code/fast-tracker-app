@@ -47,12 +47,12 @@ Do not invent replacement phases. Reuse and verify the existing work:
 ### 3. Match intelligence
 
 - [ ] Canonical match joins connect form, home/away records, goals/xG, H2H, lineups, injuries/suspensions, live scores and live stats.
-- [ ] Every evidence object carries source and freshness/as-of information when available.
+- [ ] Audited goals evidence now carries source/provenance/fetch context and market as-of; continue normalizing the same contract across every evidence family.
 - [ ] Observed facts and derived estimates are explicitly distinguished.
 - [x] English article explicitly labels Team Form/Dixon-Coles expected goals as model estimates, not observed xG.
 - [x] Current article/Phase 2 path keeps missing player-status/injury evidence unknown rather than zero; continue auditing other evidence families.
 - [x] Confirmed versus predicted lineups remain distinct, including row-level confirmed evidence when event-map metadata is absent.
-- [ ] Unresolved player/injury identity remains explicit and cannot silently become confirmed evidence.
+- [ ] Player/injury unresolved identity remains to be fully audited; model-team identity now also has a review-branch cross-variant fail-closed guard.
 
 ### 4. Market-specific recommendations
 
@@ -105,3 +105,10 @@ Routine development, testing, debugging and transitions between already agreed p
 - [x] Production market-quote migration review artifact exists with prerequisites, access-policy checks, validation sequence and non-destructive recovery steps.
 - [ ] Production market-quote migration applied — **approval required; not performed**.
 - [ ] Updated analysis/sync Edge Functions deployed — **production release gate; not performed**.
+
+
+### Canonical sync freshness/application
+
+- [ ] Uploaded core artifact hashes match applied canonical-table hashes after a successful sync. Current production is behind for model/form because the latest sync timed out on HKJC odds.
+- [x] Review code batches HKJC odds writes to reduce the observed statement-timeout failure mode.
+- [ ] Production sync fix deployed and latest model/form/Forebet availability artifacts successfully applied — **production deployment gate; not performed**.
