@@ -52,7 +52,7 @@ Do not invent replacement phases. Reuse and verify the existing work:
 - [x] English article explicitly labels Team Form/Dixon-Coles expected goals as model estimates, not observed xG.
 - [x] Current article/Phase 2 path keeps missing player-status/injury evidence unknown rather than zero; continue auditing other evidence families.
 - [x] Confirmed versus predicted lineups remain distinct, including row-level confirmed evidence when event-map metadata is absent.
-- [ ] Player/injury unresolved identity remains to be fully audited; model-team identity now also has a review-branch cross-variant fail-closed guard.
+- [x] Player/injury unresolved identity audited in review: source-confirmed rows require canonical `phase2_players` identity before becoming confirmed facts; unresolved and unconfirmed rows remain explicit.
 
 ### 4. Market-specific recommendations
 
@@ -112,3 +112,16 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Uploaded core artifact hashes match applied canonical-table hashes after a successful sync. Current production is behind for model/form because the latest sync timed out on HKJC odds.
 - [x] Review code batches HKJC odds writes to reduce the observed statement-timeout failure mode.
 - [ ] Production sync fix deployed and latest model/form/Forebet availability artifacts successfully applied — **production deployment gate; not performed**.
+
+
+### Source-record traceability
+
+- [x] Audited player-status and lineup evidence has durable table-row evidence keys in review.
+- [x] Stored source links are exposed when present; absent links remain unavailable rather than inferred.
+- [x] Player/injury facts require source confirmation + canonical player identity before `CONFIRMED`.
+- [x] Overlapping human evidence is grouped by canonical player/status record rather than provider label.
+- [x] Unknown model lineage and multi-source aggregates with unproven member lineage cannot create an independent evidence vote.
+- [x] Missing Dixon-Coles training-period dates remain explicitly unknown.
+- [ ] Live score/stat/player evidence has the same durable record-key + duplicate-observation lineage contract.
+- [ ] Complete field-by-field English article provenance census beyond the audited market/model/player claims.
+- [ ] External player-ID ingestion map for FOTMOB/Flashscore to canonical `phase2_players` — exact upstream identity dependency, not solved by fuzzy promotion.
