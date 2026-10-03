@@ -9,6 +9,7 @@ const cors = {
 
 const DB_READ_TIMEOUT_MS = 15_000;
 const UPSTREAM_READ_TIMEOUT_MS = 45_000;
+const AI_READ_TIMEOUT_MS = 15_000;
 function boundedDbFetch(input:any, init:any = {}) {
   return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
 }
@@ -715,7 +716,8 @@ ${JSON.stringify(evidence)}`;
           { role:"system", content:"Return only grounded JSON. Never invent betting data." },
           { role:"user", content:prompt }
         ]
-      })
+      }),
+      signal:AbortSignal.timeout(AI_READ_TIMEOUT_MS)
     });
     if (!res.ok) throw new Error("ai_http_" + res.status);
     const body = await res.json();
