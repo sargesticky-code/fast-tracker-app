@@ -393,3 +393,15 @@ Routine development, testing, debugging and transitions between already agreed p
 - [x] Final source/test implementation checkpoint before docs: `d07278390a83c7c0aaf513a087eb2cd69d97071e`.
 - [ ] Final PR #11 exact-head GitHub CI must pass before release-candidate review is closed.
 - [ ] No production release in this batch.
+
+
+### PR #11 verification closed
+
+- [x] Initial live timeout behavior test found a genuine live-vs-summary response-ordering race; assertion was not weakened.
+- [x] `liveApplied` gate preserves newer live fields/source/cache against a later summary response while still allowing summary core/model refresh.
+- [x] Final source/test head `b2999ef339b40583f489b9fac968fd6bc179ecda` passed CI `37141684170`.
+- [x] Rendered behavior suite = **32/32 passed** in 25.7s.
+- [x] Artifact `11280418041`, digest `sha256:483af7ba95cf9e0c17a59acc1c8e97bd292239c4f77a035e8726f1a17cca466c`.
+- [x] Deployed v7 parity source checkpoint: commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, Supabase bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`.
+- [x] Coherent unreleased candidate = PR6→PR8→PR9→PR10→PR11.
+- [ ] Production remains unchanged in this review-only batch.
