@@ -1,0 +1,50 @@
+name: PR Build Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "public/**"
+      - "package.json"
+      - "next.config.mjs"
+      - ".github/workflows/pr-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check visible escape artifacts
+        run: npm run check:ui
+
+      - name: Build static app
+        run: npm run build
+        env:
+          CF_PAGES: "1"
+
+      - name: Verify static routes
+        run: |
+          test -f out/index.html
+          test -f out/details/index.html
+          test -f out/health/index.html
+          test -f out/match/index.html
+          test -f out/system/index.html
