@@ -1,4 +1,6 @@
 const { test, expect } = require("@playwright/test");
+const fs = require("fs");
+fs.mkdirSync("test-results", { recursive: true });
 
 function fixtureFeed() {
   const kickoff = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -357,6 +359,13 @@ for (const device of [
     await page.goto("http://127.0.0.1:4173/");
     await expect(page.getByText("Mathematical Football Predictions and Statistics")).toBeVisible();
     await expect(page.getByText("Northbridge FC").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "HDA" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Goals" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Corners" })).toBeVisible();
+    await expect(page.getByText("HKJC HDA").first()).toBeVisible();
+    await page.getByRole("button", { name: "Goals" }).click();
+    await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
+    await page.screenshot({ path: `test-results/dashboard-${device.name}-home.png`, fullPage: true });
 
     const matchLink = page.locator('a[href*="FBTEST1"]').first();
     await expect(matchLink).toBeVisible();
@@ -381,6 +390,8 @@ for (const device of [
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
     await expect(page.getByText("A lineup downgrade or adverse price move would weaken the case.")).toBeVisible();
 
+    await expect(page.getByLabel("Advertisement placeholder").first()).toBeVisible();
+    await page.screenshot({ path: `test-results/dashboard-${device.name}-detail-article.png`, fullPage: true });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
   });
