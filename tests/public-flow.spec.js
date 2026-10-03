@@ -29,7 +29,7 @@ function fixtureFeed() {
   };
 }
 
-function detailPayload() {
+function detailPayload({ confirmedLineup = false } = {}) {
   return {
     fixture: {
       hkjc_event_id: "FBTEST1",
@@ -74,8 +74,8 @@ function detailPayload() {
         team_side: "HOME",
         player_name: "Alex Smith",
         starter: true,
-        confirmed: false,
-        source_name: "PREDICTED_XI"
+        confirmed: confirmedLineup,
+        source_name: confirmedLineup ? "FLASHSCORE_OFFICIAL" : "PREDICTED_XI"
       }],
       playerStatus: [],
       managers: []
@@ -141,7 +141,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
   });
@@ -149,7 +149,7 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
   });
   await page.route("**/functions/v1/app-match-detail?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload()) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
     const payload = analysisPayload();
@@ -241,4 +241,16 @@ test("stale market data disables an actionable article price", async ({ page }) 
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Not current")).toBeVisible();
   await expect(page.getByText("WATCH / SKIP")).toBeVisible();
+});
+
+test("confirmed lineup evidence is honored without event-map timestamp", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { confirmedLineup: true });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Confirmed lineup")).toBeVisible();
+  await expect(page.getByText("1 confirmed rows · 0 provisional/unconfirmed rows")).toBeVisible();
 });
