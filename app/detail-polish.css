@@ -3192,3 +3192,11 @@
   .detail-shell .lineup-columns>div{border-right:0!important;border-bottom:1px solid #e5ebf0!important}
   .detail-shell .lineup-columns>div:last-child{border-bottom:0!important}
 }
+
+
+/* Screenshot-inspected utility-header fix */
+.detail-top{
+  position:static!important;
+  top:auto!important;
+  z-index:auto!important;
+}
