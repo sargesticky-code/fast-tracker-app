@@ -213,3 +213,18 @@ Routine development, testing, debugging and transitions between already agreed p
 - Smallest release blocker: Railway needs a manual **Deploy latest commit** / equivalent fresh-source build for existing service `fast-tracker-public`, targeting current `main`; ordinary Redeploy is insufficient because it reuses the previous snapshot.
 - Live gaps remain open: intermittent Phase-1 RPC 57014 tail latency, unreleased Supabase story null-corners fix, canonical fixture/detail gaps, and real-device mobile acceptance.
 - No DB migration/write, Edge Function release, feed publication, new access or new paid resource was performed.
+
+## Cloudflare production usability checkpoint — 2026-10-03
+
+- Active online redesign URL: `https://fast-tracker-app.sargesticky.workers.dev/`.
+- Source repair commit: `e9f0f0a2f46138f8efca68528be0a6e5b2ecb5b9` (`components/homepage-client.js` blob `3399ab53825911bd55d5e66b23f8a786172e19af`).
+- Cloudflare production build `0e392a43-0761-414a-a123-ff75067695cf` completed successfully for that commit, version `53b3ae17-8780-4360-abcf-b7176adef84a`.
+- The canonical Phase-1 endpoint was read directly at ~14:52 UTC and returned `source=supabase-canonical-live`, `count=74`, with current HKJC/live health. The feed was slow enough that browser navigation did not become ready within 10 seconds on one attempt; it later returned successfully.
+- The previous public “No fixtures are available” state was therefore not a genuine zero-feed condition. It was a misleading boot/loading presentation while the static Cloudflare page waited for the client runtime feed.
+- The homepage now renders `Loading current fixtures… / Waiting for the live fixture feed.` during that interval. After the live request completes, it renders real current fixtures and live rows; this was verified directly on the public URL.
+- Real route verification used `FB6175`: homepage row → `/details/?id=FB6175&ui=homepage-v1` rendered the current detail view and the `#analysis` article section. Safety gates remained fail-closed for stale/reference-only price and incomplete model evidence.
+- The public detail/article path is usable but remains partly bilingual because some backend recommendation/team-label evidence is Chinese. No Edge/story release was performed to rewrite those source narratives.
+- The browser connector exposes navigation/read/screenshot but no press/click action, so live filter buttons were confirmed rendered but were not interactively clicked in this public-browser pass; their behavior remains covered by the accepted CI/browser suite rather than this live pass.
+- Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
+- Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
+- No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
