@@ -7,6 +7,20 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+const DB_READ_TIMEOUT_MS = 15_000;
+const UPSTREAM_READ_TIMEOUT_MS = 45_000;
+function boundedDbFetch(input:any, init:any = {}) {
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
+}
+function createReadClient(url:string, key:string) {
+  return createClient(url, key, {
+    auth: { persistSession:false, autoRefreshToken:false },
+    db: { retry:false },
+    global: { fetch: boundedDbFetch },
+  });
+}
+
+
 function serverKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
@@ -876,7 +890,7 @@ Deno.serve(async (req: Request) => {
   const sbUrl = Deno.env.get("SUPABASE_URL") || "";
   const key = serverKey();
   if (!sbUrl || !key) return Response.json({ error: "server_config_missing" }, { status: 500, headers: cors });
-  const db = createClient(sbUrl, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const db = createReadClient(sbUrl, key);
 
   const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
   if (baseResult.error) {
