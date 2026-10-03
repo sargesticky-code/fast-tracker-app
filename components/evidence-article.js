@@ -89,11 +89,20 @@ function currentQuote(match, analysis, story) {
 function lineupState(deep) {
   const eventMap = deep?.humanFactors?.eventMap || null;
   const rows = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
-  if (eventMap?.lineup_confirmed_at) return ["CONFIRMED", "Confirmed lineup"];
+  const resolvedConfirmed = rows.filter((row) => row?.fact_status === "CONFIRMED").length;
+  const sourceConfirmedUnresolved = rows.filter((row) => row?.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED").length;
+  const provisional = rows.filter((row) => !["CONFIRMED", "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"].includes(String(row?.fact_status || ""))).length;
+  if (eventMap?.lineup_confirmed_at && sourceConfirmedUnresolved > 0) {
+    return ["PARTIAL", "Official lineup source confirmed · player identity reconciliation incomplete"];
+  }
+  if (eventMap?.lineup_confirmed_at && rows.length > 0 && resolvedConfirmed === rows.length) {
+    return ["CONFIRMED", "Confirmed lineup with resolved player identities"];
+  }
   if (rows.length) {
-    const confirmed = rows.filter((row) => row?.confirmed === true).length;
-    const unconfirmed = rows.filter((row) => row?.confirmed !== true).length;
-    if (confirmed > 0 && unconfirmed === 0) return ["CONFIRMED", "Confirmed lineup"];
+    if (resolvedConfirmed > 0 && sourceConfirmedUnresolved === 0 && provisional === 0) {
+      return ["CONFIRMED", "Confirmed lineup with resolved player identities"];
+    }
+    if (sourceConfirmedUnresolved > 0) return ["PARTIAL", "Source-confirmed lineup rows · player identity unresolved"];
     return ["PREDICTED", "Predicted / provisional lineup"];
   }
   if (eventMap) return ["PENDING", "Lineup pending"];
@@ -129,14 +138,27 @@ function sampleRows(deep) {
 
 function playerRows(deep) {
   const rows = Array.isArray(deep?.humanFactors?.playerStatus) ? deep.humanFactors.playerStatus : [];
-  return rows.slice(0, 10).map((row, index) => ({
-    key: String(row.player_key || row.player_name || "player") + "-" + index,
-    player: safe(row.player_name || row?.raw?.player?.name || row?.raw?.player_name || row.player_key),
-    side: safe(row.team_side, "Team unknown"),
-    status: safe(row.status_value || row.status_type, "Status unknown"),
-    confirmed: row.confirmed === true ? "Confirmed" : row.confirmed === false ? "Unconfirmed" : "Confirmation unknown",
-    source: safe(row.source_name || row.source, "Source not recorded"),
-  }));
+  return rows.slice(0, 10).map((row, index) => {
+    const factStatus = String(row?.fact_status || "").toUpperCase();
+    const confirmation = factStatus === "CONFIRMED"
+      ? "Confirmed source + canonical player identity"
+      : factStatus === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"
+        ? "Source reports status · player identity unresolved"
+        : row.confirmed === false
+          ? "Unconfirmed status · player identity unresolved"
+          : "Identity / confirmation unresolved";
+    return {
+      key: String(row.evidence_key || row.player_key || row.player_name || "player") + "-" + index,
+      player: safe(row.player_name || row?.raw?.player?.name || row?.raw?.player_name || row.player_key),
+      side: safe(row.team_side, "Team unknown"),
+      status: safe(row.status_value || row.status_type, "Status unknown"),
+      confirmed: confirmation,
+      source: safe(row.source_name || row.source, "Source not recorded"),
+      sourceUrl: row.source_link || row.source_url || null,
+      evidenceKey: safe(row.evidence_key, "Evidence key unavailable"),
+      recordGroup: safe(row.record_group, "Record group unavailable"),
+    };
+  });
 }
 
 export default function EvidenceArticle({ match, deep, analysis, story }) {
@@ -159,10 +181,11 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
 
   const lineup = lineupState(deep);
   const lineups = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
-  const confirmedStarters = lineups.filter((row) => row.confirmed === true && row.starter === true).length;
-  const confirmedBench = lineups.filter((row) => row.confirmed === true && row.starter === false).length;
-  const provisionalStarters = lineups.filter((row) => row.confirmed !== true && row.starter === true).length;
-  const provisionalBench = lineups.filter((row) => row.confirmed !== true && row.starter === false).length;
+  const confirmedStarters = lineups.filter((row) => row.fact_status === "CONFIRMED" && row.starter === true).length;
+  const confirmedBench = lineups.filter((row) => row.fact_status === "CONFIRMED" && row.starter === false).length;
+  const sourceConfirmedIdentityUnresolved = lineups.filter((row) => row.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED").length;
+  const provisionalStarters = lineups.filter((row) => !["CONFIRMED", "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"].includes(String(row.fact_status || "")) && row.starter === true).length;
+  const provisionalBench = lineups.filter((row) => !["CONFIRMED", "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"].includes(String(row.fact_status || "")) && row.starter === false).length;
   const unresolvedRole = lineups.filter((row) => row.starter !== true && row.starter !== false).length;
   const players = playerRows(deep);
   const facts = sampleRows(deep);
@@ -202,7 +225,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
       <section className="ft-article-grid">
         <div><span>Bookmaker</span><strong>{quote.providerLabel || PROVIDERS.HKJC.label}</strong><small>{quote.providerKind || "BOOKMAKER"}</small></div>
         <div><span>Market / selection</span><strong>{safe(quote.market)} · {safe(quote.selection)}</strong><small>{quote.line === null ? "Line not applicable / unknown" : "Line " + quote.line}</small></div>
-        <div><span>Observed price</span><strong>{quoteState.stale ? "Not current" : price(quote.decimalPrice)}</strong><small>As of {dateTime(quote.observedAt)}</small></div>
+        <div><span>Observed price</span><strong>{quoteState.stale ? "Not current" : price(quote.decimalPrice)}</strong><small>As of {dateTime(quote.observedAt)}</small><small>Evidence: {safe(analysis?.evidence?.phase1Health?.evidenceKey, "Unavailable")}</small></div>
         <div><span>Decision state</span><strong>{action.replaceAll("_", " ")}</strong><small>{candidate.replaceAll("_", " ")}</small></div>
       </section>
 
@@ -265,13 +288,21 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
                   confirmedBench ? confirmedBench + " confirmed substitutes/bench" : null,
                   provisionalStarters ? provisionalStarters + " provisional starters" : null,
                   provisionalBench ? provisionalBench + " provisional substitutes/bench" : null,
+                  sourceConfirmedIdentityUnresolved ? sourceConfirmedIdentityUnresolved + " source-confirmed rows with unresolved player identity" : null,
                   unresolvedRole ? unresolvedRole + " rows with unresolved starter/bench role" : null,
                 ].filter(Boolean).join(" · ")
               : "No lineup rows are currently available"}</span>
           </div>
           {players.length ? players.map((row) => (
             <div className="ft-article-evidence-row" key={row.key}>
-              <span>{row.side} · {row.player}</span><strong>{row.status}</strong><small>{row.confirmed} · Source: {row.source}</small>
+              <span>{row.side} · {row.player}</span>
+              <strong>{row.status}</strong>
+              <small>{row.confirmed}</small>
+              <small>Evidence: {row.evidenceKey} · Record group: {row.recordGroup}</small>
+              <small>
+                Source: {row.source}
+                {row.sourceUrl ? <> · <a href={row.sourceUrl} target="_blank" rel="noreferrer">source link</a></> : " · source link unavailable"}
+              </small>
             </div>
           )) : (
             <p className="ft-article-unknown">No verified player-status evidence is currently available. This is unknown coverage, not zero injuries.</p>
@@ -320,6 +351,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
               <small>
                 Training sample {analysis.evidence.goalsModelContext.dixonColes.trainingMatches || "unknown"} matches
                 {" · "}Source: {safe(analysis.evidence.goalsModelContext.dixonColes.source, "Unknown")}
+                {" · "}Evidence: {safe(analysis.evidence.goalsModelContext.dixonColes.evidenceKey, "Unavailable")}
               </small>
               <small>
                 Competition: {safe(analysis.evidence.goalsModelContext.dixonColes.league, "Unknown")}
@@ -338,6 +370,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
               <small>
                 Sample {analysis.evidence.goalsModelContext.teamForm.homeGames ?? "unknown"} / {analysis.evidence.goalsModelContext.teamForm.awayGames ?? "unknown"} matches
                 {" · "}Source: {safe(analysis.evidence.goalsModelContext.teamForm.source, "Unknown")}
+                {" · "}Evidence: {safe(analysis.evidence.goalsModelContext.teamForm.evidenceKey, "Unavailable")}
               </small>
               <small>Model expected goals are derived estimates, not observed xG.</small>
             </div>
