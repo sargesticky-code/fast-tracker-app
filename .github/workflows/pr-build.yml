@@ -41,14 +41,20 @@ jobs:
           test "$(git hash-object supabase/functions/app-match-story/index.ts)" = "84d0a61e3d818025be2c7f7635fa2d03731ca0d3"
           test ! -e scripts/check-recovery-source-contract.mjs
           test ! -e tests/recovery-flow.spec.js
+          test "$(git hash-object docs/product-goal.md)" = "72317964f1e3c7d2c30611da1377ef52242f45e9"
+          test "$(git hash-object docs/REDESIGN_CHECKLIST.md)" = "da56a1658db4860f6efcdd6d598419c50442f8b8"
+          test "$(git hash-object docs/dashboard-redesign-handover-2026-10-03.md)" = "e0d7ec0ef214979ccf9026b93ad66170f3d84413"
           git apply --check scripts/recovery/fast-tracker-b3d20007-recovery-reviewed.patch
           git apply scripts/recovery/fast-tracker-b3d20007-recovery-reviewed.patch
-          test "$(git hash-object components/homepage-client.js)" = "5ad4b81c66fb47d088f9e7cacf42021c7ff516b3"
+          test "$(git hash-object components/homepage-client.js)" = "74f9487aef1d3ea82f8857866c0a4ed55d622d76"
           test "$(git hash-object components/match-detail-client.js)" = "66e1222e7653e8b01f881544c32bffbc13eb1abe"
           test "$(git hash-object components/lineup-panel.js)" = "52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b"
           test "$(git hash-object supabase/functions/app-match-story/index.ts)" = "bb018da84110b4782632fdf9deb9fa1ab34b0875"
-          test "$(git hash-object scripts/check-recovery-source-contract.mjs)" = "61c44d21b01a27557efc424aeca83eb3e2fb3cf7"
-          test "$(git hash-object tests/recovery-flow.spec.js)" = "c16e89712ffd43dfded19f3ddf314f20dfebdf24"
+          test "$(git hash-object scripts/check-recovery-source-contract.mjs)" = "83f51b47d38399a35a03fb709c07b43a9bc307b5"
+          test "$(git hash-object tests/recovery-flow.spec.js)" = "0495f7e99426dab2279c585824ec0d29c06bf8f8"
+          test "$(git hash-object docs/product-goal.md)" = "284abc9d49423ab20464241848eb6f896eaf16c0"
+          test "$(git hash-object docs/REDESIGN_CHECKLIST.md)" = "855f5bb70f646766c88f4c605a2311345cf18cd8"
+          test "$(git hash-object docs/dashboard-redesign-handover-2026-10-03.md)" = "50510f0f6a6dd37a482b0137f03810a3b0363bcf"
 
       - name: Check recovery source contract
         run: node scripts/check-recovery-source-contract.mjs
