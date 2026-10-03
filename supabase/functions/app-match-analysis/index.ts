@@ -542,6 +542,58 @@ function oneError(e: any) {
   return e ? { code: e.code ?? null, message: e.message ?? String(e) } : null;
 }
 
+function normalizedSide(value:any){
+  const side=String(value||"").trim().toUpperCase();
+  if(side==="H"||side==="HOME") return "H";
+  if(side==="A"||side==="AWAY") return "A";
+  return null;
+}
+function compactToken(value:any){
+  return String(value||"").trim().toLowerCase().replace(/\s+/g," ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+}
+function evidenceKey(table:string,row:any,idFallback:string){
+  const rowId=String(row?.id??"").trim();
+  return rowId ? `${table}:${rowId}` : `${table}:${idFallback}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
+}
+function playerClaimFingerprint(row:any){
+  return [
+    String(row?.hkjc_event_id||""),
+    normalizedSide(row?.team_side)||"?",
+    String(row?.player_key||""),
+    compactToken(row?.status_type),
+    compactToken(row?.status_value),
+  ].join("|");
+}
+function annotatePlayerEvidence(row:any,canonicalKeys:Set<string>,table:string,idFallback:string){
+  const playerKey=String(row?.player_key||"").trim();
+  const side=normalizedSide(row?.team_side);
+  const canonical=Boolean(playerKey&&canonicalKeys.has(playerKey));
+  const sourceConfirmed=row?.confirmed===true;
+  const factStatus=sourceConfirmed&&canonical
+    ?"CONFIRMED"
+    : sourceConfirmed
+      ?"SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"
+      :"UNCONFIRMED";
+  return {
+    ...row,
+    team_side:side||row?.team_side||null,
+    evidence_key:evidenceKey(table,row,idFallback),
+    source_link:row?.source_url||null,
+    identity_status:canonical?"CANONICAL":"UNRESOLVED",
+    fact_status:factStatus,
+    record_group:playerClaimFingerprint(row),
+  };
+}
+function uniqueConfirmedClaims(rows:any[]){
+  const out=new Map<string,any>();
+  for(const row of rows){
+    if(row?.fact_status!=="CONFIRMED") continue;
+    const key=String(row?.record_group||"");
+    if(!out.has(key)) out.set(key,row);
+  }
+  return [...out.values()];
+}
+
 type BinaryModel = {
   key: string;
   label: string;
@@ -948,6 +1000,19 @@ Deno.serve(async (req: Request) => {
     one("model_predictions"),
     one("form_predictions"),
   ]);
+
+
+  const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
+  const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
+  let canonicalPlayerKeys=new Set<string>();
+  let playerIdentityError:any=null;
+  if(playerKeys.length){
+    const canonicalPlayers=await db.from("phase2_players").select("player_key").in("player_key",playerKeys);
+    if(canonicalPlayers.error) playerIdentityError=oneError(canonicalPlayers.error);
+    else canonicalPlayerKeys=new Set((canonicalPlayers.data||[]).map((row:any)=>String(row.player_key)));
+  }
+  const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayerKeys,"phase2_player_status_evidence",id));
+  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayerKeys,"phase2_match_lineup_evidence",id));
 
   const forebet = triplet(r.forebet_home, r.forebet_draw, r.forebet_away);
   const dc = triplet(r.dc_home, r.dc_draw, r.dc_away);
@@ -1374,21 +1439,21 @@ Deno.serve(async (req: Request) => {
       ? `HKJC live 現價 ${oddsText}`
       : `現價 ${oddsText}`;
 
-  const lineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
-  const playerStatusRows = Array.isArray(playerStatus.data) ? playerStatus.data : [];
-  const explicitInjuryHome = n(human.data?.raw?.injury_count_home);
-  const explicitInjuryAway = n(human.data?.raw?.injury_count_away);
-  // Empty evidence is unknown, not proof of zero injuries/suspensions.
-  const injuryHome = explicitInjuryHome !== null
-    ? explicitInjuryHome
-    : playerStatusRows.length
-      ? playerStatusRows.filter((x:any)=>String(x.team_side||"").toUpperCase()==="HOME").length
-      : null;
-  const injuryAway = explicitInjuryAway !== null
-    ? explicitInjuryAway
-    : playerStatusRows.length
-      ? playerStatusRows.filter((x:any)=>String(x.team_side||"").toUpperCase()==="AWAY").length
-      : null;
+  const sourceLineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
+  const confirmedStatusClaims = uniqueConfirmedClaims(playerStatusRowsAnnotated);
+  const unresolvedStatusRows = playerStatusRowsAnnotated.filter((row:any)=>row.fact_status!=="CONFIRMED");
+  const confirmedLineupRows = lineupRowsAnnotated.filter((row:any)=>row.fact_status==="CONFIRMED");
+  const unresolvedLineupRows = lineupRowsAnnotated.filter((row:any)=>row.fact_status!=="CONFIRMED");
+  const lineupConfirmed = sourceLineupConfirmed && unresolvedLineupRows.length===0 && confirmedLineupRows.length>0;
+  // Count only canonically resolved, source-confirmed player claims. Multiple
+  // providers describing the same underlying player/status record collapse by
+  // record_group rather than becoming false independent corroboration.
+  const injuryHome = confirmedStatusClaims.length
+    ? confirmedStatusClaims.filter((x:any)=>normalizedSide(x.team_side)==="H").length
+    : null;
+  const injuryAway = confirmedStatusClaims.length
+    ? confirmedStatusClaims.filter((x:any)=>normalizedSide(x.team_side)==="A").length
+    : null;
   const humanQuality = human.data?.quality ?? (eventMap.data ? "MAPPED" : "NO_DATA");
 
   const liveState = live ? {
@@ -1418,7 +1483,7 @@ Deno.serve(async (req: Request) => {
   const marketSentence = market && consensus
     ? `${live ? "HKJC live" : "HKJC"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}；${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型中心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}。`
     : "市場或模型資料未足以建立可比較機率。";
-  const humanSentence = `Phase 2: ${humanQuality}; player-status evidence home/away ${injuryHome ?? "unknown"}/${injuryAway ?? "unknown"}; lineup ${lineupConfirmed ? "confirmed" : "not confirmed"}.`;
+  const humanSentence = `Phase 2: ${humanQuality}; canonically resolved player-status claims home/away ${injuryHome ?? "unknown"}/${injuryAway ?? "unknown"}; unresolved player-status rows ${unresolvedStatusRows.length}; lineup ${lineupConfirmed ? "confirmed with resolved identities" : sourceLineupConfirmed ? "source-confirmed but identity reconciliation incomplete" : "not confirmed"}.`;
   const liveSentence = liveState
     ? `Phase 3：${liveState.minute ?? "—"}' ${liveState.score || "—"}；Expected-vs-Actual ${liveState.shadowStatus || "WAIT"}，預期控制 ${liveState.expectedSide || "—"}、實際控制 ${liveState.actualSide || "—"}，${liveState.metricCount} 個 live metrics。`
     : "Phase 3：賽事未進入可用 live evidence 狀態。";
@@ -1429,7 +1494,7 @@ Deno.serve(async (req: Request) => {
   if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");
   if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
   if (families.length < 2) invalidators.push("獨立 evidence family 少於 2");
-  if (!lineupConfirmed && !live) invalidators.push("Official XI 尚未確認");
+  if (!lineupConfirmed && !live) invalidators.push(sourceLineupConfirmed ? "Official XI source 已確認，但球員 identity reconciliation 未完整" : "Official XI 尚未確認");
   if (dispersion !== null && dispersion > 0.18) invalidators.push("模型分歧較大");
   if (!productionValidated) invalidators.push("Phase 5 calibration 未完成：只限制自動注碼，不取消人工 recommendation");
   if (liveState?.shadowStatus && ["CONTRADICTION","REJECT","RISK"].some(k => String(liveState.shadowStatus).toUpperCase().includes(k))) {
@@ -1510,6 +1575,7 @@ Deno.serve(async (req: Request) => {
   for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,upcomingOdds,liveShadow,scenarios,modelTotals,formTotals })) {
     if ((v as any).error) errors[k] = (v as any).error;
   }
+  if (playerIdentityError) errors.playerIdentity = playerIdentityError;
 
   return Response.json({
     generatedAt: new Date().toISOString(),
@@ -1588,8 +1654,25 @@ Deno.serve(async (req: Request) => {
         evidenceChannelCount: r.evidence_channel_count,
         unifiedCoverageStatus: r.unified_coverage_status,
         diagnostics: r.diagnostic_codes ?? [],
+        evidenceKey: `hkjc_odds_current:${id}`,
+        sourceUrl: r.hkjc_source_url ?? null,
       },
-      phase2: { quality: humanQuality, injuryHome, injuryAway, lineupConfirmed, playerRows: playerStatus.data.length, lineupRows: lineups.data.length, managerRows: managers.data.length },
+      phase2: {
+        quality: humanQuality,
+        injuryHome,
+        injuryAway,
+        lineupConfirmed,
+        sourceLineupConfirmed,
+        playerRows: playerStatusRowsAnnotated.length,
+        confirmedPlayerClaims: confirmedStatusClaims.length,
+        unresolvedPlayerRows: unresolvedStatusRows.length,
+        lineupRows: lineupRowsAnnotated.length,
+        confirmedLineupRows: confirmedLineupRows.length,
+        unresolvedLineupRows: unresolvedLineupRows.length,
+        managerRows: managers.data.length,
+        playerStatusEvidence: playerStatusRowsAnnotated,
+        lineupEvidence: lineupRowsAnnotated,
+      },
       goalsModelContext: {
         teamForm: formGoalsOver === null ? null : {
           quality: formQuality,
@@ -1604,6 +1687,8 @@ Deno.serve(async (req: Request) => {
           expectedGoalsHome: n(formRow?.form_xg_home),
           expectedGoalsAway: n(formRow?.form_xg_away),
           provenanceGroup: provenanceGroup(formRow?.model_source, "TEAM_FORM_UNKNOWN"),
+          evidenceKey: `form_predictions:${id}`,
+          sourceUrl: formRow?.raw?.source_url ?? null,
           method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
         },
         dixonColes: dcGoalsOver === null ? null : {
@@ -1617,6 +1702,8 @@ Deno.serve(async (req: Request) => {
           expectedGoalsAway: n(modelTotals.data?.dc_xg_away),
           provenanceGroup: provenanceGroup(modelTotals.data?.model_source, "DIXON_COLES_UNKNOWN"),
           period: null,
+          evidenceKey: `model_predictions:${id}`,
+          sourceUrl: modelTotals.data?.raw?.source_url ?? null,
           method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
         },
       },
