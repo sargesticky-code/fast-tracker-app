@@ -200,6 +200,7 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const requested = Number(url.searchParams.get("hours") ?? "24");
     const hours = Math.max(1, Math.min(48, Number.isFinite(requested) ? requested : 24));
+    const summaryOnly = String(url.searchParams.get("view") ?? "").toLowerCase() === "summary";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serverKey = getServerKey();
@@ -230,7 +231,7 @@ Deno.serve(async (req: Request) => {
     const upcomingAuthorityMap = new Map<string, any>();
     const liveAuthorityMap = new Map<string, any>();
     const verifiedMasterKeys = new Set<string>();
-    if (eventIds.length) {
+    if (eventIds.length && !summaryOnly) {
       const currentNameKeys = [...new Set(
         rows.flatMap((row: any) => [identityKey(row.home_en), identityKey(row.away_en)]).filter(Boolean)
       )];
@@ -562,11 +563,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { data: heartbeatRows, error: heartbeatError } = await db
-      .from("source_health")
-      .select("source,status,value_text,notes,observed_at,raw")
-      .in("source", ["HKJC_UPCOMING_EDGE", "HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
-      .eq("metric", "heartbeat");
+    const { data: heartbeatRows, error: heartbeatError } = summaryOnly
+      ? { data: [], error: null }
+      : await db
+          .from("source_health")
+          .select("source,status,value_text,notes,observed_at,raw")
+          .in("source", ["HKJC_UPCOMING_EDGE", "HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
+          .eq("metric", "heartbeat");
 
     if (heartbeatError) console.error("heartbeat_query_failed", heartbeatError);
 
@@ -918,6 +921,7 @@ Deno.serve(async (req: Request) => {
     return Response.json({
       generatedAt: new Date().toISOString(),
       source: "supabase-canonical-live",
+      view: summaryOnly ? "summary" : "full",
       windowHours: hours,
       count: matches.length,
       systemHealth,

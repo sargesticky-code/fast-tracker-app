@@ -28,6 +28,7 @@ import {
 const FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
+const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
 
 const primaryNav = [
   ["Today", Goal, "today"],
@@ -463,7 +464,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     let cancelled = false;
     async function refresh() {
       try {
-        const res = await fetch(FEED_URL);
+        const res = await fetch(HOMEPAGE_FEED_URL);
         if (!res.ok) {
           let message = `HTTP ${res.status}`;
           try {
