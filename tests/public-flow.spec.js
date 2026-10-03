@@ -386,6 +386,17 @@ for (const device of [
     await expect(page.getByText("Previous meetings", { exact: true })).toBeVisible();
     await expect(page.getByText("Human factors and lineups", { exact: true })).toBeVisible();
 
+    const lineupTool = page.locator("details.lineup-tool-disclosure");
+    const lineupToolSummary = lineupTool.locator(":scope > summary");
+    await expect(lineupToolSummary.getByText("FULL LINEUP TOOL", { exact: true })).toBeVisible();
+    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
+    const decisionBeforeLineup = await page.evaluate(() => {
+      const decision = document.querySelector(".detail-decision-board");
+      const lineup = document.querySelector("details.lineup-tool-disclosure");
+      return Boolean(decision && lineup && (decision.compareDocumentPosition(lineup) & Node.DOCUMENT_POSITION_FOLLOWING));
+    });
+    expect(decisionBeforeLineup).toBe(true);
+
     const articleDetails = page.locator("#analysis details.ft-article-deep");
     const articleSummary = articleDetails.locator(":scope > summary");
     await expect(articleSummary.getByText("Full evidence article", { exact: true })).toBeVisible();
@@ -438,6 +449,14 @@ for (const device of [
     await modelSummary.focus();
     await page.keyboard.press("Enter");
     expect(await modelDetails.evaluate(el => el.open)).toBe(false);
+
+    await lineupToolSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
+    await expect(lineupTool.getByRole("button", { name: "Formation" })).toBeVisible();
+    await lineupToolSummary.focus();
+    await page.keyboard.press("Enter");
+    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
 
     const renderedText = await page.locator("body").innerText();
     expect(renderedText).not.toMatch(/[\u3400-\u9fff]/);
