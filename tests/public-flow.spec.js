@@ -106,18 +106,18 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
           record_group: "FBTEST1|H|P1002||"
         }
       ] : unresolvedLineup ? [{
-        id: 1101,
-        team_side: "H",
-        player_key: "998877",
-        player_name: "Unresolved Official Player",
+        id: 354829,
+        team_side: "A",
+        player_key: "bNACfOft",
+        player_name: "Yamada",
         starter: true,
         confirmed: true,
         source_name: "FLASHSCORE_OFFICIAL",
-        source_url: "https://example.test/lineup/1101",
-        evidence_key: "phase2_match_lineup_evidence:1101",
+        source_url: "https://www.flashscore.com/match/8OLLPC5C/#/match-summary/lineups",
+        evidence_key: "phase2_match_lineup_evidence:354829",
         identity_status: "UNRESOLVED",
         fact_status: "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED",
-        record_group: "FBTEST1|H|998877||"
+        record_group: "FB6131|A|unresolved:yamada||"
       }] : [{
         id: 1201,
         team_side: "H",
@@ -132,25 +132,25 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         record_group: "FBTEST1|H|PREDICTED-ALEX||"
       }],
       playerStatus: playerCase === "confirmed" ? [{
-        id: 2001,
-        hkjc_event_id: "FBTEST1",
-        team_side: "H",
-        player_key: "P2001",
-        status_type: "INJURY",
-        status_value: "Out",
+        id: 178,
+        hkjc_event_id: "FB5829",
+        team_side: "A",
+        player_key: "APIF:108643",
+        status_type: "MISSING FIXTURE",
+        status_value: "Leg Injury",
         confirmed: true,
         confidence: 0.95,
         source_name: "API_FOOTBALL",
-        source_url: "https://example.test/injury/2001",
-        evidence_key: "phase2_player_status_evidence:2001",
-        source_link: "https://example.test/injury/2001",
+        source_url: "https://v3.football.api-sports.io/injuries",
+        evidence_key: "phase2_player_status_evidence:178",
+        source_link: "https://v3.football.api-sports.io/injuries",
         identity_status: "CANONICAL",
         fact_status: "CONFIRMED",
-        record_group: "FBTEST1|H|P2001|injury|out",
-        raw: { player_name: "Canonical Player" }
+        record_group: "FB5829|A|canonical:apif-108643|missing-fixture|leg-injury",
+        raw: { player_name: "G. Segal" }
       }] : playerCase === "unresolved" ? [{
-        id: 2002,
-        hkjc_event_id: "FBTEST1",
+        id: 586,
+        hkjc_event_id: "FB6115",
         team_side: "A",
         player_key: "1300526",
         status_type: "INJURY",
@@ -159,15 +159,15 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         confidence: 0.90,
         source_name: "FOTMOB",
         source_url: "https://www.fotmob.com/match/5181853",
-        evidence_key: "phase2_player_status_evidence:2002",
+        evidence_key: "phase2_player_status_evidence:586",
         source_link: "https://www.fotmob.com/match/5181853",
         identity_status: "UNRESOLVED",
         fact_status: "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED",
-        record_group: "FBTEST1|A|1300526|injury|doubtful",
+        record_group: "FB6115|A|unresolved:nico-oreilly|injury|doubtful",
         raw: { player_name: "Nico O'Reilly" }
       }] : playerCase === "ambiguous" ? [{
-        id: 2003,
-        hkjc_event_id: "FBTEST1",
+        id: 32,
+        hkjc_event_id: "FB5749",
         team_side: "H",
         player_key: "Lukas Provod",
         status_type: "INJURY",
@@ -176,11 +176,11 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         confidence: 0.87,
         source_name: "FotMob",
         source_url: "https://www.fotmob.com/matches/czechia-vs-croatia/2vkax6",
-        evidence_key: "phase2_player_status_evidence:2003",
+        evidence_key: "phase2_player_status_evidence:32",
         source_link: "https://www.fotmob.com/matches/czechia-vs-croatia/2vkax6",
         identity_status: "UNRESOLVED",
         fact_status: "UNCONFIRMED",
-        record_group: "FBTEST1|H|Lukas Provod|injury|ankle-injury-expected-early-october-return",
+        record_group: "FB5749|H|unresolved:lukas-provod|injury|ankle-injury-expected-early-october-return",
         raw: { player_name: "Lukas Provod" }
       }] : [],
       managers: []
@@ -445,10 +445,10 @@ test("canonical confirmed player status keeps durable source attribution", async
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   const article = page.locator("#analysis");
-  await expect(article.getByText(/Canonical Player/)).toBeVisible({ timeout: 10000 });
+  await expect(article.getByText(/G\. Segal/)).toBeVisible({ timeout: 10000 });
   await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toBeVisible();
-  await expect(article.getByText(/Evidence: phase2_player_status_evidence:2001/)).toBeVisible();
-  const sourceLink = page.locator('#analysis a[href="https://example.test/injury/2001"]');
+  await expect(article.getByText(/Evidence: phase2_player_status_evidence:178/)).toBeVisible();
+  const sourceLink = page.locator('#analysis a[href="https://v3.football.api-sports.io/injuries"]');
   await expect(sourceLink).toHaveCount(1);
 });
 
@@ -463,7 +463,7 @@ test("source-confirmed player with unresolved identity never becomes a confirmed
   await expect(article.getByText(/Nico O'Reilly/)).toBeVisible({ timeout: 10000 });
   await expect(article.getByText("Source reports status · player identity unresolved", { exact: true })).toBeVisible();
   await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
-  await expect(article.getByText(/phase2_player_status_evidence:2002/)).toBeVisible();
+  await expect(article.getByText(/phase2_player_status_evidence:586/)).toBeVisible();
 });
 
 test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page }) => {
