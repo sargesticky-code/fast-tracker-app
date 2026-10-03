@@ -50,6 +50,8 @@ const checks = [
   [liveFeedApi.includes("DB_READ_TIMEOUT_MS = 15_000") && liveFeedApi.includes("global: { fetch: boundedDbFetch }"), "live feed must enforce the same bounded 15s PostgREST deadline"],
   [liveFeedApi.includes("db: { retry: false }"), "live feed must disable built-in PostgREST retries during saturation"],
   [liveFeedApi.includes('readHealth[lane]') && liveFeedApi.includes('status: "UNAVAILABLE"'), "live feed enrichment failures must remain distinguishable from absent data"],
+  [liveFeedApi.includes('semantics: "read_failure_not_fixture_absence"'), "live feed top-level failure must explicitly remain distinct from fixture absence"],
+  [!liveFeedApi.includes('error: String(error?.message') && liveFeedApi.includes('reason: "db_read_failed"'), "public live read-health must avoid exposing raw database error text"],
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL') && detail.includes("35000"), "live client deadline must remain outside the bounded two-phase live server read window"],
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
