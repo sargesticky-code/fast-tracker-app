@@ -308,3 +308,17 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] GitHub PR Build Verification must pass on PR #9 before review acceptance.
 - [ ] PR #9 must remain unreleased and be restored to PR #8 as base after CI verification.
 - [ ] Next diagnostic after green CI: one read-only pre-15:45 query/wait-source review if database diagnostics are available; do not alter schedules or DB settings based on correlation alone.
+
+
+### Frontend backpressure verification result
+
+- [x] Draft PR #9 is stacked on PR #8; PR #6/#8/#9 remain unreleased.
+- [x] Verified head `d5282260685f2b6957f04000129b5e6b1616dfcd` passed GitHub run `37139054527`.
+- [x] Real-evidence safety checks now guard homepage single-flight + 15s deadline and detail per-lane single-flight with bounded live/full/detail/analysis/story reads.
+- [x] English story/provider/independence/player identity/static route contracts remained green.
+- [x] Rendered desktop/mobile public flow = `22/22` passed in 26.9s.
+- [x] Artifact `11279722987`, digest `sha256:88382bc9eff1facfdde3c13648a59c46b8c2268e84ab2981b009b31b3a2132ea`.
+- [x] PR #9 base restored to `review/read-path-failfast-v2` after CI, preserving the review stack.
+- [ ] Production remains unchanged; no live-latency/concurrency improvement is claimed.
+- [ ] Initial 15:45 trigger remains unresolved; polling is proven as an amplifier, not proven as the initiating cause.
+- [ ] Next bounded task: one read-only 15:44–15:48 wait/query-fingerprint review if diagnostics are available; otherwise stop and leave the initiating DB event unknown.
