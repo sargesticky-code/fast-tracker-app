@@ -2153,42 +2153,11 @@ export default function MatchDetailClient() {
       ) : null}
 
 
-      <details className="panel technical-health-panel">
-        <summary>
-          <span>TECHNICAL</span>
-          <strong>Data health / diagnostics</strong>
-          <b>{match.health?.status || "UNKNOWN"}</b>
-        </summary>
-        <div className="technical-health-body">
-        <div className="technical-build-line">
-          <span>{match.id}</span>
-          <b>{UI_BUILD}</b>
-          <small>{source}</small>
-        </div>
-        <div className="health-list">
-          <div><span>HKJC freshness</span><b>{match.health?.hkjcFreshness || fresh.label}</b></div>
-          <div><span>HKJC fetched</span><b>{formatUpdated(match.health?.hkjcFetchedAt)}</b></div>
-          <div><span>Forebet</span><b>{match.health?.forebetState || "NO DATA"}</b></div>
-          <div><span>Forebet checked</span><b>{formatUpdated(match.health?.forebetCheckedAt)}</b></div>
-          <div><span>Internal model</span><b>{match.health?.internalModelQuality || "NO DATA"}</b></div>
-          <div><span>Internal source</span><b>{match.health?.internalModelSource || "NO DATA"}</b></div>
-          <div><span>Fallback source</span><b>{match.health?.fallbackSource || "NO DATA"}</b></div>
-          <div><span>Fallback status</span><b>{match.health?.fallbackStatus || "NO DATA"}</b></div>
-          <div><span>Home alias</span><b>{match.health?.homeAliasPresent ? "OK" : "MISSING"}</b></div>
-          <div><span>Away alias</span><b>{match.health?.awayAliasPresent ? "OK" : "MISSING"}</b></div>
-          <div><span>Evidence channels</span><b>{evidenceCount}</b></div>
-          <div><span>Multi-source members</span><b>{match.health?.multisourceMemberCount ?? match.multi?.sources ?? 0}</b></div>
-          <div><span>Decision</span><b>{match.decision || "NO DATA"}</b></div>
-          <div><span>Decision engine</span><b>{match.engineVersion || "NO DATA"}</b></div>
-        </div>
-        {match.health?.diagnostics?.length
-          ? <p className="fineprint">Diagnostics：{match.health.diagnostics.join(" · ")}</p>
-          : null}
-        {match.health?.forebetReason ? <p className="fineprint">Forebet：{match.health.forebetReason}</p> : null}
-        {match.health?.fallbackRecommendation ? <p className="fineprint">Fallback：{match.health.fallbackRecommendation}</p> : null}
-        {missingReason ? <p className="fineprint">Missing-data reason: {missingReason}</p> : <p className="fineprint">Canonical evidence channels: {evidenceCount}</p>}
-        </div>
-      </details>
+
+      <div className="public-system-link">
+        <span>Engineering diagnostics are kept separate from the public match page.</span>
+        <a href="/system/">Open system view</a>
+      </div>
 
     </main>
   );
