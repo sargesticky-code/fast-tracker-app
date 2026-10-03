@@ -503,7 +503,7 @@ for (const device of [
     await expect(page.getByText("Not measurable with <2 families", { exact: true })).toBeVisible();
     await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
     await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
-    await expect(page.getByText("WATCH · Under 4.5", { exact: true })).toBeVisible();
+    await expect(page.getByText("WATCH · Over 2.5", { exact: true })).toBeVisible();
     await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · HKJC_RESULTS)", { exact: true })).toBeVisible();
     await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
     await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
