@@ -7,6 +7,20 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+const DB_READ_TIMEOUT_MS = 15_000;
+const UPSTREAM_READ_TIMEOUT_MS = 45_000;
+function boundedDbFetch(input:any, init:any = {}) {
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
+}
+function createReadClient(url:string, key:string) {
+  return createClient(url, key, {
+    auth: { persistSession:false, autoRefreshToken:false },
+    db: { retry:false },
+    global: { fetch: boundedDbFetch },
+  });
+}
+
+
 function serverKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
@@ -764,7 +778,7 @@ Deno.serve(async (req: Request) => {
         if (!x?.error) detail=x;
       } catch {}
     }
-    const db = createClient(sbUrl, key, { auth:{ persistSession:false, autoRefreshToken:false } });
+    const db = createReadClient(sbUrl, key);
     const commentaryQuery = await db.from("match_commentary_evidence")
       .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics,opinion_signals,relevance_score,parser_version")
       .eq("hkjc_event_id", id)
