@@ -1187,3 +1187,73 @@ test("production desktop bounded acceptance", async ({ browser }) => {
 test("production mobile bounded acceptance", async ({ browser }) => {
   await productionAcceptance(browser, "mobile", { width: 390, height: 844 }, true);
 });
+
+
+async function knownFixtureProductionAcceptance(browser, label, viewport, isMobile = false) {
+  const context = await browser.newContext({
+    viewport,
+    isMobile,
+    hasTouch: isMobile,
+    userAgent: isMobile
+      ? "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/154.0 Mobile Safari/537.36"
+      : undefined,
+  });
+  const page = await context.newPage();
+  const starts = new Map();
+  const calls = [];
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/app-")) starts.set(req, Date.now());
+  });
+  page.on("response", (res) => {
+    if (!res.url().includes("/functions/v1/app-")) return;
+    const req = res.request();
+    calls.push({
+      endpoint: res.url().split("/functions/v1/")[1]?.split("?")[0] || res.url(),
+      status: res.status(),
+      ms: starts.has(req) ? Date.now() - starts.get(req) : null,
+    });
+  });
+
+  const url = PROD_BASE + "/details/?id=FB6175&acceptance=known-" + label + "-" + Date.now();
+  const nav = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(25000);
+
+  const text = await page.locator("body").innerText().catch(() => "");
+  const article = page.locator("article.ft-evidence-article");
+  const articleCount = await article.count();
+  const articleText = articleCount ? await article.innerText().catch(() => "") : "";
+  const h2 = articleCount ? await article.locator("h2").first().innerText().catch(() => "") : "";
+  const conclusion = articleCount ? await article.locator(".ft-article-summary").innerText().catch(() => "") : "";
+  const chineseChars = (articleText.match(/[\u3400-\u9fff]/g) || []).length;
+
+  const evidence = {
+    label,
+    viewport,
+    fixtureId: "FB6175",
+    httpStatus: nav?.status() ?? null,
+    url: page.url(),
+    canonicalIdVisible: text.includes("FB6175"),
+    matchAnalysisVisible: text.includes("FAST TRACKER MATCH ANALYSIS"),
+    articleChars: articleText.length,
+    articleHeadline: h2.slice(0, 300),
+    conclusionSample: conclusion.slice(0, 600),
+    articleChineseChars: chineseChars,
+    hkjcVisible: articleText.includes("Hong Kong Jockey Club"),
+    liveSourceVisible: text.includes("SUPABASE LIVE"),
+    unavailableVisible: text.includes("Match data is currently unavailable"),
+    canonicalMissingVisible: text.includes("Canonical fixture is unavailable"),
+    staleProtectionVisible: text.includes("Stale-price protection is active."),
+    unknownNotZeroVisible: text.includes("Unknown — not zero absences"),
+    calls,
+  };
+  console.log("KNOWN_FIXTURE_ACCEPTANCE_" + label.toUpperCase() + " " + JSON.stringify(evidence));
+  await context.close();
+}
+
+test("production known fixture desktop bounded detail acceptance", async ({ browser }) => {
+  await knownFixtureProductionAcceptance(browser, "desktop", { width: 1365, height: 900 }, false);
+});
+
+test("production known fixture mobile bounded detail acceptance", async ({ browser }) => {
+  await knownFixtureProductionAcceptance(browser, "mobile", { width: 390, height: 844 }, true);
+});
