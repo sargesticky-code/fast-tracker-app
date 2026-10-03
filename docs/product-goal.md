@@ -32,6 +32,9 @@ Do not invent replacement phases. Reuse and verify the existing work:
 - [x] Lower public match-detail sections (model consensus, goals/corners, team form, H2H, human factors and lineups) use the same English navy/blue/yellow visual system and preserve unknown/fail-closed states.
 - [x] Progressive disclosure keeps decision/status, bookmaker price, article conclusion, model consensus, team form and Team News immediately scannable while full article evidence, deep model rows, H2H meeting detail and the full lineup tool remain keyboard-accessible on demand.
 - [x] Full lineup tooling follows the decision/intelligence flow instead of preceding it; the main Team News safety/unknown state stays visible in the public flow.
+- [x] Empty-state density is compact for Market Comparison and Recent Form: no-model/no-comparable-price and no-history states show the exact reason plus safety/freshness without rendering fake zero metrics.
+- [x] Partial Market/Form coverage keeps available real statistics rich while compressing only the missing model/side state; populated cases retain the full existing panels.
+- [x] Rendered responsive verification now covers populated, partial and empty Market/Form states on desktop and mobile.
 - [x] Suitable maintained open-source components are used where they reduce bespoke UI risk (including Lucide icons, DayPicker and Playwright-rendered review checks).
 - [ ] Repository branches, PRs and deployment targets are audited before releases.
 - [ ] Railway/Cloudflare roles are verified from current configuration and reachable deployment evidence; a failure on a standby target is not treated as the sole release blocker.
