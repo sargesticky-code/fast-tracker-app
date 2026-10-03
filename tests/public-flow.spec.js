@@ -141,7 +141,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, withStory = true) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
   });
@@ -152,7 +152,24 @@ async function mockApis(page, withStory = true) {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload()) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(analysisPayload()) });
+    const payload = analysisPayload();
+    if (stale) {
+      payload.decision.oddsStatus = "STALE";
+      payload.decision.candidateClass = "DATA_RISK";
+      payload.decision.action = "NO_BET";
+      payload.evidence.phase1Health.sourceMode = "DB_FALLBACK_FAIL_CLOSED";
+      payload.governance.sourceMode = "DB_FALLBACK_FAIL_CLOSED";
+    }
+    if (legacyAnalysis) {
+      payload.story = {
+        advice: "舊中文建議不可直接顯示",
+        marketRead: "舊中文市場解讀",
+        modelRead: "舊中文模型解讀",
+        humanRead: "舊中文人為因素",
+        counterRead: "舊中文反方"
+      };
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
   });
   await page.route("**/functions/v1/app-match-story?**", async route => {
     const url = new URL(route.request().url());
@@ -191,6 +208,9 @@ for (const device of [
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
     await expect(page.getByText("Predicted / provisional lineup")).toBeVisible();
     await expect(page.getByText("This is unknown coverage, not zero injuries.")).toBeVisible();
+    await expect(page.getByText("Home 8 / Away 8 matches · venue 4/4")).toBeVisible();
+    await expect(page.getByText("2.20", { exact: true })).toBeVisible();
+    await expect(page.getByText("A lineup downgrade or adverse price move would weaken the case.")).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
@@ -200,7 +220,7 @@ for (const device of [
 test("article remains readable when English story cache/upstream is unavailable", async ({ page }) => {
   page.on("pageerror", error => console.log("PAGEERROR:", error.stack || error.message));
   await page.setViewportSize({ width: 1280, height: 820 });
-  await mockApis(page, false);
+  await mockApis(page, { withStory: false, legacyAnalysis: true });
 
   await page.goto("http://127.0.0.1:4173/");
   await page.locator('a[href*="FBTEST1"]').first().click();
@@ -208,4 +228,17 @@ test("article remains readable when English story cache/upstream is unavailable"
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Northbridge FC vs Riverside United: evidence-based match analysis")).toBeVisible();
   await expect(page.getByText("No verified player-status evidence is currently available. This is unknown coverage, not zero injuries.")).toBeVisible();
+  await expect(page.getByText("舊中文建議不可直接顯示")).toHaveCount(0);
+});
+
+test("stale market data disables an actionable article price", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { stale: true });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Not current")).toBeVisible();
+  await expect(page.getByText("WATCH / SKIP")).toBeVisible();
 });
