@@ -25,8 +25,8 @@ Do not invent replacement phases. Reuse and verify the existing work:
 ### 1. Public product and deployment
 
 - [ ] English public homepage with league/date/live/value navigation, search, combined H/D/A probability strip, prices, predictions, match detail links and planned ad positions.
-- [ ] Responsive desktop/tablet/mobile flows verified on rendered pages.
-- [ ] Internal engineering/coverage diagnostics moved out of the public homepage and available in `/system` or another internal route.
+- [x] Responsive desktop/mobile flows verified on the PR-head rendered artifact; production URL verification remains separate.
+- [x] Internal engineering/coverage diagnostics moved out of the public homepage and available in `/system`.
 - [ ] Suitable maintained open-source components used where they reduce bespoke UI risk.
 - [ ] Repository branches, PRs and deployment targets are audited before releases.
 - [ ] Railway/Cloudflare roles are verified from current configuration and reachable deployment evidence; a failure on a standby target is not treated as the sole release blocker.
@@ -34,11 +34,11 @@ Do not invent replacement phases. Reuse and verify the existing work:
 
 ### 2. Comprehensive football and bookmaker data
 
-- [ ] Inventory every current provider, league and market with status: working / partial / missing / planned.
+- [x] Inventory current audited providers and market coverage with working/partial/missing status in `docs/provider-inventory.md`; continue extending as new sources are added.
 - [ ] Do not call one bookmaker feed “multi-bookmaker”.
 - [ ] HKJC remains a distinct named bookmaker/source where applicable.
 - [ ] Add multiple distinct authorized bookmaker sources only when real feeds and rights/credentials exist.
-- [ ] Normalize bookmaker, match, team, player, market, line, price format and observation timestamp.
+- [ ] Canonical provider/market/line/price/as-of contract is implemented in branch code and reviewed SQL; production migration/application remains pending.
 - [ ] Support HDA, Asian handicap, goals, BTTS and corners where the source genuinely supplies them.
 - [ ] Show meaningful cross-bookmaker comparison and best available price only when at least two distinct bookmaker observations exist.
 - [ ] Show odds movement only from genuine timestamped historical observations.
@@ -49,9 +49,9 @@ Do not invent replacement phases. Reuse and verify the existing work:
 - [ ] Canonical match joins connect form, home/away records, goals/xG, H2H, lineups, injuries/suspensions, live scores and live stats.
 - [ ] Every evidence object carries source and freshness/as-of information when available.
 - [ ] Observed facts and derived estimates are explicitly distinguished.
-- [ ] Model expected goals must never be labelled as observed xG.
-- [ ] Missing/unavailable fields are explicit rather than silently converted to zero.
-- [ ] Confirmed versus predicted lineups remain distinct.
+- [x] English article explicitly labels Team Form/Dixon-Coles expected goals as model estimates, not observed xG.
+- [x] Current article/Phase 2 path keeps missing player-status/injury evidence unknown rather than zero; continue auditing other evidence families.
+- [x] Confirmed versus predicted lineups remain distinct, including row-level confirmed evidence when event-map metadata is absent.
 - [ ] Unresolved player/injury identity remains explicit and cannot silently become confirmed evidence.
 
 ### 4. Market-specific recommendations
@@ -85,9 +85,9 @@ Each substantial match preview/article must include:
 - [ ] Verify multi-bookmaker comparison against real distinct bookmaker rows.
 - [ ] Verify article claims against stored evidence.
 - [ ] Verify canonical identity joins and unresolved-identity behaviour.
-- [ ] Verify missing/stale/conflicting-data behaviour.
+- [x] Fixture tests verify missing-English-story and stale-price fail-closed behavior; FB6114 adds real missing-provider/player-status and zero-H2H evidence verification.
 - [ ] Verify market-specific calculations with fixtures that actually contain the required market.
-- [ ] Verify desktop and mobile user flows from homepage to match detail/article.
+- [x] Desktop and mobile homepage-to-detail/article flows pass Playwright on the PR artifact.
 - [ ] Verify actual public and preview URLs.
 - [ ] Record recommendation outcomes/calibration only where genuine historical results permit it.
 - [ ] Do not advertise a win rate or success claim that has not been measured.
