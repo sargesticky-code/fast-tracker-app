@@ -127,7 +127,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
   const home = safe(match.home || match.homeEn || match.homeZh, "Home");
   const away = safe(match.away || match.awayEn || match.awayZh, "Away");
   const headline = body?.headline || home + " vs " + away + ": evidence-based match analysis";
-  const conclusion = body?.thesis || analysis?.story?.advice || (unavailable
+  const conclusion = body?.thesis || (unavailable
     ? "No actionable recommendation is supported by the current verified evidence."
     : "The current evidence supports a watchlist candidate, subject to price and data freshness.");
 
@@ -222,13 +222,17 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
       <section className="ft-article-columns">
         <div>
           <h3>Reasoning</h3>
-          <p>{body?.marketInterpretation || analysis?.story?.marketRead || "Market-specific reasoning is not available yet."}</p>
-          <p>{body?.modelConsensusInterpretation || analysis?.story?.modelRead || "Model consensus evidence is incomplete."}</p>
-          <p>{body?.humanFactorsInterpretation || analysis?.story?.humanRead || "Human-factor evidence is incomplete."}</p>
+          <p>{body?.marketInterpretation || (quote.decimalPrice !== null
+            ? `The current analysis uses the observed ${quote.providerLabel || "bookmaker"} ${quote.market || "market"} price shown above.`
+            : "A fresh, usable market price is not available for an actionable comparison.")}</p>
+          <p>{body?.modelConsensusInterpretation || "Independent model-family evidence is shown elsewhere on the match page; no narrative consensus is inferred when an English story is unavailable."}</p>
+          <p>{body?.humanFactorsInterpretation || (lineup[0] === "UNKNOWN"
+            ? "Human-factor coverage is incomplete, so missing lineup or player-status evidence remains unknown."
+            : `Lineup state: ${lineup[1]}. It is not promoted beyond its stored confirmation status.`)}</p>
         </div>
         <div>
           <h3>Counterevidence and uncertainty</h3>
-          <p>{body?.counterCase || analysis?.story?.counterRead || "No additional counterevidence has been recorded; this does not mean counterevidence is absent."}</p>
+          <p>{body?.counterCase || "No English narrative countercase is available for this snapshot; absence of a narrative is not evidence that counterevidence is absent."}</p>
           {invalidators.length ? <ul>{invalidators.slice(0, 6).map((row, index) => <li key={String(row) + index}>{String(row)}</li>)}</ul> : <p className="ft-article-unknown">No explicit invalidators are stored for the current snapshot.</p>}
         </div>
       </section>
