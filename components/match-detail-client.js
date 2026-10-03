@@ -593,9 +593,9 @@ export default function MatchDetailClient() {
         }
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
+          const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
+          if (fallbackStale) authoritativeDetailBlocksFeed = true;
           setMatch((previous) => {
-            const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
-            if (fallbackStale) authoritativeDetailBlocksFeed = true;
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
             // A stale/terminal authoritative detail snapshot must be allowed to
