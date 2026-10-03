@@ -99,7 +99,7 @@ Deno.serve(async(req:Request)=>{
   }
   const sbUrl=Deno.env.get("SUPABASE_URL")||"",key=serverKey();
   if(!sbUrl||!key) return Response.json({error:"server_config_missing"},{status:500,headers:{...cors,"Cache-Control":"no-store"}});
-  const db=createClient(sbUrl,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  const db=createReadClient(sbUrl,key);
 
   const one=async(table:string,select="*",schema="public")=>{
     const q=(schema==="public"?db:db.schema(schema)).from(table).select(select).eq("hkjc_event_id",id).maybeSingle();
