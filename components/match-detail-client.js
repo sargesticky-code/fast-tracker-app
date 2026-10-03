@@ -533,6 +533,7 @@ export default function MatchDetailClient() {
     let cancelled = false;
     let resolvedFresh = false;
     let canonicalMissing = false;
+    let authoritativeDetailBlocksFeed = false;
     const requestsInFlight = {
       match: false,
       detail: false,
@@ -550,7 +551,7 @@ export default function MatchDetailClient() {
         const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 20000);
         if (!res.ok) return;
         const feed = await res.json();
-        if (cancelled || canonicalMissing) return;
+        if (cancelled || canonicalMissing || authoritativeDetailBlocksFeed) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           resolvedFresh = true;
@@ -594,6 +595,7 @@ export default function MatchDetailClient() {
         if (fixtureFallback) {
           setMatch((previous) => {
             const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
+            if (fallbackStale) authoritativeDetailBlocksFeed = true;
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
             // A stale/terminal authoritative detail snapshot must be allowed to
