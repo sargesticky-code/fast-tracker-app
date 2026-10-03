@@ -293,3 +293,18 @@ Routine development, testing, debugging and transitions between already agreed p
 - [x] PR #8 base restored to `review/english-story-summary-v1` after workflow verification so its active review diff remains performance-only.
 - [ ] Production is unchanged; no claim is made that the containment patch has reduced live latency.
 - [ ] Next bounded task: read-only map cron job IDs active during the 15:45–16:15 saturation window to their functions/runtime distributions and identify one dominant workload family before proposing any schedule/DB change.
+
+
+### Cron/workload diagnosis + frontend backpressure review — 2026-10-04
+
+- [x] Cron startup-timeout IDs mapped from Postgres logs. Highest counts: jobs 17/6 = 13 each, 14/4 = 10 each, 16 = 6, 28/8 = 5 each; broad distribution argues against one proven cron trigger.
+- [x] Known commands/functions mapped where evidence is direct or cadence+Edge-path correlation is strong: live shadow guard, live score, live layer guard, HKJC live, live source shadow, Phase 4 quotes/core, Phase 3 identity, Phase 1 core, HKJC upcoming, Polymarket discovery/verify, Flashscore scout, lineup snapshot.
+- [x] Exact job 8/job 36 catalog ownership remains unknown because one bounded `cron.job` catalog read failed with connection timeout; no retry loop was used.
+- [x] Healthy cron work was generally short; lower-frequency Phase 4 quotes/Flashscore jobs were longer (~22–24s average) but not shown to be the trigger.
+- [x] Cron jobs in the saturated window mainly fail to start; surviving HKJC/live-score cron-triggered functions still completed in ~4–6s.
+- [x] Public-read overlap is the strongest sustained load signal: 15:45 bucket = 30 live-feed + 20 Phase-1 + 15 detail starts, with p50 ~90–150s, while source had no in-flight coalescing.
+- [x] Causality boundary preserved: frontend polling is demonstrated as a saturation amplifier, not proven as the initial trigger. Selective query contention/global capacity remain hypotheses; no sampled deadlock-specific log evidence.
+- [x] Draft PR #9 prepared on PR #8: homepage/detail request lanes are single-flight with bounded browser deadlines; polling cadences and all fixture/model/provenance/stale-price semantics remain unchanged.
+- [ ] GitHub PR Build Verification must pass on PR #9 before review acceptance.
+- [ ] PR #9 must remain unreleased and be restored to PR #8 as base after CI verification.
+- [ ] Next diagnostic after green CI: one read-only pre-15:45 query/wait-source review if database diagnostics are available; do not alter schedules or DB settings based on correlation alone.
