@@ -55,6 +55,7 @@ const checks = [
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
+  [storyApi.includes("AI_READ_TIMEOUT_MS = 15_000") && storyApi.includes("AbortSignal.timeout(AI_READ_TIMEOUT_MS)"), "optional AI story fetch must have its own bounded deadline"],
   [homepage.includes("let refreshInFlight = false") && homepage.includes("AbortSignal.timeout(20000)"), "homepage polling must remain single-flight with a browser deadline outside the 15s server read bound"],
   [detail.includes("const requestsInFlight = {") && detail.includes("if (cancelled || requestsInFlight.live) return;"), "detail live polling must coalesce overlapping requests"],
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now()') && detail.includes("35000"), "live polling must stay single-flight with a client deadline outside the reviewed server bound"],
@@ -62,7 +63,8 @@ const checks = [
   [detail.includes("authoritativeDetailBlocksFeed") && detail.includes("canonicalMissing || authoritativeDetailBlocksFeed"), "delayed feed responses must not overwrite conclusive missing or authoritative stale detail state"],
   [detail.includes("singleFlightFetch(`match-detail:${matchId}`") && lineupPanel.includes("singleFlightFetch(`match-detail:${matchId}`"), "match detail and lineup consumers must share one page-level detail request"],
   [singleFlight.includes("const inFlight = new Map()") && singleFlight.includes("response.clone()"), "shared single-flight fetch must deduplicate consumers without sharing a consumed Response body"],
-  [detail.includes("20000") && detail.includes("35000") && detail.includes("65000"), "browser deadlines must remain outside the corresponding bounded server-read windows"],
+  [detail.includes("DETAIL_SUMMARY_FEED_URL") && detail.includes("view=summary"), "detail route Phase-1 refresh must use the bounded summary feed rather than full enrichments"],
+  [detail.includes("20000") && detail.includes("35000") && detail.includes("70000") && detail.includes("120000"), "browser deadlines must remain outside the corresponding bounded server-stage windows"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
