@@ -757,3 +757,93 @@ Artifact: **`11280418041`**, `dashboard-redesign-f6ad2aa083ad6669f81a123ac75c7e7
 Deployed-source parity checkpoint remains exact and independently auditable: deployed Supabase v7 bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`; exact recovered source persisted before edits at commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, 10,218 bytes.
 
 With this verification, the coherent review-only release candidate is PR6→PR8→PR9→PR10→PR11. Production remains unchanged in this batch.
+
+
+## Bounded production release evidence — 2026-10-04
+
+This release used the previously reviewed PR6→PR8→PR9→PR10→PR11 stack and the existing human authorization for the UI release plus bounded holistic live-blocker repairs. No migration, DB write, index/compute change, cron change, provider/feed expansion, spend or access expansion was performed.
+
+### Integration order and exact main revision
+
+PRs were integrated in dependency order with expected-head protection:
+- PR #6 merged as `06a37195632a49feb559798172044343ac9258dd` from head `43642e8540f9c17ede34c9227e1a9faabebcd2fc`.
+- PR #8 merged as `ac85c5fadd17ee5cde0ef80a5327f83eef078b95` from head `728b10822942ca4a6573b831622a2f86226c96c2`. Its implementation head `8a9e7e6eef3d71ea3d988acb553b05f271aaf8e6` had green CI `37138137494`; post-CI commits were durable-doc changes only.
+- PR #9 merged as `f214376b27d980fc76cb50cb4b8174a3995b2db0` from head `cb8e6c4af2c69b2d0e16f4bd478fb3a4f0a51d1c`. Its implementation head `d5282260685f2b6957f04000129b5e6b1616dfcd` had green CI `37139054527`; the two later commits changed only the durable docs.
+- PR #10 merged as `ba904b96e04e1f741d8f130e42e5d7f2e5f4e9a0` from head `7163801bf01c5e5e9f96f98870aa3fdaf9c2c056`. Its implementation head `691cf5557d5db28d97b45c4970edacda0ee734c3` had green CI `37140371900`; the later two commits were durable-doc changes only.
+- PR #11 merged as **`1bd2e2143aa95029875dbb3d172c18335653b21c`** from head `612348aa31def3085ff0fbfb5326f56da752898d`. Its final implementation head `b2999ef339b40583f489b9fac968fd6bc179ecda` had green CI `37141684170` with 32/32 rendered behavior cases; the later two commits were durable-doc changes only.
+
+Production/main therefore points to **`1bd2e2143aa95029875dbb3d172c18335653b21c`** for this release.
+
+### Frontend deployment route
+
+The working frontend route was Cloudflare Git integration, not Railway redeploy.
+
+GitHub's Cloudflare check for production/main `1bd2e214...` completed successfully:
+- check: `Workers Builds: fast-tracker-app`
+- Cloudflare Build ID: **`b99a75c2-6e5b-4294-b625-3ee565292a99`**
+- Cloudflare Version ID: **`d05c0a3e-a31b-4c9a-bcce-53ce4b720d55`**
+- check conclusion: SUCCESS
+
+Railway was deliberately not redeployed. The connected `fast-tracker-public` service still has latest SUCCESS deployment `57cf63d7-13a9-4a04-a4eb-e258b242317f`, whose metadata identifies commit **`cf4e3a0d7e7af46d026aef2a50c81703a17f92f0`**. Railway's available redeploy operation reuses that existing build/snapshot, so using it here would have replayed the old frontend rather than the merged release. The Cloudflare URL is the release acceptance target.
+
+### Supabase Edge release and exact source parity
+
+Only the five reviewed existing public-read/story functions were released. Each was immediately read back and compared byte-for-byte with merged `main` source:
+
+| Function | Live version | Supabase bundle SHA256 | merged Git blob | read-back parity |
+| --- | ---: | --- | --- | --- |
+| `app-phase1-feed` | 57 | `08029ec7bb09ae8efb5683d8881fa9aa4e433bf43ac90bedc60b7b2e4574dc43` | `8b8e961c67420dccfb5176fd2121c18426bb3733` | exact |
+| `app-match-detail` | 18 | `9255db49390692ad20e78891b4d53d1e5b6888b61eaf27fea7390594c0bb62c7` | `9aad9428679a235cd50dd4048e0611b6f8419032` | exact |
+| `app-match-analysis` | 33 | `5fd8423b1faef49e6c740109a194bb3d68139e20701bdfb4bdab178c82a335bc` | `98dbbd6d88850ee4195c4369712a4acdb395a56c` | exact |
+| `app-match-story` | 28 | `6ae349514bad39f7d6f74c64946769bb5b7cb7ee7d4bb03bbc7e7c06ba56e78b` | `8768d25e212786597e71749315cb69544915bf59` | exact |
+| `app-live-feed` | 8 | `34b6d9203e8a82fa11af3b1873205a4628d17b813bda7c788a5bacbcf17f9963` | `1dd4da708453c7426f2cfca3f661ea99eb0e54c1` | exact |
+
+All retain the existing `verify_jwt:false` posture; no auth/access model change was made.
+
+### Bounded live production acceptance
+
+Because the Opera connector was unavailable and ordinary external fetch routes were unavailable/exhausted, a temporary **non-merged** test-only branch/PR was used to run Playwright from GitHub Actions against the real Cloudflare production URL. PR #12 was closed unmerged after the evidence was captured.
+
+Live browser evidence run `37142964000` (34/34 total cases) showed:
+- desktop 1365×900: Cloudflare homepage HTTP 200; `app-phase1-feed?hours=24&view=summary` returned 503 in ~15.46s; UI rendered `Fixture feed temporarily unavailable` and kept fixture counts unknown.
+- mobile 390×844: Cloudflare homepage HTTP 200; the same summary feed returned 503 in ~15.98s; UI rendered the same truthful unavailable/unknown state.
+
+A second bounded run `37143165257` (36/36 total cases) repeated the homepage result and added the already-established real fixture `FB6175` as a direct fallback acceptance target because the homepage could not supply a current fixture:
+- desktop FB6175 detail URL: HTTP 200; canonical ID visible; `app-phase1-feed` 503 in ~15.15s; `app-match-detail` 200 in ~15.28s; `app-live-feed` 503 in ~15.30s; UI rendered **`Canonical fixture is unavailable`**.
+- mobile FB6175 detail URL: HTTP 200; canonical ID visible; `app-phase1-feed` 503 in ~15.16s; `app-match-detail` 200 in ~15.20s; `app-live-feed` 503 in ~15.27s; UI rendered the same canonical-missing state.
+
+This is meaningful live acceptance of the released fail-closed behavior:
+- production homepage does not turn a read failure into zero fixtures or canonical absence;
+- the bounded server reads now fail around the reviewed ~15s window rather than the prior 90–150s tail;
+- a successful detail response whose durable fixture identity is genuinely missing renders canonical absence separately from transport unavailability;
+- desktop and mobile Cloudflare pages both load and present the same truthful state.
+
+It is **not** evidence of the full content goal. No current fixture was available from the homepage during the bounded sample. Therefore the following were not observed live and must not be claimed:
+- homepage→current-detail continuity for a current fixture;
+- a substantive attributable English cached article or deterministic English article body;
+- visible HKJC bookmaker evidence on a current detail article;
+- live stats/source rendering for a current in-play fixture;
+- stale-price ordering on a current/stale live case;
+- production concurrency coalescing under an intentionally delayed request (that remains behavior-test evidence, not live acceptance).
+
+The direct FB6175 fallback displayed no article because the released detail endpoint correctly classified the old fixture as canonically unavailable; no `app-match-analysis` or `app-match-story` production article result should be inferred from this sample.
+
+### Rollback map
+
+Frontend rollback target is the prior Cloudflare production version/build retained by Cloudflare's deployment history; the reviewed Git rollback dependency order remains PR11 → PR10 → PR9 → PR8, with PR6 independently reversible for the English-story layer.
+
+Edge rollback source is available from the previous deployed versions recorded before release (phase1 v56, detail v17, analysis v32, story v27, live v7). No database migration rollback is involved because this release applied no migration/schema/index/cron change.
+
+### Remaining full-goal criteria and exact dependency
+
+The overall football-intelligence goal is **not complete**. The immediate production blocker is now narrow and directly observed: the **summary authority read still returns 503 at the 15s DB-read boundary**, so the homepage cannot currently obtain a current fixture set. In summary mode, the heavy Phase-1 enrichment chain is skipped; this points the next investigation specifically at the authority RPC/read path rather than the frontend or broad enrichment fanout.
+
+Remaining criteria include:
+- restore reliable current fixture authority delivery within the bounded read window;
+- then verify one real current homepage→detail path with canonical identity and HKJC market evidence;
+- verify substantive English cached/fallback article output on that same real fixture and preserve attributable source/as-of information;
+- verify a real in-play/live detail sample with score/stats provenance and later-refresh behavior;
+- verify stale/reference ordering on an actual stale-market case;
+- continue the wider product goal for independent bookmaker/model evidence, human factors and live evidence only after the public read path is usable.
+
+**Smallest next task:** one targeted, read-only post-release review of `ft_internal_app_phase1_feed` / the summary authority RPC path that is now demonstrably hitting the 15s bound. Inspect its current definition/query plan and the post-release timeout fingerprint only; do not reopen the generic 15:44 database-trigger investigation. Any DB/index/function rewrite, migration or compute change remains a genuinely new action requiring separate authorization.
