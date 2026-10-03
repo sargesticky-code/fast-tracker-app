@@ -102,6 +102,31 @@ function lineModel(
   };
 }
 
+function handicapParts(v: unknown) {
+  const s=String(v ?? "").trim();
+  if(!s) return [];
+  return s.split("/").map(x=>Number(x)).filter(Number.isFinite);
+}
+function poissonPmf(lambda:number,max=10){
+  const a:number[]=[]; let p=Math.exp(-lambda); a.push(p);
+  for(let k=1;k<=max;k++){ p*=lambda/k; a.push(p); }
+  return a;
+}
+function asianEv(homeXg:unknown,awayXg:unknown,lineValue:unknown,oddsValue:unknown,side:"HOME"|"AWAY"){
+  const hx=num(homeXg), ax=num(awayXg), odds=num(oddsValue), parts=handicapParts(lineValue);
+  if(hx==null||ax==null||hx<=0||ax<=0||odds==null||odds<=1||!parts.length) return null;
+  const hp=poissonPmf(hx), ap=poissonPmf(ax); let ev=0, mass=0;
+  for(let h=0;h<hp.length;h++) for(let a=0;a<ap.length;a++){
+    const pr=hp[h]*ap[a]; mass+=pr; let settle=0;
+    for(const homeLine of parts){
+      const margin=side==="HOME" ? (h-a+homeLine) : (a-h-homeLine);
+      settle += margin>1e-9 ? odds-1 : margin<-1e-9 ? -1 : 0;
+    }
+    ev += pr*(settle/parts.length);
+  }
+  if(mass>0) ev/=mass;
+  return { ev, edgePct:ev*100, fairOdds: ev>-0.999 ? odds/(1+ev) : null };
+}
 function statNum(v: unknown) {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
@@ -206,7 +231,13 @@ Deno.serve(async (req: Request) => {
     const liveAuthorityMap = new Map<string, any>();
     const verifiedMasterKeys = new Set<string>();
     if (eventIds.length) {
-      const [{ data: upcomingAuthorityRows, error: upcomingAuthorityError }, { data: liveAuthorityRows, error: liveAuthorityError }] = await Promise.all([
+      const currentNameKeys = [...new Set(
+        rows.flatMap((row: any) => [identityKey(row.home_en), identityKey(row.away_en)]).filter(Boolean)
+      )];
+
+      // These enrichment reads are independent. Start them together so network
+      // round trips do not accumulate before the homepage can render.
+      const authorityPromise = Promise.all([
         db.from("hkjc_upcoming_current")
           .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
           .in("hkjc_event_id", eventIds),
@@ -214,6 +245,37 @@ Deno.serve(async (req: Request) => {
           .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
           .in("hkjc_event_id", eventIds),
       ]);
+      const identityPromise = currentNameKeys.length
+        ? db.from("team_name_master")
+            .select("source_key")
+            .eq("source", "HKJC_EN")
+            .eq("status", "VERIFIED")
+            .in("source_key", currentNameKeys)
+        : Promise.resolve({ data: [], error: null });
+      const formDetailPromise = db.rpc("ft_internal_team_form_details", { event_ids: eventIds });
+      const modelDetailPromise = db.from("model_predictions")
+        .select("hkjc_event_id,fetched_at,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,model_source,model_league")
+        .in("hkjc_event_id", eventIds);
+      const formMetaPromise = db.from("form_predictions")
+        .select("hkjc_event_id,fetched_at,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,model_source")
+        .in("hkjc_event_id", eventIds);
+      const storyPromise = db.from("match_interpretations")
+        .select("hkjc_event_id,match_script:payload->matchScript,editorial_alignment:payload->editorialAlignment")
+        .in("hkjc_event_id", eventIds)
+        .eq("language", "zh-HK")
+        .eq("style", "professional");
+      const sourceContextPromise = db.from("phase15_source_shadow_current")
+        .select("source_key,external_event_id,matched_hkjc_event_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")
+        .eq("source_key", "FOTMOB")
+        .in("matched_hkjc_event_id", eventIds);
+      const movementPromise = db.from("odds_movement_current")
+        .select("hkjc_event_id,captured_at,movement_side,now_odds,odds_24h,move_24h_pp,odds_2h,move_2h_pp,odds_1h,move_1h_pp,vol_24h_pp,signal,model_side,model_prob,model_alignment,match_confidence,alert_score")
+        .in("hkjc_event_id", eventIds);
+      const powerPromise = db.from("hkjc_power_current")
+        .select("hkjc_event_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
+        .in("hkjc_event_id", eventIds);
+
+      const [{ data: upcomingAuthorityRows, error: upcomingAuthorityError }, { data: liveAuthorityRows, error: liveAuthorityError }] = await authorityPromise;
       if (upcomingAuthorityError) {
         console.error("upcoming_display_authority_query_failed", upcomingAuthorityError);
       } else {
@@ -225,16 +287,8 @@ Deno.serve(async (req: Request) => {
         for (const row of liveAuthorityRows ?? []) liveAuthorityMap.set(row.hkjc_event_id, row);
       }
 
-      const currentNameKeys = [...new Set(
-        rows.flatMap((row: any) => [identityKey(row.home_en), identityKey(row.away_en)]).filter(Boolean)
-      )];
       if (currentNameKeys.length) {
-        const { data: identityRows, error: identityError } = await db
-          .from("team_name_master")
-          .select("source_key")
-          .eq("source", "HKJC_EN")
-          .eq("status", "VERIFIED")
-          .in("source_key", currentNameKeys);
+        const { data: identityRows, error: identityError } = await identityPromise;
         if (identityError) {
           console.error("master_identity_query_failed", identityError);
         } else {
@@ -245,10 +299,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const { data: formDetailPayload, error: formDetailError } = await db.rpc(
-        "ft_internal_team_form_details",
-        { event_ids: eventIds },
-      );
+      const { data: formDetailPayload, error: formDetailError } = await formDetailPromise;
       if (formDetailError) {
         console.error("team_form_detail_query_failed", formDetailError);
       } else {
@@ -257,32 +308,21 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const { data: modelDetailRows, error: modelDetailError } = await db
-        .from("model_predictions")
-        .select("hkjc_event_id,fetched_at,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,model_source,model_league")
-        .in("hkjc_event_id", eventIds);
+      const { data: modelDetailRows, error: modelDetailError } = await modelDetailPromise;
       if (modelDetailError) {
         console.error("model_detail_query_failed", modelDetailError);
       } else {
         for (const row of modelDetailRows ?? []) modelDetailMap.set(row.hkjc_event_id, row);
       }
 
-      const { data: formRows, error: formMetaError } = await db
-        .from("form_predictions")
-        .select("hkjc_event_id,fetched_at,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,model_source")
-        .in("hkjc_event_id", eventIds);
+      const { data: formRows, error: formMetaError } = await formMetaPromise;
       if (formMetaError) {
         console.error("team_form_meta_query_failed", formMetaError);
       } else {
         for (const row of formRows ?? []) formMetaMap.set(row.hkjc_event_id, row);
       }
 
-      const { data: storyRows, error: storyError } = await db
-        .from("match_interpretations")
-        .select("hkjc_event_id,match_script:payload->matchScript,editorial_alignment:payload->editorialAlignment")
-        .in("hkjc_event_id", eventIds)
-        .eq("language", "en")
-        .eq("style", "professional");
+      const { data: storyRows, error: storyError } = await storyPromise;
       if (storyError) {
         console.error("story_summary_query_failed", storyError);
       } else {
@@ -294,11 +334,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const { data: sourceContextRows, error: sourceContextError } = await db
-        .from("phase15_source_shadow_current")
-        .select("source_key,external_event_id,matched_hkjc_event_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")
-        .eq("source_key", "FOTMOB")
-        .in("matched_hkjc_event_id", eventIds);
+      const { data: sourceContextRows, error: sourceContextError } = await sourceContextPromise;
       if (sourceContextError) {
         console.error("source_context_query_failed", sourceContextError);
       } else {
@@ -328,10 +364,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const { data: movementRows, error: movementError } = await db
-        .from("odds_movement_current")
-        .select("hkjc_event_id,captured_at,movement_side,now_odds,odds_24h,move_24h_pp,odds_2h,move_2h_pp,odds_1h,move_1h_pp,vol_24h_pp,signal,model_side,model_prob,model_alignment,match_confidence,alert_score")
-        .in("hkjc_event_id", eventIds);
+      const { data: movementRows, error: movementError } = await movementPromise;
 
       if (movementError) {
         console.error("movement_query_failed", movementError);
@@ -505,10 +538,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const { data: powerRows, error: powerError } = await db
-        .from("hkjc_power_current")
-        .select("hkjc_event_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
-        .in("hkjc_event_id", eventIds);
+      const { data: powerRows, error: powerError } = await powerPromise;
 
       if (powerError) {
         console.error("power_query_failed", powerError);
@@ -630,6 +660,26 @@ Deno.serve(async (req: Request) => {
         home: num(displayAuthority?.hdc_home),
         away: num(displayAuthority?.hdc_away),
       },
+      handicapAdvice: (() => {
+        const m:any=modelDetailMap.get(r.hkjc_event_id) ?? null;
+        const line=displayAuthority?.hdc_line ?? null, homeOdds=num(displayAuthority?.hdc_home), awayOdds=num(displayAuthority?.hdc_away);
+        const home=asianEv(m?.dc_xg_home,m?.dc_xg_away,line,homeOdds,"HOME");
+        const away=asianEv(m?.dc_xg_home,m?.dc_xg_away,line,awayOdds,"AWAY");
+        if(!home&&!away) return {status:"NO_MODEL",line,reason:line==null?"讓球盤未開":"缺少可用 xG 模型"};
+        const best=!away||(home&&home.ev>=away.ev)?{side:"HOME",...home}:{side:"AWAY",...away};
+        return {
+          status:best.ev>=0.03?"VALUE":best.ev>0?"LEAN":"NO_VALUE",
+          line,
+          selection:best.side,
+          odds:best.side==="HOME"?homeOdds:awayOdds,
+          edgePct:best.edgePct,
+          fairOdds:best.fairOdds,
+          home:home?{edgePct:home.edgePct,fairOdds:home.fairOdds}:null,
+          away:away?{edgePct:away.edgePct,fairOdds:away.fairOdds}:null,
+          method:"DC_XG_POISSON_ASIAN_SETTLEMENT",
+          explanation:best.ev>=0.03?"模型結算 EV 高於 3%":best.ev>0?"有輕微正 EV，未達主要投注門檻":"現價未有正 EV"
+        };
+      })(),
       goals: {
         line: r.hkjc_goals_line ?? null,
         over: num(r.hkjc_goals_over),

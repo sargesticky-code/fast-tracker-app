@@ -463,7 +463,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     let cancelled = false;
     async function refresh() {
       try {
-        const res = await fetch(FEED_URL, { cache: "no-store" });
+        const res = await fetch(FEED_URL);
         if (!res.ok) {
           let message = `HTTP ${res.status}`;
           try {
