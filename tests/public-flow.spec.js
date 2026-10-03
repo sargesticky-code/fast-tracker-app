@@ -29,14 +29,20 @@ function fixtureFeed() {
   };
 }
 
-function detailPayload({ confirmedLineup = false } = {}) {
+function detailPayload({ confirmedLineup = false, historical = false } = {}) {
   return {
     fixture: {
       hkjc_event_id: "FBTEST1",
       home_en: "Northbridge FC",
       away_en: "Riverside United",
       tournament: "Premier League",
-      kickoff_hkt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      status: historical ? "FINISHED" : "PREEVENT",
+      kickoff_hkt: new Date(Date.now() + (historical ? -2 : 1) * 60 * 60 * 1000).toISOString(),
+      fetched_at: new Date().toISOString(),
+      odds_updated_at: new Date(Date.now() + (historical ? -26 : -0.1) * 60 * 60 * 1000).toISOString(),
+      had_home: 2.2,
+      had_draw: 3.3,
+      had_away: 3.1
     },
     h2h: {
       h2h_games: 4,
@@ -156,7 +162,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, historicalDetail = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
   });
@@ -164,7 +170,7 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
   });
   await page.route("**/functions/v1/app-match-detail?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup })) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, historical: historicalDetail })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
     const payload = analysisPayload();
@@ -268,4 +274,16 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup", { exact: true })).toBeVisible();
   await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
+});
+
+test("post-kickoff historical detail overrides cached prematch price", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { historicalDetail: true });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("#analysis").getByText("Not current")).toBeVisible();
+  await expect(page.locator("#analysis").getByText("WATCH / SKIP")).toBeVisible();
 });
