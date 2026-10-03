@@ -10,7 +10,8 @@
     "check:story": "node scripts/check-english-story-contract.mjs",
     "check:market-contract": "node scripts/check-market-provider-contract.mjs",
     "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
-    "check:evidence-independence": "node scripts/check-evidence-independence.mjs"
+    "check:evidence-independence": "node scripts/check-evidence-independence.mjs",
+    "check:player-evidence": "node scripts/check-player-evidence-identity.mjs"
   },
   "dependencies": {
     "@withqwerty/campos-stadia": "0.1.0-beta.6",
