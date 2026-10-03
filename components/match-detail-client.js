@@ -1241,20 +1241,18 @@ export default function MatchDetailClient() {
       <section className="detail-board-hero">
         <div className="detail-board-meta">
           <span>{formatKickoff(match.kickoff)}</span>
-          <b>{leagueDisplayName(match.leagueZh || match.league)}</b>
+          <b>{leagueDisplayName(match.league || match.leagueZh)}</b>
           <small>{match.id}</small>
           <span className={"detail-board-fresh detail-board-fresh-" + fresh.key}>{fresh.label}</span>
         </div>
 
         <div className="detail-board-fixture">
           <div className="detail-board-team">
-            <strong>{match.homeZh || match.home}</strong>
-            {match.homeEn && match.homeZh ? <small>{match.homeEn}</small> : null}
+            <strong>{match.homeEn || match.home || match.homeZh}</strong>
           </div>
           <span className="detail-board-vs">VS</span>
           <div className="detail-board-team away">
-            <strong>{match.awayZh || match.away}</strong>
-            {match.awayEn && match.awayZh ? <small>{match.awayEn}</small> : null}
+            <strong>{match.awayEn || match.away || match.awayZh}</strong>
           </div>
           {predictedScore ? <div className="detail-board-score"><span>FOREBET</span><b>{predictedScore}</b></div> : null}
         </div>
@@ -1626,7 +1624,7 @@ export default function MatchDetailClient() {
           <div className="live-scoreboard-hero">
             <div className="live-team-block home">
               <span>HOME</span>
-              <strong>{match.homeZh || match.home}</strong>
+              <strong>{match.homeEn || match.home || match.homeZh}</strong>
             </div>
             <div className="live-score-centre">
               <small>{liveMinute}</small>
@@ -1635,7 +1633,7 @@ export default function MatchDetailClient() {
             </div>
             <div className="live-team-block away">
               <span>AWAY</span>
-              <strong>{match.awayZh || match.away}</strong>
+              <strong>{match.awayEn || match.away || match.awayZh}</strong>
             </div>
           </div>
 
@@ -2024,7 +2022,7 @@ export default function MatchDetailClient() {
           <>
             <div className="h2h-scoreboard">
               <div>
-                <span>{match.homeZh || match.home}</span>
+                <span>{match.homeEn || match.home || match.homeZh}</span>
                 <strong>{h2hHomeWins}</strong>
                 <small>Wins</small>
               </div>
@@ -2034,7 +2032,7 @@ export default function MatchDetailClient() {
                 <small>{h2hGames} matches</small>
               </div>
               <div>
-                <span>{match.awayZh || match.away}</span>
+                <span>{match.awayEn || match.away || match.awayZh}</span>
                 <strong>{h2hAwayWins}</strong>
                 <small>Wins</small>
               </div>
@@ -2286,12 +2284,12 @@ export default function MatchDetailClient() {
             <div className="lineup-columns">
               <div>
                 <span>HOME XI</span>
-                <b>{match.homeZh || match.home}</b>
+                <b>{match.homeEn || match.home || match.homeZh}</b>
                 <p>{homeStarters.join(" · ") || "—"}</p>
               </div>
               <div>
                 <span>AWAY XI</span>
-                <b>{match.awayZh || match.away}</b>
+                <b>{match.awayEn || match.away || match.awayZh}</b>
                 <p>{awayStarters.join(" · ") || "—"}</p>
               </div>
             </div>
