@@ -35,9 +35,18 @@ function dateTime(value) {
 
 function currentQuote(match, analysis, story) {
   const decision = analysis?.decision || {};
-  const oddsStatus = String(story?.bettingAdvice?.oddsStatus || decision.oddsStatus || "").toUpperCase();
-  const sourceMode = String(story?.governance?.sourceMode || analysis?.governance?.sourceMode || analysis?.evidence?.phase1Health?.sourceMode || "").toUpperCase();
-  const stale = oddsStatus.includes("STALE") || sourceMode.includes("FALLBACK");
+  const oddsStatuses = [
+    story?.bettingAdvice?.oddsStatus,
+    decision.oddsStatus,
+  ].map((value) => String(value || "").toUpperCase()).filter(Boolean);
+  const sourceModes = [
+    story?.governance?.sourceMode,
+    analysis?.governance?.sourceMode,
+    analysis?.evidence?.phase1Health?.sourceMode,
+  ].map((value) => String(value || "").toUpperCase()).filter(Boolean);
+  // Fail closed if any authoritative layer marks the price stale/reference-only.
+  const stale = oddsStatuses.some((value) => value.includes("STALE"))
+    || sourceModes.some((value) => value.includes("FALLBACK"));
   const side = decision.selection || null;
   const fallback =
     side === "H" ? match?.odds?.home :
