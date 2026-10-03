@@ -228,3 +228,40 @@ Routine development, testing, debugging and transitions between already agreed p
 - Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
 - Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
 - No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
+
+
+## English story-summary cache selector review — 2026-10-04
+
+- [x] Review source now prefers cached `match_interpretations` rows with `language = en` instead of `zh-HK` for the public Phase-1 story summary.
+- [x] Missing English cache remains missing; review code does not translate or reuse a Chinese cached summary as English.
+- [ ] GitHub CI must pass `check:story`, full build/static-route checks and affected rendered homepage → detail → article tests before this review can be accepted.
+- [ ] Real live English-cache availability remains to be measured read-only; deterministic CI fallback coverage does not prove current production cache completeness.
+- [ ] Production remains unchanged until a separate authorized release gate.
+
+
+### English story-summary bounded review result — 2026-10-04
+
+- [x] Phase-1 feed review code selects cached public story summaries with `language=en`; it does not reuse `zh-HK` cache rows as English.
+- [x] Deterministic English fallback uses English team names and structured decision/market/status fields instead of copying source-language story prose.
+- [x] Non-English commentary body text and raw source-language invalidators are excluded from English narrative output; no translation or fabricated evidence is introduced.
+- [x] English O/U labels are derived from structured OVER/UNDER selection and line values.
+- [x] GitHub CI source head `ea071a9844d72432aaa5d94f663fe2f0ec166a69`, run `37136039808`, passed all contracts/build/static routes and `22/22` rendered public-flow tests.
+- [x] Review artifact: `11278278901`, digest `sha256:db9bad0cf295f29fc960ea6dba68db3eb938ada154b0a871503439f025532fe7`.
+- [ ] Real production remains unchanged and still shows the prior mixed-language deterministic story in read-only snapshots; release/live verification is a separate gate.
+- [ ] Real English-cache availability and substantive attributable-English-article coverage remain product gaps; this language-boundary repair does not claim those broader goals are complete.
+
+
+### Real English article availability measurement — 2026-10-04
+
+- [x] Fresh production evidence was collected once rather than relying on the earlier browser snapshot.
+- [x] Current full Phase-1 feed and summary reads were measured as unavailable under 90–150s tail/resource pressure; the public homepage correctly fell back to `Fixture feed temporarily unavailable` / fixture count unknown rather than displaying false zero fixtures.
+- [x] Real FB6175 detail remained readable with canonical identity and safety gates, but its deployed article/story presentation is still mixed-language.
+- [x] FB6175 attribution check: FOTMOB fixture context and HKJC market identity are visible, but no substantive attributable English commentary/article was verified; the public article evidence row showed unavailable provenance for that narrative claim surface.
+- [x] Fresh story refresh chronology for deployed `app-match-story` v27 on FB6175 was recorded: last successful response 15:42:38 UTC, followed by repeated 504/546/500 failures through 16:09 UTC. A visible retained article is therefore not treated as a fresh cache-hit proof.
+- [x] FB6156/FB6152 failures are classified as read-path/resource failures, **not** as absent English cache.
+- [x] Refreshed sample result: substantive attributable English cached article = 0 verified; absent cache = 0 safely proven; mixed-language deployed output = verified; PR #6 deterministic English fallback remains unreleased and is not counted as deployed proof.
+- [x] One real desktop FB6175 flow remained readable and a browser screenshot was captured; real mobile acceptance remains unavailable because the connector cannot set a mobile viewport.
+- [ ] Homepage-summary → detail/article consistency cannot currently be verified because the fresh homepage feed/summary does not resolve.
+- [ ] Exact blocker: production read-path reliability (Phase-1/detail/story hitting DB/REST/Edge tail and resource limits) prevents truthful fixture-level cache-hit/absence measurement.
+- [ ] Smallest next task: isolate the dominant slow read/RPC/enrichment call using existing logs/read-only timing, then prepare at most one non-production performance patch if evidence supports it; do not broaden into bookmaker/provider work.
+- [ ] PR #6 remains unreleased; no production release claim follows from its green CI.

@@ -11,6 +11,10 @@ const checks = [
   [story.includes('mode:"DETERMINISTIC_FALLBACK"'), "story endpoint must preserve deterministic fallback mode"],
   [story.includes('language,\n      style,'), "story cache write must persist the requested language/style"],
   [story.includes('.upsert({'), "story endpoint must write generated English stories to cache"],
+  [story.includes('headline: language==="en" ? \`\${home} vs \${away}: evidence-based match analysis\`'), "English deterministic story must not reuse source-language headline"],
+  [story.includes('watchNext: language==="en" ? englishCaveats'), "English deterministic story must use structured English caveats"],
+  [story.includes('commentary.filter((row:any) => /^en(?:-|$)/i.test'), "English deterministic story must not copy non-English commentary text"],
+  [story.includes('const englishOuLabel=(row:any)'), "English match script must derive O/U labels from structured selections"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);

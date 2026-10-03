@@ -263,7 +263,7 @@ Deno.serve(async (req: Request) => {
       const storyPromise = db.from("match_interpretations")
         .select("hkjc_event_id,match_script:payload->matchScript,editorial_alignment:payload->editorialAlignment")
         .in("hkjc_event_id", eventIds)
-        .eq("language", "zh-HK")
+        .eq("language", "en")
         .eq("style", "professional");
       const sourceContextPromise = db.from("phase15_source_shadow_current")
         .select("source_key,external_event_id,matched_hkjc_event_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")

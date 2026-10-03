@@ -267,6 +267,13 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
   const phase2=a?.evidence?.phase2 || {};
   const predictedScore=fb?.predictedScore || null;
   const avgGoals=num(fb?.avgGoals);
+  const englishOuLabel=(row:any) => {
+    const side=String(row?.selection || "").toUpperCase();
+    const line=row?.line ?? "—";
+    if(side==="OVER") return `Over ${line}`;
+    if(side==="UNDER") return `Under ${line}`;
+    return side || "No selection";
+  };
   const h=num(fb?.hda?.home), d=num(fb?.hda?.draw), aw=num(fb?.hda?.away);
   const maxSide=Math.max(h??-1,d??-1,aw??-1);
 
@@ -276,8 +283,10 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
   else if(avgGoals!==null && avgGoals>=3) shapeKey="OPEN";
   else if(avgGoals!==null && avgGoals<=2.2) shapeKey="CONTROLLED";
 
-  const sideLabel=decision?.selection==="H" ? (a?.match?.home || "主隊")
-    : decision?.selection==="A" ? (a?.match?.away || "客隊")
+  const sideLabel=decision?.selection==="H"
+    ? (language==="en" ? (a?.match?.homeEn || a?.match?.home || "home side") : (a?.match?.home || "主隊"))
+    : decision?.selection==="A"
+      ? (language==="en" ? (a?.match?.awayEn || a?.match?.away || "away side") : (a?.match?.away || "客隊"))
       : decision?.selection==="D" ? (language==="en" ? "draw/balanced outcome" : "和局／均衡結果")
         : null;
 
@@ -324,13 +333,13 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
     : "";
   const goalEnvironment=goals?.selection
     ? (language==="en"
-      ? `Goals value: ${goals.selectionLabel || goals.selection} at line ${goals.line ?? "—"}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
+      ? `Goals value: ${englishOuLabel(goals)}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
       : `入球 value：現價偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 HKJC fair ${pctText(goals.marketFairProbability,1)}。${goalValueNote}`)
     : (language==="en" ? "Goals market: no reliable Phase 1 direction yet." : "入球環境：Phase 1 暫未有可靠方向。");
 
   const cornerEnvironment=corners?.selection
     ? (language==="en"
-      ? `Corners market: ${corners.selectionLabel || corners.selection} at line ${corners.line ?? "—"}; treat single-family evidence as watch-level until independently confirmed.`
+      ? `Corners market: ${englishOuLabel(corners)}; treat single-family evidence as watch-level until independently confirmed.`
       : `角球環境：現時偏 ${corners.selectionLabel || corners.selection}，盤口 ${corners.line ?? "—"}；如果仍然只得單一 evidence family，就維持 WATCH 級。`)
     : num(fb?.corners?.avg)!==null
       ? (language==="en"
@@ -342,7 +351,7 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
   if(predictedScore) turningPoints.push(language==="en" ? `Forebet reference score: ${predictedScore}` : `Forebet 參考比分：${predictedScore}`);
   if(phase2?.lineupConfirmed===false || phase2?.lineupStatus==="UNCONFIRMED") turningPoints.push(language==="en" ? "Official XI can materially change the pre-match script." : "Official XI 未確認，正選可以明顯改變賽前 script。");
   if(editorialAlignment?.contradict) turningPoints.push(language==="en" ? `${editorialAlignment.contradict} editorial signal(s) currently contradict a model direction.` : `目前有 ${editorialAlignment.contradict} 個球評 signal 同模型方向相反。`);
-  if(Array.isArray(a?.invalidators)) turningPoints.push(...a.invalidators.slice(0,3).map(String));
+  if(language!=="en" && Array.isArray(a?.invalidators)) turningPoints.push(...a.invalidators.slice(0,3).map(String));
 
   return {
     shapeKey,
@@ -367,13 +376,22 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
   const phase2 = a?.evidence?.phase2 || {};
   const phase3 = a?.evidence?.phase3 || {};
   const phase4 = a?.evidence?.phase4 || null;
-  const selection = String(d.selectionLabel || "暫無明確投注位");
+  const englishSelection = d.selection==="H"
+    ? `Home win · ${a?.match?.homeEn || a?.match?.home || "home side"}`
+    : d.selection==="A"
+      ? `Away win · ${a?.match?.awayEn || a?.match?.away || "away side"}`
+      : d.selection==="D" ? "Draw" : "No clear betting selection";
+  const selection = String(language==="en" ? englishSelection : (d.selectionLabel || "暫無明確投注位"));
   const edge = num(d.candidateEdgePp);
   const odds = num(d.currentOdds);
   const marketP = num(d.marketFairProbability);
   const modelP = num(d.analystConsensusProbability);
-  const home = String(a?.match?.home || a?.match?.homeEn || "主隊");
-  const away = String(a?.match?.away || a?.match?.awayEn || "客隊");
+  const home = String(language==="en"
+    ? (a?.match?.homeEn || a?.match?.home || "home side")
+    : (a?.match?.home || a?.match?.homeEn || "主隊"));
+  const away = String(language==="en"
+    ? (a?.match?.awayEn || a?.match?.away || "away side")
+    : (a?.match?.away || a?.match?.awayEn || "客隊"));
   const humanRows = (deep?.humanFactors?.playerStatus?.length || 0)
     + (deep?.humanFactors?.lineup?.length || 0)
     + (deep?.humanFactors?.managers?.length || 0);
@@ -403,7 +421,11 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     const modelP = num(row.analystConsensusProbability);
     const fairP = num(row.marketFairProbability);
     const currentOdds = num(row.currentOdds);
-    const selectionLabel = String(row.selectionLabel || "PASS");
+    const selectionLabel = language==="en"
+      ? (String(row.selection || "").toUpperCase()==="OVER" ? `Over ${row.line ?? "—"}`
+        : String(row.selection || "").toUpperCase()==="UNDER" ? `Under ${row.line ?? "—"}`
+        : String(row.selection || "PASS"))
+      : String(row.selectionLabel || "PASS");
     const families = Number(row.evidenceFamilyCount || 0);
     if (!row.selection || action === "PASS" || action === "NO_BET") {
       return language === "en"
@@ -428,7 +450,10 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
   if (cornersNarrative) (language === "en" ? enStory : zhStory).push(cornersNarrative);
 
   if (Array.isArray(commentary) && commentary.length) {
-    const rows = commentary.slice(0, 3).map((row:any) => {
+    const narrativeCommentary = language==="en"
+      ? commentary.filter((row:any) => /^en(?:-|$)/i.test(String(row?.language || "")))
+      : commentary;
+    const rows = narrativeCommentary.slice(0, 3).map((row:any) => {
       const source = String(row.source || "source");
       const body = String(row.summary || row.headline || row.excerpt || "").trim();
       return body ? `${source}：${body}` : null;
@@ -532,22 +557,28 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     let evidenceUsed: string[] = [];
     if (phase === 1) {
       interpretation = language === "en"
-        ? `Market/model layer: ${s.marketRead || "market comparison pending"} ${s.modelRead || ""}`
+        ? `Market/model layer: ${d.action || v?.status || "comparison pending"}. ${deepFacts(detail, "en") || "Model detail is incomplete."}`
         : `市場 / 模型層：${s.marketRead || "市場比較待補"} ${s.modelRead || ""}`;
       evidenceUsed = ["HKJC", "model consensus"];
     } else if (phase === 2) {
       interpretation = language === "en"
-        ? `${s.humanRead || "Human-factor evidence pending"} Additional player/lineup/manager rows: ${humanRows}.`
+        ? `Human-factor evidence status: ${v?.status || phase2?.quality || "incomplete"}. Official XI ${phase2?.lineupConfirmed ? "confirmed" : "not confirmed"}. Additional player/lineup/manager rows: ${humanRows}.`
         : `${s.humanRead || "Human Factors evidence 待補"} 額外 player/lineup/manager rows：${humanRows}。`;
       evidenceUsed = ["human factors", "lineup", "injuries"];
     } else if (phase === 3) {
       const scenario = deep?.scenario?.[0];
-      interpretation = s.liveRead || (scenario
-        ? `Scenario ${scenario.segment || "—"} · control ${scenario.controlSide || "—"} · status ${scenario.status || "—"}`
-        : (language === "en" ? "Live/scenario evidence is not yet available." : "Live / scenario evidence 暫未可用。"));
+      interpretation = language === "en"
+        ? (scenario
+          ? `Live/scenario evidence: ${scenario.segment || "—"} · control ${scenario.controlSide || "—"} · status ${scenario.status || v?.status || "—"}.`
+          : `Live/scenario evidence status: ${v?.status || "not yet available"}.`)
+        : (s.liveRead || (scenario
+          ? `Scenario ${scenario.segment || "—"} · control ${scenario.controlSide || "—"} · status ${scenario.status || "—"}`
+          : "Live / scenario evidence 暫未可用。"));
       evidenceUsed = ["live", "scenario"];
     } else if (phase === 4) {
-      interpretation = String(s.movementRead || v?.movement || (language === "en" ? "Odds movement still collecting." : "Odds movement 仍在收集。"));
+      interpretation = language === "en"
+        ? `Odds-movement evidence status: ${v?.status || "collecting"}.`
+        : String(s.movementRead || v?.movement || "Odds movement 仍在收集。");
       evidenceUsed = ["odds movement"];
     } else if (phase === 5) {
       interpretation = language === "en"
@@ -571,22 +602,47 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     return { phase, status:String(v?.status || "UNKNOWN"), interpretation, evidenceUsed };
   }).filter((x) => x.phase >= 1 && x.phase <= 10);
 
+  const englishCaveats:string[] = [];
+  const oddsStatus=String(d.oddsStatus || "").toUpperCase();
+  if (oddsStatus.includes("STALE") || oddsStatus.includes("REFERENCE")) englishCaveats.push("Market price is stale or reference-only.");
+  const familyCount=Number(d.evidenceFamilyCount || 0);
+  if (familyCount < 2) englishCaveats.push("Fewer than two independent evidence families support the current direction.");
+  if (!phase2?.lineupConfirmed) englishCaveats.push("Official XI is not confirmed.");
+  if (action === "NO_BET" || action === "PASS") englishCaveats.push("Current data gates do not permit an actionable recommendation.");
+
+  const englishMarketInterpretation = d.selection && marketP!==null && modelP!==null
+    ? `HKJC fair probability is about ${pctText(marketP,1)} versus a model centre of ${pctText(modelP,1)}${edge===null ? "" : `, a gap of ${edge>=0?"+":""}${edge.toFixed(1)}pp`}.`
+    : "Comparable market evidence is incomplete.";
+  const englishModelInterpretation = deepFacts(detail, "en") || "Model evidence is incomplete.";
+  const englishHumanInterpretation = `Human-factor evidence status: ${phase2?.status || phase2?.quality || "incomplete"}. Official XI ${phase2?.lineupConfirmed ? "confirmed" : "not confirmed"}.`;
+  const englishLiveInterpretation = `Live evidence status: ${phase3?.status || "not yet available"}.`;
+  const englishMovementInterpretation = `Odds-movement evidence status: ${phase4?.status || "collecting"}.`;
+  const englishThesis = (action === "NO_BET" || action === "PASS")
+    ? "No actionable bet is justified by the current evidence gates."
+    : `Current decision state: ${action || "WATCH"}. The thesis uses only the verified market/model evidence above and remains conditional on freshness and lineup status.`;
+  const englishCounterCase = englishCaveats.length
+    ? `Main counter-case: ${englishCaveats.join(" ")}`
+    : "No additional verified counter-case is available beyond the current data-quality gates.";
+  const englishConfidence = `Confidence is constrained by ${familyCount} independent evidence famil${familyCount===1?"y":"ies"} and the current data coverage.`;
+
   return {
-    headline: String(s.headline || "賽事綜合解讀"),
-    executiveSummary: String(s.summary || s.advice || "暫未有足夠 evidence 建立完整分析。"),
+    headline: language==="en" ? `${home} vs ${away}: evidence-based match analysis` : String(s.headline || "賽事綜合解讀"),
+    executiveSummary: language==="en"
+      ? String(enStory[0] || "The available evidence is not yet sufficient for a stronger conclusion.")
+      : String(s.summary || s.advice || "暫未有足夠 evidence 建立完整分析。"),
     matchStory: (language === "en" ? enStory : zhStory).join(" "),
-    marketInterpretation: String(s.marketRead || "市場 evidence 未足。"),
-    modelConsensusInterpretation: [s.modelRead, deepFacts(detail, language)].filter(Boolean).join(" "),
-    humanFactorsInterpretation: String(
-      s.humanRead || (language === "en" ? "Human-factor evidence is still incomplete." : "Human Factors evidence 仍未完整。")
-    ),
-    liveInterpretation: String(s.liveRead || "Live evidence 未足。"),
-    movementInterpretation: String(s.movementRead || "Odds movement evidence 未足。"),
-    thesis: String(s.advice || "暫未形成可執行投注論點。"),
-    counterCase: String(s.counterRead || s.riskRead || "暫未有額外反方 evidence。"),
-    confidenceExplanation: String(s.supportRead || "信心受現有 evidence coverage 限制。"),
-    watchNext: Array.isArray(a?.invalidators) ? a.invalidators.slice(0,8).map(String) : [],
-    caveats: Array.isArray(a?.invalidators) ? a.invalidators.slice(0,8).map(String) : [],
+    marketInterpretation: language==="en" ? englishMarketInterpretation : String(s.marketRead || "市場 evidence 未足。"),
+    modelConsensusInterpretation: language==="en" ? englishModelInterpretation : [s.modelRead, deepFacts(detail, language)].filter(Boolean).join(" "),
+    humanFactorsInterpretation: language==="en"
+      ? englishHumanInterpretation
+      : String(s.humanRead || "Human Factors evidence 仍未完整。"),
+    liveInterpretation: language==="en" ? englishLiveInterpretation : String(s.liveRead || "Live evidence 未足。"),
+    movementInterpretation: language==="en" ? englishMovementInterpretation : String(s.movementRead || "Odds movement evidence 未足。"),
+    thesis: language==="en" ? englishThesis : String(s.advice || "暫未形成可執行投注論點。"),
+    counterCase: language==="en" ? englishCounterCase : String(s.counterRead || s.riskRead || "暫未有額外反方 evidence。"),
+    confidenceExplanation: language==="en" ? englishConfidence : String(s.supportRead || "信心受現有 evidence coverage 限制。"),
+    watchNext: language==="en" ? englishCaveats : (Array.isArray(a?.invalidators) ? a.invalidators.slice(0,8).map(String) : []),
+    caveats: language==="en" ? englishCaveats : (Array.isArray(a?.invalidators) ? a.invalidators.slice(0,8).map(String) : []),
     phaseNarratives: phaseRows,
   };
 }

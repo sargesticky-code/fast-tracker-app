@@ -268,3 +268,83 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
 - Railway source-link failure remains a separate hypothesis: Railway still reports repo `sargesticky-code/fast-tracker-app` branch `main`, while recent Railway deployments are old-commit redeploys. No Railway settings inspection has yet proven why fresh GitHub pushes are not creating new source deployments.
 - Remaining live dependencies: intermittent Phase-1 RPC tail latency, production route-guard health-marker failure on the old Railway URL, unreleased story null-corners fix, canonical fixture/detail gaps for some events, partly bilingual detail narrative, and real-device mobile acceptance.
 - No DB write/migration, Edge release, feed publication, access expansion, new resource or spending occurred.
+
+
+## English cached story-summary repair review — 2026-10-04
+
+- Non-production review branch: `review/english-story-summary-v1`, created from current `main`; production remains unchanged.
+- Pre-existing CI defect reproduced from PR #5 evidence: `scripts/check-english-story-contract.mjs` requires the Phase-1 feed to prefer English cached story summaries, while `app-phase1-feed` queried `match_interpretations.language = "zh-HK"`.
+- Bounded source repair changes only that cache selector to `language = "en"`. It does not translate stored Chinese text, invent English prose, or alter recommendation mathematics, market-family gates, stale/reference actionability, canonical identity, or unknown-not-zero behavior.
+- When no English cached summary exists, the feed leaves the story summary absent. Existing detail/article behavior must therefore use the English story endpoint/deterministic evidence-grounded fallback rather than surfacing a Chinese cache entry.
+- Verification route is GitHub Actions, not local sandbox/npm/DNS. Required checks: English story contract, build/static routes, rendered homepage → detail → article flow, and existing stale/missing-English safety tests.
+- Read-only live comparisons remain separate evidence and must not be represented as proof of the unreleased branch.
+- No merge, production deployment, Edge release, migration/DB mutation, generated-feed publication, access expansion, or spending is authorized in this batch.
+
+
+### English story-summary repair verification — source head `ea071a9844d72432aaa5d94f663fe2f0ec166a69`
+
+- Draft PR: #6 (`review/english-story-summary-v1` → `main`); base `6c826bad04e7f31bb61a8e0a2816124dc4129872`.
+- The repair now covers both sides of the English interface: Phase-1 cached summaries select `language=en`, and the deterministic English story fallback no longer copies source-language headline/summary/invalidator/commentary prose into English narrative fields. English H/A and O/U labels are derived from structured codes plus English team names/line values.
+- Recommendation calculations, market prices/probabilities/edge, evidence-family gates, stale/reference actionability, canonical identity and unknown-not-zero behavior are untouched.
+- GitHub CI run `37136039808`: SUCCESS. English story, provider/market, real-evidence, evidence-independence and player-identity contracts passed; static build/routes passed; rendered desktop/mobile public flow passed `22/22`, including the missing-English-story-cache fallback case.
+- CI artifact `11278278901`: `dashboard-redesign-5eb2494a105ed5df1b933aac70a1619426fc2a70`, digest `sha256:db9bad0cf295f29fc960ea6dba68db3eb938ada154b0a871503439f025532fe7`.
+- Read-only production comparison is intentionally separate from PR proof. Existing Opera snapshots from ~2026-10-03 15:16–15:24 UTC showed the deployed `app-match-story?lang=en` fallback still containing Chinese source-analysis prose and the public FB6175 detail article partly Chinese. That is expected because PR #6 is unreleased; it demonstrates the production-language gap rather than proving the review branch live.
+- Production remains unchanged. No merge, frontend/Edge deployment, migration/DB mutation, feed publication, access expansion or spending occurred.
+- Smallest next task after this bounded repair: independently measure real English-cache availability/quality and choose one actual current fixture for a read-only production comparison after any separately authorized release; do not broaden into bookmaker/provider work in the same step.
+
+
+## Real English cached-article availability/quality measurement — 2026-10-04
+
+Scope stayed read-only and PR #6 remained unreleased. Production Edge/frontend code, database state and recommendation logic were not changed.
+
+### Fresh production evidence
+
+A fresh read was attempted once against the current public Phase-1 route and current Workers homepage rather than reusing the earlier 15:16–15:24 UTC snapshots.
+
+- `app-phase1-feed?hours=24` version 56 hit the real production tail-latency/resource blocker: browser-visible `IDLE_TIMEOUT` at the 150s limit; unified logs also record repeated 503/504/546 outcomes and the underlying RPC/REST layer returning 522/worker-resource failures around 16:27–16:29 UTC.
+- The summary route `app-phase1-feed?hours=24&view=summary` also failed with `WORKER_RESOURCE_LIMIT`; it was not retried in a loop.
+- A freshly opened public Workers homepage consequently rendered `Fixture feed temporarily unavailable` and `Fixture counts remain unknown until the next successful source refresh.` This is the current homepage state from this measurement pass, not a zero-fixture claim.
+
+### Representative real-fixture sample
+
+1. **FB6175 — Almeria vs Burgos, LaLiga 2**
+   - Canonical/public identity remained visible on the real detail route: `FB6175`, Almeria vs Burgos, kickoff 03 Oct 22:15 HKT; the detail page still showed `SUPABASE LIVE · ≤1m source` and FOTMOB fixture verification at 98% match.
+   - The readable deployed detail/article remained **mixed-language**. English presentation shells were combined with Chinese betting labels/narrative such as the away-win recommendation, the conclusion, goals selection and invalidators. Match Script likewise mixed English prose with Chinese team/market labels.
+   - Article price state remained fail-closed: `Stale / reference only`, `WATCH / SKIP`, observed HKJC article price as of 03 Oct 23:35 HKT, lineup evidence unavailable, and unknown-not-zero absences.
+   - No substantive attributable English commentary/article could be verified. The visible page attributed fixture context to FOTMOB and market identity to HKJC, but the article's evidence row itself showed `Evidence: Unavailable`; no attributable external English commentary body was visible.
+   - Fresh `app-match-story?id=FB6175&lang=en&style=professional` did **not** produce a new story body in this pass. Edge logs show the last successful v27 response at 15:42:38 UTC (HTTP 200, ~5.9s), followed by 15:50/15:55 504 IDLE_TIMEOUT, 16:00/16:05 546 WORKER_RESOURCE_LIMIT, and 16:09 a 500 after ~138s. Therefore the currently visible mixed-language article must not be described as a freshly resolved cache hit; it is consistent with retained/previously loaded deployed story state while refresh is failing.
+   - Classification for this pass: **mixed-language deployed output**; deterministic-fallback lineage was previously observed on deployed v27, but a fresh fallback/cache-hit body was not recovered now.
+
+2. **FB6156 — Reading vs Bradford**
+   - A fresh real detail request was recorded at ~16:29 UTC but failed with `WORKER_RESOURCE_LIMIT` after the 150s resource window.
+   - A direct English story read also surfaced `WORKER_RESOURCE_LIMIT` in the browser.
+   - Classification: **article/cache state indeterminate under current read-path failure**. This is not evidence of an absent English cache.
+
+3. **FB6152 — current real fixture from the same live/current set**
+   - The fresh analysis path failed at ~16:29 UTC after downstream Supabase REST reads returned 522/timeouts, including current fixture/model-related reads.
+   - Classification: **article/cache state indeterminate under current read-path failure**. Again, absence must not be inferred from transport/resource failure.
+
+A final narrow FB6159 story probe was started only once and never became ready within the browser's 10s navigation window; no further retries were made and it is not counted as evidence of cache absence.
+
+### Availability/quality classification
+
+- **Substantive attributable English cached article:** 0 verified in this refreshed sample. This means “not verified under current production read health”, not “0 exist in the database”.
+- **Deterministic structured fallback:** PR #6 intends an English-only structured fallback, but that source is unreleased. The refreshed deployed v27 story route did not return a fresh body, so CI/mock behavior is not counted as deployed proof.
+- **Absent English cache:** 0 safely proven. Current failures occur before reliable cache/article resolution; transport/resource errors must remain distinct from cache absence.
+- **Mixed-language deployed output:** verified on real FB6175 detail/article.
+
+### Homepage → detail/article consistency and real-flow acceptance
+
+- Current homepage-summary → detail/article semantic consistency cannot be proven because the freshly loaded homepage has no usable fixture feed/summary. The degradation is asymmetric: the public homepage reports temporary feed unavailability while the already-open FB6175 detail route remains readable with older/stale story state.
+- One real **desktop** public-flow acceptance sample was available through Opera: FB6175 rendered canonical fixture identity, model/market sections, Team News safety state, stale-price guard and article content without the page itself collapsing. A desktop screenshot was captured during this pass.
+- A real **mobile** acceptance sample was not available because the existing Opera connector has no viewport/device-emulation control. The 22/22 CI mobile cases remain deterministic review evidence only and are not substituted for live mobile proof.
+
+### PR #6 comparison and exact blocker
+
+PR #6 source head `ea071a9844d72432aaa5d94f663fe2f0ec166a69` would prefer `language=en` cached summaries and keep deterministic English fallback fields English-only, but it is unreleased. The deployed v27 behavior observed here therefore remains an expected mismatch and is not evidence that PR #6 failed.
+
+The **exact remaining blocker before English-cache/article quality can be measured cleanly is production read-path reliability**: Phase-1/feed/detail/story requests are currently reaching 90–150s database/Edge limits or downstream REST 522s. Until a small read-only fixture sample can resolve reliably, cache absence versus cache hit versus fallback cannot be measured truthfully at fixture level.
+
+Smallest concrete next task: **diagnose only the read-path tail/resource bottleneck for Phase-1/detail/story with existing logs and read-only timing evidence, identify the dominant blocking database/RPC/enrichment call, and prepare one reviewable non-production performance fix if the evidence isolates it.** Do not merge/release PR #6 or reopen bookmaker/provider scope in that step.
+
+No merge, deployment, Edge release, DB write/migration, generated-feed publication, new access or spending occurred in this measurement batch.
