@@ -249,3 +249,19 @@ Routine development, testing, debugging and transitions between already agreed p
 - [x] Review artifact: `11278278901`, digest `sha256:db9bad0cf295f29fc960ea6dba68db3eb938ada154b0a871503439f025532fe7`.
 - [ ] Real production remains unchanged and still shows the prior mixed-language deterministic story in read-only snapshots; release/live verification is a separate gate.
 - [ ] Real English-cache availability and substantive attributable-English-article coverage remain product gaps; this language-boundary repair does not claim those broader goals are complete.
+
+
+### Real English article availability measurement — 2026-10-04
+
+- [x] Fresh production evidence was collected once rather than relying on the earlier browser snapshot.
+- [x] Current full Phase-1 feed and summary reads were measured as unavailable under 90–150s tail/resource pressure; the public homepage correctly fell back to `Fixture feed temporarily unavailable` / fixture count unknown rather than displaying false zero fixtures.
+- [x] Real FB6175 detail remained readable with canonical identity and safety gates, but its deployed article/story presentation is still mixed-language.
+- [x] FB6175 attribution check: FOTMOB fixture context and HKJC market identity are visible, but no substantive attributable English commentary/article was verified; the public article evidence row showed unavailable provenance for that narrative claim surface.
+- [x] Fresh story refresh chronology for deployed `app-match-story` v27 on FB6175 was recorded: last successful response 15:42:38 UTC, followed by repeated 504/546/500 failures through 16:09 UTC. A visible retained article is therefore not treated as a fresh cache-hit proof.
+- [x] FB6156/FB6152 failures are classified as read-path/resource failures, **not** as absent English cache.
+- [x] Refreshed sample result: substantive attributable English cached article = 0 verified; absent cache = 0 safely proven; mixed-language deployed output = verified; PR #6 deterministic English fallback remains unreleased and is not counted as deployed proof.
+- [x] One real desktop FB6175 flow remained readable and a browser screenshot was captured; real mobile acceptance remains unavailable because the connector cannot set a mobile viewport.
+- [ ] Homepage-summary → detail/article consistency cannot currently be verified because the fresh homepage feed/summary does not resolve.
+- [ ] Exact blocker: production read-path reliability (Phase-1/detail/story hitting DB/REST/Edge tail and resource limits) prevents truthful fixture-level cache-hit/absence measurement.
+- [ ] Smallest next task: isolate the dominant slow read/RPC/enrichment call using existing logs/read-only timing, then prepare at most one non-production performance patch if evidence supports it; do not broaden into bookmaker/provider work.
+- [ ] PR #6 remains unreleased; no production release claim follows from its green CI.
