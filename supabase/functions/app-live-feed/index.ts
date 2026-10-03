@@ -155,7 +155,7 @@ Deno.serve(async (req: Request) => {
       for (const [lane, result] of Object.entries(laneResults)) {
         const error = (result as any)?.error ?? null;
         readHealth[lane] = error
-          ? { status: "UNAVAILABLE", error: String(error?.message ?? error) }
+          ? { status: "UNAVAILABLE", reason: "db_read_failed" }
           : { status: "OK" };
       }
 
@@ -260,7 +260,7 @@ Deno.serve(async (req: Request) => {
         .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
         .eq("metric", "heartbeat");
       if (heartbeatResult.error) {
-        readHealth.heartbeats = { status: "UNAVAILABLE", error: String(heartbeatResult.error.message ?? heartbeatResult.error) };
+        readHealth.heartbeats = { status: "UNAVAILABLE", reason: "db_read_failed" };
       } else {
         readHealth.heartbeats = { status: "OK" };
         heartbeats = heartbeatResult.data ?? [];
@@ -276,8 +276,11 @@ Deno.serve(async (req: Request) => {
       matches: rows,
     }, { headers: { ...corsHeaders, "Cache-Control": "private, no-store, max-age=0" } });
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return Response.json({ error: "live_feed_unavailable", message }, {
+    console.error("live_feed_unavailable", e);
+    return Response.json({
+      error: "live_feed_unavailable",
+      semantics: "read_failure_not_fixture_absence",
+    }, {
       status: 503,
       headers: { ...corsHeaders, "Cache-Control": "no-store" },
     });
