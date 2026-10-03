@@ -67,3 +67,17 @@ Cross-bookmaker comparison is only considered verified when at least two distinc
 ## Connected-data note
 
 A direct Supabase schema/query audit was attempted from this chat, but the connected database calls terminated on connection timeout. Repository workers and current committed data were therefore used as the evidence source for this inventory. This is an access/runtime limitation, not evidence that the underlying Supabase tables are absent.
+
+
+### Bet365 admission boundary
+
+The current Bet365 collector is intentionally admission-gated. The pinned upstream scraper has validated competition ids only for:
+
+- Spain La Liga (`spain`)
+- UEFA Europa League (`uel`)
+
+The Fast Tracker detector only launches the browser collector when current HKJC targets overlap one of those supported competitions. The latest scheduled run found no overlap and wrote an empty benchmark by design.
+
+For FB6114 (Mexico expansion league / `MD1`), no scrape was attempted. Therefore zero Bet365 rows are caused by **unsupported competition admission**, not a failed team-identity match after a scrape.
+
+A bounded authorized improvement is possible without increasing scraping scope: add/report an unsupported-HKJC-competition census so future competition candidates can be reviewed. Expanding actual Bet365 collection is **not** currently unblocked because each added league needs a verified current Bet365 competition id and one successful end-to-end validation against HKJC fixtures. No paid API key or extra scraping is justified merely to manufacture multi-bookmaker coverage.
