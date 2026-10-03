@@ -250,6 +250,11 @@ function TeamPitch({ teamName, rows, accent, status }) {
   const sorted = [...rows].filter((r) => r?.starter !== false).sort(playerSort);
   const formationValue = normalizeFormation(formation(sorted)) || "—";
   const predicted = status !== "CONFIRMED";
+  const positioned = sorted
+    .map((row, index) => ({ row, index, point: slotPoint(row) }))
+    .filter((item) => item.point !== null);
+  const missingPositionCount = sorted.length - positioned.length;
+  const pitchUsable = sorted.length > 0 && missingPositionCount === 0;
   return (
     <div style={{border:"1px solid "+palette.line,borderRadius:17,background:"#fff",overflow:"hidden"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"11px 13px",borderBottom:"1px solid "+palette.line}}>
@@ -261,25 +266,35 @@ function TeamPitch({ teamName, rows, accent, status }) {
           {sorted.length}/11
         </span>
       </div>
-      <div style={{padding:10,background:"#102f22"}}>
-        <Pitch
-          crop="full"
-          attackingDirection="up"
-          preset="green"
-          grass={{ type: "stripes", opacity: 0.22 }}
-          markings={{ thirds: true }}
-          padding={2}
-          interactive={false}
-          role="img"
-          ariaLabel={teamName + " lineup"}
-        >
-          {({ project }) => sorted.map((row, index) => {
-            const rawPoint = slotPoint(row, index, sorted.length, formationValue);
-            const point = project(rawPoint.x, rawPoint.y);
-            return <PlayerMarker key={row?.id || row?.player_key || row?.player_name || index} row={row} point={point} accent={accent} predicted={predicted} />;
-          })}
-        </Pitch>
-      </div>
+      {pitchUsable ? (
+        <div style={{padding:10,background:"#102f22"}}>
+          <Pitch
+            crop="full"
+            attackingDirection="up"
+            preset="green"
+            grass={{ type: "stripes", opacity: 0.22 }}
+            markings={{ thirds: true }}
+            padding={2}
+            interactive={false}
+            role="img"
+            ariaLabel={teamName + " lineup"}
+          >
+            {({ project }) => positioned.map(({ row, index, point: rawPoint }) => {
+              const point = project(rawPoint.x, rawPoint.y);
+              return <PlayerMarker key={row?.id || row?.player_key || row?.player_name || index} row={row} point={point} accent={accent} predicted={predicted} />;
+            })}
+          </Pitch>
+        </div>
+      ) : (
+        <div style={{padding:14,background:"#102f22",color:"#e8f1eb"}}>
+          <b style={{display:"block",fontSize:11}}>Pitch withheld: formation positions are incomplete</b>
+          <small style={{display:"block",marginTop:5,fontSize:9,color:"#c5d5cb",lineHeight:1.45}}>
+            {missingPositionCount > 0
+              ? missingPositionCount + " starter position" + (missingPositionCount === 1 ? "" : "s") + " unresolved. Fast Tracker does not invent pitch coordinates."
+              : "No verified starter positions are available yet."}
+          </small>
+        </div>
+      )}
       <div style={{padding:"7px 12px",display:"flex",gap:8,flexWrap:"wrap",borderTop:"1px solid #183b2d",background:"#102f22"}}>
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>🧤 GK</small>
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>C Captain</small>
