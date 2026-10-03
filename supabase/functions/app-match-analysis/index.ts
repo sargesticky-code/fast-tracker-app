@@ -34,7 +34,7 @@ function p(v: unknown): number | null {
 }
 
 type T = { home: number; draw: number; away: number };
-type Family = { key: string; label: string; probs: T; weight: number; sources?: number };
+type Family = { key: string; label: string; probs: T; weight: number; sources?: number; provenanceGroup?: string; memberKeys?: string[] };
 
 function triplet(h: unknown, d: unknown, a: unknown): T | null {
   const home = p(h), draw = p(d), away = p(a);
@@ -61,6 +61,38 @@ function weighted(items: Family[]): T | null {
     draw: items.reduce((s, x) => s + x.probs.draw * x.weight, 0) / w,
     away: items.reduce((s, x) => s + x.probs.away * x.weight, 0) / w,
   };
+}
+
+function provenanceGroup(sourceValue: unknown, fallback: string) {
+  const source = String(sourceValue || "").toLowerCase();
+  if (source.includes("forebet")) return "FOREBET";
+  if (source.includes("brazilianfootball") || source.includes("brazil serie b full-league")) return "BRAZILIANFOOTBALL_SHARED";
+  if (source.includes("football-data.co.uk") || source.includes("football data co uk")) return "FOOTBALL_DATA_CO_UK";
+  if (source.includes("martj42")) return "MARTJ42_INTERNATIONAL_RESULTS";
+  if (source.includes("hkjc")) return "HKJC_RESULTS";
+  return fallback;
+}
+
+function collapseCorrelatedFamilies(items: Family[]): Family[] {
+  const grouped = new Map<string, Family[]>();
+  for (const item of items) {
+    const key = item.provenanceGroup || item.key;
+    grouped.set(key, [...(grouped.get(key) || []), item]);
+  }
+  return [...grouped.entries()].map(([group, members]) => {
+    if (members.length === 1) return { ...members[0], provenanceGroup: group, memberKeys: [members[0].key] };
+    const w = members.reduce((sum, item) => sum + item.weight, 0);
+    const probs = weighted(members) || members[0].probs;
+    return {
+      key: members.map((item) => item.key).join("+"),
+      label: members.map((item) => item.label).join(" + ") + " (shared history)",
+      probs,
+      weight: w > 0 ? w / members.length : 1,
+      sources: members.reduce((sum, item) => sum + Math.max(1, Number(item.sources || 1)), 0),
+      provenanceGroup: group,
+      memberKeys: members.map((item) => item.key),
+    };
+  });
 }
 
 function pick(t: T | null): "H" | "D" | "A" | null {
@@ -517,7 +549,35 @@ type BinaryModel = {
   weight: number;
   sources?: number;
   method?: string;
+  provenanceGroup?: string;
+  memberKeys?: string[];
 };
+
+
+function collapseCorrelatedBinaryModels(items: BinaryModel[]): BinaryModel[] {
+  const grouped = new Map<string, BinaryModel[]>();
+  for (const item of items) {
+    const key = item.provenanceGroup || item.key;
+    grouped.set(key, [...(grouped.get(key) || []), item]);
+  }
+  return [...grouped.entries()].map(([group, members]) => {
+    if (members.length === 1) return { ...members[0], provenanceGroup: group, memberKeys: [members[0].key] };
+    const w = members.reduce((sum, item) => sum + item.weight, 0);
+    const over = w > 0
+      ? members.reduce((sum, item) => sum + item.over * item.weight, 0) / w
+      : members.reduce((sum, item) => sum + item.over, 0) / members.length;
+    return {
+      key: members.map((item) => item.key).join("+"),
+      label: members.map((item) => item.label).join(" + ") + " (shared history)",
+      over,
+      weight: w > 0 ? w / members.length : 1,
+      sources: members.reduce((sum, item) => sum + Math.max(1, Number(item.sources || 1)), 0),
+      method: "CORRELATED_SOURCE_GROUP",
+      provenanceGroup: group,
+      memberKeys: members.map((item) => item.key),
+    };
+  });
+}
 
 function fairBinary(overOddsValue: unknown, underOddsValue: unknown) {
   const overOdds = n(overOddsValue);
@@ -596,7 +656,8 @@ function buildBinaryAdvice(opts: {
 }) {
   const line = n(opts.lineValue);
   const market = fairBinary(opts.overOdds, opts.underOdds);
-  const models = opts.models.filter((m) => Number.isFinite(m.over) && m.over >= 0 && m.over <= 1 && m.weight > 0);
+  const rawModels = opts.models.filter((m) => Number.isFinite(m.over) && m.over >= 0 && m.over <= 1 && m.weight > 0);
+  const models = collapseCorrelatedBinaryModels(rawModels);
   const weight = models.reduce((s, m) => s + m.weight, 0);
   const modelOver = weight > 0 ? models.reduce((s, m) => s + m.over * m.weight, 0) / weight : null;
   const modelUnder = modelOver === null ? null : 1 - modelOver;
@@ -732,6 +793,8 @@ function buildBinaryAdvice(opts: {
       weight: m.weight,
       sources: m.sources ?? 1,
       method: m.method ?? null,
+      provenanceGroup: m.provenanceGroup ?? m.key,
+      memberKeys: m.memberKeys ?? [m.key],
     })),
     advice,
   };
@@ -894,9 +957,21 @@ Deno.serve(async (req: Request) => {
   const internal = avgTriplets([dc, pi].filter(Boolean) as T[]);
 
   const families: Family[] = [];
-  if (forebet) families.push({ key: "FOREBET", label: "Forebet", probs: forebet, weight: 1 });
-  if (internal) families.push({ key: "INTERNAL", label: "Dixon-Coles + Pi family", probs: internal, weight: 1 });
-  if (form) families.push({ key: "FORM", label: "Team Form", probs: form, weight: 0.9 });
+  if (forebet) families.push({ key: "FOREBET", label: "Forebet", probs: forebet, weight: 1, provenanceGroup: "FOREBET" });
+  if (internal) families.push({
+    key: "INTERNAL",
+    label: "Dixon-Coles + Pi family",
+    probs: internal,
+    weight: 1,
+    provenanceGroup: provenanceGroup(modelTotals.data?.model_source ?? r.internal_model_source, "INTERNAL_UNKNOWN"),
+  });
+  if (form) families.push({
+    key: "FORM",
+    label: "Team Form",
+    probs: form,
+    weight: 0.9,
+    provenanceGroup: provenanceGroup(formTotals.data?.model_source, "FORM_UNKNOWN"),
+  });
   const multiCount = Number(r.multisource_count ?? r.multisource_member_count ?? 0);
   if (multi) families.push({
     key: "MULTI",
@@ -904,7 +979,12 @@ Deno.serve(async (req: Request) => {
     probs: multi,
     weight: multiCount >= 2 ? 0.75 : 0.35,
     sources: multiCount,
+    // Member provenance is not sufficiently explicit to prove disjointness
+    // from Forebet/other external predictions, so it is kept as its own
+    // uncertainty bucket rather than being treated as method-level evidence.
+    provenanceGroup: "MULTISOURCE_AGGREGATE",
   });
+  const independentFamilies = collapseCorrelatedFamilies(families);
 
   const home = r.home_zh || r.home_en || "主隊";
   const away = r.away_zh || r.away_en || "客隊";
@@ -979,10 +1059,10 @@ Deno.serve(async (req: Request) => {
 
   const dcMean = (n(modelTotals.data?.dc_xg_home) ?? 0) + (n(modelTotals.data?.dc_xg_away) ?? 0);
   const prematchTotalMean = n(r.forebet_avg_goals) ?? (dcMean > 0 ? dcMean : 2.7);
-  const prematchConsensus = weighted(families);
+  const prematchConsensus = weighted(independentFamilies);
   const canStateAdjust = Boolean(live && prematchConsensus && scorePair && resolvedLiveMinute !== null);
   const decisionFamilies: Family[] = canStateAdjust
-    ? families.map((f) => ({
+    ? independentFamilies.map((f) => ({
         ...f,
         probs: liveStateAdjustedTriplet(
           f.probs,
@@ -993,7 +1073,7 @@ Deno.serve(async (req: Request) => {
           shadow,
         ),
       }))
-    : families;
+    : independentFamilies;
 
   const consensus = weighted(decisionFamilies);
   const market = live ? liveMarket : fairMarket(r);
@@ -1178,6 +1258,7 @@ Deno.serve(async (req: Request) => {
       over: typeof forebetGoals === "number" ? forebetGoals : forebetGoals.over,
       weight: 1,
       method: live ? "LIVE_RESIDUAL_POISSON" : forebetGoals.method,
+      provenanceGroup: "FOREBET",
     });
   }
   const dcGoalsOver = dcMean > 0 && goalsLine !== null
@@ -1192,6 +1273,7 @@ Deno.serve(async (req: Request) => {
       over: dcGoalsOver,
       weight: 0.9,
       method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
+      provenanceGroup: provenanceGroup(modelTotals.data?.model_source, "DIXON_COLES_UNKNOWN"),
     });
   }
   const formRow:any = formTotals.data ?? null;
@@ -1217,6 +1299,7 @@ Deno.serve(async (req: Request) => {
       weight: 0.9,
       method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
       sources: 1,
+      provenanceGroup: provenanceGroup(formRow?.model_source, "TEAM_FORM_UNKNOWN"),
     });
   }
   const multiGoalsOver = p(r.multisource_ou_over);
@@ -1228,6 +1311,7 @@ Deno.serve(async (req: Request) => {
       weight: multiCount >= 2 ? 0.75 : 0.35,
       sources: Math.max(1, multiCount),
       method: "NATIVE_OU25",
+      provenanceGroup: "MULTISOURCE_AGGREGATE",
     });
   }
 
@@ -1486,7 +1570,7 @@ Deno.serve(async (req: Request) => {
     evidence: {
       market,
       consensus,
-      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, probabilities:f.probs, pick:pick(f.probs) })),
+      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, provenanceGroup:f.provenanceGroup ?? f.key, memberKeys:f.memberKeys ?? [f.key], probabilities:f.probs, pick:pick(f.probs) })),
       prematchConsensus,
       familySupport,
       phase1Health: {
