@@ -122,11 +122,55 @@ function analysisPayload() {
       supportCount: 1,
       dispersion: null
     },
+    marketAdvice: {
+      goals: {
+        market: "GOALS_OU",
+        line: 4.5,
+        selection: "UNDER",
+        selectionLabel: "Under 4.5",
+        currentOdds: 1.90,
+        referenceOdds: null,
+        candidateClass: "WATCH_SINGLE_SOURCE",
+        action: "WATCH",
+        evidenceFamilyCount: 1,
+        supportCount: 1,
+        dispersion: null,
+        models: [{
+          key: "FORM",
+          label: "Team Form expected goals",
+          over: 0.1436,
+          under: 0.8564,
+          weight: 0.9,
+          sources: 1,
+          method: "FORM_XG_POISSON"
+        }]
+      },
+      corners: {
+        candidateClass: "NO_MODEL",
+        action: "PASS",
+        evidenceFamilyCount: 0,
+        models: []
+      }
+    },
     evidence: {
       phase1Health: {
         sourceMode: "CANONICAL",
         priceObservedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
         fetchedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      },
+      goalsModelContext: {
+        teamForm: {
+          quality: "FORM_MODELED",
+          source: "martj42/international_results + HKJC recent · recency-weighted Team-Form Poisson",
+          fetchedAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
+          homeGames: 14,
+          awayGames: 25,
+          homeVenueGames: 5,
+          awayVenueGames: 9,
+          expectedGoalsHome: 1.09304,
+          expectedGoalsAway: 1.65055,
+          method: "FORM_XG_POISSON"
+        }
       }
     },
     story: {
@@ -233,6 +277,11 @@ for (const device of [
   await expect(page.getByText("Not measurable with <2 families", { exact: true })).toBeVisible();
   await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
   await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
+    await expect(page.getByText("WATCH · Under 4.5", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON)", { exact: true })).toBeVisible();
+    await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
+    await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.", { exact: true })).toBeVisible();
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
     await expect(page.getByText("Predicted / provisional lineup")).toBeVisible();
