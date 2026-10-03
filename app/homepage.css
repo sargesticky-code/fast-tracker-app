@@ -462,7 +462,9 @@ button,input{font:inherit}
 .ft-ad-wide{min-height:92px}
 .ft-ad-slot strong{font-size:18px}
 .ft-footer-banner{
+  position:static;
   min-height:48px;
+  margin-top:10px;
   background:#071d35;
   border-top:2px solid var(--ft-yellow);
   box-shadow:0 -2px 8px #071f3520;
