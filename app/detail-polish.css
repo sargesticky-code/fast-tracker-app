@@ -3571,3 +3571,98 @@
   }
   .team-form-empty-copy{padding:8px 9px 9px}
 }
+
+
+/* Compact unsupported Goals/Corners states */
+.detail-shell .totals-row-compact{
+  grid-template-columns:120px 190px minmax(0,1fr)!important;
+  min-height:58px!important;
+}
+.detail-shell .totals-compact-state{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px 12px;
+  align-items:center;
+  padding:8px 10px;
+  background:#fbfdff;
+}
+.detail-shell .totals-compact-state>div:first-child>span{
+  display:block;
+  color:#5f7b92;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.detail-shell .totals-compact-state>div:first-child>strong{
+  display:block;
+  margin-top:2px;
+  color:#173f63;
+  font-size:11px;
+  line-height:1.3;
+}
+.detail-shell .totals-compact-state>div:first-child>small{
+  display:block;
+  margin-top:3px;
+  color:#6f8395;
+  font-size:8px;
+  line-height:1.4;
+}
+.detail-shell .totals-quote-state{
+  min-width:150px;
+  padding:7px 9px;
+  border:1px solid #d9e3eb;
+  border-radius:6px;
+  background:#fffaf0;
+  text-align:right;
+}
+.detail-shell .totals-quote-state>span{
+  display:block;
+  color:#806b28;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+.detail-shell .totals-quote-state>b{
+  display:block;
+  margin-top:2px;
+  color:#3f5669;
+  font-size:9px;
+}
+.detail-shell .totals-state-details{
+  grid-column:1/-1;
+  border-top:1px solid #e5ebf0;
+}
+.detail-shell .totals-state-details>summary{
+  cursor:pointer;
+  padding:6px 0 4px;
+  color:#1f5d8f;
+  font-size:8px;
+  font-weight:900;
+}
+.detail-shell .totals-state-details>summary:focus-visible{
+  outline:3px solid #f4bd12;
+  outline-offset:2px;
+}
+.detail-shell .totals-state-details p{
+  margin:2px 0 4px;
+  color:#718397;
+  font-size:8px;
+  line-height:1.45;
+}
+@media(max-width:680px){
+  .detail-shell .totals-row-compact{
+    grid-template-columns:1fr 1fr!important;
+    grid-template-areas:"name prices" "note note"!important;
+  }
+  .detail-shell .totals-row-compact .totals-compact-state{
+    grid-area:note!important;
+    grid-template-columns:1fr;
+    gap:6px;
+    border-top:1px solid #e5ebf0;
+  }
+  .detail-shell .totals-quote-state{
+    min-width:0;
+    text-align:left;
+  }
+  .detail-shell .totals-state-details{grid-column:1}
+}
