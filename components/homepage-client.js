@@ -474,7 +474,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       refreshInFlight = true;
       try {
         const res = await fetch(HOMEPAGE_FEED_URL, {
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(20000),
         });
         if (!res.ok) {
           let message = `HTTP ${res.status}`;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import { Pitch } from "@withqwerty/campos-stadia";
 
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -455,7 +456,7 @@ export default function LineupPanel() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`${DETAIL_FEED_URL}?id=${encodeURIComponent(matchId)}&_=${Date.now()}`, { cache: "no-store" });
+        const res = await singleFlightFetch(`match-detail:${matchId}`, `${DETAIL_FEED_URL}?id=${encodeURIComponent(matchId)}`, { cache: "no-store" }, 20000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (!cancelled) { setPayload(json); setError(""); }

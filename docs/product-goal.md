@@ -322,3 +322,42 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Production remains unchanged; no live-latency/concurrency improvement is claimed.
 - [ ] Initial 15:45 trigger remains unresolved; polling is proven as an amplifier, not proven as the initiating cause.
 - [ ] Next bounded task: one read-only 15:44–15:48 wait/query-fingerprint review if diagnostics are available; otherwise stop and leave the initiating DB event unknown.
+
+
+### Transition fingerprint + behavior-proof gate — 2026-10-04
+
+- [x] One bounded 15:44–15:48 Postgres-log transition pass completed; no further generic root-cause retries planned.
+- [x] Earliest captured slowdown: `ft_refresh_live_layer_guard()` ~22.16s at 15:44:22 and ~21.50s at 15:46:21.
+- [x] First captured statement-timeout fingerprints: `ft_internal_app_phase1_feed` 15:46:40, `phase4_value_api` 15:46:50, `phase2_match_lineup_evidence` 15:46:51; cron startup failures and SSL resets follow around 15:48.
+- [x] By 15:48:19, even the postgres-exporter `pg_stat_activity` connection-count query timed out, supporting broad DB/connection pressure at that stage.
+- [x] No historical wait-event / blocking-PID / lock graph is available; initiating event remains **unknown**.
+- [x] Existing 22 mocked flows were insufficient to prove delayed coalescing, timeout cleanup/retry, stale ordering, unavailable-vs-absent or English-summary/detail fallback coherence.
+- [x] Cross-lane race fixed on review branch: delayed Phase-1 cannot resurrect canonical-missing fixture or override authoritative stale/terminal detail/source label.
+- [x] Browser deadlines aligned outside PR #8 server bounds: homepage/full/detail 20s; analysis 35s; story 65s. Live remains single-flight with no shorter client timeout because source-controlled server bound is missing.
+- [x] Five new delayed/concurrency/truthfulness Playwright cases added; English-story-unavailable flow extended with homepage cached-summary evidence.
+- [ ] Draft PR #10 must pass established GitHub CI including the expanded rendered behavior suite.
+- [ ] PR #10 base must be restored to PR #9 after CI verification; all PRs remain unreleased.
+- [ ] Missing dependency: source-controlled `app-live-feed` implementation and historical 15:44–15:48 wait/lock diagnostics.
+- [ ] Release requires separate explicit authorization; release order PR6→PR8→PR9→PR10, rollback reverse order.
+
+
+### Final behavior-proof gate — PR #10
+
+- [x] First behavior CI `37139922622`: 25/27; two test-design failures identified and corrected, not accepted as proof.
+- [x] Second CI `37140175069`: 30/31; isolated one real remaining duplicate detail request.
+- [x] Source trace demonstrated two detail consumers on the route: `MatchDetailClient` + `LineupPanel`.
+- [x] Shared `lib/single-flight-fetch.js` now deduplicates both consumers using `match-detail:${matchId}` and returns cloned responses safely.
+- [x] Final verified source/test head `691cf5557d5db28d97b45c4970edacda0ee734c3` passed CI `37140371900`.
+- [x] Final rendered behavior suite = **31/31 passed** in 24.0s.
+- [x] Delayed feed/detail/live/analysis/story lanes are behavior-tested for coalescing while pending.
+- [x] Abort/deadline cleanup is behavior-tested to permit a later retry without stale overwrite.
+- [x] Transport unavailable versus conclusive canonical absence is behavior-tested.
+- [x] Delayed Phase-1 cannot resurrect canonical-missing or override authoritative stale/terminal detail.
+- [x] Homepage fixture identity/predicted score → English detail fallback coherence is tested; PR #6 source contract remains the guard for English cached story-summary selection because the redesigned homepage does not render storySummary itself.
+- [x] All English/provider/model-independence/player-identity/stale-price safety contracts remained green.
+- [x] Artifact `11280132390`, digest `sha256:fd09c8802a336cf12d2664e3214e892afe7375bca6bf53cd554cd588a94eae2e`.
+- [x] PR #10 restored to PR #9 as base; review stack remains PR6→PR8→PR9→PR10.
+- [x] Initiating 15:44–15:48 DB event remains unknown; no more generic root-cause probes without new historical wait/lock evidence.
+- [ ] Production unchanged. Explicit release authorization is still required.
+- [ ] Missing source dependency: deployed `app-live-feed` implementation is not present in this repo, so server-side live-read deadline behavior remains unreviewed.
+- [ ] Next action without release authorization: review only. With explicit authorization: release PR6→PR8→PR9→PR10 and run one bounded homepage/detail acceptance sample, then stop.

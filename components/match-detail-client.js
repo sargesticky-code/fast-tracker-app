@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ModelEdgeChart from "@/components/model-edge-chart";
 import ModelScoreboard from "@/components/model-scoreboard";
 import EvidenceArticle from "@/components/evidence-article";
+import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import {
   divergence,
   fairMarket,
@@ -533,6 +534,7 @@ export default function MatchDetailClient() {
     let cancelled = false;
     let resolvedFresh = false;
     let canonicalMissing = false;
+    let authoritativeDetailBlocksFeed = false;
     const requestsInFlight = {
       match: false,
       detail: false,
@@ -547,14 +549,20 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.match) return;
       requestsInFlight.match = true;
       try {
-        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 15000);
+        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 20000);
         if (!res.ok) return;
         const feed = await res.json();
-        if (cancelled) return;
+        if (cancelled || canonicalMissing || authoritativeDetailBlocksFeed) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           resolvedFresh = true;
-          setMatch(live);
+          setMatch((previous) => {
+            const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
+            const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
+            const previousAuthoritativeStale = previous?.health?.hkjcFreshness === "STALE";
+            if (previousAuthoritativeStale || previousStarted) return previous;
+            return live;
+          });
           setSource("SUPABASE · fresh");
           try {
             window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
@@ -569,7 +577,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.detail) return;
       requestsInFlight.detail = true;
       try {
-        const res = await fetchWithDeadline(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 15000);
+        const res = await singleFlightFetch(`match-detail:${matchId}`, DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "no-store" }, 20000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -586,8 +594,9 @@ export default function MatchDetailClient() {
         }
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
+          const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
+          if (fallbackStale) authoritativeDetailBlocksFeed = true;
           setMatch((previous) => {
-            const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
             // A stale/terminal authoritative detail snapshot must be allowed to
@@ -607,7 +616,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.analysis) return;
       requestsInFlight.analysis = true;
       try {
-        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 30000);
+        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 35000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -623,7 +632,7 @@ export default function MatchDetailClient() {
         const res = await fetchWithDeadline(
           STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=en&style=professional",
           { cache: "default" },
-          45000
+          65000
         );
         if (!res.ok) return;
         const payload = await res.json();
@@ -637,7 +646,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.live) return;
       requestsInFlight.live = true;
       try {
-        const res = await fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" }, 12000);
+        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;

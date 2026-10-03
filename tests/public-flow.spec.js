@@ -50,6 +50,10 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       corners: totals.corners,
       updatedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 60 * 60 * 1000).toISOString(),
       health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH" },
+      storySummary: {
+        matchScript: { predictedScore: "2-1", shapeKey: "BALANCED" },
+        editorialAlignment: { support: 1, contradict: 0 }
+      },
       formDetail
     }],
     systemHealth: {}
@@ -688,7 +692,11 @@ test("article remains readable when English story cache/upstream is unavailable"
   await mockApis(page, { withStory: false, legacyAnalysis: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  const homepageRow = page.locator('a[href*="FBTEST1"]').first();
+  await expect(homepageRow.getByText("Northbridge FC", { exact: true })).toBeVisible();
+  await expect(homepageRow.getByText("Riverside United", { exact: true })).toBeVisible();
+  await expect(homepageRow.getByText("2-1", { exact: true })).toBeVisible();
+  await homepageRow.click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Northbridge FC vs Riverside United: evidence-based match analysis")).toBeVisible();
@@ -788,4 +796,190 @@ test("official source lineup with unresolved player identity remains partial", a
 
   await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Official lineup source confirmed · player identity reconciliation incomplete", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toHaveCount(0);
+});
+
+
+for (const lane of ["feed", "detail", "live", "analysis", "story"]) {
+  test(`delayed ${lane} lane coalesces repeated refresh triggers`, async ({ page }) => {
+    if (lane === "analysis" || lane === "story") {
+      await page.addInitScript(() => {
+        const nativeSetTimeout = window.setTimeout.bind(window);
+        const nativeSetInterval = window.setInterval.bind(window);
+        window.setTimeout = (fn, ms, ...args) => nativeSetTimeout(fn, ms === 600 ? 20 : ms, ...args);
+        window.setInterval = (fn, ms, ...args) => nativeSetInterval(fn, ms === 300000 ? 80 : ms, ...args);
+      });
+    }
+
+    let laneCalls = 0;
+    let releaseGate;
+    const gate = new Promise((resolve) => { releaseGate = resolve; });
+    const maybeDelay = async (route, payload, status = 200) => {
+      laneCalls += 1;
+      await gate;
+      await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(payload) });
+    };
+
+    await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+      if (lane === "feed") return maybeDelay(route, fixtureFeed());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+    });
+    await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+      if (lane === "detail") return maybeDelay(route, detailPayload());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload()) });
+    });
+    await page.route("**/functions/v1/app-live-feed**", async (route) => {
+      const payload = { generatedAt: new Date().toISOString(), matches: [] };
+      if (lane === "live") return maybeDelay(route, payload);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+    });
+    await page.route("**/functions/v1/app-match-analysis?**", async (route) => {
+      if (lane === "analysis") return maybeDelay(route, analysisPayload());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(analysisPayload()) });
+    });
+    await page.route("**/functions/v1/app-match-story?**", async (route) => {
+      if (lane === "story") return maybeDelay(route, storyPayload());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(storyPayload()) });
+    });
+
+    await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => laneCalls).toBe(1);
+
+    if (lane === "feed" || lane === "detail" || lane === "live") {
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event("pageshow"));
+        window.dispatchEvent(new Event("pageshow"));
+        window.dispatchEvent(new Event("pageshow"));
+      });
+    } else {
+      await page.waitForTimeout(220);
+    }
+
+    expect(laneCalls).toBe(1);
+    releaseGate();
+    await page.waitForTimeout(80);
+  });
+}
+
+test("deadline cleanup permits a later retry and an aborted old response cannot overwrite it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeTimeout = AbortSignal.timeout.bind(AbortSignal);
+    Object.defineProperty(AbortSignal, "timeout", {
+      configurable: true,
+      value: (ms) => nativeTimeout(Math.min(Number(ms) || 0, 80)),
+    });
+  });
+
+  let feedCalls = 0;
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    feedCalls += 1;
+    if (feedCalls === 1) {
+      const oldFeed = fixtureFeed();
+      oldFeed.matches[0].home = "Old Feed FC";
+      oldFeed.matches[0].homeEn = "Old Feed FC";
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      try {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(oldFeed) });
+      } catch {}
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+  });
+  await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "detail_unavailable" }) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
+  });
+  await page.route("**/functions/v1/app-match-analysis?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "analysis_unavailable" }) });
+  });
+  await page.route("**/functions/v1/app-match-story?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "story_unavailable" }) });
+  });
+
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => feedCalls).toBe(1);
+  await page.waitForTimeout(140);
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+  await expect.poll(() => feedCalls).toBeGreaterThanOrEqual(2);
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 5000 });
+  await page.waitForTimeout(250);
+  await expect(page.getByText("Old Feed FC", { exact: true })).toHaveCount(0);
+});
+
+test("transport-unavailable detail remains unavailable rather than becoming fixture-absent", async ({ page }) => {
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "phase1_unavailable" }) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
+  });
+  await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "detail_unavailable" }) });
+  });
+
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1");
+  await expect(page.getByText("Match data is currently unavailable", { exact: true })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
+});
+
+test("conclusive canonical absence cannot be overwritten by a delayed older feed", async ({ page }) => {
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
+  });
+  await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        fixtureSource: "MISSING",
+        fixture: null,
+        models: {},
+        humanFactors: { lineup: [], playerStatus: [] }
+      })
+    });
+  });
+
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toBeVisible({ timeout: 5000 });
+  await page.waitForTimeout(450);
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("Northbridge FC", { exact: true })).toHaveCount(0);
+});
+
+test("authoritative stale detail remains ahead of a delayed prematch feed", async ({ page }) => {
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
+  });
+  await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ historical: true })) });
+  });
+  await page.route("**/functions/v1/app-match-analysis?**", async (route) => {
+    const payload = analysisPayload();
+    payload.decision.oddsStatus = "STALE";
+    payload.decision.candidateClass = "DATA_RISK";
+    payload.decision.action = "NO_BET";
+    payload.evidence.phase1Health.sourceMode = "DB_FALLBACK_FAIL_CLOSED";
+    payload.governance.sourceMode = "DB_FALLBACK_FAIL_CLOSED";
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+  });
+  await page.route("**/functions/v1/app-match-story?**", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "story_unavailable" }) });
+  });
+
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("SUPABASE DETAIL · fixture fallback", { exact: true })).toBeVisible({ timeout: 5000 });
+  await page.waitForTimeout(450);
+  await expect(page.getByText("SUPABASE DETAIL · fixture fallback", { exact: true })).toBeVisible();
+  await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
