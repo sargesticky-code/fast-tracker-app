@@ -51,6 +51,9 @@ jobs:
       - name: Check real-evidence safety gates
         run: npm run check:real-evidence
 
+      - name: Check evidence independence
+        run: npm run check:evidence-independence
+
       - name: Build static app
         id: static_build
         shell: bash
