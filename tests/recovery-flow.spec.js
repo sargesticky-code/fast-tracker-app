@@ -138,6 +138,7 @@ test("outage after a successful refresh keeps rows but marks their freshness unk
   await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
   await expect(page.locator(".ft-result-count")).toContainText("cached matches · feed unavailable");
+  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-cached-outage.png", fullPage: true });
 });
 
 test("fresh feed match wins when missing canonical detail resolves later", async ({ page }) => {
@@ -148,6 +149,7 @@ test("fresh feed match wins when missing canonical detail resolves later", async
   await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
   const summary = page.locator("details.lineup-tool-disclosure > summary");
   await expect(summary).toContainText("CANONICAL FIXTURE UNRESOLVED");
+  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-race-fresh-first.png", fullPage: true });
 });
 
 test("fresh feed match can recover the route after missing canonical detail resolves first", async ({ page }) => {
@@ -156,6 +158,7 @@ test("fresh feed match can recover the route after missing canonical detail reso
 
   await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-race-detail-first.png", fullPage: true });
 });
 
 test("missing canonical fixture exits loading and unresolved lineup identity stays unknown", async ({ page }) => {
@@ -182,4 +185,39 @@ test("source-confirmed unresolved player identity is not counted as 0/11", async
   await expect(summary).toContainText("—/11 home");
   await expect(summary).toContainText("identity not complete");
   await expect(summary).not.toContainText("0/11 home");
+});
+
+test("mobile cached outage state is visibly marked freshness unknown", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    const nativeSetInterval = window.setInterval.bind(window);
+    window.setInterval = (fn, delay, ...args) =>
+      nativeSetInterval(fn, delay === 60000 ? 150 : delay, ...args);
+  });
+  await routeRecoveryApis(page, { feed: "freshThenOutage" });
+  await page.goto("http://127.0.0.1:4173/");
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
+  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-cached-outage.png", fullPage: true });
+});
+
+test("mobile fresh-first race keeps fresh match visible", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", detailDelayMs: 180 });
+  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-race-fresh-first.png", fullPage: true });
+});
+
+test("mobile detail-first race recovers to fresh match", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", feedDelayMs: 180 });
+  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-race-detail-first.png", fullPage: true });
 });
