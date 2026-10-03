@@ -390,6 +390,18 @@ for (const device of [
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
     await expect(page.getByText("A lineup downgrade or adverse price move would weaken the case.")).toBeVisible();
 
+    await expect(page.getByRole("navigation", { name: "Match detail sections" })).toBeVisible();
+    await expect(page.getByText("Which models support the current position?", { exact: true })).toBeVisible();
+    await expect(page.getByText("Goals and corners", { exact: true })).toBeVisible();
+    await expect(page.getByText("Recent form comparison", { exact: true })).toBeVisible();
+    await expect(page.getByText("Previous meetings", { exact: true })).toBeVisible();
+    await expect(page.getByText("Human factors and lineups", { exact: true })).toBeVisible();
+    await expect(page.getByText("Model detail", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Team news" }).click();
+    await expect(page.locator("#team-news")).toBeVisible();
+    const renderedText = await page.locator("body").innerText();
+    expect(renderedText).not.toMatch(/[\u3400-\u9fff]/);
+
     await expect(page.getByLabel("Advertisement placeholder").first()).toBeVisible();
     await page.screenshot({ path: `test-results/dashboard-${device.name}-detail-article.png`, fullPage: true });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
