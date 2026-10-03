@@ -692,9 +692,11 @@ test("article remains readable when English story cache/upstream is unavailable"
   await mockApis(page, { withStory: false, legacyAnalysis: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  const homepageEvidence = page.locator('[aria-label="match evidence summary"]').first();
-  await expect(homepageEvidence.getByText("2-1", { exact: true })).toBeVisible();
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  const homepageRow = page.locator('a[href*="FBTEST1"]').first();
+  await expect(homepageRow.getByText("Northbridge FC", { exact: true })).toBeVisible();
+  await expect(homepageRow.getByText("Riverside United", { exact: true })).toBeVisible();
+  await expect(homepageRow.getByText("2-1", { exact: true })).toBeVisible();
+  await homepageRow.click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Northbridge FC vs Riverside United: evidence-based match analysis")).toBeVisible();
@@ -797,52 +799,66 @@ test("official source lineup with unresolved player identity remains partial", a
 });
 
 
-test("delayed detail refresh lanes coalesce repeated page-show triggers", async ({ page }) => {
-  const calls = { feed: 0, detail: 0, live: 0 };
-  let releaseGate;
-  const gate = new Promise((resolve) => { releaseGate = resolve; });
+for (const lane of ["feed", "detail", "live", "analysis", "story"]) {
+  test(`delayed ${lane} lane coalesces repeated refresh triggers`, async ({ page }) => {
+    if (lane === "analysis" || lane === "story") {
+      await page.addInitScript(() => {
+        const nativeSetTimeout = window.setTimeout.bind(window);
+        const nativeSetInterval = window.setInterval.bind(window);
+        window.setTimeout = (fn, ms, ...args) => nativeSetTimeout(fn, ms === 600 ? 20 : ms, ...args);
+        window.setInterval = (fn, ms, ...args) => nativeSetInterval(fn, ms === 300000 ? 80 : ms, ...args);
+      });
+    }
 
-  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
-    calls.feed += 1;
-    await gate;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
-  });
-  await page.route("**/functions/v1/app-match-detail?**", async (route) => {
-    calls.detail += 1;
-    await gate;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload()) });
-  });
-  await page.route("**/functions/v1/app-live-feed**", async (route) => {
-    calls.live += 1;
-    await gate;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
-  });
-  await page.route("**/functions/v1/app-match-analysis?**", async (route) => {
-    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "analysis_unavailable" }) });
-  });
-  await page.route("**/functions/v1/app-match-story?**", async (route) => {
-    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "story_unavailable" }) });
-  });
+    let laneCalls = 0;
+    let releaseGate;
+    const gate = new Promise((resolve) => { releaseGate = resolve; });
+    const maybeDelay = async (route, payload, status = 200) => {
+      laneCalls += 1;
+      await gate;
+      await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(payload) });
+    };
 
-  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
-  await expect.poll(() => calls.feed).toBe(1);
-  await expect.poll(() => calls.detail).toBe(1);
-  await expect.poll(() => calls.live).toBe(1);
+    await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+      if (lane === "feed") return maybeDelay(route, fixtureFeed());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+    });
+    await page.route("**/functions/v1/app-match-detail?**", async (route) => {
+      if (lane === "detail") return maybeDelay(route, detailPayload());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload()) });
+    });
+    await page.route("**/functions/v1/app-live-feed**", async (route) => {
+      const payload = { generatedAt: new Date().toISOString(), matches: [] };
+      if (lane === "live") return maybeDelay(route, payload);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+    });
+    await page.route("**/functions/v1/app-match-analysis?**", async (route) => {
+      if (lane === "analysis") return maybeDelay(route, analysisPayload());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(analysisPayload()) });
+    });
+    await page.route("**/functions/v1/app-match-story?**", async (route) => {
+      if (lane === "story") return maybeDelay(route, storyPayload());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(storyPayload()) });
+    });
 
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("pageshow"));
-    window.dispatchEvent(new Event("pageshow"));
-    window.dispatchEvent(new Event("pageshow"));
+    await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => laneCalls).toBe(1);
+
+    if (lane === "feed" || lane === "detail" || lane === "live") {
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event("pageshow"));
+        window.dispatchEvent(new Event("pageshow"));
+        window.dispatchEvent(new Event("pageshow"));
+      });
+    } else {
+      await page.waitForTimeout(220);
+    }
+
+    expect(laneCalls).toBe(1);
+    releaseGate();
+    await page.waitForTimeout(80);
   });
-  await page.waitForTimeout(150);
-
-  expect(calls.feed).toBe(1);
-  expect(calls.detail).toBe(1);
-  expect(calls.live).toBe(1);
-
-  releaseGate();
-  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 5000 });
-});
+}
 
 test("deadline cleanup permits a later retry and an aborted old response cannot overwrite it", async ({ page }) => {
   await page.addInitScript(() => {
