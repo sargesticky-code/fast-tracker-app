@@ -142,7 +142,9 @@ function analysisPayload() {
           under: 0.8564,
           weight: 0.9,
           sources: 1,
-          method: "FORM_XG_POISSON"
+          method: "FORM_XG_POISSON",
+          provenanceGroup: "HKJC_RESULTS",
+          memberKeys: ["FORM"]
         }]
       },
       corners: {
@@ -169,6 +171,7 @@ function analysisPayload() {
           awayVenueGames: 9,
           expectedGoalsHome: 1.09304,
           expectedGoalsAway: 1.65055,
+          provenanceGroup: "HKJC_RESULTS",
           method: "FORM_XG_POISSON"
         }
       }
@@ -278,7 +281,7 @@ for (const device of [
   await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
   await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
     await expect(page.getByText("WATCH · Under 4.5", { exact: true })).toBeVisible();
-    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON)", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · HKJC_RESULTS)", { exact: true })).toBeVisible();
     await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
     await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
     await expect(page.getByText("Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.", { exact: true })).toBeVisible();
