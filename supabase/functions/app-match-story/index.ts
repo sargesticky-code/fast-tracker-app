@@ -722,7 +722,7 @@ Deno.serve(async (req: Request) => {
         if (!x?.error) detail=x;
       } catch {}
     }
-    const db = createClient(sbUrl, key, { auth:{ persistSession:false, autoRefreshToken:false } });
+    const db = createReadClient(sbUrl, key);
     const commentaryQuery = await db.from("match_commentary_evidence")
       .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics,opinion_signals,relevance_score,parser_version")
       .eq("hkjc_event_id", id)
