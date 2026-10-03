@@ -238,6 +238,28 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
         <div><span>Decision state</span><strong>{action.replaceAll("_", " ")}</strong><small>{candidate.replaceAll("_", " ")}</small></div>
       </section>
 
+      <div className="ft-article-safety-strip" aria-label="Article safety context">
+        <div>
+          <span>Price status</span>
+          <strong>{quoteState.stale ? "Stale / reference only" : quote.decimalPrice === null ? "Current price unknown" : "Current observation"}</strong>
+        </div>
+        <div>
+          <span>Lineup status</span>
+          <strong>{lineup[1]}</strong>
+        </div>
+        <div>
+          <span>Player-status coverage</span>
+          <strong>{players.length ? players.length + " evidence row" + (players.length === 1 ? "" : "s") : "Unknown — not zero absences"}</strong>
+        </div>
+      </div>
+
+      <details className="ft-article-deep">
+        <summary>
+          <span>Full evidence article</span>
+          <small>Samples, player evidence, market boundaries, reasoning and provenance</small>
+        </summary>
+        <div className="ft-article-deep-body">
+
       <section className="ft-article-grid">
         <div>
           <span>Expected value</span>
@@ -430,6 +452,9 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
           </div>
         ) : null}
       </section>
+
+        </div>
+      </details>
     </article>
   );
 }
