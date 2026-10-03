@@ -1292,7 +1292,7 @@ export default function MatchDetailClient() {
           <div className="panel-title">
             <div>
               <p>ANALYST BRIEF</p>
-              <h2>{storyContent.headline || "賽事綜合解讀"}</h2>
+              <h2>{storyContent.headline || "Match analysis"}</h2>
             </div>
             <span>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI · GROUNDED" : "RULES · GROUNDED"}</span>
           </div>
@@ -1323,14 +1323,14 @@ export default function MatchDetailClient() {
 
           <div className="story-thesis-grid">
             <div className="story-thesis-positive">
-              <span>主要論點</span>
+              <span>Primary case</span>
               <strong>{story?.bettingAdvice?.selectionLabel || primarySelectionLabel}</strong>
               <p>{storyContent.thesis || bettingAdvice}</p>
             </div>
             <div className="story-thesis-negative">
-              <span>最大反方</span>
+              <span>Main counterpoint</span>
               <strong>What can go wrong</strong>
-              <p>{storyContent.counterCase || "暫未有額外反方 evidence。"}</p>
+              <p>{storyContent.counterCase || "No additional verified counterevidence is currently available."}</p>
             </div>
           </div>
 
@@ -1342,7 +1342,7 @@ export default function MatchDetailClient() {
           ) : null}
 
           <details className="story-deep-dive">
-            <summary>完整分析 / Phase interpretation</summary>
+            <summary>Full analysis and interpretation</summary>
             <div className="story-signal-row">
               <div><span>MARKET</span><p>{storyContent.marketInterpretation || "—"}</p></div>
               <div><span>MODELS</span><p>{storyContent.modelConsensusInterpretation || "—"}</p></div>
@@ -1352,7 +1352,7 @@ export default function MatchDetailClient() {
             <div className="story-intel-grid">
               <div><span>Live / Match State</span><p>{storyContent.liveInterpretation || "—"}</p></div>
               <div><span>Odds Movement</span><p>{storyContent.movementInterpretation || "—"}</p></div>
-              <div><span>信心點樣理解</span><p>{storyContent.confidenceExplanation || "—"}</p></div>
+              <div><span>How to read confidence</span><p>{storyContent.confidenceExplanation || "—"}</p></div>
             </div>
             {Array.isArray(storyContent.phaseNarratives) && storyContent.phaseNarratives.length ? (
               <div className="story-phase-grid">
@@ -1372,54 +1372,54 @@ export default function MatchDetailClient() {
       {matchScript ? (
         <section className="panel match-script-panel">
           <div className="panel-title">
-            <div><p>MATCH SCRIPT</p><h2>{matchScript.headline || "賽事走勢推演"}</h2></div>
+            <div><p>MATCH SCRIPT</p><h2>{matchScript.headline || "Expected match script"}</h2></div>
             <span>{matchScript.predictedScore ? "Forebet " + matchScript.predictedScore : matchScript.shapeKey || "Phase 1"}</span>
           </div>
           <div className="match-script-grid">
             <div>
-              <span>開局</span>
+              <span>Opening phase</span>
               <p>{matchScript.opening || "—"}</p>
             </div>
             <div>
-              <span>中段走勢</span>
+              <span>Mid-match pattern</span>
               <p>{matchScript.middle || "—"}</p>
             </div>
             <div>
-              <span>入球環境 / VALUE</span>
+              <span>Goals environment / value</span>
               <p>{matchScript.goalEnvironment || "—"}</p>
             </div>
             <div>
-              <span>角球環境</span>
+              <span>Corners environment</span>
               <p>{matchScript.cornerEnvironment || "—"}</p>
             </div>
           </div>
           {Array.isArray(matchScript.turningPoints) && matchScript.turningPoints.length ? (
             <div className="match-script-turning">
-              <span>關鍵轉折 / 失效位</span>
+              <span>Key swing / invalidation</span>
               <div>{matchScript.turningPoints.slice(0, 6).map((item, index) => <b key={String(item) + index}>{item}</b>)}</div>
             </div>
           ) : null}
-          <p className="fineprint">Match Script 係 Phase 1 賽前推演；「最可能走勢」同「現價最有 value 嘅投注方向」會分開顯示。</p>
+          <p className="fineprint">Match Script is a prematch scenario view. The most likely match pattern is kept separate from the market direction with the strongest current value.</p>
         </section>
       ) : null}
 
       {commentaryUiRows.length ? (
         <section className="panel commentary-panel">
           <div className="panel-title">
-            <div><p>EDITORIAL EVIDENCE</p><h2>外部球評 / Match Preview</h2></div>
+            <div><p>EDITORIAL EVIDENCE</p><h2>External match previews</h2></div>
             <span>
               {editorialAlignment?.totalSignals
-                ? `${editorialAlignment.support || 0} 同向 · ${editorialAlignment.contradict || 0} 反向`
+                ? `${editorialAlignment.support || 0} support · ${editorialAlignment.contradict || 0} contradict`
                 : `${commentaryUiRows.length} sources · context only`}
             </span>
           </div>
           {editorialAlignment?.totalSignals ? (
             <div className="editorial-alignment-summary">
-              <span>球評 × 模型</span>
-              <b className="support">{editorialAlignment.support || 0} 一致</b>
-              <b className="contradict">{editorialAlignment.contradict || 0} 相反</b>
-              {editorialAlignment.differentLine ? <b className="different">{editorialAlignment.differentLine} 不同盤</b> : null}
-              <small>只作解讀，不改 Edge</small>
+              <span>Preview × model</span>
+              <b className="support">{editorialAlignment.support || 0} support</b>
+              <b className="contradict">{editorialAlignment.contradict || 0} contradict</b>
+              {editorialAlignment.differentLine ? <b className="different">{editorialAlignment.differentLine} different line</b> : null}
+              <small>Context only · does not change edge</small>
             </div>
           ) : null}
           <div className="commentary-board">
@@ -1434,7 +1434,7 @@ export default function MatchDetailClient() {
                   {...linkProps}
                   key={(row.source || "source") + (row.headline || index)}
                 >
-                  <span>{row.source || "外部來源"}</span>
+                  <span>{row.source || "External source"}</span>
                   <div className="commentary-main">
                     <strong>{row.headline || row.summary || "Preview"}</strong>
                     {row.alignments?.length ? (
@@ -1453,12 +1453,12 @@ export default function MatchDetailClient() {
                       </div>
                     ) : null}
                   </div>
-                  <small>{row.publishedAt ? formatUpdated(row.publishedAt) : "時間未提供"}</small>
+                  <small>{row.publishedAt ? formatUpdated(row.publishedAt) : "Time unavailable"}</small>
                 </RowTag>
               );
             })}
           </div>
-          <p className="fineprint">球評 signal 只用嚟檢查模型論點有冇外部支持或反方；唔會直接改 probability、Edge 或 betting gate。</p>
+          <p className="fineprint">Editorial signals are used only to check external support or counterevidence. They do not directly change probability, edge or the decision gate.</p>
         </section>
       ) : null}
 
@@ -1477,26 +1477,26 @@ export default function MatchDetailClient() {
       {!storyContent && analysis ? (
         <section className="panel analyst-panel analyst-detail-panel">
           <div className="panel-title">
-            <div><p>WHY THIS BET</p><h2>點解個 Edge 喺呢度</h2></div>
+            <div><p>WHY THIS BET</p><h2>Why the edge appears here</h2></div>
             <span>{analysis.decision?.candidateClass || analysis.decision?.action || "WATCH"}</span>
           </div>
           {analysis.story?.summary ? <p className="analysis-lead">{analysis.story.summary}</p> : null}
           <div className="evidence-rows">
-            {analysis.story?.supportRead ? <div className="evidence-positive"><span>支持 Edge</span><b>{analysis.story.supportRead}</b></div> : null}
-            {analysis.story?.counterRead ? <div className="evidence-negative"><span>反方 / 風險</span><b>{analysis.story.counterRead}</b></div> : null}
+            {analysis.story?.supportRead ? <div className="evidence-positive"><span>Supports edge</span><b>{analysis.story.supportRead}</b></div> : null}
+            {analysis.story?.counterRead ? <div className="evidence-negative"><span>Counterevidence / risk</span><b>{analysis.story.counterRead}</b></div> : null}
             <div><span>Market</span><b>{analysis.story?.marketRead || ""}</b></div>
             <div><span>Model</span><b>{analysis.story?.modelRead || ""}</b></div>
-            <div><span>人為因素</span><b>{analysis.story?.humanRead || ""}</b></div>
+            <div><span>Human factors</span><b>{analysis.story?.humanRead || ""}</b></div>
             <div><span>Live</span><b>{analysis.story?.liveRead || ""}</b></div>
-            <div><span>賠率走勢</span><b>{analysis.story?.movementRead || ""}</b></div>
+            <div><span>Odds movement</span><b>{analysis.story?.movementRead || ""}</b></div>
           </div>
           {Array.isArray(analysis.invalidators) && analysis.invalidators.length ? (
-            <div className="betting-risk-box"><span>風險 / 失效條件</span><p>{analysis.invalidators.join(" · ")}</p></div>
+            <div className="betting-risk-box"><span>Risks / invalidators</span><p>{analysis.invalidators.join(" · ")}</p></div>
           ) : null}
         </section>
       ) : !storyContent ? (
         <section className="panel analyst-panel analyst-detail-panel analyst-loading">
-          <div className="panel-title"><div><p>WHY THIS BET</p><h2>分析資料載入中</h2></div></div>
+          <div className="panel-title"><div><p>WHY THIS BET</p><h2>Loading analysis</h2></div></div>
           <div className="analysis-placeholder-grid"><span></span><span></span><span></span></div>
         </section>
       ) : null}
@@ -1504,7 +1504,7 @@ export default function MatchDetailClient() {
       {match.liveNow && match.live && (
         <section className="panel live-detail-panel live-trading-panel">
           <div className="panel-title">
-            <div><p>LIVE TRADING VIEW</p><h2>即場比賽訊號</h2></div>
+            <div><p>LIVE MATCH VIEW</p><h2>Live match signals</h2></div>
             <span>{match.live.status || "LIVE"}</span>
           </div>
 
@@ -1531,8 +1531,8 @@ export default function MatchDetailClient() {
               <span className={"lane-" + liveLanes.stats.state}>STATS <b>{liveLanes.stats.label}</b></span>
               <span className={"lane-" + liveLanes.shadow.state}>MODEL <b>{liveLanes.shadow.label}</b></span>
               {liveBottleneck && liveBottleneck[1].state !== "fresh"
-                ? <strong>最慢：{liveBottleneck[0]} {liveBottleneck[1].label}</strong>
-                : <strong className="fresh">同步正常</strong>}
+                ? <strong>Slowest: {liveBottleneck[0]} {liveBottleneck[1].label}</strong>
+                : <strong className="fresh">Feeds aligned</strong>}
             </div>
           ) : null}
 
@@ -1540,12 +1540,12 @@ export default function MatchDetailClient() {
             <div className="live-control-card">
               <span>LIVE CONTROL</span>
               <strong>{liveControlLabel}</strong>
-              <small>{shadow?.actualSide ? "Expected-vs-Actual engine" : liveStats ? "visual stats signal" : "等待 detail stats"}</small>
+              <small>{shadow?.actualSide ? "Expected-vs-Actual engine"  : liveStats ? "visual stats signal" : "waiting for detail stats"}</small>
             </div>
             <div>
-              <span>角球進度</span>
+              <span>Corner progress</span>
               <strong>{liveCornerProgress}</strong>
-              <small>{Number.isFinite(liveCornerTotal) ? "目前 " + liveCornerTotal + " 個" : "等待 running result"}</small>
+              <small>{Number.isFinite(liveCornerTotal) ? "Current " + liveCornerTotal : "waiting for running result"}</small>
             </div>
             <div>
               <span>Expected control</span>
@@ -1555,7 +1555,7 @@ export default function MatchDetailClient() {
             <div className={shadow?.status === "ALIGNED" ? "is-positive" : shadow?.status && shadow.status !== "WAIT" ? "is-warning" : ""}>
               <span>Expected vs Actual</span>
               <strong>{shadow?.status || "WAIT"}</strong>
-              <small>{shadow?.metricCount ? shadow.metricCount + " live metrics" : "等待 evidence"}</small>
+              <small>{shadow?.metricCount ? shadow.metricCount + " live metrics" : "waiting for evidence"}</small>
             </div>
           </div>
 
@@ -1569,7 +1569,7 @@ export default function MatchDetailClient() {
             }}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
                 <span style={{fontSize:9,fontWeight:950,letterSpacing:".06em",color:"#6b7b72"}}>
-                  即場建議 · {analysisDecision.liveAdjusted ? "比分＋分鐘重估" : "模型觀察"}
+                  Live view · {analysisDecision.liveAdjusted ? "score + minute adjusted" : "model watch"}
                 </span>
                 {analysisDecision.liveMarketAgeSeconds != null ? (
                   <small style={{fontSize:9,color:"#7d8982",fontWeight:800}}>
@@ -1581,10 +1581,10 @@ export default function MatchDetailClient() {
                 {actionLabel} · {primarySelectionLabel}
               </strong>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6,fontSize:10,fontWeight:850,color:"#53685c"}}>
-                <span>模型 {Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</span>
+                <span>Model {Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</span>
                 <span>HKJC fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
                 <span>Edge {Number.isFinite(primaryEdgePp) ? (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : "—"}</span>
-                {analysisDecision.confidenceLabel ? <span>信心 {analysisDecision.confidenceLabel} · {analysisDecision.confidenceScore ?? "—"}/100</span> : null}
+                {analysisDecision.confidenceLabel ? <span>Confidence {analysisDecision.confidenceLabel} · {analysisDecision.confidenceScore ?? "—"}/100</span> : null}
                 <span>{analysisDecision.liveScore || liveScoreText} · {analysisDecision.liveMinute ?? liveMinute}</span>
               </div>
               <p style={{margin:"7px 0 0",fontSize:11,lineHeight:1.55,color:"#495b51",fontWeight:700}}>
@@ -1592,12 +1592,12 @@ export default function MatchDetailClient() {
               </p>
               {Array.isArray(analysisDecision.recommendationReasons) && analysisDecision.recommendationReasons.length ? (
                 <small style={{display:"block",marginTop:5,color:"#748178",fontWeight:750}}>
-                  判斷依據：{analysisDecision.recommendationReasons.slice(0, 4).join(" · ")}
+                  Reasons: {analysisDecision.recommendationReasons.slice(0, 4).join(" · ")}
                 </small>
               ) : null}
               {!analysisDecision.autoStakeAllowed ? (
                 <small style={{display:"block",marginTop:6,color:"#8a7661",fontWeight:800}}>
-                  Calibration 只限制自動注碼；有 Edge 嘅方向仍會照常顯示
+                  Calibration limits automatic staking only; valid edge signals remain visible
                 </small>
               ) : null}
             </div>
@@ -1619,8 +1619,8 @@ export default function MatchDetailClient() {
             </div>
           ) : (
             <div className="live-score-only-state">
-              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "HKJC running result 已連接" : "目前只有市場 / 比分層"}</strong>
-              <p>未有可靠 xG、射門或控球 detail 時，畫面唔會用空值製造假訊號；有 stats 先自動展開 pressure board。</p>
+              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "HKJC running result connected" : "Market / score layer only"}</strong>
+              <p>When reliable xG, shooting or possession detail is unavailable, missing values remain blank rather than creating false signals. The pressure board appears only when stats exist.</p>
             </div>
           )}
 
@@ -1628,34 +1628,34 @@ export default function MatchDetailClient() {
             <div className="live-1x2-market">
               <span>HKJC LIVE 1X2</span>
               <div>
-                <b>主 <strong>{formatOdds(match.live.odds?.home)}</strong></b>
-                <b>和 <strong>{formatOdds(match.live.odds?.draw)}</strong></b>
-                <b>客 <strong>{formatOdds(match.live.odds?.away)}</strong></b>
+                <b>H <strong>{formatOdds(match.live.odds?.home)}</strong></b>
+                <b>D <strong>{formatOdds(match.live.odds?.draw)}</strong></b>
+                <b>A <strong>{formatOdds(match.live.odds?.away)}</strong></b>
               </div>
             </div>
             <div className="live-ou-market">
-              <span>入球 O/U · {match.live.goals?.line || "—"}</span>
-              <div><b>大 {formatOdds(match.live.goals?.over)}</b><b>細 {formatOdds(match.live.goals?.under)}</b></div>
+              <span>Goals O/U · {match.live.goals?.line || "—"}</span>
+              <div><b>Over {formatOdds(match.live.goals?.over)}</b><b>Under {formatOdds(match.live.goals?.under)}</b></div>
             </div>
             <div className="live-ou-market">
-              <span>角球 O/U · {match.live.corners?.line || "—"}</span>
-              <div><b>大 {formatOdds(match.live.corners?.over)}</b><b>細 {formatOdds(match.live.corners?.under)}</b></div>
+              <span>Corners O/U · {match.live.corners?.line || "—"}</span>
+              <div><b>Over {formatOdds(match.live.corners?.over)}</b><b>Under {formatOdds(match.live.corners?.under)}</b></div>
             </div>
           </div>
 
           {(liveStats || shadow) ? (
             <details className="live-raw-details">
-              <summary>完整 Live evidence</summary>
+              <summary>Full live evidence</summary>
               {liveStats ? (
                 <div className="live-stats-detail-grid">
                   <div><span>xG</span><b>{pairText(liveStats.xg, 2)}</b></div>
                   <div><span>xGOT</span><b>{pairText(liveStats.xgot, 2)}</b></div>
-                  <div><span>射門</span><b>{pairText(liveStats.shots)}</b></div>
-                  <div><span>中框</span><b>{pairText(liveStats.shotsOnTarget)}</b></div>
-                  <div><span>控球</span><b>{pairText(liveStats.possession, 0, "%")}</b></div>
+                  <div><span>Shots</span><b>{pairText(liveStats.shots)}</b></div>
+                  <div><span>Shots on target</span><b>{pairText(liveStats.shotsOnTarget)}</b></div>
+                  <div><span>Possession</span><b>{pairText(liveStats.possession, 0, "%")}</b></div>
                   <div><span>Big Chance</span><b>{pairText(liveStats.bigChances)}</b></div>
-                  <div><span>禁區觸球</span><b>{pairText(liveStats.boxTouches)}</b></div>
-                  <div><span>角球</span><b>{pairText(liveStats.corners)}</b></div>
+                  <div><span>Box touches</span><b>{pairText(liveStats.boxTouches)}</b></div>
+                  <div><span>Corners</span><b>{pairText(liveStats.corners)}</b></div>
                 </div>
               ) : null}
               {shadow ? <p className="fineprint">{shadow.reason || "WAIT"} · control score {shadow.controlScore == null ? "—" : Number(shadow.controlScore).toFixed(0)}{shadow.controlBasis ? ` · expected basis ${shadow.controlBasis}` : ""}</p> : null}
