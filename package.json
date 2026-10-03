@@ -8,7 +8,8 @@
     "start": "next start",
     "check:ui": "node scripts/check-visible-escapes.mjs",
     "check:story": "node scripts/check-english-story-contract.mjs",
-    "check:market-contract": "node scripts/check-market-provider-contract.mjs"
+    "check:market-contract": "node scripts/check-market-provider-contract.mjs",
+    "check:real-evidence": "node scripts/check-real-evidence-safety.mjs"
   },
   "dependencies": {
     "@withqwerty/campos-stadia": "0.1.0-beta.6",
