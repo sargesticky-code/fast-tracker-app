@@ -1467,6 +1467,12 @@ Deno.serve(async (req: Request) => {
         status: r.health_status,
         freshness: fresh ? "FRESH" : "STALE",
         upstreamFreshness: r.hkjc_freshness,
+        priceObservedAt: live
+          ? (liveOddsRow?.odds_updated_at ?? liveOddsRow?.fetched_at ?? r.live_odds_updated_at ?? r.live_fetched_at ?? null)
+          : (r.hkjc_price_changed_at ?? r.hkjc_odds_updated_at ?? r.hkjc_fetched_at ?? null),
+        fetchedAt: live
+          ? (liveOddsRow?.fetched_at ?? r.live_fetched_at ?? null)
+          : (r.hkjc_fetched_at ?? null),
         priceAgeSeconds: live ? liveOddsAgeSeconds : prematchPriceAgeSeconds,
         sourceMode: fallbackMode ? "DB_FALLBACK_FAIL_CLOSED" : "CANONICAL_ACTIVE_FEED",
         evidenceChannelCount: r.evidence_channel_count,
