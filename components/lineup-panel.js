@@ -6,14 +6,14 @@ import { Pitch } from "@withqwerty/campos-stadia";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 
 const palette = {
-  home: "#195b42",
-  away: "#7d3040",
-  ink: "#18241d",
-  muted: "#6f7e75",
-  line: "#dbe5de",
-  soft: "#f5f8f6",
-  good: "#e7f5eb",
-  warn: "#fff4d8",
+  home: "#1976d2",
+  away: "#d59600",
+  ink: "#17314a",
+  muted: "#6d8193",
+  line: "#d6e1ea",
+  soft: "#f5f8fb",
+  good: "#eaf4ff",
+  warn: "#fff8dc",
 };
 
 function side(row) {
@@ -143,7 +143,7 @@ function formatHkt(value) {
   if (!value) return "—";
   const d = new Date(value);
   if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleString("zh-HK", {
+  return d.toLocaleString("en-GB", {
     timeZone: "Asia/Hong_Kong",
     month: "2-digit",
     day: "2-digit",
@@ -363,8 +363,8 @@ function AvailabilityPanel({ rows, homeTeam, awayTeam }) {
   if (!meaningful.length) {
     return (
       <div style={{padding:18,border:"1px dashed #cfdad3",borderRadius:14,background:"#fbfcfb"}}>
-        <b style={{display:"block",fontSize:13,color:palette.ink}}>暫未捕捉到 verified 傷停 / 停賽 evidence</b>
-        <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted}}>呢個意思係「資料未有」，唔代表兩隊一定冇傷停</small>
+        <b style={{display:"block",fontSize:13,color:palette.ink}}>No verified injury or suspension evidence is currently available</b>
+        <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted}}>This means coverage is unavailable; it does not mean both teams have zero absences.</small>
       </div>
     );
   }
@@ -403,7 +403,7 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
             <span style={{display:"block",fontSize:9,fontWeight:900,color:"#819087"}}>{s === "H" ? homeTeam : awayTeam}</span>
             <b style={{display:"block",marginTop:4,fontSize:14,color:palette.ink}}>{managerName(manager) || "Manager data pending"}</b>
             <small style={{display:"block",marginTop:5,fontSize:9.5,color:palette.muted}}>
-              {manager ? (manager?.source_name || manager?.source || "verified manager evidence") : "會由 Phase 2 manager lane 自動補上"}
+              {manager ? (manager?.source_name || manager?.source || "verified manager evidence") : "Manager evidence pending"}
             </small>
           </div>
         );
@@ -415,7 +415,7 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
 function StrengthBar({ team, data }) {
   const pct = Number.isFinite(Number(data?.lineup_strength_pct)) ? Number(data.lineup_strength_pct) : null;
   const conf = Number.isFinite(Number(data?.lineup_confidence_pct)) ? Number(data.lineup_confidence_pct) : null;
-  const label = data?.lineup_strength_label || "資料不足";
+  const label = data?.lineup_strength_label || "Insufficient data";
   return (
     <div style={{padding:"10px 12px",border:"1px solid #dce6df",borderRadius:13,background:"#fff"}}>
       <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
@@ -427,7 +427,7 @@ function StrengthBar({ team, data }) {
       </div>
       <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:6,fontSize:9,color:palette.muted,fontWeight:800}}>
         <span>{label}</span>
-        <span>{conf == null ? "可信度 —" : "可信度 " + Math.round(conf) + "%"}</span>
+        <span>{conf == null ? "Confidence —" : "Confidence " + Math.round(conf) + "%"}</span>
       </div>
     </div>
   );
@@ -470,8 +470,8 @@ export default function LineupPanel() {
     const home = rows.filter((r) => side(r) === "H");
     const away = rows.filter((r) => side(r) === "A");
     const confirmedRows = rows.filter((r) => r?.confirmed === true);
-    const homeTeam = fixture.homeZh || fixture.home_zh || fixture.home || fixture.home_en || "主隊";
-    const awayTeam = fixture.awayZh || fixture.away_zh || fixture.away || fixture.away_en || "客隊";
+    const homeTeam = fixture.home || fixture.home_en || fixture.homeZh || fixture.home_zh || "Home";
+    const awayTeam = fixture.away || fixture.away_en || fixture.awayZh || fixture.away_zh || "Away";
     const homeStarters = home.filter((r) => r?.starter !== false);
     const awayStarters = away.filter((r) => r?.starter !== false);
     const homeBench = home.filter((r) => r?.starter === false);
@@ -513,26 +513,26 @@ export default function LineupPanel() {
   const tone = statusTone(view.status);
   const ready = view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
   const tabs = [
-    ["formation","陣型"],
-    ["squad","名單"],
-    ["availability","傷停"],
-    ["source","來源"],
+    ["formation","Formation"],
+    ["squad","Squad"],
+    ["availability","Availability"],
+    ["source","Sources"],
   ];
 
   return (
     <section style={{maxWidth:1180,margin:"14px auto 0",padding:"0 16px"}} aria-label="Professional lineup module">
-      <div style={{border:"1px solid #d5e1d9",borderRadius:20,background:"#f7faf8",boxShadow:"0 12px 34px rgba(35,74,53,.07)",overflow:"hidden"}}>
+      <div style={{border:"1px solid #cedbe6",borderRadius:9,background:"#f7fafc",boxShadow:"0 4px 14px rgba(11,42,74,.08)",overflow:"hidden"}}>
         <div style={{padding:"15px 16px",background:"#fff",borderBottom:"1px solid "+palette.line}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
             <div>
-              <span style={{display:"block",fontSize:9,fontWeight:950,color:"#2a7652",letterSpacing:".08em"}}>MATCH LINEUPS · CAMPOS UI</span>
+              <span style={{display:"block",fontSize:9,fontWeight:950,color:"#1b5f91",letterSpacing:".08em"}}>LINEUPS & AVAILABILITY</span>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:4}}>
                 <h2 style={{margin:0,fontSize:20,color:palette.ink}}>{view.homeTeam} <span style={{color:"#9aa69f",fontWeight:700}}>vs</span> {view.awayTeam}</h2>
                 <span style={{fontSize:10,fontWeight:950,padding:"5px 8px",borderRadius:999,background:tone.bg,color:tone.fg}}>{tone.text}</span>
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6,fontSize:10,color:palette.muted,fontWeight:750}}>
                 {view.tournament ? <span>{view.tournament}</span> : null}
-                {view.kickoff ? <span>香港時間 {formatHkt(view.kickoff)}</span> : null}
+                {view.kickoff ? <span>HKT {formatHkt(view.kickoff)}</span> : null}
                 {view.source ? <span>{view.source}</span> : null}
               </div>
             </div>
@@ -550,21 +550,21 @@ export default function LineupPanel() {
 
           <div style={{display:"flex",gap:6,overflowX:"auto",marginTop:13,paddingBottom:1}}>
             {tabs.map(([key,label]) => (
-              <button key={key} type="button" onClick={() => setTab(key)} style={{border:"1px solid "+(tab===key?"#2a7753":"#d9e3dc"),background:tab===key?"#2a7753":"#fff",color:tab===key?"#fff":"#63736a",borderRadius:999,padding:"7px 11px",fontSize:10,fontWeight:900,whiteSpace:"nowrap",cursor:"pointer"}}>
+              <button key={key} type="button" onClick={() => setTab(key)} style={{border:"1px solid "+(tab===key?"#1976d2":"#d8e3eb"),background:tab===key?"#1976d2":"#fff",color:tab===key?"#fff":"#5e7488",borderRadius:999,padding:"7px 11px",fontSize:10,fontWeight:900,whiteSpace:"nowrap",cursor:"pointer"}}>
                 {label}
               </button>
             ))}
           </div>
         </div>
 
-        {loading && !payload ? <div style={{padding:24,fontSize:12,color:palette.muted}}>正在讀取陣容…</div> : null}
+        {loading && !payload ? <div style={{padding:24,fontSize:12,color:palette.muted}}>Loading lineup data…</div> : null}
         {error && !payload ? <div style={{padding:24,fontSize:12,color:"#a04f43"}}>Lineup feed: {error}</div> : null}
 
         {!loading && !ready && view.rows.length === 0 ? (
           <div style={{padding:22}}>
             <div style={{padding:18,border:"1px dashed #cdd9d1",borderRadius:14,background:"#fff"}}>
-              <b style={{display:"block",fontSize:14,color:palette.ink}}>等待可靠 11v11 陣容</b>
-              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>有 predicted 或 official XI 後，呢個完整模組會自動切換；唔會用假球員補空位</small>
+              <b style={{display:"block",fontSize:14,color:palette.ink}}>Waiting for reliable 11v11 lineups</b>
+              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions.</small>
             </div>
           </div>
         ) : null}
@@ -573,7 +573,7 @@ export default function LineupPanel() {
           <div style={{padding:14}}>
             {view.conflicts.length ? (
               <div style={{marginBottom:10,padding:"9px 10px",border:"1px solid #efc8bf",borderRadius:11,background:"#fff4f1",fontSize:10,fontWeight:850,color:"#9a4d40"}}>
-                ⚠ {view.conflicts.length} 個 XI 球員同傷停 evidence 有衝突，需要人工/下一輪 source refresh 核對
+                ⚠ {view.conflicts.length} XI player record(s) conflict with availability evidence and require source reconciliation.
               </div>
             ) : null}
             <div className="pro-lineup-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12}}>
@@ -616,14 +616,14 @@ export default function LineupPanel() {
               <p style={{margin:"6px 0 0",fontSize:10,lineHeight:1.55,color:palette.muted}}>
                 HKJC fixture identity is the master key. External lineup evidence is matched through the one-for-all alias layer, stored in Supabase, then canonicalized so confirmed XI outranks predicted XI.
               </p>
-              {view.sourceUrl ? <a href={view.sourceUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,fontWeight:900,color:"#287650"}}>Open source evidence ↗</a> : null}
+              {view.sourceUrl ? <a href={view.sourceUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,fontWeight:900,color:"#1976d2"}}>Open source evidence ↗</a> : null}
             </div>
           </div>
         ) : null}
 
         <div style={{padding:"10px 14px",borderTop:"1px solid "+palette.line,background:"#fff",display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-          <small style={{fontSize:9.5,color:palette.muted}}>Match {id} · refresh 60s · Campos pitch layer</small>
-          <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? "完整 11v11 已可用" : "等待完整 11v11"}</small>
+          <small style={{fontSize:9.5,color:palette.muted}}>Match {id} · refresh 60s · lineup evidence</small>
+          <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? "Complete 11v11 available" : "Waiting for complete 11v11"}</small>
         </div>
       </div>
 
