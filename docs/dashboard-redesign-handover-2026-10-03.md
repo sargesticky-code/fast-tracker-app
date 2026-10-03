@@ -477,3 +477,18 @@ Rollback: revert PR #9 only; PR #6 English repair and PR #8 server-side fail-fas
 Missing authorization for any stronger remediation: changing cron schedules/cadence, disabling jobs, changing DB indexes/settings/compute, merging PRs, or deploying/releasing would all require a separate explicit production/change authorization.
 
 Smallest next action after CI: keep PR #9 unreleased, restore its base to PR #8, and if green, perform one read-only query-family/source review focused on what changed immediately before 15:45 (including lock/wait visibility if diagnostics recover) rather than modifying cron schedules on correlation alone.
+
+
+### Frontend backpressure review verification
+
+- Canonical frontend containment review: draft PR #9, `review/frontend-read-backpressure-v1` → `review/read-path-failfast-v2` (PR #8). Stack remains PR #6 English repair → PR #8 backend read fail-fast → PR #9 frontend single-flight/backpressure.
+- Verified source/docs head: `d5282260685f2b6957f04000129b5e6b1616dfcd`.
+- GitHub PR Build Verification run `37139054527`: **SUCCESS**.
+- All existing contracts remained green: English story, provider/market, real-evidence safety (including new frontend backpressure assertions), evidence independence, player identity, static build/routes, rendered desktop/mobile flow.
+- Rendered suite: **22/22 passed** in 26.9s.
+- Artifact `11279722987`: `dashboard-redesign-c98c852b0afcda92f2214da6b99661854d3d3e15`, SHA256 `88382bc9eff1facfdde3c13648a59c46b8c2268e84ab2981b009b31b3a2132ea`.
+- PR #9 was temporarily pointed at `main` only to trigger the established workflow, then restored to PR #8 as base after the green run. No merge/deploy/release occurred.
+
+The patch's expected effect is deliberately bounded: under a 90–150s backend slowdown, one browser tab can no longer stack repeated requests in the same lane on every timer/visibility trigger. It should reduce amplification and cap per-tab concurrency, but it does not prove or repair the initiating database event.
+
+Smallest next action: keep PRs #6/#8/#9 unreleased. If database diagnostics recover, perform one bounded read-only review of the **initial 15:44–15:48 transition**: query active/wait events or statement fingerprints around the first statement-timeout/SSL-accept failures, and compare them with the public-read request start surge. Only if a specific query/lock/workload fingerprint is demonstrated should a DB/index/cron remediation be proposed. If those diagnostics remain unavailable, do not retry indefinitely; retain frontend/backend containment as review evidence and leave the initial trigger unresolved.
