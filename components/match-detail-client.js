@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ModelEdgeChart from "@/components/model-edge-chart";
 import ModelScoreboard from "@/components/model-scoreboard";
 import EvidenceArticle from "@/components/evidence-article";
+import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import {
   divergence,
   fairMarket,
@@ -576,7 +577,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.detail) return;
       requestsInFlight.detail = true;
       try {
-        const res = await fetchWithDeadline(DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 20000);
+        const res = await singleFlightFetch(`match-detail:${matchId}`, DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "no-store" }, 20000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
