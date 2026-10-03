@@ -646,7 +646,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.live) return;
       requestsInFlight.live = true;
       try {
-        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
+        const res = await fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" }, 35000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;
