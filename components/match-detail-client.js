@@ -197,7 +197,7 @@ function modelStateLabel(available, reason) {
   if (r.includes("SPARSE")) return "INSUFFICIENT HISTORY";
   if (r.includes("INSUFFICIENT")) return "INSUFFICIENT RECENT SAMPLE";
   if (r.includes("UNSUPPORTED")) return "LEAGUE HISTORY UNSUPPORTED";
-  if (r.includes("FIXTURE_ONLY")) return "只有賽程";
+  if (r.includes("FIXTURE_ONLY")) return "FIXTURE ONLY";
   if (r.includes("SOURCE_ABSENT")) return "SOURCE HAS NO MATCH";
   return reason ? String(reason).replaceAll("_", " ") : "NO DATA";
 }
@@ -657,8 +657,8 @@ export default function MatchDetailClient() {
   if (!id && ready) {
     return (
       <main className="shell detail-shell">
-        <div className="detail-top"><a href="/" className="back">← 返回賽事</a></div>
-        <section className="panel"><h2>未指定賽事</h2><p className="fineprint">請由 Betting Board 撳入一場賽事。</p></section>
+        <div className="detail-top"><a href="/" className="back">← Back to matches</a></div>
+        <section className="panel"><h2>No match selected</h2><p className="fineprint">Open a fixture from the match board.</p></section>
       </main>
     );
   }
@@ -666,8 +666,8 @@ export default function MatchDetailClient() {
   if (!match && !ready) {
     return (
       <main className="shell detail-shell">
-        <div className="detail-top"><a href="/" className="back">← 返回賽事</a><span>{id}</span></div>
-        <section className="panel"><p className="fineprint">載入賽事資料中…</p></section>
+        <div className="detail-top"><a href="/" className="back">← Back to matches</a><span>{id}</span></div>
+        <section className="panel"><p className="fineprint">Loading match data…</p></section>
       </main>
     );
   }
@@ -675,10 +675,10 @@ export default function MatchDetailClient() {
   if (!match) {
     return (
       <main className="shell detail-shell">
-        <div className="detail-top"><a href="/" className="back">← 返回賽事</a><span>{id}</span></div>
+        <div className="detail-top"><a href="/" className="back">← Back to matches</a><span>{id}</span></div>
         <section className="panel">
           <div className="panel-title"><div><p>MATCH</p><h2>Match data is currently unavailable</h2></div></div>
-          <p className="fineprint">呢個連結唔會再去 404。資料源未提供呢場時，可以直接返回賽事列表再開。</p>
+          <p className="fineprint">This route is available, but the current data source has not supplied this match. Return to the match list to choose another fixture.</p>
         </section>
       </main>
     );
@@ -701,7 +701,7 @@ export default function MatchDetailClient() {
   const hasMovement = movement && Number.isFinite(movementPct);
   const movementMagnitude = hasMovement ? Math.min(100, Math.max(6, Math.abs(movementPct) * 5)) : 0;
   const movementDirection = !hasMovement ? "FLAT" : movementPct < 0 ? "SHORTENING" : movementPct > 0 ? "DRIFTING" : "FLAT";
-  const movementDirectionZh = movementDirection === "SHORTENING" ? "賠率下壓" : movementDirection === "DRIFTING" ? "賠率上升" : "價格平穩";
+  const movementDirectionZh = movementDirection === "SHORTENING" ? "Shortening" : movementDirection === "DRIFTING" ? "Drifting" : "Stable";
   const liveScore = match.live?.score || {};
   const liveScoreText = liveScore.text || (
     Number.isFinite(Number(liveScore.home)) && Number.isFinite(Number(liveScore.away))
@@ -715,7 +715,7 @@ export default function MatchDetailClient() {
     ? (() => {
         const target = Math.floor(liveCornerLine) + 1;
         const need = Math.max(0, target - liveCornerTotal);
-        return need === 0 ? `${liveCornerTotal}/${liveCornerLine} · 已過大` : `${liveCornerTotal}/${liveCornerLine} · 差${need}`;
+        return need === 0 ? `${liveCornerTotal}/${liveCornerLine} · over line reached` : `${liveCornerTotal}/${liveCornerLine} · ${need} needed`;
       })()
     : "—";
   const liveStats = match.live?.stats || null;
@@ -724,11 +724,11 @@ export default function MatchDetailClient() {
   const liveControlLabel = controlSideLabel(match, liveControlSide);
   const liveSignalRows = liveStats ? [
     { key: "xg", label: "xG", pair: liveStats.xg, digits: 2 },
-    { key: "sot", label: "中框", pair: liveStats.shotsOnTarget, digits: 0 },
-    { key: "shots", label: "射門", pair: liveStats.shots, digits: 0 },
-    { key: "box", label: "禁區觸球", pair: liveStats.boxTouches, digits: 0 },
-    { key: "possession", label: "控球", pair: liveStats.possession, digits: 0, suffix: "%" },
-    { key: "corners", label: "角球", pair: liveStats.corners, digits: 0 },
+    { key: "sot", label: "Shots on target", pair: liveStats.shotsOnTarget, digits: 0 },
+    { key: "shots", label: "Shots", pair: liveStats.shots, digits: 0 },
+    { key: "box", label: "Box touches", pair: liveStats.boxTouches, digits: 0 },
+    { key: "possession", label: "Possession", pair: liveStats.possession, digits: 0, suffix: "%" },
+    { key: "corners", label: "Corners", pair: liveStats.corners, digits: 0 },
   ].map((row) => ({ ...row, share: pairShare(row.pair) })).filter((row) => row.share) : [];
   const liveLanes = match.live ? (() => {
     const statsLane = liveLaneStatus(liveStats?.capturedAt, 180, 600);
@@ -763,9 +763,9 @@ export default function MatchDetailClient() {
   const handicapAdvice = totalsAdvice.handicap || (directHandicapAdvice ? {
     selection: directHandicapAdvice.selection,
     selectionLabel: directHandicapAdvice.selection === "HOME"
-      ? (match.homeZh || match.home || "主") + " " + (match.handicap?.line || "")
+      ? (match.home || match.homeEn || match.homeZh || "Home") + " " + (match.handicap?.line || "")
       : directHandicapAdvice.selection === "AWAY"
-        ? (match.awayZh || match.away || "客") + " " + (match.handicap?.line || "")
+        ? (match.away || match.awayEn || match.awayZh || "Away") + " " + (match.handicap?.line || "")
         : "—",
     currentOdds: directHandicapAdvice.odds,
     expectedValuePct: directHandicapAdvice.edgePct,
@@ -785,9 +785,9 @@ export default function MatchDetailClient() {
     ? `EV ${Number(row.expectedValuePct) >= 0 ? "+" : ""}${Number(row.expectedValuePct).toFixed(1)}%`
     : row?.candidateEdgePp == null
       ? "EV —"
-      : `機率差 ${Number(row.candidateEdgePp) >= 0 ? "+" : ""}${Number(row.candidateEdgePp).toFixed(1)}pp`;
+      : `Probability gap ${Number(row.candidateEdgePp) >= 0 ? "+" : ""}${Number(row.candidateEdgePp).toFixed(1)}pp`;
   const totalAdviceLabel = (row) => {
-    if (!row) return "分析中";
+    if (!row) return "ANALYSING";
     if (String(row.action || "").toUpperCase() === "NO_BET") return "NO BET";
     if (String(row.action || "").toUpperCase() === "PASS") return row.candidateClass === "NO_MODEL" ? "NO MODEL · PASS" : "PASS";
     return row.selectionLabel || "WATCH";
@@ -949,10 +949,10 @@ export default function MatchDetailClient() {
   const rawAction = String(analysisDecision?.action || (primaryEdgePp != null && primaryEdgePp >= 2.5 ? "WATCH" : "PASS")).toUpperCase();
   const actionLabel = rawAction === "NO_BET" ? "NO BET"
     : rawAction === "PASS" ? "PASS"
-      : rawAction.includes("STRONG") ? "強 Edge 候選"
-        : rawAction.includes("VALUE") ? "Value 候選"
-          : rawAction.includes("LEAN") ? "輕微傾向"
-            : "觀察";
+      : rawAction.includes("STRONG") ? "Strong edge candidate"
+        : rawAction.includes("VALUE") ? "Value candidate"
+          : rawAction.includes("LEAN") ? "Lean"
+            : "Watch";
   const actionTone = rawAction === "NO_BET" || rawAction === "PASS" ? "pass"
     : rawAction.includes("STRONG") || rawAction.includes("VALUE") ? "value"
       : "watch";
@@ -960,11 +960,11 @@ export default function MatchDetailClient() {
   // Keep the original recommendation visible even when governance/data gates
   // downgrade execution. A gate is a warning, not a reason to erase the pick.
   const pickLabel = "PRIMARY MARKET";
-  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : Number.isFinite(primaryExpectedValuePct) ? "現價 EV" : "精算 EDGE";
+  const gapLabel = referencePriceOnly ? "REFERENCE GAP" : Number.isFinite(primaryExpectedValuePct) ? "Current EV" : "MODEL EDGE";
   const gateLabel = rawAction === "NO_BET" ? "Decision gate blocked"
     : rawAction === "PASS" ? "No current bet required"
-      : rawAction.includes("WATCH") ? "觀察中"
-        : "候選已形成";
+      : rawAction.includes("WATCH") ? "Watch"
+        : "Candidate formed";
   const gateDetail = story?.invalidators?.length
     ? story.invalidators.slice(0, 3).join(" · ")
     : analysis?.invalidators?.length
@@ -975,16 +975,16 @@ export default function MatchDetailClient() {
     : Array.isArray(analysis?.invalidators) ? analysis.invalidators : [];
   const blockerTags = rawBlockers.slice(0, 5).map((item) => {
     const t = String(item || "");
-    if (/fallback/i.test(t)) return "非 canonical feed";
-    if (/不新鮮|stale|freshness/i.test(t)) return "市場價格未夠新";
+    if (/fallback/i.test(t)) return "Non-canonical feed";
+    if (/不新鮮|stale|freshness/i.test(t)) return "Market price not fresh enough";
     if (/evidence family|獨立 evidence/i.test(t)) return "Insufficient independent model evidence";
     if (/XI|lineup/i.test(t)) return "Lineup not confirmed";
-    if (/Phase 5|calibration/i.test(t)) return "Calibration 未過";
-    if (/health/i.test(t)) return "Data health 未過";
+    if (/Phase 5|calibration/i.test(t)) return "Calibration gate not passed";
+    if (/health/i.test(t)) return "Data-health gate not passed";
     return t.length > 18 ? t.slice(0, 18) + "…" : t;
   });
   const fallbackAdvice = primarySide && (primaryExpectedValuePct != null || primaryEdgePp != null)
-    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · ${Number.isFinite(primaryExpectedValuePct) ? "EV " + (primaryExpectedValuePct >= 0 ? "+" : "") + primaryExpectedValuePct.toFixed(1) + "%" : "機率差 " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}`
+    ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · ${Number.isFinite(primaryExpectedValuePct) ? "EV " + (primaryExpectedValuePct >= 0 ? "+" : "") + primaryExpectedValuePct.toFixed(1) + "%" : "Probability gap " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}`
     : "There is not enough verified evidence for a clear market position.";
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
@@ -999,10 +999,10 @@ export default function MatchDetailClient() {
   }));
   const editorialSignalLabel = (signal) => {
     const market = signal.market === "GOALS_OU" ? "Goals" : signal.market === "CORNERS_OU" ? "Corners" : "HDA";
-    const selection = signal.editorialSelection === "OVER" ? "大"
-      : signal.editorialSelection === "UNDER" ? "細"
+    const selection = signal.editorialSelection === "OVER" ? "Over"
+      : signal.editorialSelection === "UNDER" ? "Under"
         : signal.editorialSelection === "H" ? "Home"
-          : signal.editorialSelection === "D" ? "和"
+          : signal.editorialSelection === "D" ? "Draw"
             : signal.editorialSelection === "A" ? "Away"
               : signal.editorialSelection || "—";
     const line = signal.editorialLine == null ? "" : " " + signal.editorialLine;
@@ -1020,13 +1020,13 @@ export default function MatchDetailClient() {
     storyEvidence.optaStrength ? "Opta" : null,
     Number(storyEvidence.humanFactorRows || 0) > 0 ? "Human Factors" : null,
     Number(storyEvidence.scenarioRows || 0) > 0 ? "Scenario" : null,
-    Number(storyEvidence.commentaryRows || 0) > 0 ? "球評" : null,
+    Number(storyEvidence.commentaryRows || 0) > 0 ? "Commentary" : null,
   ].filter(Boolean);
   const sourceModeLabel = analysisSourceMode.includes("FALLBACK") ? "DB FALLBACK" : analysisSourceMode.includes("CANONICAL") ? "CANONICAL FEED" : "SOURCE CHECK";
   const priceStatusLabel = referencePriceOnly ? "REFERENCE ONLY" : "CURRENT";
   const sideRows = [
     { key: "H", label: match.home || match.homeEn || match.homeZh || "Home", odds: referencePriceOnly ? null : match.odds?.home, fair: market?.home },
-    { key: "D", label: "和", odds: referencePriceOnly ? null : match.odds?.draw, fair: market?.draw },
+    { key: "D", label: "Draw", odds: referencePriceOnly ? null : match.odds?.draw, fair: market?.draw },
     { key: "A", label: match.away || match.awayEn || match.awayZh || "Away", odds: referencePriceOnly ? null : match.odds?.away, fair: market?.away },
   ];
 
@@ -1044,7 +1044,7 @@ export default function MatchDetailClient() {
     },
     {
       key: "HANDICAP",
-      market: "亞洲讓球",
+      market: "Asian handicap",
       selection: handicapAdvice?.selectionLabel || "—",
       odds: handicapAdvice?.currentOdds == null ? null : Number(handicapAdvice.currentOdds),
       edgePp: null,
@@ -1083,7 +1083,7 @@ export default function MatchDetailClient() {
   const bestValue = marketIntel.bestValue || phase4Values[0] || null;
   const phase4SelectionLabel = (selection) => {
     if (selection === "HOME") return match.home || match.homeEn || match.homeZh || "Home";
-    if (selection === "DRAW") return "和";
+    if (selection === "DRAW") return "Draw";
     if (selection === "AWAY") return match.away || match.awayEn || match.awayZh || "Away";
     return selection || "—";
   };
@@ -1167,8 +1167,8 @@ export default function MatchDetailClient() {
               <p>{sourceContextVerified ? "EXTERNAL CONTEXT" : "DATA GAP"}</p>
               <h2 style={{ fontSize:15 }}>
                 {sourceContextVerified
-                  ? `${sourceContext.source || "External"} 已核實呢場賽事`
-                  : "賽事 link 正常，但暫未有可用模型 evidence"}
+                  ? `${sourceContext.source || "External"} verified this fixture`
+                   : "Fixture link is valid, but usable model evidence is not currently available"}
               </h2>
             </div>
             <span>
@@ -1178,7 +1178,7 @@ export default function MatchDetailClient() {
           {sourceContextVerified ? (
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", fontSize:9, fontWeight:850, color:"#587080" }}>
               <span>{sourceContext.identityStatus || "MATCHED"}</span>
-              {sourceContext.detailAvailable ? <b>DETAIL ✓</b> : <span>DETAIL 待補</span>}
+              {sourceContext.detailAvailable ? <b>DETAIL ✓</b> : <span>DETAIL —</span>}
               {sourceContext.lineupAvailable ? <b>LINEUP ✓</b> : <span>LINEUP —</span>}
               {sourceContext.statsAvailable ? <b>STATS ✓</b> : <span>STATS —</span>}
               {sourceContext.xgAvailable ? <b>xG ✓</b> : <span>xG —</span>}
@@ -1186,8 +1186,8 @@ export default function MatchDetailClient() {
           ) : null}
           <p className="fineprint" style={{ margin:"7px 0 0" }}>
             {sourceContextVerified
-              ? "呢層只用嚟確認 fixture / lineup / context coverage；唔會改模型概率、HKJC fair probability 或精算 Edge。"
-              : "系統已分開 route dead 同 data dead；呢場係資料覆蓋缺口，唔會用假 model 補數。"}
+              ? "This layer confirms fixture, lineup and context coverage only; it does not alter model probabilities, HKJC fair probability or edge."
+               : "The route is healthy but data coverage is incomplete; missing model evidence is not filled with invented values."}
           </p>
         </section>
       ) : null}
@@ -1196,7 +1196,7 @@ export default function MatchDetailClient() {
         <div className="detail-decision-head">
           <div>
             <span>QUANT BETTING VIEW</span>
-            <h2>精算投注 · {actionLabel}</h2>
+            <h2>Market decision · {actionLabel}</h2>
           </div>
           <b>{storyMode === "AI_GROUNDED" || storyMode === "AI_GROUNDED_RETRY" ? "AI GROUNDED" : story ? "STORY READY" : analysis ? "INTERPRETER READY" : "PHASE 1"}</b>
         </div>
@@ -1205,7 +1205,7 @@ export default function MatchDetailClient() {
           <div className="detail-decision-pick">
             <span>{pickLabel}</span>
             <strong>{primarySelectionLabel}</strong>
-            <small>{referencePriceOnly ? (Number.isFinite(referenceOdds) ? "舊價 @" + referenceOdds.toFixed(2) + " · reference only" : "CURRENT PRICE —") : Number.isFinite(primaryOdds) ? "@" + primaryOdds.toFixed(2) : "—"}</small>
+            <small>{referencePriceOnly ? (Number.isFinite(referenceOdds) ? "Historical @" + referenceOdds.toFixed(2) + " · reference only" : "CURRENT PRICE —") : Number.isFinite(primaryOdds) ? "@" + primaryOdds.toFixed(2) : "—"}</small>
           </div>
 
           <div className="detail-decision-edge">
@@ -1217,14 +1217,14 @@ export default function MatchDetailClient() {
                 : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}</strong>
             <small style={{ display:"block", marginTop:4, color:"#6f8177", fontSize:8, fontWeight:850 }}>
               {Number.isFinite(primaryModelProbability) && Number.isFinite(primaryMarketProbability)
-                ? `模型 ${(primaryModelProbability * 100).toFixed(1)}% · HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · 機率差 " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
-                : "等待可比較概率"}
+                ? `Model ${(primaryModelProbability * 100).toFixed(1)}% · HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · Probability gap " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
+                : "Comparable probabilities unavailable"}
             </small>
           </div>
 
           <div className="detail-decision-prob">
-            <div><span>模型</span><b>{Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</b></div>
-            <div><span>市場</span><b>{Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</b></div>
+            <div><span>Model</span><b>{Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</b></div>
+            <div><span>Market</span><b>{Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</b></div>
           </div>
 
           <div className="detail-decision-market">
@@ -1484,8 +1484,8 @@ export default function MatchDetailClient() {
           <div className="evidence-rows">
             {analysis.story?.supportRead ? <div className="evidence-positive"><span>支持 Edge</span><b>{analysis.story.supportRead}</b></div> : null}
             {analysis.story?.counterRead ? <div className="evidence-negative"><span>反方 / 風險</span><b>{analysis.story.counterRead}</b></div> : null}
-            <div><span>市場</span><b>{analysis.story?.marketRead || ""}</b></div>
-            <div><span>模型</span><b>{analysis.story?.modelRead || ""}</b></div>
+            <div><span>Market</span><b>{analysis.story?.marketRead || ""}</b></div>
+            <div><span>Model</span><b>{analysis.story?.modelRead || ""}</b></div>
             <div><span>人為因素</span><b>{analysis.story?.humanRead || ""}</b></div>
             <div><span>Live</span><b>{analysis.story?.liveRead || ""}</b></div>
             <div><span>賠率走勢</span><b>{analysis.story?.movementRead || ""}</b></div>
@@ -1994,13 +1994,13 @@ export default function MatchDetailClient() {
       {hasMovement && (
         <section className="panel odds-signal-panel">
           <div className="panel-title">
-            <div><p>ODDS MOVEMENT</p><h2>HKJC 價格訊號</h2></div>
+            <div><p>ODDS MOVEMENT</p><h2>HKJC price signal</h2></div>
             <span>{movement.signal || "COLLECTING"}</span>
           </div>
 
           <div className={"odds-signal-hero " + (movementPct < 0 ? "is-shortening" : movementPct > 0 ? "is-drifting" : "is-flat")}>
             <div className="odds-signal-side">
-              <span>市場方向</span>
+              <span>Market side</span>
               <strong>{sideName(match, movement.side)}</strong>
               <small>{movementDirectionZh}</small>
             </div>
@@ -2017,7 +2017,7 @@ export default function MatchDetailClient() {
               <strong className={Math.abs(movementPct) >= 10 ? "movement-alert-text" : ""}>
                 {movementPct > 0 ? "+" : ""}{movementPct.toFixed(1)}%
               </strong>
-              <small>{Math.abs(movementPct) >= 10 ? "重大變動" : "一般變動"}</small>
+              <small>{Math.abs(movementPct) >= 10 ? "Large move" : "Normal move"}</small>
             </div>
           </div>
 
@@ -2121,16 +2121,16 @@ export default function MatchDetailClient() {
       {scenarioRows.length ? (
         <section className="panel scenario-panel scenario-board-panel">
           <div className="panel-title">
-            <div><p>PHASE 3 · MATCH SCENARIO</p><h2>比賽走勢時間段</h2></div>
+            <div><p>MATCH SCENARIO</p><h2>Expected match phases</h2></div>
             <span>{scenarioRows[0]?.segment_prediction_status || "CALIBRATING"}</span>
           </div>
 
           <div className="scenario-board-head" aria-hidden="true">
-            <span>時段</span>
-            <span>預期控制</span>
-            <span>主隊入球</span>
-            <span>客隊入球</span>
-            <span>角球 主 / 客</span>
+            <span>Period</span>
+            <span>Expected control</span>
+            <span>Home goals</span>
+            <span>Away goals</span>
+            <span>Corners H / A</span>
           </div>
 
           <div className="scenario-board">
@@ -2186,7 +2186,7 @@ export default function MatchDetailClient() {
           : null}
         {match.health?.forebetReason ? <p className="fineprint">Forebet：{match.health.forebetReason}</p> : null}
         {match.health?.fallbackRecommendation ? <p className="fineprint">Fallback：{match.health.fallbackRecommendation}</p> : null}
-        {missingReason ? <p className="fineprint">缺資料原因：{missingReason}</p> : <p className="fineprint">Canonical evidence channels：{evidenceCount}</p>}
+        {missingReason ? <p className="fineprint">Missing-data reason: {missingReason}</p> : <p className="fineprint">Canonical evidence channels: {evidenceCount}</p>}
         </div>
       </details>
 
