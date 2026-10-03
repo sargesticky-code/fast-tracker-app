@@ -281,6 +281,57 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
 
       <section className="ft-article-columns">
         <div>
+          <h3>Market-specific recommendations</h3>
+          {analysis?.marketAdvice?.goals ? (
+            <div className="ft-article-evidence-row">
+              <span>Goals {analysis.marketAdvice.goals.line == null ? "" : analysis.marketAdvice.goals.line}</span>
+              <strong>
+                {safe(analysis.marketAdvice.goals.action, "PASS").replaceAll("_", " ")}
+                {analysis.marketAdvice.goals.selectionLabel ? " · " + analysis.marketAdvice.goals.selectionLabel : ""}
+              </strong>
+              <small>
+                {analysis.marketAdvice.goals.currentOdds == null
+                  ? (analysis.marketAdvice.goals.referenceOdds == null ? "No actionable current price" : "Reference price " + price(analysis.marketAdvice.goals.referenceOdds))
+                  : "Current price " + price(analysis.marketAdvice.goals.currentOdds)}
+                {" · "}
+                {analysis.marketAdvice.goals.evidenceFamilyCount ?? 0} independent market-specific family
+                {Number(analysis.marketAdvice.goals.evidenceFamilyCount ?? 0) === 1 ? "" : "ies"}
+              </small>
+              <small>
+                {analysis.marketAdvice.goals.models?.length
+                  ? analysis.marketAdvice.goals.models.map((m) => safe(m.label) + " (" + safe(m.method) + ")").join(" · ")
+                  : "No usable goals model evidence"}
+              </small>
+            </div>
+          ) : <p className="ft-article-unknown">Goals analysis unavailable.</p>}
+        </div>
+        <div>
+          <h3>Market evidence boundary</h3>
+          {analysis?.evidence?.goalsModelContext?.teamForm ? (
+            <div className="ft-article-evidence-row">
+              <span>Team Form goals input</span>
+              <strong>
+                Expected goals {price(analysis.evidence.goalsModelContext.teamForm.expectedGoalsHome)}
+                {" – "}
+                {price(analysis.evidence.goalsModelContext.teamForm.expectedGoalsAway)}
+              </strong>
+              <small>
+                Sample {analysis.evidence.goalsModelContext.teamForm.homeGames ?? "unknown"} / {analysis.evidence.goalsModelContext.teamForm.awayGames ?? "unknown"} matches
+                {" · "}Source: {safe(analysis.evidence.goalsModelContext.teamForm.source, "Unknown")}
+              </small>
+              <small>Model expected goals are derived estimates, not observed xG.</small>
+            </div>
+          ) : (
+            <p className="ft-article-unknown">No validated Team Form goals input is available for this snapshot.</p>
+          )}
+          <p className="ft-article-unknown">
+            Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.
+          </p>
+        </div>
+      </section>
+
+      <section className="ft-article-columns">
+        <div>
           <h3>Reasoning</h3>
           <p>{body?.marketInterpretation || (quote.decimalPrice !== null
             ? `The current analysis uses the observed ${quote.providerLabel || "bookmaker"} ${quote.market || "market"} price shown above.`
