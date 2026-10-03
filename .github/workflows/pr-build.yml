@@ -54,6 +54,9 @@ jobs:
       - name: Check evidence independence
         run: npm run check:evidence-independence
 
+      - name: Check player evidence identity
+        run: npm run check:player-evidence
+
       - name: Build static app
         id: static_build
         shell: bash
