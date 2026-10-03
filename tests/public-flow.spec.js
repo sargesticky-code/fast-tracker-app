@@ -2,8 +2,29 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
-function fixtureFeed() {
+function fixtureFeed(dataCase = "empty") {
   const kickoff = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const richSide = (side) => ({
+    recent: [
+      { result: side === "home" ? "W" : "D", opponent: "Harbour City", gf: side === "home" ? 2 : 1, ga: 1, venue: side === "home" ? "H" : "A", kickoff: new Date(Date.now() - 2 * 86400000).toISOString() },
+      { result: "W", opponent: "Metro Athletic", gf: 2, ga: 0, venue: side === "home" ? "A" : "H", kickoff: new Date(Date.now() - 6 * 86400000).toISOString() },
+      { result: side === "home" ? "D" : "L", opponent: "Union Town", gf: 1, ga: side === "home" ? 1 : 2, venue: side === "home" ? "H" : "A", kickoff: new Date(Date.now() - 10 * 86400000).toISOString() }
+    ],
+    modelGames: side === "home" ? 12 : 10,
+    venueGames: side === "home" ? 6 : 5,
+    ppg: side === "home" ? 2.1 : 1.5,
+    expectedGoals: side === "home" ? 1.72 : 1.28,
+    wins: side === "home" ? 7 : 4,
+    draws: side === "home" ? 3 : 3,
+    losses: side === "home" ? 2 : 3,
+    goalsFor: side === "home" ? 20 : 14,
+    goalsAgainst: side === "home" ? 11 : 13
+  });
+  const formDetail = dataCase === "populated"
+    ? { quality: "FORM_MODELED", source: "HKJC_RESULTS", home: richSide("home"), away: richSide("away") }
+    : dataCase === "partial"
+      ? { quality: "INSUFFICIENT_PARTIAL_HISTORY", source: "HKJC_RESULTS", home: richSide("home"), away: null }
+      : { quality: "INSUFFICIENT_HISTORY", source: "HKJC_RESULTS", home: null, away: null };
   return {
     generatedAt: new Date().toISOString(),
     source: "E2E_FIXTURE",
@@ -25,13 +46,57 @@ function fixtureFeed() {
       goals: { line: 2.5, over: 1.88, under: 1.92 },
       corners: { line: 9.5, over: 1.90, under: 1.90 },
       updatedAt: new Date().toISOString(),
-      health: { hkjcFreshness: "FRESH" }
+      health: { hkjcFreshness: "FRESH" },
+      formDetail
     }],
     systemHealth: {}
   };
 }
 
-function detailPayload({ confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historical = false } = {}) {
+function detailPayload({ confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historical = false, dataCase = "empty" } = {}) {
+  const marketIntelligence = dataCase === "populated"
+    ? {
+        mode: "VALUE_DETECT",
+        value: [{
+          provider_id: "HKJC",
+          selection_key: "HOME",
+          odds_decimal: 2.20,
+          expected_roi_pct: 5.6,
+          model_prob: 0.48,
+          market_prob_devig: 0.421,
+          probability_edge_pct: 5.9,
+          model_source_count: 3,
+          quote_age_seconds: 45,
+          status: "WATCH"
+        }],
+        arbitrage: [],
+        nearArbitrage: { status: "NO_WATCH", distance_to_arb_pct: 4.8 }
+      }
+    : dataCase === "partial"
+      ? {
+          mode: "PRICE_ONLY",
+          status: "MODEL_UNAVAILABLE",
+          reason: "COMPARABLE_PRICES_PRESENT_MODEL_UNAVAILABLE",
+          value: [],
+          arbitrage: [],
+          nearArbitrage: {
+            status: "NEAR_ARB_WATCH",
+            distance_to_arb_pct: 1.4,
+            best_home_provider: "HKJC",
+            best_home_odds: 2.20,
+            best_draw_provider: "BOOK_B",
+            best_draw_odds: 3.35,
+            best_away_provider: "BOOK_C",
+            best_away_odds: 3.15
+          }
+        }
+      : {
+          mode: "DETECT_ONLY",
+          status: "NO_COMPARABLE_PRICES",
+          reason: "NO_MODEL_OR_COMPARABLE_PRICE",
+          value: [],
+          arbitrage: []
+        };
   return {
     fixture: {
       hkjc_event_id: "FBTEST1",
@@ -187,7 +252,8 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
       }] : [],
       managers: []
     },
-    scenario: []
+    scenario: [],
+    marketIntelligence
   };
 }
 
@@ -303,15 +369,15 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty" } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed(dataCase)) });
   });
   await page.route("**/functions/v1/app-live-feed**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
   });
   await page.route("**/functions/v1/app-match-detail?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, playerCase, historical: historicalDetail })) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, playerCase, historical: historicalDetail, dataCase })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
     const payload = analysisPayload();
@@ -466,6 +532,67 @@ for (const device of [
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
   });
+}
+
+for (const stateCase of ["populated", "partial", "empty"]) {
+  for (const device of [
+    { name: "desktop", viewport: { width: 1440, height: 900 } },
+    { name: "mobile", viewport: { width: 390, height: 844 } }
+  ]) {
+    test(device.name + " " + stateCase + " market and form hierarchy", async ({ page }) => {
+      await page.setViewportSize(device.viewport);
+      await mockApis(page, { dataCase: stateCase });
+
+      await page.goto("http://127.0.0.1:4173/");
+      await page.getByRole("button", { name: "Goals" }).click();
+      await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
+      await page.locator('a[href*="FBTEST1"]').first().click();
+      await expect(page.getByText("Value and price comparison", { exact: true })).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Recent form comparison", { exact: true })).toBeVisible();
+
+      if (stateCase === "populated") {
+        await expect(page.locator(".phase4-board")).toBeVisible();
+        await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
+        await expect(page.getByText("MULTI-SOURCE", { exact: true })).toBeVisible();
+        await expect(page.locator("#team-form .team-form-row:not(.team-form-row-empty)")).toHaveCount(2);
+        await expect(page.locator("#team-form").getByText("NO USABLE HISTORY", { exact: true })).toHaveCount(0);
+      } else if (stateCase === "partial") {
+        const marketState = page.locator(".compact-market-state");
+        await expect(marketState.getByText("PRICE COVERAGE ONLY", { exact: true })).toBeVisible();
+        await expect(marketState.getByText("Prices exist, but no model-backed value signal is available", { exact: true })).toBeVisible();
+        await expect(marketState.getByText("Quote age unavailable", { exact: true })).toBeVisible();
+        await expect(page.locator("#team-form").getByText("PARTIAL HISTORY", { exact: true })).toBeVisible();
+        await expect(page.locator("#team-form .team-form-row-empty")).toHaveCount(1);
+        await expect(page.locator("#team-form .team-form-row:not(.team-form-row-empty)")).toHaveCount(1);
+        const coverage = marketState.locator("details.compact-state-details");
+        expect(await coverage.evaluate(el => el.open)).toBe(false);
+        await coverage.locator(":scope > summary").focus();
+        await page.keyboard.press("Enter");
+        expect(await coverage.evaluate(el => el.open)).toBe(true);
+        await expect(coverage.getByText(/Best price legs:/)).toBeVisible();
+      } else {
+        const marketState = page.locator(".compact-market-state");
+        await expect(marketState.getByText("NO COMPARABLE VALUE", { exact: true })).toBeVisible();
+        await expect(marketState.getByText("No usable model / comparable price combination", { exact: true })).toBeVisible();
+        await expect(marketState.getByText("NO MODEL OR COMPARABLE PRICE", { exact: true })).toBeVisible();
+        await expect(marketState.getByText("Quote age unavailable", { exact: true })).toBeVisible();
+        await expect(marketState.getByText("No value inferred", { exact: true })).toBeVisible();
+        await expect(page.locator("#team-form").getByText("NO USABLE HISTORY", { exact: true })).toBeVisible();
+        await expect(page.locator("#team-form").getByText("Recent form is unavailable for both teams", { exact: true })).toBeVisible();
+        await expect(page.locator("#team-form").getByText("Missing history remains unknown and is not scored as 0.", { exact: false })).toBeVisible();
+        const formCoverage = page.locator("#team-form details.compact-state-details");
+        expect(await formCoverage.evaluate(el => el.open)).toBe(false);
+        await formCoverage.locator(":scope > summary").focus();
+        await page.keyboard.press("Enter");
+        expect(await formCoverage.evaluate(el => el.open)).toBe(true);
+        await expect(formCoverage.getByText("Quality: INSUFFICIENT SAMPLE", { exact: true })).toBeVisible();
+      }
+
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(2);
+      await page.screenshot({ path: `test-results/dashboard-${device.name}-${stateCase}-market-form.png`, fullPage: true });
+    });
+  }
 }
 
 test("article remains readable when English story cache/upstream is unavailable", async ({ page }) => {
