@@ -239,3 +239,17 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
   - A current live-feed ID `FB6174` still returned `fixtureSource=MISSING` from `app-match-detail` despite auxiliary model/player evidence, so the canonical fixture/detail acceptance gap remains real.
 - Real-device mobile acceptance is still open: the available browser connector does not expose device/viewport emulation for the live deployed app, and the reviewed source is not released. CI mobile screenshots are deterministic mocked coverage only.
 - No merge, deployment, Edge release, migration, DB write, feed publication, access expansion or spending occurred.
+
+## Railway production release attempt — 2026-10-03
+
+- Reviewed source was integrated through PR #4 into `homepage-forebet-v1` at merge commit `70770f5ae074ca59dab5794a4e7a7bf4ae6ad049`.
+- PR #2 was then merged into `main` at `fbdef8f700b2417d22cb1f390e7b8e189e3f2e1e`.
+- Integrated PR-to-main CI run `37128306385` succeeded: contracts/build/static routes passed and the repository's standard rendered flow completed 22/22 Playwright cases.
+- Existing recovery carrier evidence remains `37127767797` with 32/32 mocked recovery/browser cases.
+- Railway service `fast-tracker-public` remains connected to repo `sargesticky-code/fast-tracker-app`, branch `main`, domain `https://fast-tracker-public-production.up.railway.app/`.
+- Railway connector action `redeploy` created deployment `a432e2a6-3055-42d4-8532-6d67a8a918ee`, but Railway explicitly recorded `reason=redeploy` and commit `cf4e3a0d7e7af46d026aef2a50c81703a17f92f0`: it replayed the old snapshot instead of pulling current `main`.
+- The environment deploy workflow was also triggered after a no-op build-command update, but no fresh service deployment was created because there was no staged source change.
+- Public verification after these attempts still showed the old Chinese dashboard, not the navy/blue/yellow English redesign. Therefore the reviewed dashboard is merged to GitHub `main` but is **not yet deployed on Railway**.
+- Smallest release blocker: Railway needs a manual **Deploy latest commit** / equivalent fresh-source build for existing service `fast-tracker-public`, targeting current `main`; ordinary Redeploy is insufficient because it reuses the previous snapshot.
+- Live gaps remain open: intermittent Phase-1 RPC 57014 tail latency, unreleased Supabase story null-corners fix, canonical fixture/detail gaps, and real-device mobile acceptance.
+- No DB migration/write, Edge Function release, feed publication, new access or new paid resource was performed.
