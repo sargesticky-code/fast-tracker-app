@@ -57,8 +57,8 @@ Do not invent replacement phases. Reuse and verify the existing work:
 ### 4. Market-specific recommendations
 
 - [ ] Recommendation logic distinguishes: negative/no value; weak or conflicting evidence; stale/missing/unusable data.
-- [ ] Independent evidence families remain independent.
-- [ ] HDA consensus must not be borrowed to manufacture confidence for unrelated markets.
+- [x] Independent evidence families remain independent in the audited HDA/goals paths; Team Form goals is a distinct family and single-source evidence remains WATCH.
+- [x] HDA consensus is not borrowed to manufacture confidence for unrelated markets; goals wiring/test coverage now enforces its own model families.
 - [ ] HDA, Asian handicap, goals, BTTS and corners use market-specific prices, lines and calculations.
 - [ ] No confidence, probability, injury, xG, quote or historical result is invented.
 - [ ] Watch / skip / unavailable states explain why.
@@ -86,7 +86,7 @@ Each substantial match preview/article must include:
 - [ ] Verify article claims against stored evidence.
 - [ ] Verify canonical identity joins and unresolved-identity behaviour.
 - [x] Fixture tests verify missing-English-story and stale-price fail-closed behavior; FB6114 adds real missing-provider/player-status and zero-H2H evidence verification.
-- [ ] Fixture tests cover market-specific stale/family gates; real FB6114 verifies historical goals/corners lines and unavailable current AH, but another real fresh fixture is still required for live market-specific calculation verification.
+- [ ] Market-specific stale/family gates and Team Form goals wiring are fixture-tested; real FB6231 verifies a fresh single-family goals calculation, but a real fresh >=2-family goals fixture is still required before Value-path verification.
 - [x] Desktop and mobile homepage-to-detail/article flows pass Playwright on the PR artifact.
 - [ ] Verify actual public and preview URLs.
 - [ ] Record recommendation outcomes/calibration only where genuine historical results permit it.
