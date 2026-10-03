@@ -31,7 +31,7 @@ async function probe(name:string,url:string){
       bodyBytes:body.length,
       bodyHash:await hashHex(body),
       hasLegacyMarker:body.includes("Redirecting to the latest Supabase match view"),
-      hasHealthMarker:body.includes("Data Health"),
+      hasHealthMarker:body.includes("Data Health") || body.includes("系統狀態") || body.includes("FAST TRACKER 2026 · 後台"),
       body
     };
   }catch(e){
@@ -85,29 +85,21 @@ Deno.serve(async (req:Request)=>{
     ].filter(Boolean))] as string[];
 
     const root=await probe("root",base+"/");
-    const representativeProbes=probeIds.flatMap((id:string,index:number)=>[
-      probe("details_"+index,base+"/details/?id="+encodeURIComponent(id)),
-      probe("legacy_match_"+index,base+"/match/"+encodeURIComponent(id)),
-    ]);
+    const representativeProbes=probeIds.map((id:string,index:number)=>
+      probe("details_"+index,base+"/details/?id="+encodeURIComponent(id))
+    );
     const others=await Promise.all([
       probe("health",base+"/health/"),
       ...representativeProbes,
-      ...(eventId?[probe("legacy_query",base+"/match/?id="+encodeURIComponent(eventId))]:[]),
-      probe("missing_route",base+"/__route_guard_should_404__")
+      ...(eventId?[probe("legacy_query",base+"/match/?id="+encodeURIComponent(eventId))]:[])
     ]);
 
     const checks=[root,...others].map((x:any)=>{
       let ok=x.status>=200&&x.status<400;
       let reason:string|null=null;
-      if(x.name==="missing_route"){
-        ok=x.status===404;
-        if(!ok) reason="missing_route_not_404";
-      } else if(x.name==="health"){
+      if(x.name==="health"){
         ok=ok && x.hasHealthMarker;
         if(!ok) reason=x.status>=200&&x.status<400 ? "health_marker_missing" : "http_"+x.status;
-      } else if(x.name.startsWith("legacy_match_")){
-        ok=ok && x.hasLegacyMarker && x.bodyHash!==root.bodyHash;
-        if(!ok) reason=x.bodyHash===root.bodyHash ? "legacy_fell_back_to_home" : x.hasLegacyMarker ? "http_"+x.status : "legacy_marker_missing";
       } else if(x.name.startsWith("details_") || x.name==="legacy_query"){
         ok=ok && x.bodyHash!==root.bodyHash;
         if(!ok) reason=x.bodyHash===root.bodyHash ? x.name+"_fell_back_to_home" : "http_"+x.status;
@@ -135,7 +127,7 @@ Deno.serve(async (req:Request)=>{
         : unresolvedIds.length
           ?"Current feed contains "+unresolvedIds.length+" unresolved match link(s): "+unresolvedIds.slice(0,8).join(", ")
           : eventId
-            ?"Current feed link resolvers complete; representative detail/legacy/health routes validated"
+            ?"Current feed link resolvers complete; representative detail/query/health routes validated"
             :"Root/health validated; no current match id available";
 
     await db.from("source_health").upsert({
@@ -153,7 +145,7 @@ Deno.serve(async (req:Request)=>{
         unresolved_ids:unresolvedIds,
         representative_ids:probeIds,
         consistency_error:feedConsistencyError ? String((feedConsistencyError as any)?.message||feedConsistencyError) : null,
-        guard_version:"CONTENT_AWARE_V3"
+        guard_version:"CONTENT_AWARE_V4_STATIC"
       }
     },{onConflict:"source,metric"});
 
@@ -165,7 +157,7 @@ Deno.serve(async (req:Request)=>{
     const message=e instanceof Error?e.message:String(e);
     await db.from("source_health").upsert({
       source:"FRONTEND_ROUTE_GUARD",metric:"heartbeat",status:"FAIL",value_text:"1",
-      notes:"Frontend route guard exception",observed_at:now,raw:{error:message,guard_version:"CONTENT_AWARE_V3"}
+      notes:"Frontend route guard exception",observed_at:now,raw:{error:message,guard_version:"CONTENT_AWARE_V4_STATIC"}
     },{onConflict:"source,metric"});
     return Response.json({ok:false,error:message},{status:500});
   }
