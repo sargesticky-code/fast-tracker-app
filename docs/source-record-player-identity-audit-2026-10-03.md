@@ -19,7 +19,7 @@ Two validation facts must not be conflated:
    - Forebet Daily Feed run `37105406481`;
    - Graph Sandwich Phase 1 Shadow Validation run `37105408690`.
 
-A later exact-head read-only revalidation is tracked separately after removal of residual generated artifacts. The workflow now gates both feed-commit steps with `github.ref == 'refs/heads/main'`, so review-branch validations cannot publish generated data.
+After removing the residual generated artifacts, final clean PR #34 exact head `ac6616828ca873e701aa648def42c85df97a9462` passed Forebet Daily Feed run `37106384758`. Its final diff is three files only: the Forebet workflow, reconciliation script and deterministic test. The workflow gates both feed-commit steps with `github.ref == 'refs/heads/main'`, so review-branch validations cannot publish generated data.
 
 PR #33 is explicitly marked **SUPERSEDED BY PR #34 — do not merge**. It remains draft, open and unmerged.
 
