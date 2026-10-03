@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ModelEdgeChart from "@/components/model-edge-chart";
 import ModelScoreboard from "@/components/model-scoreboard";
+import EvidenceArticle from "@/components/evidence-article";
 import {
   divergence,
   fairMarket,
@@ -20,7 +21,7 @@ import {
   sideName,
 } from "@/lib/fast-tracker";
 
-const UI_BUILD = "LIVE-EXPLAINED-ZH-LEAGUE-20260927-1";
+const UI_BUILD = "ENGLISH-EVIDENCE-ARTICLE-20261003-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
@@ -534,7 +535,7 @@ export default function MatchDetailClient() {
     async function refreshStory() {
       try {
         const res = await fetch(
-          STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=zh-HK&style=professional",
+          STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=en&style=professional",
           { cache: "default" }
         );
         if (!res.ok) return;
@@ -1071,13 +1072,13 @@ export default function MatchDetailClient() {
   return (
     <main className="shell detail-shell">
       <div className="detail-top">
-        <a href="/" className="back">← 返回</a>
-        <span className="detail-top-updated">更新 {formatUpdated(match.updatedAt)}</span>
+        <a href="/" className="back">← Back to matches</a>
+        <span className="detail-top-updated">Updated {formatUpdated(match.updatedAt)}</span>
         <button type="button" className="back" onClick={() => {
           setReady(false);
           setSource("REFRESHING");
           setRefreshNonce((n) => n + 1);
-        }}>↻ 最新</button>
+        }}>↻ Refresh</button>
       </div>
 
       <section className="detail-board-hero">
@@ -1233,7 +1234,9 @@ export default function MatchDetailClient() {
         ) : null}
       </section>
 
-      {storyContent ? (
+      <EvidenceArticle match={match} deep={deep} analysis={analysis} story={story} />
+
+      {false && storyContent ? (
         <section className="panel match-story-panel analyst-brief-panel">
           <div className="panel-title">
             <div>
