@@ -225,7 +225,10 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
       <section className="ft-article-grid">
         <div><span>Bookmaker</span><strong>{quote.providerLabel || PROVIDERS.HKJC.label}</strong><small>{quote.providerKind || "BOOKMAKER"}</small></div>
         <div><span>Market / selection</span><strong>{safe(quote.market)} · {safe(quote.selection)}</strong><small>{quote.line === null ? "Line not applicable / unknown" : "Line " + quote.line}</small></div>
-        <div><span>Observed price</span><strong>{quoteState.stale ? "Not current" : price(quote.decimalPrice)}</strong><small>As of {dateTime(quote.observedAt)}</small><small>Evidence: {safe(analysis?.evidence?.phase1Health?.evidenceKey, "Unavailable")}</small></div>
+        <div><span>Observed price</span><strong>{quoteState.stale ? "Not current" : price(quote.decimalPrice)}</strong><small>As of {dateTime(quote.observedAt)}</small><small>
+            Evidence: {safe(analysis?.evidence?.phase1Health?.evidenceKey, "Unavailable")}
+            {analysis?.evidence?.phase1Health?.sourceUrl ? <> · <a href={analysis.evidence.phase1Health.sourceUrl} target="_blank" rel="noreferrer">source link</a></> : null}
+          </small></div>
         <div><span>Decision state</span><strong>{action.replaceAll("_", " ")}</strong><small>{candidate.replaceAll("_", " ")}</small></div>
       </section>
 
@@ -352,6 +355,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
                 Training sample {analysis.evidence.goalsModelContext.dixonColes.trainingMatches || "unknown"} matches
                 {" · "}Source: {safe(analysis.evidence.goalsModelContext.dixonColes.source, "Unknown")}
                 {" · "}Evidence: {safe(analysis.evidence.goalsModelContext.dixonColes.evidenceKey, "Unavailable")}
+                {analysis.evidence.goalsModelContext.dixonColes.sourceUrl ? <>{" · "}<a href={analysis.evidence.goalsModelContext.dixonColes.sourceUrl} target="_blank" rel="noreferrer">source link</a></> : null}
               </small>
               <small>
                 Competition: {safe(analysis.evidence.goalsModelContext.dixonColes.league, "Unknown")}
@@ -371,6 +375,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
                 Sample {analysis.evidence.goalsModelContext.teamForm.homeGames ?? "unknown"} / {analysis.evidence.goalsModelContext.teamForm.awayGames ?? "unknown"} matches
                 {" · "}Source: {safe(analysis.evidence.goalsModelContext.teamForm.source, "Unknown")}
                 {" · "}Evidence: {safe(analysis.evidence.goalsModelContext.teamForm.evidenceKey, "Unavailable")}
+                {analysis.evidence.goalsModelContext.teamForm.sourceUrl ? <>{" · "}<a href={analysis.evidence.goalsModelContext.teamForm.sourceUrl} target="_blank" rel="noreferrer">source link</a></> : null}
               </small>
               <small>Model expected goals are derived estimates, not observed xG.</small>
             </div>
