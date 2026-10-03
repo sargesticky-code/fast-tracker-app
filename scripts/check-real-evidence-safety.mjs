@@ -48,10 +48,12 @@ const checks = [
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
-  [homepage.includes("let refreshInFlight = false") && homepage.includes("AbortSignal.timeout(15000)"), "homepage polling must remain single-flight with a bounded browser deadline"],
+  [homepage.includes("let refreshInFlight = false") && homepage.includes("AbortSignal.timeout(20000)"), "homepage polling must remain single-flight with a browser deadline outside the 15s server read bound"],
   [detail.includes("const requestsInFlight = {") && detail.includes("if (cancelled || requestsInFlight.live) return;"), "detail live polling must coalesce overlapping requests"],
-  [detail.includes("fetchWithDeadline(LIVE_FEED_URL") && detail.includes("12000"), "detail live polling must keep a bounded browser deadline"],
+  [detail.includes('fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" })'), "live polling must stay single-flight without a shorter client deadline while its server implementation is not source-bounded here"],
   [detail.includes("requestsInFlight.match") && detail.includes("requestsInFlight.detail") && detail.includes("requestsInFlight.analysis") && detail.includes("requestsInFlight.story"), "detail full/detail/narrative lanes must remain single-flight"],
+  [detail.includes("authoritativeDetailBlocksFeed") && detail.includes("canonicalMissing || authoritativeDetailBlocksFeed"), "delayed feed responses must not overwrite conclusive missing or authoritative stale detail state"],
+  [detail.includes("20000") && detail.includes("35000") && detail.includes("65000"), "browser deadlines must remain outside the corresponding bounded server-read windows"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
