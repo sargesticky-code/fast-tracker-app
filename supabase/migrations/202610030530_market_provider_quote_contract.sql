@@ -59,6 +59,13 @@ create table if not exists public.market_quote_observations (
 create index if not exists ix_market_quote_match_market
 on public.market_quote_observations(canonical_match_id,market,observed_at desc);
 
+-- Internal canonical market data is service-role only until a reviewed public API
+-- contract explicitly exposes selected fields.
+alter table public.market_provider_registry enable row level security;
+alter table public.market_quote_observations enable row level security;
+revoke all on table public.market_provider_registry from anon, authenticated;
+revoke all on table public.market_quote_observations from anon, authenticated;
+
 create or replace view public.market_quote_current as
 select distinct on (canonical_match_id,provider_key,market,selection,coalesce(line,-999999::numeric))
   id,
@@ -84,6 +91,8 @@ order by
   coalesce(line,-999999::numeric),
   observed_at desc nulls last,
   ingested_at desc;
+
+revoke all on table public.market_quote_current from anon, authenticated;
 
 comment on table public.market_quote_observations is
 'Canonical observed market quotes. Provider classification comes from market_provider_registry; model/prediction sources are not bookmaker quotes. NULL means unknown/missing, never zero.';
