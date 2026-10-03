@@ -29,19 +29,18 @@ const FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 
-const sports = [
-  ["Football", Goal],
-  ["Basketball", CircleDot],
-  ["Tennis", CircleDot],
-  ["Hockey", CircleDot],
-  ["Baseball", CircleDot],
-  ["MMA", CircleDot],
-  ["Rugby", CircleDot],
-  ["Volleyball", CircleDot],
-  ["Handball", CircleDot],
-  ["Cricket", CircleDot],
-  ["AFL", CircleDot],
-  ["Esoccer", CircleDot],
+const primaryNav = [
+  ["Today", Goal, "today"],
+  ["Live", Activity, "live"],
+  ["Value", Trophy, "value"],
+  ["Tomorrow", CalendarDays, "tomorrow"],
+  ["All matches", ShieldCheck, "all"],
+];
+
+const marketFilters = [
+  ["HDA", "HDA"],
+  ["Goals", "GOALS"],
+  ["Corners", "CORNERS"],
 ];
 
 const popularLeagues = [
@@ -136,6 +135,41 @@ function oddsTriplet(match) {
     ["D", match?.odds?.draw],
     ["A", match?.odds?.away],
   ];
+}
+
+function MarketOdds({ match, marketKey = "HDA" }) {
+  if (marketKey === "GOALS") {
+    return (
+      <div className="ft-market-odds">
+        <small>Goals {match?.goals?.line ?? "—"}</small>
+        <div>
+          <span><b>O</b>{formatOdds(match?.goals?.over)}</span>
+          <span><b>U</b>{formatOdds(match?.goals?.under)}</span>
+        </div>
+      </div>
+    );
+  }
+  if (marketKey === "CORNERS") {
+    return (
+      <div className="ft-market-odds">
+        <small>Corners {match?.corners?.line ?? "—"}</small>
+        <div>
+          <span><b>O</b>{formatOdds(match?.corners?.over)}</span>
+          <span><b>U</b>{formatOdds(match?.corners?.under)}</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="ft-market-odds">
+      <small>HKJC HDA</small>
+      <div>
+        {oddsTriplet(match).map(([label, value]) => (
+          <span key={label}><b>{label}</b>{formatOdds(value)}</span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function dateKey(value) {
@@ -249,7 +283,7 @@ function ProbabilityStrip({ model }) {
   );
 }
 
-function PredictionsTable({ matches, title = "" }) {
+function PredictionsTable({ matches, title = "", activeMarket = "HDA" }) {
   return (
     <section className="ft-table-section">
       {title && <div className="ft-league-section-title">
@@ -263,10 +297,9 @@ function PredictionsTable({ matches, title = "" }) {
         <div>Pred</div>
         <div>Correct<br />score</div>
         <div>Avg.<br />goals</div>
-        <div>Weather</div>
         <div>Edge</div>
-        <div>Score</div>
-        <div>HKJC<br />odds</div>
+        <div>Live<br />score</div>
+        <div>Market odds</div>
       </div>
 
       <div className="ft-table-body">
@@ -297,17 +330,12 @@ function PredictionsTable({ matches, title = "" }) {
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
-              <div className="ft-weather">—</div>
               <div><span className={edge?.expectedValue > 0.04 ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span></div>
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
               </div>
-              <div className="ft-odds-triplet">
-                {oddsTriplet(match).map(([label, value]) => (
-                  <span key={label}><small>{label}</small><b>{formatOdds(value)}</b></span>
-                ))}
-              </div>
+              <MarketOdds match={match} marketKey={activeMarket} />
             </a>
           );
         }) : (
@@ -393,11 +421,12 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
       <FeaturedMatch match={featured} />
       <ValuePicks matches={matches} />
       <section className="ft-right-card">
-        <div className="ft-right-head">Model coverage</div>
-        <div className="ft-mini-list">
-          {["Forebet","Dixon-Coles","Pi Rating","Team Form","Multi-source"].map((name, i) => (
-            <div key={name}><span>{i + 1}</span><b>{name}</b><small>{["External","Internal","Internal","Internal","Consensus"][i]}</small></div>
-          ))}
+        <div className="ft-right-head">Reading the board</div>
+        <div className="ft-board-guide">
+          <div><b>H / D / A</b><span>Combined probability strip</span></div>
+          <div><b>EDGE</b><span>Model value versus current market</span></div>
+          <div><b>LIVE</b><span>Score and clock only when observed</span></div>
+          <div><b>—</b><span>Unknown or unavailable, never assumed zero</span></div>
         </div>
       </section>
       <AdvertSlot variant="box" />
@@ -412,6 +441,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   const [query, setQuery] = useState("");
   const [activeMode, setActiveMode] = useState("today");
   const [activeLeague, setActiveLeague] = useState("");
+  const [activeMarket, setActiveMarket] = useState("HDA");
   const [selectedDate, setSelectedDate] = useState(new Date(nowMs || Date.now()));
 
   useEffect(() => {
@@ -496,9 +526,15 @@ export default function HomepageClient({ initialFeed, nowMs }) {
         <button className="ft-icon-button"><MoreHorizontal size={22} /></button>
       </header>
 
-      <nav className="ft-sports">
-        {sports.map(([name, Icon], i) => (
-          <button className={i === 0 ? "active" : ""} key={name}><Icon size={17} />{name}</button>
+      <nav className="ft-sports" aria-label="Primary match filters">
+        {primaryNav.map(([name, Icon, mode]) => (
+          <button
+            className={activeMode === mode ? "active" : ""}
+            key={name}
+            onClick={() => { setActiveMode(mode); if (mode === "today") setDayOffset(0); }}
+          >
+            <Icon size={17} />{name}
+          </button>
         ))}
       </nav>
 
@@ -521,10 +557,29 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             <label className="ft-form-toggle"><span>Show form</span><input type="checkbox" checked={showForm} onChange={e => setShowForm(e.target.checked)} /><i /></label>
           </div>
 
+          <div className="ft-filterbar">
+            <div className="ft-filter-label">Market</div>
+            <div className="ft-market-tabs">
+              {marketFilters.map(([label, key]) => (
+                <button className={activeMarket === key ? "active" : ""} key={key} onClick={() => setActiveMarket(key)}>{label}</button>
+              ))}
+            </div>
+            <div className="ft-result-count"><b>{visible.length}</b> matches shown</div>
+          </div>
+
+          {visible.some((m) => m.liveNow) ? (
+            <div className="ft-live-ribbon">
+              <span className="ft-live-dot" />
+              <strong>{visible.filter((m) => m.liveNow).length} live now</strong>
+              <span>Live score is shown only when present in the current feed</span>
+              <button onClick={() => setActiveMode("live")}>View live</button>
+            </div>
+          ) : null}
+
           <div className="ft-grouped-board">
             {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
               <div key={league}>
-                <PredictionsTable matches={rows} title={league} />
+                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} />
                 {index === 0 && <AdvertSlot variant="wide" />}
               </div>
             )) : <PredictionsTable matches={[]} />}
