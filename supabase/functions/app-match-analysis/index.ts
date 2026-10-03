@@ -560,19 +560,23 @@ function evidenceKey(table:string,row:any,idFallback:string){
   const rowId=String(row?.id??"").trim();
   return rowId ? `${table}:${rowId}` : `${table}:${idFallback}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
 }
-function playerClaimFingerprint(row:any){
+function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
   return [
     String(row?.hkjc_event_id||""),
     normalizedSide(row?.team_side)||"?",
-    String(row?.player_key||""),
+    canonicalIdentity || "UNRESOLVED:" + compactToken(row?.player_name||row?.raw?.player?.name||row?.raw?.player_name||row?.player_key||"unknown"),
     compactToken(row?.status_type),
     compactToken(row?.status_value),
   ].join("|");
 }
-function annotatePlayerEvidence(row:any,canonicalKeys:Set<string>,table:string,idFallback:string){
+function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalName:string,teamKey:string}>,table:string,idFallback:string){
   const playerKey=String(row?.player_key||"").trim();
   const side=normalizedSide(row?.team_side);
-  const canonical=Boolean(playerKey&&canonicalKeys.has(playerKey));
+  const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
+  const canonical=Boolean(canonicalPlayer);
+  const canonicalIdentity=canonicalPlayer
+    ? compactToken(canonicalPlayer.teamKey) + ":" + compactToken(canonicalPlayer.canonicalName)
+    : null;
   const sourceConfirmed=row?.confirmed===true;
   const factStatus=sourceConfirmed&&canonical
     ?"CONFIRMED"
@@ -1011,15 +1015,18 @@ Deno.serve(async (req: Request) => {
 
   const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
-  let canonicalPlayerKeys=new Set<string>();
+  let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string}>();
   let playerIdentityError:any=null;
   if(playerKeys.length){
-    const canonicalPlayers=await db.from("phase2_players").select("player_key").in("player_key",playerKeys);
+    const canonicalPlayers=await db.from("phase2_players").select("player_key,canonical_name,team_key").in("player_key",playerKeys);
     if(canonicalPlayers.error) playerIdentityError=oneError(canonicalPlayers.error);
-    else canonicalPlayerKeys=new Set((canonicalPlayers.data||[]).map((row:any)=>String(row.player_key)));
+    else canonicalPlayersByKey=new Map((canonicalPlayers.data||[]).map((row:any)=>[
+      String(row.player_key),
+      {canonicalName:String(row.canonical_name||row.player_key),teamKey:String(row.team_key||"")}
+    ]));
   }
-  const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayerKeys,"phase2_player_status_evidence",id));
-  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayerKeys,"phase2_match_lineup_evidence",id));
+  const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence",id));
+  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence",id));
 
   const forebet = triplet(r.forebet_home, r.forebet_draw, r.forebet_away);
   const dc = triplet(r.dc_home, r.dc_draw, r.dc_away);
