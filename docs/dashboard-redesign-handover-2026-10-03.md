@@ -141,3 +141,39 @@ No merge, production deployment, Edge Function release, migration, generated-fee
 ## Next concrete dashboard delivery gap
 
 The Goals & corners panel is now the next visible density target: when market-specific model evidence is absent it still renders full-height `ANALYSING / NO DATA` rows. The next bounded UI batch should compact only those no-model/no-line states while preserving actual bookmaker prices, stale/reference status, line identity and real model-backed rows unchanged.
+
+
+## Goals and corners compact-state batch — 2026-10-03
+
+Implemented on draft PR #2:
+- supported Goals and Corners probability rows keep the existing rich signal layout;
+- unsupported/no-model rows are compact and do not render invented EV, probability or value;
+- each unsupported row keeps its exact public market identity, HKJC line, Over/Under prices, quote observation time and current/stale/reference state visible;
+- the exact market-specific model-gate reason remains visible in the compact row;
+- no-line rows explicitly state that no same-line comparison can be made;
+- secondary market metadata is available under a native keyboard-accessible disclosure;
+- Goals and Corners probability support is evaluated independently. HDA, Goals or Corners evidence is never reused to promote another missing market.
+
+Deterministic rendered coverage:
+- populated: Goals + Corners both have supported market-specific probability evidence and retain rich rows;
+- partial: Goals remains supported while Corners is NO_MODEL; the Corners row still exposes HKJC 9.5 Over/Under prices and STALE / REFERENCE ONLY state;
+- empty: neither HKJC totals line is available; both rows compact to explicit no-line/no-comparison states without creating probabilities;
+- all three states are exercised at 1440px desktop and 390px mobile;
+- keyboard Enter opens the compact market-metadata disclosure;
+- the flow continues through homepage market filter → detail → Goals/Corners → Article/full evidence;
+- horizontal overflow remains bounded.
+
+These rendered checks use mocked fixture/API responses to guarantee deterministic populated/partial/empty and stale states. They verify the UI contract and fail-closed behavior of the branch code, not current live Supabase completeness and not the production/public deployment revision.
+
+No PR merge, production deployment, Cloudflare/Railway release action, Edge Function release, migration application, generated-feed publication, wider scraping, new credential/access request or spend was performed.
+
+## Next substantive dashboard delivery gap — review-preview readiness
+
+The next bounded delivery gap is to make the redesigned dashboard reviewable through an exact-head branch preview rather than relying only on CI screenshots:
+- establish or verify a safe review-only preview URL for the current PR branch without touching production;
+- prove which source commit the preview is serving, preferably through existing deployment metadata or a non-public engineering revision marker;
+- exercise homepage → filters → detail → article against that preview/public endpoint path and separate real endpoint results from mocked CI fixtures;
+- capture desktop/mobile preview screenshots and record any endpoint/body mismatch, missing data or stale deployment explicitly;
+- do not turn this into a provider census or scraping expansion.
+
+Until that is verified, CI screenshots remain the authoritative exact-head review surface and no claim should be made that the public Workers/Railway UI serves the review branch.
