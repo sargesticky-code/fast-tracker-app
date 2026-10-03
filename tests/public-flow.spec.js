@@ -1044,3 +1044,146 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+
+const PROD_BASE = "https://fast-tracker-app.sargesticky.workers.dev";
+
+async function productionAcceptance(browser, label, viewport, isMobile = false) {
+  const context = await browser.newContext({
+    viewport,
+    isMobile,
+    hasTouch: isMobile,
+    userAgent: isMobile
+      ? "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/154.0 Mobile Safari/537.36"
+      : undefined,
+  });
+  const page = await context.newPage();
+  const started = new Map();
+  const calls = [];
+  page.on("request", (req) => {
+    const url = req.url();
+    if (!url.includes("/functions/v1/app-")) return;
+    started.set(req, Date.now());
+  });
+  page.on("response", async (res) => {
+    const url = res.url();
+    if (!url.includes("/functions/v1/app-")) return;
+    const req = res.request();
+    calls.push({
+      endpoint: url.split("/functions/v1/")[1]?.split("?")[0] || url,
+      status: res.status(),
+      ms: started.has(req) ? Date.now() - started.get(req) : null,
+      url,
+    });
+  });
+
+  let feedResponse = null;
+  const feedPromise = page.waitForResponse(
+    (res) => res.url().includes("/functions/v1/app-phase1-feed"),
+    { timeout: 30000 }
+  ).catch(() => null);
+
+  const nav = await page.goto(PROD_BASE + "/?acceptance=" + label + "-" + Date.now(), {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
+  });
+  feedResponse = await feedPromise;
+  await page.waitForTimeout(2500);
+
+  let feed = null;
+  if (feedResponse?.ok()) {
+    try { feed = await feedResponse.json(); } catch {}
+  }
+  const bodyHome = await page.locator("body").innerText().catch(() => "");
+  const matches = Array.isArray(feed?.matches) ? feed.matches : [];
+  const chosen = matches.find((m) => m?.liveNow || m?.inPlay) || matches[0] || null;
+  const result = {
+    label,
+    viewport,
+    homepage: {
+      httpStatus: nav?.status() ?? null,
+      feedStatus: feedResponse?.status() ?? null,
+      feedCount: matches.length,
+      renderedUnavailable: bodyHome.includes("Fixture feed temporarily unavailable"),
+      renderedUnknownCounts: bodyHome.includes("Fixture counts remain unknown"),
+    },
+    fixture: null,
+    detail: null,
+    refresh: null,
+    calls,
+  };
+
+  if (!chosen?.id) {
+    console.log("LIVE_ACCEPTANCE_" + label.toUpperCase() + " " + JSON.stringify(result));
+    await context.close();
+    return;
+  }
+
+  const id = String(chosen.id);
+  const anchor = page.locator('a[href*="' + id.replaceAll('"', '\\"') + '"]').first();
+  const homepageCardText = await anchor.innerText().catch(() => "");
+  const href = await anchor.getAttribute("href").catch(() => null);
+  result.fixture = {
+    id,
+    home: chosen.home ?? chosen.homeEn ?? null,
+    away: chosen.away ?? chosen.awayEn ?? null,
+    league: chosen.league ?? chosen.leagueEn ?? null,
+    liveNow: Boolean(chosen.liveNow || chosen.inPlay),
+    homepageLinkFound: Boolean(href),
+    homepageCardSample: homepageCardText.slice(0, 500),
+  };
+
+  const detailUrl = new URL(href || ("/details/?id=" + encodeURIComponent(id)), PROD_BASE).toString();
+  const detailNav = await page.goto(detailUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(7000);
+
+  const detailText = await page.locator("body").innerText().catch(() => "");
+  const article = page.locator("article.ft-evidence-article");
+  const articleCount = await article.count();
+  const articleText = articleCount ? await article.innerText().catch(() => "") : "";
+  const articleHeadline = articleCount ? await article.locator("h2").first().innerText().catch(() => "") : "";
+  const conclusion = articleCount ? await article.locator(".ft-article-summary").innerText().catch(() => "") : "";
+  const chineseChars = (articleText.match(/[\u3400-\u9fff]/g) || []).length;
+  const detailCallsBeforeRefresh = calls.length;
+  const liveCallsBeforeRefresh = calls.filter((c) => c.endpoint === "app-live-feed").length;
+
+  result.detail = {
+    httpStatus: detailNav?.status() ?? null,
+    url: page.url(),
+    canonicalIdVisible: detailText.includes(id),
+    matchAnalysisVisible: detailText.includes("FAST TRACKER MATCH ANALYSIS"),
+    articleChars: articleText.length,
+    articleHeadline: articleHeadline.slice(0, 300),
+    conclusionSample: conclusion.slice(0, 500),
+    articleChineseChars: chineseChars,
+    hkjcVisible: articleText.includes("Hong Kong Jockey Club"),
+    liveSourceVisible: detailText.includes("SUPABASE LIVE"),
+    unavailableVisible: detailText.includes("Match data is currently unavailable"),
+    canonicalMissingVisible: detailText.includes("Canonical fixture is unavailable"),
+    staleProtectionVisible: detailText.includes("Stale-price protection is active."),
+    unknownNotZeroVisible: detailText.includes("Unknown — not zero absences"),
+  };
+
+  // One bounded real refresh trigger: verifies the released page can issue a later refresh
+  // after the initial flow without hammering the full feed.
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+  await page.waitForTimeout(5000);
+  const newCalls = calls.slice(detailCallsBeforeRefresh);
+  result.refresh = {
+    laterRefreshObserved: newCalls.length > 0,
+    liveCallsBeforeRefresh,
+    liveCallsAfterRefresh: calls.filter((c) => c.endpoint === "app-live-feed").length,
+    laterCallStatuses: newCalls.map((c) => ({ endpoint: c.endpoint, status: c.status, ms: c.ms })),
+  };
+
+  console.log("LIVE_ACCEPTANCE_" + label.toUpperCase() + " " + JSON.stringify(result));
+  await context.close();
+}
+
+test("production desktop bounded acceptance", async ({ browser }) => {
+  await productionAcceptance(browser, "desktop", { width: 1365, height: 900 }, false);
+});
+
+test("production mobile bounded acceptance", async ({ browser }) => {
+  await productionAcceptance(browser, "mobile", { width: 390, height: 844 }, true);
+});
