@@ -210,7 +210,7 @@ function AdvertSlot({ variant = "wide" }) {
     <div className={`ft-ad-slot ft-ad-${variant}`} aria-label="Advertisement placeholder">
       <div>
         <span>ADVERTISEMENT</span>
-        <strong>{variant === "wide" ? "970 × 250" : "300 × 250"}</strong>
+        <strong>{variant === "wide" ? "970 × 90" : "300 × 250"}</strong>
         <small>Reserved for future advertising</small>
       </div>
     </div>
