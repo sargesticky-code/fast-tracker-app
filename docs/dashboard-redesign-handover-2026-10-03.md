@@ -108,3 +108,36 @@ No merge, production deployment, Edge Function release, migration, generated-fee
 ## Next concrete UI gap
 
 The next bounded UI issue is **empty-state density**: when Market Comparison has no real comparable value signal and Team Form has no recent history, those panels still consume more mobile height than their information value warrants. Compress those no-data states into concise, expandable summaries while preserving the exact unknown/no-model reason and full statistics when data exists.
+
+
+## Compact Market/Form empty-state batch — 2026-10-03
+
+Scope stayed UI-only. Existing market/form statistics and fail-closed semantics were reused; no provider/provenance expansion was performed.
+
+Implemented:
+- Market Comparison keeps the existing rich six-cell board whenever a real model-backed value row exists.
+- Price-only / partial coverage now renders a compact state that explicitly says prices exist but no model-backed value signal is available.
+- Fully empty comparison now renders a compact `NO COMPARABLE VALUE` state instead of six blank metric cells.
+- The compact market state always keeps model state, quote freshness/age availability and decision/no-value inference visible.
+- Secondary mode/row counts/near-arbitrage metadata are under native keyboard-accessible `Coverage details`.
+- Recent Form keeps the existing rich rows when both sides have usable statistics.
+- One-sided history renders the real side normally and a compact missing-side row for the unavailable team.
+- No-history on both sides becomes one concise panel that explicitly states missing history remains unknown and is not scored as 0.
+- Form coverage source/quality metadata remains accessible under `Coverage details`.
+
+Rendered fixture verification:
+- desktop + mobile populated Market/Form;
+- desktop + mobile partial Market/Form;
+- desktop + mobile empty Market/Form;
+- existing homepage filter → detail → article/disclosures flow;
+- stale price, fallback article, canonical player identity, unresolved identity and lineup safety cases.
+
+The populated/partial/empty state suite uses deterministic mocked fixture/API responses. It verifies rendering, keyboard disclosure behavior and safety copy, but does not prove the latest public endpoint body or production deployment.
+
+Screenshot inspection found no new horizontal overflow/overlap. Populated statistics remain rich; partial/empty mobile views are materially shorter.
+
+No merge, production deployment, Edge Function release, migration, generated-feed publication, wider scraping, new access or spend was performed.
+
+## Next concrete dashboard delivery gap
+
+The Goals & corners panel is now the next visible density target: when market-specific model evidence is absent it still renders full-height `ANALYSING / NO DATA` rows. The next bounded UI batch should compact only those no-model/no-line states while preserving actual bookmaker prices, stale/reference status, line identity and real model-backed rows unchanged.
