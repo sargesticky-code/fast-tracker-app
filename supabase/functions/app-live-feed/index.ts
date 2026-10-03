@@ -8,6 +8,18 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+const DB_READ_TIMEOUT_MS = 15_000;
+function boundedDbFetch(input: any, init: any = {}) {
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
+}
+function createReadClient(url: string, key: string) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { retry: false },
+    global: { fetch: boundedDbFetch },
+  });
+}
+
 function serverKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
@@ -86,7 +98,7 @@ Deno.serve(async (req: Request) => {
     return Response.json({ error: "server_config_missing" }, { status: 500, headers: { ...corsHeaders, "Cache-Control": "no-store" } });
   }
 
-  const db = createClient(supabaseUrl, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const db = createReadClient(supabaseUrl, key);
 
   try {
     const liveCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
@@ -102,8 +114,18 @@ Deno.serve(async (req: Request) => {
     const detailMap = new Map<string, any>();
     const shadowMap = new Map<string, any>();
 
+    const readHealth: Record<string, any> = {
+      market: { status: "OK" },
+      score: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
+      stats: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
+      detail: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
+      shadow: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
+      heartbeats: { status: "PENDING" },
+    };
+    let heartbeats: any[] = [];
+
     if (ids.length) {
-      const [{ data: scores }, { data: stats }, { data: details }, { data: shadows }] = await Promise.all([
+      const [scoreResult, statsResult, detailResult, shadowResult, heartbeatResult] = await Promise.all([
         db.from("live_score_current")
           .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
           .in("hkjc_event_id", ids)
@@ -117,7 +139,31 @@ Deno.serve(async (req: Request) => {
         db.from("live_expected_actual_current")
           .select("hkjc_event_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,model_hda_consensus,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt")
           .in("hkjc_event_id", ids),
+        db.from("source_health")
+          .select("source,status,observed_at")
+          .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
+          .eq("metric", "heartbeat"),
       ]);
+
+      const laneResults = {
+        score: scoreResult,
+        stats: statsResult,
+        detail: detailResult,
+        shadow: shadowResult,
+        heartbeats: heartbeatResult,
+      };
+      for (const [lane, result] of Object.entries(laneResults)) {
+        const error = (result as any)?.error ?? null;
+        readHealth[lane] = error
+          ? { status: "UNAVAILABLE", error: String(error?.message ?? error) }
+          : { status: "OK" };
+      }
+
+      const scores = scoreResult.data ?? [];
+      const stats = statsResult.data ?? [];
+      const details = detailResult.data ?? [];
+      const shadows = shadowResult.data ?? [];
+      heartbeats = heartbeatResult.data ?? [];
 
       for (const row of scores ?? []) scoreMap.set(row.hkjc_event_id, row);
       for (const row of details ?? []) {
@@ -207,16 +253,25 @@ Deno.serve(async (req: Request) => {
       };
     });
 
-    const { data: heartbeats } = await db
-      .from("source_health")
-      .select("source,status,observed_at")
-      .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
-      .eq("metric", "heartbeat");
+    if (!ids.length) {
+      const heartbeatResult = await db
+        .from("source_health")
+        .select("source,status,observed_at")
+        .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
+        .eq("metric", "heartbeat");
+      if (heartbeatResult.error) {
+        readHealth.heartbeats = { status: "UNAVAILABLE", error: String(heartbeatResult.error.message ?? heartbeatResult.error) };
+      } else {
+        readHealth.heartbeats = { status: "OK" };
+        heartbeats = heartbeatResult.data ?? [];
+      }
+    }
 
     return Response.json({
       generatedAt: new Date().toISOString(),
       count: rows.length,
       liveIds: rows.map((x: any) => x.id),
+      readHealth,
       systemHealth: heartbeats ?? [],
       matches: rows,
     }, { headers: { ...corsHeaders, "Cache-Control": "private, no-store, max-age=0" } });
