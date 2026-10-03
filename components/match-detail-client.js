@@ -528,7 +528,16 @@ export default function MatchDetailClient() {
         setDeep(payload);
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
-          setMatch((previous) => previous || fixtureFallback);
+          setMatch((previous) => {
+            const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
+            const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
+            const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
+            // A stale/terminal authoritative detail snapshot must be allowed to
+            // replace a cached prematch card so historical odds cannot survive
+            // merely because local storage had an older "fresh" representation.
+            if (fallbackStale || previousStarted) return fixtureFallback;
+            return previous || fixtureFallback;
+          });
           if (!resolvedFresh) setSource("SUPABASE DETAIL · fixture fallback");
           resolvedFresh = true;
         }
