@@ -39,6 +39,13 @@ const CORE_MODEL_DEFS = [
 
 const MULTISOURCE_MODEL_DEFS = ["FRB", "ACC", "BCL", "FST", "PRE", "STA"];
 
+function normalizedSide(value) {
+  const side = String(value || "").trim().toUpperCase();
+  if (side === "H" || side === "HOME") return "H";
+  if (side === "A" || side === "AWAY") return "A";
+  return null;
+}
+
 function probabilityAvailable(values) {
   return ["home", "draw", "away"].every((key) => {
     const raw = values?.[key];
@@ -857,20 +864,33 @@ export default function MatchDetailClient() {
   const lineupEvidence = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
   const managerEvidence = Array.isArray(deep?.humanFactors?.managers) ? deep.humanFactors.managers : [];
   const scenarioRows = Array.isArray(deep?.scenario) ? deep.scenario : [];
-  const homeStarters = lineupEvidence.filter((r) => r.team_side === "HOME" && r.starter).map((r) => r.player_name).filter(Boolean);
-  const awayStarters = lineupEvidence.filter((r) => r.team_side === "AWAY" && r.starter).map((r) => r.player_name).filter(Boolean);
+  const confirmedPlayerStatusEvidence = playerStatusEvidence.filter((r) => r.fact_status === "CONFIRMED");
+  const unresolvedPlayerStatusEvidence = playerStatusEvidence.filter((r) => r.fact_status !== "CONFIRMED");
+  const confirmedLineupEvidence = lineupEvidence.filter((r) => r.fact_status === "CONFIRMED");
+  const unresolvedLineupIdentity = lineupEvidence.filter((r) => r.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
+  const homeStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "H" && r.starter).map((r) => r.player_name).filter(Boolean);
+  const awayStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "A" && r.starter).map((r) => r.player_name).filter(Boolean);
   const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : "NO DATA");
-  const injuriesHome = humanSummary?.raw?.injury_count_home ?? playerStatusEvidence.filter((r) => r.team_side === "HOME").length;
-  const injuriesAway = humanSummary?.raw?.injury_count_away ?? playerStatusEvidence.filter((r) => r.team_side === "AWAY").length;
-  const lineupState = eventMap?.lineup_confirmed_at ? "CONFIRMED" : eventMap ? "PENDING" : "UNMAPPED";
+  const injuriesHome = confirmedPlayerStatusEvidence.length
+    ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "H").length
+    : null;
+  const injuriesAway = confirmedPlayerStatusEvidence.length
+    ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "A").length
+    : null;
+  const sourceLineupConfirmed = Boolean(eventMap?.lineup_confirmed_at);
+  const lineupConfirmed = sourceLineupConfirmed && confirmedLineupEvidence.length > 0 && unresolvedLineupIdentity.length === 0;
+  const lineupState = lineupConfirmed ? "CONFIRMED"
+    : sourceLineupConfirmed ? "IDENTITY_PARTIAL"
+      : eventMap ? "PENDING" : "UNMAPPED";
   const injuryMax = Math.max(Number(injuriesHome) || 0, Number(injuriesAway) || 0, 1);
   const injuryGap = (Number(injuriesHome) || 0) - (Number(injuriesAway) || 0);
-  const injurySignal = injuryGap === 0
-    ? "傷停數量相若"
-    : injuryGap > 0
-      ? `主隊多 ${Math.abs(injuryGap)} 個缺陣 evidence`
-      : `客隊多 ${Math.abs(injuryGap)} 個缺陣 evidence`;
-  const lineupConfirmed = lineupState === "CONFIRMED";
+  const injurySignal = injuriesHome == null && injuriesAway == null
+    ? "確認身份後先計入傷停"
+    : injuryGap === 0
+      ? "已確認傷停數量相若"
+      : injuryGap > 0
+        ? `主隊多 ${Math.abs(injuryGap)} 個已確認缺陣 evidence`
+        : `客隊多 ${Math.abs(injuryGap)} 個已確認缺陣 evidence`;
   const multiSources = match.multi?.sourceNames || multiDeep.sources_consensus || multiDeep.sources_total || [];
   const modelCardsAvailable = [match.forebet, match.dc, match.pi, match.form, match.multi].filter(probabilityAvailable).length;
   const optaData = optaDeep && Object.keys(optaDeep).length ? optaDeep : (match.power || {});
@@ -2012,11 +2032,11 @@ export default function MatchDetailClient() {
             <strong>{injurySignal}</strong>
             <div className="injury-pressure">
               <div>
-                <small>主 {injuriesHome}</small>
+                <small>主 {injuriesHome ?? "?"}</small>
                 <i><b style={{ width: ((Number(injuriesHome) || 0) / injuryMax * 100) + "%" }}></b></i>
               </div>
               <div>
-                <small>客 {injuriesAway}</small>
+                <small>客 {injuriesAway ?? "?"}</small>
                 <i><b style={{ width: ((Number(injuriesAway) || 0) / injuryMax * 100) + "%" }}></b></i>
               </div>
             </div>
@@ -2024,8 +2044,8 @@ export default function MatchDetailClient() {
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
             <span>Official XI</span>
-            <strong>{lineupConfirmed ? "已確認" : lineupState === "PENDING" ? "等待公布" : "未配對"}</strong>
-            <small>{lineupEvidence.length ? `${lineupEvidence.length} player rows` : "未有 confirmed lineup"}</small>
+            <strong>{lineupConfirmed ? "已確認＋身份已解決" : lineupState === "IDENTITY_PARTIAL" ? "來源已確認 · 身份未完整" : lineupState === "PENDING" ? "等待公布" : "未配對"}</strong>
+            <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved` : "未有 confirmed lineup"}</small>
           </div>
 
           <div className="human-signal-card">
@@ -2038,7 +2058,7 @@ export default function MatchDetailClient() {
         <div className="human-summary-grid compact-human-grid">
           <div><span>Referee</span><b>{humanSummary?.referee || "—"}</b><small>{humanSummary?.source || "API_FOOTBALL"}</small></div>
           <div><span>Coach rotation</span><b>{humanSummary?.coach_rotation || "—"}</b><small>reported context</small></div>
-          <div><span>Player evidence</span><b>{playerStatusEvidence.length}</b><small>active status rows</small></div>
+          <div><span>Player evidence</span><b>{confirmedPlayerStatusEvidence.length}</b><small>{unresolvedPlayerStatusEvidence.length} unresolved / provisional rows excluded</small></div>
           <div><span>Manager evidence</span><b>{managerEvidence.length}</b><small>coach rows</small></div>
         </div>
 
@@ -2059,7 +2079,7 @@ export default function MatchDetailClient() {
             </div>
           </details>
         ) : (
-          <div className="human-wait-state">Official lineup 尚未發布；只顯示 confirmed evidence，唔用 projected XI 冒充正選。</div>
+          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source 已確認，但球員 identity 未完成；未當成已確認球員事實。" : "Official lineup 尚未發布；只顯示 identity-resolved confirmed evidence，唔用 projected XI 冒充正選。"}</div>
         )}
 
         {(managerEvidence.length || playerStatusEvidence.length) ? (
@@ -2076,7 +2096,12 @@ export default function MatchDetailClient() {
             {playerStatusEvidence.length ? (
               <div className="evidence-rows">
                 {playerStatusEvidence.map((row) => (
-                  <div key={row.id}><span>{row.team_side} · {row.status_type}</span><b>{row.raw?.player?.name || row.raw?.player_name || row.player_key}</b><small>{row.status_value || "—"} · {row.source_name}</small></div>
+                  <div key={row.evidence_key || row.id}>
+                    <span>{normalizedSide(row.team_side) || "?"} · {row.status_type}</span>
+                    <b>{row.raw?.player?.name || row.raw?.player_name || row.player_key}</b>
+                    <small>{row.status_value || "—"} · {row.source_name} · {row.fact_status === "CONFIRMED" ? "canonical identity confirmed" : row.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED" ? "source-confirmed / identity unresolved" : "unconfirmed / identity unresolved"}</small>
+                    <small>{row.evidence_key || "evidence key unavailable"}{row.source_url ? " · source link available" : ""}</small>
+                  </div>
                 ))}
               </div>
             ) : null}
