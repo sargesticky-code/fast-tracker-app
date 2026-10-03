@@ -31,6 +31,8 @@ Do not invent replacement phases. Reuse and verify the existing work:
 - [x] Internal engineering/coverage diagnostics moved out of the public homepage and available in `/system`.
 - [x] Lower public match-detail sections (model consensus, goals/corners, team form, H2H, human factors and lineups) use the same English navy/blue/yellow visual system and preserve unknown/fail-closed states.
 - [x] Progressive disclosure keeps decision/status, bookmaker price, article conclusion, model consensus, team form and Team News immediately scannable while full article evidence, deep model rows, H2H meeting detail and the full lineup tool remain keyboard-accessible on demand.
+- [x] Goals/Corners no-model and no-line states are compact without hiding the HKJC market identity, line, Over/Under prices, quote/freshness state or exact missing-model reason; supported market-specific probability rows remain rich.
+- [x] Goals and Corners keep independent model gates: one market's probability evidence never upgrades or substitutes for the other market.
 - [x] Full lineup tooling follows the decision/intelligence flow instead of preceding it; the main Team News safety/unknown state stays visible in the public flow.
 - [x] Empty-state density is compact for Market Comparison and Recent Form: no-model/no-comparable-price and no-history states show the exact reason plus safety/freshness without rendering fake zero metrics.
 - [x] Partial Market/Form coverage keeps available real statistics rich while compressing only the missing model/side state; populated cases retain the full existing panels.
@@ -133,3 +135,5 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Live score/stat/player evidence has the same durable record-key + duplicate-observation lineage contract.
 - [ ] Complete field-by-field English article provenance census beyond the audited market/model/player claims.
 - [ ] External player-ID ingestion map for FOTMOB/Flashscore to canonical `phase2_players` — exact upstream identity dependency, not solved by fuzzy promotion.
+
+- [x] Rendered responsive coverage includes populated/partial/empty Goals/Corners states on desktop and mobile, including keyboard expansion of secondary market metadata and homepage → detail → markets → article flow.
