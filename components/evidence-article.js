@@ -222,6 +222,12 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
         {body?.executiveSummary ? <p>{body.executiveSummary}</p> : null}
       </section>
 
+      <div className="ft-article-ad" aria-label="Advertisement placeholder">
+        <small>ADVERTISEMENT</small>
+        <strong>728 × 90</strong>
+        <span>Reserved between analysis sections</span>
+      </div>
+
       <section className="ft-article-grid">
         <div><span>Bookmaker</span><strong>{quote.providerLabel || PROVIDERS.HKJC.label}</strong><small>{quote.providerKind || "BOOKMAKER"}</small></div>
         <div><span>Market / selection</span><strong>{safe(quote.market)} · {safe(quote.selection)}</strong><small>{quote.line === null ? "Line not applicable / unknown" : "Line " + quote.line}</small></div>
