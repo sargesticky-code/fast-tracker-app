@@ -615,3 +615,89 @@ Genuinely missing authorization/dependency:
 - production validation that requires releasing this stack.
 
 Smallest next action: **stop engineering changes here and review PR #10 as the final nonproduction behavior gate.** If the user later authorizes a release, release the stack in dependency order and perform only the bounded acceptance sample above. Without release authorization, there is no further production action to take.
+
+
+## Combined PR6→PR8→PR9→PR10 review + deployed app-live-feed recovery — 2026-10-04
+
+This batch stayed review-only/read-only for production. No runtime, DB, cron, feed, merge or release change occurred.
+
+### Exact stack against current main
+
+Current production/main source remains `6c826bad04e7f31bb61a8e0a2816124dc4129872`. The combined unreleased review stack is:
+- PR #6 `review/english-story-summary-v1` head `43642e8540f9c17ede34c9227e1a9faabebcd2fc`;
+- PR #8 `review/read-path-failfast-v2` head `728b10822942ca4a6573b831622a2f86226c96c2`;
+- PR #9 `review/frontend-read-backpressure-v1` head `cb8e6c4af2c69b2d0e16f4bd478fb3a4f0a51d1c`;
+- PR #10 `review/read-backpressure-behavior-v1` docs head `7163801bf01c5e5e9f96f98870aa3fdaf9c2c056`, with behavior-verified implementation head `691cf5557d5db28d97b45c4970edacda0ee734c3`.
+
+Combined PR10 branch vs main is ahead-only (44 commits, 0 behind) and changes only frontend polling/detail consumers, English/story/feed functions, bounded public read functions, safety contracts/tests, shared single-flight helper and the two durable docs. No model mathematics, fixture identity rules, stale/reference actionability gates, evidence-independence rules, DB schema/migration or cron schedule is changed by this stack.
+
+### Deployed app-live-feed source recovered from Supabase
+
+The earlier assumption that live-feed source was inaccessible because it was absent from GitHub was incorrect. The deployed source is available through the authorized Supabase read-source route.
+
+Exact deployed runtime evidence:
+- slug: `app-live-feed`
+- status: ACTIVE
+- deployed version: **7**
+- function id: `7a1b99f1-d6dd-4fd5-9070-f6b29ebf95ad`
+- Supabase bundle hash: **`a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`**
+- runtime library: `@supabase/supabase-js@2.116.0`
+- deployed source bytes recovered: 10,218
+- exact deployed source was first persisted unchanged to `supabase/functions/app-live-feed/index.ts` on review branch commit `3306b803a67a7c6068d34619f8ae890f0f867fea` before any review patch.
+
+### Deployed live-feed behavior before review patch
+
+The recovered v7 source performs:
+1. one current-market read from `hkjc_live_odds_current` filtered to the last 3 minutes;
+2. if live IDs exist, four concurrent reads: `live_score_current`, `live_stats_current`, `live_detail_state_current_v`, and `live_expected_actual_current`;
+3. one later heartbeat read from `source_health`.
+
+The v7 client was created with auth settings only. It had:
+- **no explicit DB read AbortSignal/deadline**;
+- **no `db.retry:false`**, therefore on supabase-js 2.116.0 the documented built-in PostgREST transient retries remained enabled;
+- no overall application timeout shorter than the Edge platform limit;
+- four enrichment reads executed concurrently with `Promise.all` after the market read;
+- enrichment query errors were destructured away and not checked, so a failed score/stats/detail/shadow read became indistinguishable in the response from a legitimate no-row condition;
+- heartbeat query error was also ignored.
+
+This explains the PR10 client trade-off exactly: live single-flight without a browser deadline prevented duplicate client requests, but a genuinely hung live request could keep `requestsInFlight.live=true` indefinitely for the lifetime of the mounted detail component, suppressing every later 10-second live refresh.
+
+The initial 15:44–15:48 database trigger remains unknown. This source recovery does not reopen that diagnosis.
+
+### Review-only live containment — draft PR #11
+
+Branch `review/live-feed-source-parity-v1` is stacked on PR #10.
+
+After exact parity was persisted, the review patch:
+- applies `DB_READ_TIMEOUT_MS = 15_000` through the same custom Supabase global fetch pattern used by PR #8;
+- explicitly sets `db: { retry:false }`, which is supported/documented for supabase-js 2.116.0 and prevents retry amplification under 408/409/503/504/network failures;
+- preserves market-read failure as a 503 `live_feed_unavailable` rather than treating market absence as zero fixtures;
+- runs score/stats/detail/shadow + heartbeat in one concurrent second phase after the market IDs are known;
+- records per-lane `readHealth` = OK / UNAVAILABLE / NOT_REQUIRED, so enrichment query failure is no longer silently equivalent to legitimate no-row data;
+- keeps rows/unknown fields null when an enrichment lane fails rather than fabricating zero values;
+- changes the client live lane from indefinite single-flight to single-flight with a **35s** browser deadline, intentionally outside the reviewed worst-case two DB phases (~15s market + ~15s concurrent enrichment/heartbeat) so the server DB work should terminate before the browser lane reopens.
+
+No live market/model recommendation logic, identity matching, xG semantics, provenance, freshness gate or stale/reference actionability is changed.
+
+### Remaining combined-stack correctness review
+
+No new blocker was found in the PR6/8/9/10 dependency order. The recovered live source exposed the one previously unresolved concurrency hole above. PR10's shared `match-detail:${matchId}` single-flight remains valid because both current page consumers request the same no-store detail representation and each consumer receives a cloned Response.
+
+A small residual design note remains: `readHealth` is currently returned by the review live endpoint but not rendered directly in the UI. Missing live enrichment values still render as unavailable/blank rather than zero, so this is not a truthfulness violation; exposing lane-level health in `/system` would be an optional later observability enhancement, not a release blocker.
+
+### Authorization map for release planning
+
+Existing authorization history already covers the original human UI release and later bounded holistic live-blocker repairs. Those authorizations persist as project intent; the individual prior review batches simply prohibited runtime changes **within those batches**. This current batch also remains review-only by explicit instruction, so no release is performed now.
+
+Actions that do **not** need new conceptual product approval once a release batch is opened under the existing authorization: merging/releasing the already-reviewed UI + live-blocker containment stack in dependency order and running the bounded post-release acceptance sample already defined.
+
+Actions that would still be genuinely new and require separate authorization: DB/index/schema/compute changes, cron cadence/disablement, broader provider/feed publication changes, new paid resources/spend, access expansion, or any remediation outside the reviewed PR6→8→9→10→11 source set.
+
+### Coherent release candidate map
+
+Proposed review stack if PR #11 CI is green:
+**main `6c826bad...` → PR6 English repair → PR8 bounded public DB reads → PR9 frontend backpressure → PR10 behavior/race/shared-detail correction → PR11 recovered live-feed source + bounded live reads.**
+
+Rollback should be reverse dependency order: PR11 → PR10 → PR9 → PR8. PR6 remains independently reversible based on English-story acceptance. No DB migration rollback is involved.
+
+Smallest next action after PR #11 CI: keep the stack unreleased in this batch. If CI passes, the next unblocked task is a release-candidate review/merge-release operation under the existing UI/live-blocker authorization, followed by one bounded homepage + detail/live acceptance sample. Do not resume generic DB root-cause probing.
