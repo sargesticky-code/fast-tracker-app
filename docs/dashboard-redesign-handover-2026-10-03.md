@@ -279,3 +279,15 @@ Until that is verified, CI screenshots remain the authoritative exact-head revie
 - Verification route is GitHub Actions, not local sandbox/npm/DNS. Required checks: English story contract, build/static routes, rendered homepage → detail → article flow, and existing stale/missing-English safety tests.
 - Read-only live comparisons remain separate evidence and must not be represented as proof of the unreleased branch.
 - No merge, production deployment, Edge release, migration/DB mutation, generated-feed publication, access expansion, or spending is authorized in this batch.
+
+
+### English story-summary repair verification — source head `ea071a9844d72432aaa5d94f663fe2f0ec166a69`
+
+- Draft PR: #6 (`review/english-story-summary-v1` → `main`); base `6c826bad04e7f31bb61a8e0a2816124dc4129872`.
+- The repair now covers both sides of the English interface: Phase-1 cached summaries select `language=en`, and the deterministic English story fallback no longer copies source-language headline/summary/invalidator/commentary prose into English narrative fields. English H/A and O/U labels are derived from structured codes plus English team names/line values.
+- Recommendation calculations, market prices/probabilities/edge, evidence-family gates, stale/reference actionability, canonical identity and unknown-not-zero behavior are untouched.
+- GitHub CI run `37136039808`: SUCCESS. English story, provider/market, real-evidence, evidence-independence and player-identity contracts passed; static build/routes passed; rendered desktop/mobile public flow passed `22/22`, including the missing-English-story-cache fallback case.
+- CI artifact `11278278901`: `dashboard-redesign-5eb2494a105ed5df1b933aac70a1619426fc2a70`, digest `sha256:db9bad0cf295f29fc960ea6dba68db3eb938ada154b0a871503439f025532fe7`.
+- Read-only production comparison is intentionally separate from PR proof. Existing Opera snapshots from ~2026-10-03 15:16–15:24 UTC showed the deployed `app-match-story?lang=en` fallback still containing Chinese source-analysis prose and the public FB6175 detail article partly Chinese. That is expected because PR #6 is unreleased; it demonstrates the production-language gap rather than proving the review branch live.
+- Production remains unchanged. No merge, frontend/Edge deployment, migration/DB mutation, feed publication, access expansion or spending occurred.
+- Smallest next task after this bounded repair: independently measure real English-cache availability/quality and choose one actual current fixture for a read-only production comparison after any separately authorized release; do not broaden into bookmaker/provider work in the same step.
