@@ -396,3 +396,17 @@ This patch is **containment, not a root database cure**. It should stop public r
 Smallest next action after CI: if the review checks pass, retarget PR #8 back to PR #6, keep both unreleased, and perform no live deployment. The next independent production task should be a read-only workload/cron ownership review around the 15:45 saturation onset to identify which scheduled query family is exhausting database capacity before any schedule/DB change is proposed.
 
 No merge, deployment, Edge release, migration/DB write, feed publication, access expansion or spending occurred in this batch.
+
+
+### Read-path containment verification result
+
+- Canonical performance review: draft PR #8, head branch `review/read-path-failfast-v2`, base restored to `review/english-story-summary-v1` (PR #6). This keeps the English-language repair and performance containment as separate review layers.
+- Verified implementation/docs head: `8a9e7e6eef3d71ea3d988acb553b05f271aaf8e6`.
+- GitHub PR Build Verification run `37138137494`: **SUCCESS**.
+- Checks passed: visible UI escape check; English story cache/fallback contract; provider/market contract; real-evidence safety contract including the new bounded-read/fail-closed assertions; evidence-independence contract; player-identity contract; static build; static-route verification; rendered desktop/mobile flow.
+- Rendered public-flow suite: **22/22 passed** in 25.0s, including the existing missing-English-story-cache/upstream fallback case.
+- CI artifact: `11280045244`, `dashboard-redesign-1f189e08ba93162b5ae2acdeb8e46c5c93ed04a8`, SHA256 `98844a8f0ecd50e9884dba00c28ff606d8c1c1c16fe3bac34b27df387dae33c1`.
+- PR #7 remains closed/unmerged; its failed run `37137914928` stopped on the known raw-main English-story contract before evaluating the performance assertions and is not evidence against the patch.
+- PR #8 was temporarily pointed at `main` only to trigger the repository's established main-target PR workflow, then returned to PR #6 as base after the green run. No source deployment or merge occurred.
+
+Smallest next action remains **read-only scheduled-workload ownership isolation**: map the 15:45–16:15 cron startup-timeout buckets to the specific cron job IDs/functions and compare their normal vs saturated runtimes. Do not change schedules or database settings until one workload family is demonstrated to be the dominant capacity consumer.
