@@ -819,6 +819,43 @@ export default function MatchDetailClient() {
     return row.selectionLabel || "WATCH";
   };
 
+  const totalModelProbabilityAvailable = (advice, lineModel) => {
+    if (lineModel?.over != null && lineModel?.under != null) return true;
+    return Array.isArray(advice?.models) && advice.models.some((row) => row?.over != null && row?.under != null);
+  };
+  const totalMarketHasPrice = (marketRow) => marketRow?.over != null || marketRow?.under != null;
+  const totalQuoteObservedAt = match.oddsUpdatedAt || match.health?.hkjcPriceChangedAt || match.health?.hkjcFetchedAt || match.updatedAt || null;
+  const totalQuoteState = String(match.health?.hkjcFreshness || "").toUpperCase() === "STALE"
+    ? "STALE / REFERENCE ONLY"
+    : totalQuoteObservedAt
+      ? "CURRENT OBSERVATION"
+      : "QUOTE TIME UNKNOWN";
+  const totalQuoteLabel = totalQuoteObservedAt
+    ? new Intl.DateTimeFormat("en-GB", {
+        timeZone:"Asia/Hong_Kong",
+        month:"short",
+        day:"2-digit",
+        hour:"2-digit",
+        minute:"2-digit",
+        hour12:false,
+      }).format(new Date(totalQuoteObservedAt)) + " HKT"
+    : "Observed time unavailable";
+  const totalMissingReason = (marketName, compare, advice, marketRow) => {
+    const candidate = String(advice?.candidateClass || "").toUpperCase();
+    if (!marketRow?.line) return "HKJC line is unavailable; no same-line model comparison can be made.";
+    if (!totalMarketHasPrice(marketRow)) return "HKJC Over/Under prices are unavailable for this line.";
+    if (candidate === "NO_MODEL") return marketName + " model gate: NO_MODEL — no supported probability evidence is available.";
+    if (compare?.key === "mismatch") return "Model line does not match the current HKJC line; probabilities are not transferred across lines.";
+    if (compare?.key === "unmodelled-line") return "HKJC line is priced, but no same-line model probability is stored.";
+    if (compare?.key === "no-market") return "HKJC line is unavailable; model comparison is disabled.";
+    return (compare?.label && compare.label !== "NO DATA")
+      ? String(compare.label).replace("未有同線模型", "no same-line model")
+      : marketName + " model gate: probability evidence unavailable.";
+  };
+  const goalsModelSupported = totalModelProbabilityAvailable(goalsAdvice, goalsLineModel);
+  const cornersModelSupported = totalModelProbabilityAvailable(cornersAdvice, cornersLineModel);
+
+
   const coreModelRows = CORE_MODEL_DEFS.map((model) => {
     const values = coreModelValues(match, model.key, market);
     return { ...model, values, hasData: probabilityAvailable(values) };
@@ -1712,42 +1749,78 @@ export default function MatchDetailClient() {
       <section className="panel totals-board-panel" id="market-totals">
         <div className="panel-title"><div><p>HKJC MARKETS</p><h2>Goals and corners</h2></div></div>
         <div className="totals-board">
-          <div className="totals-row">
+          <div className={"totals-row " + (!goalsModelSupported ? "totals-row-compact" : "")}>
             <div className="totals-name"><span>Goals O/U</span><b>Line {match.goals?.line || "—"}</b></div>
             <div className="totals-prices"><b>Over {match.goals?.line || "—"} · {formatOdds(match.goals?.over)}</b><b>Under {match.goals?.line || "—"} · {formatOdds(match.goals?.under)}</b></div>
-            <div className="totals-model-note">
-              <div className={"totals-suggestion " + totalAdviceTone(goalsAdvice)}>
-                <span>Signal</span>
-                <strong>{totalAdviceLabel(goalsAdvice)}</strong>
-                {goalsAdvice?.currentOdds != null ? <em>@ {formatOdds(goalsAdvice.currentOdds)}</em> : null}
-                <b>{totalAdviceEdge(goalsAdvice)}</b>
-                {goalsAdvice?.evidenceFamilyCount != null ? <small>{goalsAdvice.evidenceFamilyCount} families · {goalsAdvice.sourceSignalCount ?? goalsAdvice.evidenceFamilyCount} signals</small> : null}
+            {goalsModelSupported ? (
+              <div className="totals-model-note">
+                <div className={"totals-suggestion " + totalAdviceTone(goalsAdvice)}>
+                  <span>Signal</span>
+                  <strong>{totalAdviceLabel(goalsAdvice)}</strong>
+                  {goalsAdvice?.currentOdds != null ? <em>@ {formatOdds(goalsAdvice.currentOdds)}</em> : null}
+                  <b>{totalAdviceEdge(goalsAdvice)}</b>
+                  {goalsAdvice?.evidenceFamilyCount != null ? <small>{goalsAdvice.evidenceFamilyCount} families · {goalsAdvice.sourceSignalCount ?? goalsAdvice.evidenceFamilyCount} signals</small> : null}
+                </div>
+                {goalsLineModel?.over != null
+                  ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
+                      {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · Over {(goalsLineModel.over * 100).toFixed(0)}% · Under {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
+                    </small>
+                  : <small>Supported market-specific probability evidence · {goalsAdvice?.models?.length || 0} model family</small>}
               </div>
-              {goalsLineModel?.over != null
-                ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
-                    {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · Over {(goalsLineModel.over * 100).toFixed(0)}% · Under {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
-                  </small>
-                : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "Same-line model unavailable"}</small>}
-            </div>
+            ) : (
+              <div className="totals-compact-state">
+                <div>
+                  <span>MODEL GATE</span>
+                  <strong>{match.goals?.line ? "No supported Goals probability" : "No HKJC Goals line"}</strong>
+                  <small>{totalMissingReason("Goals", goalsCompare, goalsAdvice, match.goals)}</small>
+                </div>
+                <div className="totals-quote-state">
+                  <span>{totalQuoteState}</span>
+                  <b>{totalQuoteLabel}</b>
+                </div>
+                <details className="totals-state-details">
+                  <summary>Market metadata</summary>
+                  <p>Market: Goals O/U · Line {match.goals?.line || "unavailable"} · Over {formatOdds(match.goals?.over)} · Under {formatOdds(match.goals?.under)} · Model state {String(goalsAdvice?.candidateClass || goalsCompare?.key || "UNKNOWN").replaceAll("_", " ")}</p>
+                </details>
+              </div>
+            )}
           </div>
 
-          <div className="totals-row">
+          <div className={"totals-row " + (!cornersModelSupported ? "totals-row-compact" : "")}>
             <div className="totals-name"><span>Corners O/U</span><b>Line {match.corners?.line || "—"}</b></div>
             <div className="totals-prices"><b>Over {match.corners?.line || "—"} · {formatOdds(match.corners?.over)}</b><b>Under {match.corners?.line || "—"} · {formatOdds(match.corners?.under)}</b></div>
-            <div className="totals-model-note">
-              <div className={"totals-suggestion " + totalAdviceTone(cornersAdvice)}>
-                <span>Signal</span>
-                <strong>{totalAdviceLabel(cornersAdvice)}</strong>
-                {cornersAdvice?.currentOdds != null ? <em>@ {formatOdds(cornersAdvice.currentOdds)}</em> : null}
-                <b>{totalAdviceEdge(cornersAdvice)}</b>
-                {cornersAdvice?.evidenceFamilyCount != null ? <small>{cornersAdvice.evidenceFamilyCount} families · {cornersAdvice.sourceSignalCount ?? cornersAdvice.evidenceFamilyCount} signals</small> : null}
+            {cornersModelSupported ? (
+              <div className="totals-model-note">
+                <div className={"totals-suggestion " + totalAdviceTone(cornersAdvice)}>
+                  <span>Signal</span>
+                  <strong>{totalAdviceLabel(cornersAdvice)}</strong>
+                  {cornersAdvice?.currentOdds != null ? <em>@ {formatOdds(cornersAdvice.currentOdds)}</em> : null}
+                  <b>{totalAdviceEdge(cornersAdvice)}</b>
+                  {cornersAdvice?.evidenceFamilyCount != null ? <small>{cornersAdvice.evidenceFamilyCount} families · {cornersAdvice.sourceSignalCount ?? cornersAdvice.evidenceFamilyCount} signals</small> : null}
+                </div>
+                {cornersLineModel?.over != null
+                  ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
+                      {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · Over {(cornersLineModel.over * 100).toFixed(0)}% · Under {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
+                    </small>
+                  : <small>Supported market-specific probability evidence · {cornersAdvice?.models?.length || 0} model family</small>}
               </div>
-              {cornersLineModel?.over != null
-                ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
-                    {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · Over {(cornersLineModel.over * 100).toFixed(0)}% · Under {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
-                  </small>
-                : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "Same-line model unavailable"}</small>}
-            </div>
+            ) : (
+              <div className="totals-compact-state">
+                <div>
+                  <span>MODEL GATE</span>
+                  <strong>{match.corners?.line ? "No supported Corners probability" : "No HKJC Corners line"}</strong>
+                  <small>{totalMissingReason("Corners", cornersCompare, cornersAdvice, match.corners)}</small>
+                </div>
+                <div className="totals-quote-state">
+                  <span>{totalQuoteState}</span>
+                  <b>{totalQuoteLabel}</b>
+                </div>
+                <details className="totals-state-details">
+                  <summary>Market metadata</summary>
+                  <p>Market: Corners O/U · Line {match.corners?.line || "unavailable"} · Over {formatOdds(match.corners?.over)} · Under {formatOdds(match.corners?.under)} · Model state {String(cornersAdvice?.candidateClass || cornersCompare?.key || "UNKNOWN").replaceAll("_", " ")}</p>
+                </details>
+              </div>
+            )}
           </div>
         </div>
       </section>
