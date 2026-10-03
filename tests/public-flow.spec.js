@@ -70,12 +70,27 @@ function detailPayload({ confirmedLineup = false } = {}) {
         match_quality: 0.97,
         lineup_confirmed_at: null
       },
-      lineup: [{
+      lineup: confirmedLineup ? [
+        {
+          team_side: "HOME",
+          player_name: "Alex Smith",
+          starter: true,
+          confirmed: true,
+          source_name: "FLASHSCORE_OFFICIAL"
+        },
+        {
+          team_side: "HOME",
+          player_name: "Jamie Lee",
+          starter: false,
+          confirmed: true,
+          source_name: "FLASHSCORE_OFFICIAL"
+        }
+      ] : [{
         team_side: "HOME",
         player_name: "Alex Smith",
         starter: true,
-        confirmed: confirmedLineup,
-        source_name: confirmedLineup ? "FLASHSCORE_OFFICIAL" : "PREDICTED_XI"
+        confirmed: false,
+        source_name: "PREDICTED_XI"
       }],
       playerStatus: [],
       managers: []
@@ -252,5 +267,5 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup", { exact: true })).toBeVisible();
-  await expect(page.getByText("1 confirmed rows · 0 provisional/unconfirmed rows")).toBeVisible();
+  await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
 });
