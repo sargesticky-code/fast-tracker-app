@@ -13,7 +13,6 @@ import {
   CircleDot,
   Goal,
   ChartNoAxesColumnIncreasing,
-  Database,
   ShieldCheck,
 } from "lucide-react";
 import {
@@ -406,24 +405,6 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
   );
 }
 
-function InternalPanel({ feed }) {
-  return (
-    <section className="ft-internal">
-      <div className="ft-internal-title"><Database size={18} /> Internal system information</div>
-      <div className="ft-internal-grid">
-        <div><span>Feed source</span><b>{feed?.source || "Supabase"}</b></div>
-        <div><span>Generated</span><b>{feed?.generatedAt ? new Date(feed.generatedAt).toLocaleString("en-GB") : "—"}</b></div>
-        <div><span>Matches</span><b>{feed?.matches?.length ?? 0}</b></div>
-        <div><span>Window</span><b>{feed?.windowHours ? `${feed.windowHours}h` : "—"}</b></div>
-      </div>
-      <details>
-        <summary>Show system health JSON</summary>
-        <pre>{JSON.stringify(feed?.systemHealth || {}, null, 2)}</pre>
-      </details>
-    </section>
-  );
-}
-
 export default function HomepageClient({ initialFeed, nowMs }) {
   const [feed, setFeed] = useState(initialFeed || { matches: [] });
   const [dayOffset, setDayOffset] = useState(0);
@@ -555,8 +536,6 @@ export default function HomepageClient({ initialFeed, nowMs }) {
               Form layer is enabled. Detailed team-form evidence remains on each match page.
             </section>
           )}
-
-          <InternalPanel feed={feed} />
         </section>
 
         <RightRail matches={visible.length ? visible : matches.slice(0, 10)} selectedDate={selectedDate} onSelectDate={(date) => { setSelectedDate(date); setDayOffset(0); setActiveMode("today"); }} />
