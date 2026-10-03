@@ -180,3 +180,22 @@ Routine development, testing, debugging and transitions between already agreed p
 - Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
 - Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
 - No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
+
+## Visual acceptance and unreleased live checks — 2026-10-03
+
+- Exact executable source commit under review: `d89e89621a12135d78976d5766cfc41b935614b5`.
+- CI-only carrier head: `b174b2d95a2f2fd4dc773fc50827f619c0d85dd3`.
+- CI run `37127767797`: SUCCESS.
+- Recovery/browser total: 32/32 Playwright cases.
+- Visual artifact: `11276045021`, name `dashboard-redesign-0992a339fc281bb85440a8da272a6cfb1cd56ed7`, digest `sha256:3e63c46601d5273acde0eee90cebe9e4fac204e4be14f1ddf5d623daaae8da1b`.
+- The artifact now contains desktop and 390px-mobile screenshots for:
+  - cached fixture list after feed outage, with explicit freshness-unknown warning;
+  - fresh Phase-1 fixture resolving before a later `fixtureSource=MISSING` detail response;
+  - `fixtureSource=MISSING` resolving first and a later fresh Phase-1 fixture recovering the route.
+- Visual review found no clipping/overlap or false zero identity count in these six recovery screenshots. Both race orders finish with the fresh match card visible while the detail/lineup identity gate stays fail-closed.
+- Read-only unreleased live check at 2026-10-03 ~13:55 UTC:
+  - Phase-1 feed was reachable and returned `count=86` with four live matches and fresh live layers; this shows the earlier feed timeout was intermittent, not permanently recovered.
+  - The live story endpoint for `FB6114` still returned `story_internal_error: Cannot read properties of null (reading 'corners')`, as expected because the reviewed story fix has not been released.
+  - A current live-feed ID `FB6174` still returned `fixtureSource=MISSING` from `app-match-detail` despite auxiliary model/player evidence, so the canonical fixture/detail acceptance gap remains real.
+- Real-device mobile acceptance is still open: the available browser connector does not expose device/viewport emulation for the live deployed app, and the reviewed source is not released. CI mobile screenshots are deterministic mocked coverage only.
+- No merge, deployment, Edge release, migration, DB write, feed publication, access expansion or spending occurred.
