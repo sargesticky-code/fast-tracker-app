@@ -456,7 +456,7 @@ export default function LineupPanel() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await singleFlightFetch(`match-detail:${matchId}`, `${DETAIL_FEED_URL}?id=${encodeURIComponent(matchId)}`, { cache: "no-store" }, 20000);
+        const res = await singleFlightFetch(`match-detail:${matchId}`, `${DETAIL_FEED_URL}?id=${encodeURIComponent(matchId)}`, { cache: "no-store" }, 35000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (!cancelled) { setPayload(json); setError(""); }

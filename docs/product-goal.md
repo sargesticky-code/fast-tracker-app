@@ -361,3 +361,47 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Production unchanged. Explicit release authorization is still required.
 - [ ] Missing source dependency: deployed `app-live-feed` implementation is not present in this repo, so server-side live-read deadline behavior remains unreviewed.
 - [ ] Next action without release authorization: review only. With explicit authorization: release PR6→PR8→PR9→PR10 and run one bounded homepage/detail acceptance sample, then stop.
+
+
+### Deployed live-feed source recovery + release-candidate review
+
+- [x] Current main remains `6c826bad04e7f31bb61a8e0a2816124dc4129872`; PR6→8→9→10 is ahead-only.
+- [x] Deployed `app-live-feed` recovered via Supabase read-source route: ACTIVE v7, id `7a1b99f1-d6dd-4fd5-9070-f6b29ebf95ad`, bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`.
+- [x] Exact deployed v7 source persisted unchanged on review commit `3306b803a67a7c6068d34619f8ae890f0f867fea` before modification.
+- [x] Deployed v7 had no explicit DB deadline and retained supabase-js 2.116.0 built-in PostgREST retries.
+- [x] Deployed v7 enrichment reads were concurrent after the market read, but score/stats/detail/shadow/heartbeat errors were ignored and therefore indistinguishable from legitimate no-row results.
+- [x] PR10 live single-flight behavior on an indefinitely hung request is now exact: it suppresses all later live refreshes until the hung request settles or component unmounts.
+- [x] Draft PR #11 adds 15s live DB bounds, `db.retry:false`, explicit enrichment `readHealth`, and a 35s browser live deadline outside the reviewed server DB window.
+- [x] Initial 15:44–15:48 initiating DB event remains unknown; no further generic root-cause probe is opened.
+- [ ] PR #11 must pass existing safety/build/rendered-flow CI plus the new live timeout-cleanup behavior case.
+- [ ] Current batch remains review-only; no runtime change.
+- [ ] Coherent release candidate after green CI: PR6→PR8→PR9→PR10→PR11.
+- [ ] Reverse rollback: PR11→PR10→PR9→PR8; PR6 independently reversible.
+- [ ] Existing UI/live-blocker authorization remains product authorization context; genuinely new approval is still required for DB/index/schema/compute, cron schedule changes, provider/feed expansion, spend or access expansion.
+
+
+### Multi-stage deadline correction before release-candidate acceptance
+
+- [x] Detail-page periodic Phase-1 refresh changed from full feed to `view=summary`; 20s client deadline now matches a one-DB-phase server path.
+- [x] Shared match-detail deadline raised to 35s for its possible two DB phases.
+- [x] Analysis deadline raised to 70s for its possible four bounded DB phases.
+- [x] Story optional AI fetch bounded at 15s; story client single-flight deadline raised to 120s for the reviewed multi-stage path.
+- [x] Recovered live endpoint = 15s market phase + concurrent 15s enrichment/heartbeat phase; client live deadline = 35s.
+- [x] Public live errors no longer expose raw DB messages; `read_failure_not_fixture_absence` semantics retained.
+- [x] New behavior check requires detail Phase-1 refresh to request `view=summary`.
+- [x] New behavior check forces live abort cleanup and confirms a later live refresh succeeds.
+- [x] Final source/test implementation checkpoint before docs: `d07278390a83c7c0aaf513a087eb2cd69d97071e`.
+- [ ] Final PR #11 exact-head GitHub CI must pass before release-candidate review is closed.
+- [ ] No production release in this batch.
+
+
+### PR #11 verification closed
+
+- [x] Initial live timeout behavior test found a genuine live-vs-summary response-ordering race; assertion was not weakened.
+- [x] `liveApplied` gate preserves newer live fields/source/cache against a later summary response while still allowing summary core/model refresh.
+- [x] Final source/test head `b2999ef339b40583f489b9fac968fd6bc179ecda` passed CI `37141684170`.
+- [x] Rendered behavior suite = **32/32 passed** in 25.7s.
+- [x] Artifact `11280418041`, digest `sha256:483af7ba95cf9e0c17a59acc1c8e97bd292239c4f77a035e8726f1a17cca466c`.
+- [x] Deployed v7 parity source checkpoint: commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, Supabase bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`.
+- [x] Coherent unreleased candidate = PR6→PR8→PR9→PR10→PR11.
+- [ ] Production remains unchanged in this review-only batch.

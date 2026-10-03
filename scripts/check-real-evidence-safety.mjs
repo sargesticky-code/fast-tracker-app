@@ -8,6 +8,7 @@ const sync = fs.readFileSync("supabase/functions/sync-fast-tracker/index.ts", "u
 const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
 const phase1Feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
 const storyApi = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
+const liveFeedApi = fs.readFileSync("supabase/functions/app-live-feed/index.ts", "utf8");
 const lineupPanel = fs.readFileSync("components/lineup-panel.js", "utf8");
 const singleFlight = fs.readFileSync("lib/single-flight-fetch.js", "utf8");
 const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
@@ -46,18 +47,27 @@ const checks = [
   [article.includes("Evidence: {row.evidenceKey}"), "article must render durable player evidence keys"],
   [publicLogic.includes("independentEligible:false"), "public value logic must exclude aggregates with unproven source-record independence"],
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("DB_READ_TIMEOUT_MS = 15_000")), "public read APIs must enforce the bounded 15s PostgREST deadline"],
+  [liveFeedApi.includes("DB_READ_TIMEOUT_MS = 15_000") && liveFeedApi.includes("global: { fetch: boundedDbFetch }"), "live feed must enforce the same bounded 15s PostgREST deadline"],
+  [liveFeedApi.includes("db: { retry: false }"), "live feed must disable built-in PostgREST retries during saturation"],
+  [liveFeedApi.includes('readHealth[lane]') && liveFeedApi.includes('status: "UNAVAILABLE"'), "live feed enrichment failures must remain distinguishable from absent data"],
+  [liveFeedApi.includes('semantics: "read_failure_not_fixture_absence"'), "live feed top-level failure must explicitly remain distinct from fixture absence"],
+  [!liveFeedApi.includes('error: String(error?.message') && liveFeedApi.includes('reason: "db_read_failed"'), "public live read-health must avoid exposing raw database error text"],
+  [detail.includes('fetchWithDeadline(LIVE_FEED_URL') && detail.includes("35000"), "live client deadline must remain outside the bounded two-phase live server read window"],
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
+  [storyApi.includes("AI_READ_TIMEOUT_MS = 15_000") && storyApi.includes("AbortSignal.timeout(AI_READ_TIMEOUT_MS)"), "optional AI story fetch must have its own bounded deadline"],
   [homepage.includes("let refreshInFlight = false") && homepage.includes("AbortSignal.timeout(20000)"), "homepage polling must remain single-flight with a browser deadline outside the 15s server read bound"],
   [detail.includes("const requestsInFlight = {") && detail.includes("if (cancelled || requestsInFlight.live) return;"), "detail live polling must coalesce overlapping requests"],
-  [detail.includes('fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" })'), "live polling must stay single-flight without a shorter client deadline while its server implementation is not source-bounded here"],
+  [detail.includes('fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now()') && detail.includes("35000"), "live polling must stay single-flight with a client deadline outside the reviewed server bound"],
   [detail.includes("requestsInFlight.match") && detail.includes("requestsInFlight.detail") && detail.includes("requestsInFlight.analysis") && detail.includes("requestsInFlight.story"), "detail full/detail/narrative lanes must remain single-flight"],
   [detail.includes("authoritativeDetailBlocksFeed") && detail.includes("canonicalMissing || authoritativeDetailBlocksFeed"), "delayed feed responses must not overwrite conclusive missing or authoritative stale detail state"],
   [detail.includes("singleFlightFetch(`match-detail:${matchId}`") && lineupPanel.includes("singleFlightFetch(`match-detail:${matchId}`"), "match detail and lineup consumers must share one page-level detail request"],
   [singleFlight.includes("const inFlight = new Map()") && singleFlight.includes("response.clone()"), "shared single-flight fetch must deduplicate consumers without sharing a consumed Response body"],
-  [detail.includes("20000") && detail.includes("35000") && detail.includes("65000"), "browser deadlines must remain outside the corresponding bounded server-read windows"],
+  [detail.includes("DETAIL_SUMMARY_FEED_URL") && detail.includes("view=summary"), "detail route Phase-1 refresh must use the bounded summary feed rather than full enrichments"],
+  [detail.includes("let liveApplied = false") && detail.includes("if (liveApplied && previous?.live)") && detail.includes("if (!liveApplied)"), "newer live state must remain ahead of a later summary response"],
+  [detail.includes("20000") && detail.includes("35000") && detail.includes("70000") && detail.includes("120000"), "browser deadlines must remain outside the corresponding bounded server-stage windows"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);

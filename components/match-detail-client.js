@@ -24,6 +24,7 @@ import {
 
 const UI_BUILD = "ENGLISH-EVIDENCE-ARTICLE-20261003-1";
 const FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
+const DETAIL_SUMMARY_FEED_URL = FEED_URL + "&view=summary";
 const LIVE_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 const ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-analysis";
@@ -535,6 +536,7 @@ export default function MatchDetailClient() {
     let resolvedFresh = false;
     let canonicalMissing = false;
     let authoritativeDetailBlocksFeed = false;
+    let liveApplied = false;
     const requestsInFlight = {
       match: false,
       detail: false,
@@ -549,7 +551,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.match) return;
       requestsInFlight.match = true;
       try {
-        const res = await fetchWithDeadline(FEED_URL, { cache: "default" }, 20000);
+        const res = await fetchWithDeadline(DETAIL_SUMMARY_FEED_URL, { cache: "default" }, 20000);
         if (!res.ok) return;
         const feed = await res.json();
         if (cancelled || canonicalMissing || authoritativeDetailBlocksFeed) return;
@@ -561,13 +563,25 @@ export default function MatchDetailClient() {
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
             const previousAuthoritativeStale = previous?.health?.hkjcFreshness === "STALE";
             if (previousAuthoritativeStale || previousStarted) return previous;
+            if (liveApplied && previous?.live) {
+              return {
+                ...live,
+                liveNow: true,
+                inPlay: true,
+                liveEligible: true,
+                live: previous.live,
+                updatedAt: previous.updatedAt || live.updatedAt,
+              };
+            }
             return live;
           });
-          setSource("SUPABASE · fresh");
-          try {
-            window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
-            window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
-          } catch {}
+          if (!liveApplied) {
+            setSource("SUPABASE · fresh");
+            try {
+              window.localStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
+              window.sessionStorage.setItem(`ft-match-${matchId}`, JSON.stringify(live));
+            } catch {}
+          }
         }
       } catch {}
       finally { requestsInFlight.match = false; }
@@ -577,7 +591,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.detail) return;
       requestsInFlight.detail = true;
       try {
-        const res = await singleFlightFetch(`match-detail:${matchId}`, DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "no-store" }, 20000);
+        const res = await singleFlightFetch(`match-detail:${matchId}`, DETAIL_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "no-store" }, 35000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -616,7 +630,7 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.analysis) return;
       requestsInFlight.analysis = true;
       try {
-        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 35000);
+        const res = await fetchWithDeadline(ANALYSIS_FEED_URL + "?id=" + encodeURIComponent(matchId), { cache: "default" }, 70000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || payload?.error) return;
@@ -632,7 +646,7 @@ export default function MatchDetailClient() {
         const res = await fetchWithDeadline(
           STORY_FEED_URL + "?id=" + encodeURIComponent(matchId) + "&lang=en&style=professional",
           { cache: "default" },
-          65000
+          120000
         );
         if (!res.ok) return;
         const payload = await res.json();
@@ -646,11 +660,12 @@ export default function MatchDetailClient() {
       if (cancelled || requestsInFlight.live) return;
       requestsInFlight.live = true;
       try {
-        const res = await fetch(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" });
+        const res = await fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now(), { cache: "no-store" }, 35000);
         if (!res.ok) return;
         const payload = await res.json();
         if (cancelled || !Array.isArray(payload?.matches)) return;
         const hasLive = payload.matches.some((row) => String(row.id) === String(matchId));
+        liveApplied = hasLive;
         if (hasLive) resolvedFresh = true;
         setMatch((previous) => {
           const merged = mergeLiveMatch(previous, payload, matchId);
