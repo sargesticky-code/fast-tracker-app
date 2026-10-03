@@ -294,6 +294,8 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
                   ? (analysis.marketAdvice.goals.referenceOdds == null ? "No actionable current price" : "Reference price " + price(analysis.marketAdvice.goals.referenceOdds))
                   : "Current price " + price(analysis.marketAdvice.goals.currentOdds)}
                 {" · "}
+                As of {dateTime(analysis?.evidence?.phase1Health?.priceObservedAt || match?.oddsUpdatedAt)}
+                {" · "}
                 {analysis.marketAdvice.goals.evidenceFamilyCount ?? 0} independent market-specific family
                 {Number(analysis.marketAdvice.goals.evidenceFamilyCount ?? 0) === 1 ? "" : "ies"}
               </small>
