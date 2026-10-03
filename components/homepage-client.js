@@ -593,9 +593,18 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             </div>
             <div className="ft-result-count">
               <b>{feedState.status === "error" && matches.length === 0 ? "—" : visible.length}</b>
-              {feedState.status === "error" ? " feed unavailable" : " matches shown"}
+              {feedState.status === "error"
+                ? (matches.length ? " cached matches · feed unavailable" : " feed unavailable")
+                : " matches shown"}
             </div>
           </div>
+
+          {feedState.status === "error" && matches.length > 0 ? (
+            <section className="ft-form-note" role="status">
+              <Activity size={18} />
+              <span><strong>Fixture feed temporarily unavailable.</strong> Showing the last successful fixture list; freshness is unknown until refresh recovers.</span>
+            </section>
+          ) : null}
 
           {visible.some((m) => m.liveNow) ? (
             <div className="ft-live-ribbon">

@@ -3,9 +3,27 @@ const { test, expect } = require("@playwright/test");
 const json = (route, body, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
-async function routeRecoveryApis(page, { feed = "outage", detailCase = "missing" } = {}) {
-  await page.route("**/functions/v1/app-phase1-feed?**", route => {
-    if (feed === "outage") {
+function recoveryMatch() {
+  return {
+    id: "FBRECOVERY",
+    home: "Northbridge FC",
+    away: "Riverside United",
+    league: "Recovery League",
+    kickoff: new Date().toISOString(),
+    liveNow: false,
+    odds: { home: null, draw: null, away: null },
+    goals: { line: null, over: null, under: null },
+    corners: { line: null, over: null, under: null },
+    health: { hkjcFreshness: "FRESH" }
+  };
+}
+
+async function routeRecoveryApis(page, { feed = "outage", detailCase = "missing", feedDelayMs = 0, detailDelayMs = 0 } = {}) {
+  let feedCalls = 0;
+  await page.route("**/functions/v1/app-phase1-feed?**", async route => {
+    feedCalls += 1;
+    if (feedDelayMs) await new Promise(resolve => setTimeout(resolve, feedDelayMs));
+    if (feed === "outage" || (feed === "freshThenOutage" && feedCalls > 1)) {
       return json(route, {
         error: "feed_unavailable",
         message: "rpc_error:57014:canceling statement due to statement timeout"
@@ -20,6 +38,15 @@ async function routeRecoveryApis(page, { feed = "outage", detailCase = "missing"
         systemHealth: {}
       });
     }
+    if (feed === "fresh" || feed === "freshThenOutage") {
+      return json(route, {
+        generatedAt: new Date().toISOString(),
+        source: "RECOVERY_TEST_FRESH",
+        windowHours: 24,
+        matches: [recoveryMatch()],
+        systemHealth: {}
+      });
+    }
     return json(route, { generatedAt: new Date().toISOString(), matches: [] });
   });
 
@@ -27,7 +54,8 @@ async function routeRecoveryApis(page, { feed = "outage", detailCase = "missing"
     json(route, { generatedAt: new Date().toISOString(), matches: [] })
   );
 
-  await page.route("**/functions/v1/app-match-detail?**", route => {
+  await page.route("**/functions/v1/app-match-detail?**", async route => {
+    if (detailDelayMs) await new Promise(resolve => setTimeout(resolve, detailDelayMs));
     const unresolvedLineup = [{
       id: 901,
       hkjc_event_id: "FBRECOVERY",
@@ -96,6 +124,38 @@ test("successful HTTP 200 empty feed remains a genuine zero-fixture state", asyn
   await expect(page.getByText("No fixtures are available in the current feed.", { exact: true })).toBeVisible();
   await expect(page.getByText("Fixture feed temporarily unavailable", { exact: true })).toHaveCount(0);
   await expect(page.locator(".ft-result-count")).toContainText("0 matches shown");
+});
+
+test("outage after a successful refresh keeps rows but marks their freshness unknown", async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeSetInterval = window.setInterval.bind(window);
+    window.setInterval = (fn, delay, ...args) =>
+      nativeSetInterval(fn, delay === 60000 ? 150 : delay, ...args);
+  });
+  await routeRecoveryApis(page, { feed: "freshThenOutage" });
+  await page.goto("http://127.0.0.1:4173/");
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
+  await expect(page.locator(".ft-result-count")).toContainText("cached matches · feed unavailable");
+});
+
+test("fresh feed match wins when missing canonical detail resolves later", async ({ page }) => {
+  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", detailDelayMs: 180 });
+  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
+  const summary = page.locator("details.lineup-tool-disclosure > summary");
+  await expect(summary).toContainText("CANONICAL FIXTURE UNRESOLVED");
+});
+
+test("fresh feed match can recover the route after missing canonical detail resolves first", async ({ page }) => {
+  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", feedDelayMs: 180 });
+  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
+
+  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
 });
 
 test("missing canonical fixture exits loading and unresolved lineup identity stays unknown", async ({ page }) => {

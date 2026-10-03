@@ -10,6 +10,8 @@ const checks = [
   [home.includes('feedState?.status === "error"'), "homepage must render a distinct feed-error state"],
   [home.includes("No fixtures are available in the current feed."), "successful empty-feed state must remain distinct"],
   [home.includes('setFeedState({ status: "ready", message: null })'), "valid matches array must clear outage state"],
+  [home.includes("Showing the last successful fixture list; freshness is unknown until refresh recovers."), "outage with retained rows must disclose unknown freshness"],
+  [home.includes('" cached matches · feed unavailable"'), "outage result count must label retained rows as cached"],
   [detail.includes('payload?.fixtureSource === "MISSING" && !payload?.fixture'), "detail must detect canonical fixture absence"],
   [detail.includes('setReady(true);'), "missing canonical fixture must be able to terminate loading"],
   [detail.includes('cached && !canonicalMissing'), "missing canonical fixture must not restore stale cached match"],
