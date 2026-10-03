@@ -104,4 +104,4 @@ jobs:
 
       - name: Rendered desktop/mobile flow
         if: steps.static_build.outputs.exit_code == '0'
-        run: npx playwright test tests/public-flow.spec.js --project=chromium --reporter=line
+        run: npx playwright test tests/public-flow.spec.js --reporter=line
