@@ -267,6 +267,13 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
   const phase2=a?.evidence?.phase2 || {};
   const predictedScore=fb?.predictedScore || null;
   const avgGoals=num(fb?.avgGoals);
+  const englishOuLabel=(row:any) => {
+    const side=String(row?.selection || "").toUpperCase();
+    const line=row?.line ?? "—";
+    if(side==="OVER") return `Over ${line}`;
+    if(side==="UNDER") return `Under ${line}`;
+    return side || "No selection";
+  };
   const h=num(fb?.hda?.home), d=num(fb?.hda?.draw), aw=num(fb?.hda?.away);
   const maxSide=Math.max(h??-1,d??-1,aw??-1);
 
@@ -326,13 +333,13 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
     : "";
   const goalEnvironment=goals?.selection
     ? (language==="en"
-      ? `Goals value: ${goals.selectionLabel || goals.selection} at line ${goals.line ?? "—"}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
+      ? `Goals value: ${englishOuLabel(goals)}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
       : `入球 value：現價偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 HKJC fair ${pctText(goals.marketFairProbability,1)}。${goalValueNote}`)
     : (language==="en" ? "Goals market: no reliable Phase 1 direction yet." : "入球環境：Phase 1 暫未有可靠方向。");
 
   const cornerEnvironment=corners?.selection
     ? (language==="en"
-      ? `Corners market: ${corners.selectionLabel || corners.selection} at line ${corners.line ?? "—"}; treat single-family evidence as watch-level until independently confirmed.`
+      ? `Corners market: ${englishOuLabel(corners)}; treat single-family evidence as watch-level until independently confirmed.`
       : `角球環境：現時偏 ${corners.selectionLabel || corners.selection}，盤口 ${corners.line ?? "—"}；如果仍然只得單一 evidence family，就維持 WATCH 級。`)
     : num(fb?.corners?.avg)!==null
       ? (language==="en"
@@ -414,7 +421,11 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
     const modelP = num(row.analystConsensusProbability);
     const fairP = num(row.marketFairProbability);
     const currentOdds = num(row.currentOdds);
-    const selectionLabel = String(row.selectionLabel || "PASS");
+    const selectionLabel = language==="en"
+      ? (String(row.selection || "").toUpperCase()==="OVER" ? `Over ${row.line ?? "—"}`
+        : String(row.selection || "").toUpperCase()==="UNDER" ? `Under ${row.line ?? "—"}`
+        : String(row.selection || "PASS"))
+      : String(row.selectionLabel || "PASS");
     const families = Number(row.evidenceFamilyCount || 0);
     if (!row.selection || action === "PASS" || action === "NO_BET") {
       return language === "en"
