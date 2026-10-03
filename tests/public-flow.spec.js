@@ -170,7 +170,7 @@ for (const device of [
   { name: "mobile", viewport: { width: 390, height: 844 } }
 ]) {
   test(device.name + " homepage to English evidence article", async ({ page }) => {
-    page.on("pageerror", error => console.log("PAGEERROR:", error.message));
+    page.on("pageerror", error => console.log("PAGEERROR:", error.stack || error.message));
     page.on("console", msg => {
       if (msg.type() === "error") console.log("BROWSER_ERROR:", msg.text());
     });
@@ -198,7 +198,7 @@ for (const device of [
 }
 
 test("article remains readable when English story cache/upstream is unavailable", async ({ page }) => {
-  page.on("pageerror", error => console.log("PAGEERROR:", error.message));
+  page.on("pageerror", error => console.log("PAGEERROR:", error.stack || error.message));
   await page.setViewportSize({ width: 1280, height: 820 });
   await mockApis(page, false);
 
