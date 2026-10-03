@@ -281,8 +281,18 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
   );
 }
 
+function hasUsableFormData(detail) {
+  if (!detail) return false;
+  const recent = Array.isArray(detail.recent) ? detail.recent : [];
+  if (recent.length) return true;
+  if (Number(detail.modelGames || 0) > 0 || Number(detail.venueGames || 0) > 0) return true;
+  return ["ppg", "expectedGoals", "wins", "draws", "losses", "goalsFor", "goalsAgainst"]
+    .some((key) => detail[key] !== null && detail[key] !== undefined && detail[key] !== "");
+}
+
 function TeamFormCard({ title, name, detail }) {
   const recent = Array.isArray(detail?.recent) ? detail.recent.slice(0, 5) : [];
+  const usable = hasUsableFormData(detail);
   const modelGames = Number(detail?.modelGames || 0);
   const venueGames = Number(detail?.venueGames || 0);
   const ppg = Number(detail?.ppg);
@@ -296,6 +306,22 @@ function TeamFormCard({ title, name, detail }) {
   const momentum = recent.length ? Math.round((points / (recent.length * 3)) * 100) : null;
   const momentumLabel = momentum == null ? "NO HISTORY" : momentum >= 67 ? "HOT" : momentum >= 40 ? "STEADY" : "WEAK";
   const goalDiff = gf - ga;
+
+  if (!usable) {
+    return (
+      <div className="team-form-row team-form-row-empty">
+        <div className="team-form-identity">
+          <small>{title}</small>
+          <strong>{name}</strong>
+          <span className="form-signal-label">NO HISTORY</span>
+        </div>
+        <div className="team-form-empty-copy">
+          <strong>Recent form unavailable</strong>
+          <span>No confirmed recent-match or model-sample statistics are stored for this side. Unknown is not treated as zero.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="team-form-row">
@@ -1110,6 +1136,19 @@ export default function MatchDetailClient() {
     nearArb?.best_draw_provider ? `${nearArb.best_draw_provider} D @ ${formatOdds(nearArb.best_draw_odds)}` : null,
     nearArb?.best_away_provider ? `${nearArb.best_away_provider} A @ ${formatOdds(nearArb.best_away_odds)}` : null,
   ].filter(Boolean);
+  const phase4HasValue = Boolean(bestValue);
+  const phase4HasPriceOnly = !phase4HasValue && (phase4Arbs.length > 0 || nearArbBestLegs.length > 0);
+  const phase4EmptyReason = String(
+    marketIntel.reason ||
+    marketIntel.missingReason ||
+    marketIntel.status ||
+    (!phase4HasValue ? "No model-backed comparable value signal is stored for this match." : "")
+  ).replaceAll("_", " ");
+  const formHomeUsable = hasUsableFormData(match.formDetail?.home);
+  const formAwayUsable = hasUsableFormData(match.formDetail?.away);
+  const formCoverageState = formHomeUsable && formAwayUsable ? "FULL"
+    : formHomeUsable || formAwayUsable ? "PARTIAL"
+      : "EMPTY";
 
   return (
     <main className="shell detail-shell">
@@ -1714,12 +1753,38 @@ export default function MatchDetailClient() {
       </section>
 
 
-      <section className="panel model-intelligence-panel phase4-board-panel">
+      <section className={"panel model-intelligence-panel phase4-board-panel " + (!phase4HasValue ? "is-compact-state" : "")}>
         <div className="panel-title">
           <div><p>MARKET COMPARISON</p><h2>Value and price comparison</h2></div>
           <span>{String(marketIntel.mode || "DETECT_ONLY").replaceAll("_", " ")}</span>
         </div>
 
+        {!phase4HasValue ? (
+          <div className={"compact-market-state " + (phase4HasPriceOnly ? "is-partial" : "is-empty")}>
+            <div>
+              <span>{phase4HasPriceOnly ? "PRICE COVERAGE ONLY" : "NO COMPARABLE VALUE"}</span>
+              <strong>{phase4HasPriceOnly ? "Prices exist, but no model-backed value signal is available" : "No usable model / comparable price combination"}</strong>
+              <p>{phase4EmptyReason || "Comparison is unavailable in the current stored snapshot."}</p>
+            </div>
+            <div className="compact-market-safety">
+              <span>Model state</span><b>NO MODEL VALUE</b>
+              <span>Freshness</span><b>{Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "Quote age unavailable"}</b>
+              <span>Decision</span><b>{phase4Arbs.length ? phase4Arbs.length + " price arbitrage row(s)" : "No value inferred"}</b>
+            </div>
+            {(phase4HasPriceOnly || marketIntel.mode || marketIntel.status || marketIntel.reason || marketIntel.missingReason) ? (
+              <details className="compact-state-details">
+                <summary>Coverage details</summary>
+                <div>
+                  <span>Mode: {String(marketIntel.mode || "DETECT_ONLY").replaceAll("_", " ")}</span>
+                  <span>Value rows: {phase4Values.length}</span>
+                  <span>Arbitrage rows: {phase4Arbs.length}</span>
+                  <span>Near-arb: {nearArbStatus}</span>
+                  {nearArbBestLegs.length ? <span>Best price legs: {nearArbBestLegs.join(" · ")}</span> : null}
+                </div>
+              </details>
+            ) : null}
+          </div>
+        ) : (
         <div className="phase4-board">
           <div className="phase4-value-cell">
             <span>TOP SIGNAL</span>
@@ -1757,10 +1822,11 @@ export default function MatchDetailClient() {
             <small>{nearArbStatus}</small>
           </div>
         </div>
+        )}
 
-        {nearArbBestLegs.length ? <div className="phase4-leg-line"><span>Best legs</span><b>{nearArbBestLegs.join(" · ")}</b></div> : null}
+        {phase4HasValue && nearArbBestLegs.length ? <div className="phase4-leg-line"><span>Best legs</span><b>{nearArbBestLegs.join(" · ")}</b></div> : null}
 
-        {(phase4Values.length || phase4Arbs.length) ? (
+        {phase4HasValue && (phase4Values.length || phase4Arbs.length) ? (
           <details className="model-deep-dive phase4-deep-dive">
             <summary>Market comparison details</summary>
             {phase4Values.length ? (
@@ -1792,27 +1858,48 @@ export default function MatchDetailClient() {
       </section>
 
 
-      <section className="panel team-form-panel" id="team-form">
+      <section className={"panel team-form-panel " + (formCoverageState !== "FULL" ? "is-compact-state form-" + formCoverageState.toLowerCase() : "")} id="team-form">
         <div className="panel-title">
           <div><p>TEAM FORM</p><h2>Recent form comparison</h2></div>
-          <span>{formQualityLabel(match.formDetail?.quality)}</span>
+          <span>{formCoverageState === "EMPTY" ? "NO USABLE HISTORY" : formCoverageState === "PARTIAL" ? "PARTIAL HISTORY" : formQualityLabel(match.formDetail?.quality)}</span>
         </div>
-        <div className="team-form-grid">
-          <TeamFormCard
-            title="HOME"
-            name={match.homeZh || match.home}
-            detail={match.formDetail?.home}
-          />
-          <TeamFormCard
-            title="AWAY"
-            name={match.awayZh || match.away}
-            detail={match.formDetail?.away}
-          />
-        </div>
-        <p className="fineprint">
-          Recent results use confirmed HKJC match results only. W = win, D = draw, L = loss. Model sample shows the Team-Form modelling sample and is not the same as the five recent matches displayed above.
-          {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
-        </p>
+        {formCoverageState === "EMPTY" ? (
+          <div className="compact-form-state">
+            <div>
+              <span>FORM COVERAGE</span>
+              <strong>Recent form is unavailable for both teams</strong>
+              <p>No confirmed recent-match or model-sample statistics are stored in the current match card. Missing history remains unknown and is not scored as 0.</p>
+            </div>
+            <details className="compact-state-details">
+              <summary>Coverage details</summary>
+              <div>
+                <span>Home recent matches: 0 stored</span>
+                <span>Away recent matches: 0 stored</span>
+                <span>Quality: {formQualityLabel(match.formDetail?.quality)}</span>
+                <span>Source: {match.formDetail?.source || "Source unavailable"}</span>
+              </div>
+            </details>
+          </div>
+        ) : (
+          <>
+            <div className="team-form-grid">
+              <TeamFormCard
+                title="HOME"
+                name={match.home || match.homeEn || match.homeZh}
+                detail={match.formDetail?.home}
+              />
+              <TeamFormCard
+                title="AWAY"
+                name={match.away || match.awayEn || match.awayZh}
+                detail={match.formDetail?.away}
+              />
+            </div>
+            <p className="fineprint">
+              Recent results use confirmed HKJC match results only. W = win, D = draw, L = loss. Missing side history remains unknown rather than zero.
+              {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
+            </p>
+          </>
+        )}
       </section>
 
       <section className="panel h2h-panel" id="head-to-head">
