@@ -283,7 +283,7 @@ function ProbabilityStrip({ model }) {
   );
 }
 
-function PredictionsTable({ matches, title = "", activeMarket = "HDA" }) {
+function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState = null }) {
   return (
     <section className="ft-table-section">
       {title && <div className="ft-league-section-title">
@@ -338,7 +338,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA" }) {
               <MarketOdds match={match} marketKey={activeMarket} />
             </a>
           );
-        }) : (
+        }) : feedState?.status === "error" ? (
+          <div className="ft-empty">
+            <strong>Fixture feed temporarily unavailable</strong>
+            <small>Fixture counts remain unknown until the next successful source refresh.</small>
+          </div>
+        ) : (
           <div className="ft-empty">No fixtures are available in the current feed.</div>
         )}
       </div>
@@ -436,6 +441,11 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
 
 export default function HomepageClient({ initialFeed, nowMs }) {
   const [feed, setFeed] = useState(initialFeed || { matches: [] });
+  const [feedState, setFeedState] = useState(
+    Array.isArray(initialFeed?.matches) && initialFeed.matches.length
+      ? { status: "ready", message: null }
+      : { status: "loading", message: null }
+  );
   const [dayOffset, setDayOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState("");
@@ -449,10 +459,27 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     async function refresh() {
       try {
         const res = await fetch(FEED_URL, { cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          let message = `HTTP ${res.status}`;
+          try {
+            const failure = await res.json();
+            message = [failure?.error, failure?.message].filter(Boolean).join(" · ") || message;
+          } catch {}
+          if (!cancelled) setFeedState({ status: "error", message });
+          return;
+        }
         const next = await res.json();
-        if (!cancelled && Array.isArray(next.matches)) setFeed(next);
-      } catch {}
+        if (!Array.isArray(next?.matches)) {
+          if (!cancelled) setFeedState({ status: "error", message: "Feed response did not contain a fixture list" });
+          return;
+        }
+        if (!cancelled) {
+          setFeed(next);
+          setFeedState({ status: "ready", message: null });
+        }
+      } catch {
+        if (!cancelled) setFeedState({ status: "error", message: "Feed refresh request failed" });
+      }
     }
     refresh();
     const timer = setInterval(refresh, 60000);
@@ -564,8 +591,20 @@ export default function HomepageClient({ initialFeed, nowMs }) {
                 <button className={activeMarket === key ? "active" : ""} key={key} onClick={() => setActiveMarket(key)}>{label}</button>
               ))}
             </div>
-            <div className="ft-result-count"><b>{visible.length}</b> matches shown</div>
+            <div className="ft-result-count">
+              <b>{feedState.status === "error" && matches.length === 0 ? "—" : visible.length}</b>
+              {feedState.status === "error"
+                ? (matches.length ? " cached matches · feed unavailable" : " feed unavailable")
+                : " matches shown"}
+            </div>
           </div>
+
+          {feedState.status === "error" && matches.length > 0 ? (
+            <section className="ft-form-note" role="status">
+              <Activity size={18} />
+              <span><strong>Fixture feed temporarily unavailable.</strong> Showing the last successful fixture list; freshness is unknown until refresh recovers.</span>
+            </section>
+          ) : null}
 
           {visible.some((m) => m.liveNow) ? (
             <div className="ft-live-ribbon">
@@ -579,10 +618,10 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <div className="ft-grouped-board">
             {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
               <div key={league}>
-                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} />
+                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} />
                 {index === 0 && <AdvertSlot variant="wide" />}
               </div>
-            )) : <PredictionsTable matches={[]} />}
+            )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
           </div>
 
           {showForm && (

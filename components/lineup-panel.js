@@ -156,11 +156,15 @@ function formatHkt(value) {
 function statusTone(status) {
   return status === "CONFIRMED"
     ? { bg: palette.good, fg: "#17643f", text: "CONFIRMED 11v11" }
-    : status === "PREDICTED_FULL"
-      ? { bg: palette.warn, fg: "#845b0a", text: "PREDICTED 11v11" }
-      : status === "PARTIAL"
-        ? { bg: "#fff1e5", fg: "#8a541c", text: "PARTIAL" }
-        : { bg: "#eef1ef", fg: "#68736d", text: "WAITING" };
+    : status === "IDENTITY_BLOCKED"
+      ? { bg: "#eef1ef", fg: "#68736d", text: "CANONICAL FIXTURE UNRESOLVED" }
+      : status === "IDENTITY_PARTIAL"
+        ? { bg: "#fff1e5", fg: "#8a541c", text: "IDENTITY RECONCILIATION" }
+        : status === "PREDICTED_FULL"
+          ? { bg: palette.warn, fg: "#845b0a", text: "PREDICTED 11v11" }
+          : status === "PARTIAL"
+            ? { bg: "#fff1e5", fg: "#8a541c", text: "PARTIAL" }
+            : { bg: "#eef1ef", fg: "#68736d", text: "WAITING" };
 }
 
 function statusLabel(row) {
@@ -191,6 +195,10 @@ function statusName(row) {
     || row?.raw?.player_name
     || row?.player_key
     || "Unknown player";
+}
+
+function factStatus(row) {
+  return String(row?.fact_status || "").toUpperCase();
 }
 
 function statusSide(row) {
@@ -464,9 +472,17 @@ export default function LineupPanel() {
 
   const view = useMemo(() => {
     const hf = getHumanFactors(payload);
-    const rows = findLineup(payload);
+    const sourceRows = findLineup(payload);
     const fixture = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
     const meta = hf?.lineupMeta || hf?.lineup_meta || payload?.lineupMeta || payload?.lineup_meta || {};
+    const identityAnnotated = sourceRows.some((r) => Boolean(r?.fact_status));
+    const unresolvedIdentityRows = identityAnnotated
+      ? sourceRows.filter((r) => factStatus(r) === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
+      : [];
+    const rows = identityAnnotated
+      ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
+      : sourceRows;
+    const canonicalFixtureMissing = String(payload?.fixtureSource || "").toUpperCase() === "MISSING";
     const home = rows.filter((r) => side(r) === "H");
     const away = rows.filter((r) => side(r) === "A");
     const confirmedRows = rows.filter((r) => r?.confirmed === true);
@@ -476,15 +492,23 @@ export default function LineupPanel() {
     const awayStarters = away.filter((r) => r?.starter !== false);
     const homeBench = home.filter((r) => r?.starter === false);
     const awayBench = away.filter((r) => r?.starter === false);
-    const status = meta?.status
-      || (homeStarters.length >= 11 && awayStarters.length >= 11
-        ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
-        : rows.length ? "PARTIAL" : "MISSING");
+    const status = canonicalFixtureMissing
+      ? "IDENTITY_BLOCKED"
+      : unresolvedIdentityRows.length
+        ? "IDENTITY_PARTIAL"
+        : meta?.status
+          || (homeStarters.length >= 11 && awayStarters.length >= 11
+            ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
+            : rows.length ? "PARTIAL" : "MISSING");
     const confidence = avgConfidence(rows);
-    const source = meta?.source || rows[0]?.source_name || null;
-    const sourceUrl = rows.find((r) => r?.source_url)?.source_url || null;
-    const evidenceSources = meta?.evidenceSources || [...new Set(rows.map((r) => r?.source_name).filter(Boolean))];
-    const playerStatus = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
+    const source = meta?.source || sourceRows[0]?.source_name || null;
+    const sourceUrl = sourceRows.find((r) => r?.source_url)?.source_url || null;
+    const evidenceSources = meta?.evidenceSources || [...new Set(sourceRows.map((r) => r?.source_name).filter(Boolean))];
+    const playerStatusRaw = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
+    const playerStatusAnnotated = playerStatusRaw.some((r) => Boolean(r?.fact_status));
+    const playerStatus = playerStatusAnnotated
+      ? playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")
+      : playerStatusRaw;
     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
     const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
       : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
@@ -497,21 +521,32 @@ export default function LineupPanel() {
     const conflicts = rows.filter((r) => statusNames.has(String(r?.player_name || "").toLowerCase()));
 
     return {
-      rows, home, away, homeStarters, awayStarters, homeBench, awayBench,
+      rows, sourceRows, unresolvedIdentityRows, canonicalFixtureMissing,
+      unresolvedHome: unresolvedIdentityRows.filter((r) => side(r) === "H").length,
+      unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
+      home, away, homeStarters, awayStarters, homeBench, awayBench,
       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
-      playerStatus, managers, conflicts, homeStrength, awayStrength,
+      playerStatus, playerStatusRaw, managers, conflicts, homeStrength, awayStrength,
       homeFormation: normalizeFormation(formation(homeStarters)),
       awayFormation: normalizeFormation(formation(awayStarters)),
       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
       tournament: fixture.league || fixture.tournament || null,
-      updatedAt: sourceUpdated(rows),
+      updatedAt: sourceUpdated(sourceRows),
     };
   }, [payload]);
 
   if (!id) return null;
 
   const tone = statusTone(view.status);
-  const ready = view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
+  const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
+  const ready = !identityBlocked && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
+  const homeCount = identityBlocked
+    ? (view.homeStarters.length ? `${view.homeStarters.length}/11 resolved` : "—/11")
+    : `${view.homeStarters.length}/11`;
+  const awayCount = identityBlocked
+    ? (view.awayStarters.length ? `${view.awayStarters.length}/11 resolved` : "—/11")
+    : `${view.awayStarters.length}/11`;
+  const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked ? " · identity not complete" : ""}`;
   const tabs = [
     ["formation","Formation"],
     ["squad","Squad"],
@@ -526,7 +561,7 @@ export default function LineupPanel() {
           <div>
             <span>FULL LINEUP TOOL</span>
             <strong>{view.homeTeam} vs {view.awayTeam}</strong>
-            <small>{tone.text} · {view.homeStarters.length}/11 home · {view.awayStarters.length}/11 away</small>
+            <small>{tone.text} · {countSummary}</small>
           </div>
           <b>Open lineups</b>
         </summary>
@@ -546,8 +581,16 @@ export default function LineupPanel() {
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(82px,1fr))",gap:7,minWidth:280}}>
-              <Metric label="HOME XI" value={view.homeStarters.length + "/11"} detail={view.homeFormation || "formation pending"} />
-              <Metric label="AWAY XI" value={view.awayStarters.length + "/11"} detail={view.awayFormation || "formation pending"} />
+              <Metric
+                label="HOME XI"
+                value={homeCount}
+                detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedHome ? `${view.unresolvedHome} source-confirmed row(s) await identity` : (view.homeFormation || "formation pending")}
+              />
+              <Metric
+                label="AWAY XI"
+                value={awayCount}
+                detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedAway ? `${view.unresolvedAway} source-confirmed row(s) await identity` : (view.awayFormation || "formation pending")}
+              />
               <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : "prediction evidence"} />
             </div>
           </div>
@@ -572,8 +615,8 @@ export default function LineupPanel() {
         {!loading && !ready && view.rows.length === 0 ? (
           <div style={{padding:22}}>
             <div style={{padding:18,border:"1px dashed #cdd9d1",borderRadius:14,background:"#fff"}}>
-              <b style={{display:"block",fontSize:14,color:palette.ink}}>Waiting for reliable 11v11 lineups</b>
-              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions.</small>
+              <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedIdentityRows.length ? "Source lineup exists, but player identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
+              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>{view.canonicalFixtureMissing ? "Lineup rows are not promoted while the canonical fixture gate is unresolved." : view.unresolvedIdentityRows.length ? `${view.unresolvedIdentityRows.length} source-confirmed row(s) remain outside confirmed XI counts until canonical player identity resolves.` : "This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions."}</small>
             </div>
           </div>
         ) : null}

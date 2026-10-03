@@ -532,6 +532,7 @@ export default function MatchDetailClient() {
 
     let cancelled = false;
     let resolvedFresh = false;
+    let canonicalMissing = false;
 
     async function refreshMatch() {
       try {
@@ -559,6 +560,16 @@ export default function MatchDetailClient() {
         const payload = await res.json();
         if (cancelled || payload?.error) return;
         setDeep(payload);
+        if (payload?.fixtureSource === "MISSING" && !payload?.fixture) {
+          canonicalMissing = true;
+          if (!resolvedFresh) {
+            setMatch(null);
+            setSource("SUPABASE DETAIL · canonical fixture missing");
+          }
+          // The detail endpoint has answered conclusively. Do not keep the
+          // route behind slower feed/live requests when canonical identity is missing.
+          setReady(true);
+        }
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
           setMatch((previous) => {
@@ -624,7 +635,7 @@ export default function MatchDetailClient() {
 
     Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail()]).then(() => {
       if (cancelled) return;
-      if (!resolvedFresh && cached) {
+      if (!resolvedFresh && cached && !canonicalMissing) {
         setMatch(cached);
         setSource("FALLBACK CACHE");
       }
@@ -699,12 +710,40 @@ export default function MatchDetailClient() {
   }
 
   if (!match) {
+    const canonicalFixtureMissing = deep?.fixtureSource === "MISSING" && !deep?.fixture;
+    const auxiliaryEvidenceCount = [
+      deep?.models?.internal,
+      deep?.models?.forebet,
+      deep?.models?.form,
+      deep?.models?.opta,
+      deep?.models?.multisource,
+      Array.isArray(deep?.humanFactors?.lineup) && deep.humanFactors.lineup.length ? deep.humanFactors.lineup : null,
+      Array.isArray(deep?.humanFactors?.playerStatus) && deep.humanFactors.playerStatus.length ? deep.humanFactors.playerStatus : null,
+    ].filter(Boolean).length;
     return (
       <main className="shell detail-shell">
         <div className="detail-top"><a href="/" className="back">← Back to matches</a><span>{id}</span></div>
         <section className="panel">
-          <div className="panel-title"><div><p>MATCH</p><h2>Match data is currently unavailable</h2></div></div>
-          <p className="fineprint">This route is available, but the current data source has not supplied this match. Return to the match list to choose another fixture.</p>
+          <div className="panel-title">
+            <div>
+              <p>MATCH</p>
+              <h2>{canonicalFixtureMissing ? "Canonical fixture is unavailable" : "Match data is currently unavailable"}</h2>
+            </div>
+          </div>
+          {canonicalFixtureMissing ? (
+            <>
+              <p className="fineprint">
+                Supporting records exist for this event ID, but no current canonical HKJC fixture was resolved.
+                Those records are not promoted into a match card, current prices, recommendation or confirmed lineup claim.
+              </p>
+              <p className="fineprint">
+                Identity gate active · {auxiliaryEvidenceCount || "no"} supporting evidence group{auxiliaryEvidenceCount === 1 ? "" : "s"} detected.
+                Article and market comparison remain unavailable until canonical fixture identity is restored.
+              </p>
+            </>
+          ) : (
+            <p className="fineprint">This route is available, but the current data source has not supplied this match. Return to the match list to choose another fixture.</p>
+          )}
         </section>
       </main>
     );

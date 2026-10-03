@@ -171,9 +171,10 @@ function deepFacts(detail: any, language: string): string {
       ? `H/D/A ${pctText(f.hda.home)}/${pctText(f.hda.draw)}/${pctText(f.hda.away)}`
       : "";
     const score=f.predictedScore ? `${language==="en"?"predicted score":"預測比分"} ${f.predictedScore}` : "";
-    const goals=f.avgGoals!==null ? `${language==="en"?"average goals":"平均入球"} ${Number(f.avgGoals).toFixed(2)}` : "";
-    const corners=f.corners?.avg!==null
-      ? `${language==="en"?"corners":"角球"} ${f.corners.pick||"—"} 9.5 · avg ${Number(f.corners.avg).toFixed(2)} · O/U ${pctText(f.corners.over95)}/${pctText(f.corners.under95)}`
+    const goals=num(f.avgGoals)!==null ? `${language==="en"?"average goals":"平均入球"} ${Number(f.avgGoals).toFixed(2)}` : "";
+    const cornerAvg=num(f.corners?.avg);
+    const corners=cornerAvg!==null
+      ? `${language==="en"?"corners":"角球"} ${f.corners?.pick||"—"} 9.5 · avg ${cornerAvg.toFixed(2)} · O/U ${pctText(f.corners?.over95)}/${pctText(f.corners?.under95)}`
       : "";
     parts.push(["Forebet",hda,score,goals,corners].filter(Boolean).join(" · "));
   }
@@ -331,10 +332,10 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
     ? (language==="en"
       ? `Corners market: ${corners.selectionLabel || corners.selection} at line ${corners.line ?? "—"}; treat single-family evidence as watch-level until independently confirmed.`
       : `角球環境：現時偏 ${corners.selectionLabel || corners.selection}，盤口 ${corners.line ?? "—"}；如果仍然只得單一 evidence family，就維持 WATCH 級。`)
-    : fb?.corners?.avg!==null
+    : num(fb?.corners?.avg)!==null
       ? (language==="en"
-        ? `Corners context: Forebet average ${Number(fb.corners.avg).toFixed(1)}, reference lean ${fb.corners.pick || "—"} 9.5; HKJC-comparable direction is not yet reliable.`
-        : `角球環境：Forebet 平均約 ${Number(fb.corners.avg).toFixed(1)} 個，reference 偏 ${fb.corners.pick || "—"} 9.5；但同 HKJC 可直接比較嘅方向暫未夠可靠。`)
+        ? `Corners context: Forebet average ${Number(fb?.corners?.avg).toFixed(1)}, reference lean ${fb?.corners?.pick || "—"} 9.5; HKJC-comparable direction is not yet reliable.`
+        : `角球環境：Forebet 平均約 ${Number(fb?.corners?.avg).toFixed(1)} 個，reference 偏 ${fb?.corners?.pick || "—"} 9.5；但同 HKJC 可直接比較嘅方向暫未夠可靠。`)
       : (language==="en" ? "Corners market: insufficient comparable evidence." : "角球環境：可比較 evidence 暫時不足。");
 
   const turningPoints:any[]=[];
@@ -466,7 +467,7 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
       partsZh.push(`預測比分 ${f.predictedScore}`);
       partsEn.push(`a projected score of ${f.predictedScore}`);
     }
-    if (f.avgGoals !== null) {
+    if (num(f.avgGoals) !== null) {
       partsZh.push(`平均入球 ${Number(f.avgGoals).toFixed(2)}`);
       partsEn.push(`average goals ${Number(f.avgGoals).toFixed(2)}`);
     }
@@ -474,12 +475,12 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
       zhStory.push(`Forebet 提供嘅比賽形態係${partsZh.join("、")}。`);
       enStory.push(`Forebet describes the likely match shape with ${partsEn.join(" and ")}.`);
     }
-    if (f.corners?.avg !== null) {
+    if (num(f.corners?.avg) !== null) {
       zhStory.push(
-        `角球方面，Forebet 偏向 ${f.corners.pick || "—"} 9.5，模型平均 ${Number(f.corners.avg).toFixed(2)} 個角球，O/U 9.5 機率約 ${pctText(f.corners.over95)}/${pctText(f.corners.under95)}。`
+        `角球方面，Forebet 偏向 ${f.corners?.pick || "—"} 9.5，模型平均 ${Number(f.corners?.avg).toFixed(2)} 個角球，O/U 9.5 機率約 ${pctText(f.corners?.over95)}/${pctText(f.corners?.under95)}。`
       );
       enStory.push(
-        `For corners, Forebet leans ${f.corners.pick || "—"} 9.5, averaging ${Number(f.corners.avg).toFixed(2)} corners with O/U 9.5 probabilities of about ${pctText(f.corners.over95)}/${pctText(f.corners.under95)}.`
+        `For corners, Forebet leans ${f.corners?.pick || "—"} 9.5, averaging ${Number(f.corners?.avg).toFixed(2)} corners with O/U 9.5 probabilities of about ${pctText(f.corners?.over95)}/${pctText(f.corners?.under95)}.`
       );
     }
   }
