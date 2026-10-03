@@ -122,7 +122,7 @@ function liveAgeSeconds(value) {
 }
 
 function liveAgeLabel(seconds) {
-  if (!Number.isFinite(seconds)) return "等待";
+  if (!Number.isFinite(seconds)) return "Waiting";
   if (seconds < 60) return seconds + "s";
   if (seconds < 3600) return Math.round(seconds / 60) + "m";
   return Math.round(seconds / 3600) + "h";
@@ -135,9 +135,9 @@ function liveLaneStatus(value, warnSeconds, staleSeconds) {
 }
 
 function controlSideLabel(match, side) {
-  if (side === "H") return match.homeZh || match.home || "主";
-  if (side === "A") return match.awayZh || match.away || "客";
-  if (side === "BALANCED") return "均衡";
+  if (side === "H") return match.home || match.homeEn || match.homeZh || "Home";
+  if (side === "A") return match.away || match.awayEn || match.awayZh || "Away";
+  if (side === "BALANCED") return "Balanced";
   return "—";
 }
 
@@ -146,7 +146,7 @@ function formatFormDate(value) {
   if (!value) return "—";
   const d = new Date(value);
   if (!Number.isFinite(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("zh-HK", {
+  return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong",
     month: "numeric",
     day: "numeric",
@@ -156,16 +156,16 @@ function formatFormDate(value) {
 function formQualityLabel(value) {
   const text = String(value || "");
   if (!text) return "HISTORY ONLY";
-  if (text.includes("INSUFFICIENT")) return "樣本不足";
+  if (text.includes("INSUFFICIENT")) return "INSUFFICIENT SAMPLE";
   return text.replaceAll("_", " ");
 }
 
 function h2hQualityLabel(value, games = 0) {
   const text = String(value || "").toUpperCase();
-  if (text === "H2H_OK") return `${games} 場已驗證`;
-  if (text === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY") return "未有已驗證交手";
-  if (text === "HISTORY_PARTIAL") return "歷史覆蓋中";
-  return "等待 H2H 同步";
+  if (text === "H2H_OK") return `${games} verified meetings`;
+  if (text === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY") return "No verified previous meeting";
+  if (text === "HISTORY_PARTIAL") return "History coverage partial";
+  return "H2H sync pending";
 }
 
 function pct(value, digits = 0) {
@@ -194,11 +194,11 @@ function hdaText(values) {
 function modelStateLabel(available, reason) {
   if (available) return "AVAILABLE";
   const r = String(reason || "").toUpperCase();
-  if (r.includes("SPARSE")) return "歷史樣本不足";
-  if (r.includes("INSUFFICIENT")) return "近期樣本不足";
-  if (r.includes("UNSUPPORTED")) return "未支援聯賽歷史";
+  if (r.includes("SPARSE")) return "INSUFFICIENT HISTORY";
+  if (r.includes("INSUFFICIENT")) return "INSUFFICIENT RECENT SAMPLE";
+  if (r.includes("UNSUPPORTED")) return "LEAGUE HISTORY UNSUPPORTED";
   if (r.includes("FIXTURE_ONLY")) return "只有賽程";
-  if (r.includes("SOURCE_ABSENT")) return "來源無此場";
+  if (r.includes("SOURCE_ABSENT")) return "SOURCE HAS NO MATCH";
   return reason ? String(reason).replaceAll("_", " ") : "NO DATA";
 }
 
@@ -260,7 +260,7 @@ function ModelIntelCard({ code, title, values, state, stateReason, metrics = [],
         >
           <strong style={{ color:"#66776e", fontSize:10 }}>{modelStateLabel(false, stateReason)}</strong>
           <small style={{ color:"#96a29b", fontSize:8.5, lineHeight:1.35 }}>
-            暫未有可用 probability · 保持空缺，唔用假數據補
+            No usable probability is available · unknown stays unknown
           </small>
         </div>
       )}
@@ -333,13 +333,13 @@ function TeamFormCard({ title, name, detail }) {
 
       {recent.length ? (
         <details className="form-match-details">
-          <summary>明細</summary>
+          <summary>Recent matches</summary>
           <div className="form-recent-list">
             {recent.map((row, index) => (
               <div className="form-recent-row" key={"recent-" + String(row.kickoff || index) + "-" + index}>
                 <span className={"form-mini-result form-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
                 <span className="form-date">{formatFormDate(row.kickoff)}</span>
-                <span className="form-venue">{row.venue === "H" ? "主" : row.venue === "A" ? "客" : "—"}</span>
+                <span className="form-venue">{row.venue === "H" ? "H" : row.venue === "A" ? "A" : "—"}</span>
                 <b className="form-opponent">{row.opponent || "—"}</b>
                 <strong>{row.gf ?? "—"}-{row.ga ?? "—"}</strong>
               </div>
@@ -677,7 +677,7 @@ export default function MatchDetailClient() {
       <main className="shell detail-shell">
         <div className="detail-top"><a href="/" className="back">← 返回賽事</a><span>{id}</span></div>
         <section className="panel">
-          <div className="panel-title"><div><p>MATCH</p><h2>暫時搵唔到賽事資料</h2></div></div>
+          <div className="panel-title"><div><p>MATCH</p><h2>Match data is currently unavailable</h2></div></div>
           <p className="fineprint">呢個連結唔會再去 404。資料源未提供呢場時，可以直接返回賽事列表再開。</p>
         </section>
       </main>
@@ -788,7 +788,7 @@ export default function MatchDetailClient() {
       : `機率差 ${Number(row.candidateEdgePp) >= 0 ? "+" : ""}${Number(row.candidateEdgePp).toFixed(1)}pp`;
   const totalAdviceLabel = (row) => {
     if (!row) return "分析中";
-    if (String(row.action || "").toUpperCase() === "NO_BET") return "暫不下注";
+    if (String(row.action || "").toUpperCase() === "NO_BET") return "NO BET";
     if (String(row.action || "").toUpperCase() === "PASS") return row.candidateClass === "NO_MODEL" ? "NO MODEL · PASS" : "PASS";
     return row.selectionLabel || "WATCH";
   };
@@ -885,12 +885,12 @@ export default function MatchDetailClient() {
   const injuryMax = Math.max(Number(injuriesHome) || 0, Number(injuriesAway) || 0, 1);
   const injuryGap = (Number(injuriesHome) || 0) - (Number(injuriesAway) || 0);
   const injurySignal = injuriesHome == null && injuriesAway == null
-    ? "確認身份後先計入傷停"
+    ? "Identity must resolve before injury evidence is counted"
     : injuryGap === 0
-      ? "已確認傷停數量相若"
+      ? "Confirmed absences are balanced"
       : injuryGap > 0
-        ? `主隊多 ${Math.abs(injuryGap)} 個已確認缺陣 evidence`
-        : `客隊多 ${Math.abs(injuryGap)} 個已確認缺陣 evidence`;
+        ? `Home has ${Math.abs(injuryGap)} more confirmed absence record${Math.abs(injuryGap) === 1 ? "" : "s"}`
+         : `Away has ${Math.abs(injuryGap)} more confirmed absence record${Math.abs(injuryGap) === 1 ? "" : "s"}`;
   const multiSources = match.multi?.sourceNames || multiDeep.sources_consensus || multiDeep.sources_total || [];
   const modelCardsAvailable = [match.forebet, match.dc, match.pi, match.form, match.multi].filter(probabilityAvailable).length;
   const optaData = optaDeep && Object.keys(optaDeep).length ? optaDeep : (match.power || {});
@@ -945,10 +945,10 @@ export default function MatchDetailClient() {
         : primarySide === "A" ? Number(market?.away)
           : null;
   const primarySelectionLabel = analysisDecision?.selectionLabel
-    || (primarySide ? sideName(match, primarySide) : "暫無明確投注位");
+    || (primarySide ? sideName(match, primarySide) : "No clear market position");
   const rawAction = String(analysisDecision?.action || (primaryEdgePp != null && primaryEdgePp >= 2.5 ? "WATCH" : "PASS")).toUpperCase();
-  const actionLabel = rawAction === "NO_BET" ? "暫不下注"
-    : rawAction === "PASS" ? "暫時跳過"
+  const actionLabel = rawAction === "NO_BET" ? "NO BET"
+    : rawAction === "PASS" ? "PASS"
       : rawAction.includes("STRONG") ? "強 Edge 候選"
         : rawAction.includes("VALUE") ? "Value 候選"
           : rawAction.includes("LEAN") ? "輕微傾向"
@@ -959,17 +959,17 @@ export default function MatchDetailClient() {
   const decisionCleared = !["NO_BET", "PASS"].includes(rawAction);
   // Keep the original recommendation visible even when governance/data gates
   // downgrade execution. A gate is a warning, not a reason to erase the pick.
-  const pickLabel = "主要投注位";
+  const pickLabel = "PRIMARY MARKET";
   const gapLabel = referencePriceOnly ? "REFERENCE GAP" : Number.isFinite(primaryExpectedValuePct) ? "現價 EV" : "精算 EDGE";
-  const gateLabel = rawAction === "NO_BET" ? "未通過投注 Gate"
-    : rawAction === "PASS" ? "目前無投注需要"
+  const gateLabel = rawAction === "NO_BET" ? "Decision gate blocked"
+    : rawAction === "PASS" ? "No current bet required"
       : rawAction.includes("WATCH") ? "觀察中"
         : "候選已形成";
   const gateDetail = story?.invalidators?.length
     ? story.invalidators.slice(0, 3).join(" · ")
     : analysis?.invalidators?.length
       ? analysis.invalidators.slice(0, 3).join(" · ")
-      : decisionCleared ? "目前未見主要 data-risk flag" : "等待更多可驗證 evidence";
+      : decisionCleared ? "No major data-risk flag is active" : "Waiting for more verifiable evidence";
   const rawBlockers = Array.isArray(story?.invalidators) && story.invalidators.length
     ? story.invalidators
     : Array.isArray(analysis?.invalidators) ? analysis.invalidators : [];
@@ -977,15 +977,15 @@ export default function MatchDetailClient() {
     const t = String(item || "");
     if (/fallback/i.test(t)) return "非 canonical feed";
     if (/不新鮮|stale|freshness/i.test(t)) return "市場價格未夠新";
-    if (/evidence family|獨立 evidence/i.test(t)) return "模型來源不足";
-    if (/XI|lineup/i.test(t)) return "正選未確認";
+    if (/evidence family|獨立 evidence/i.test(t)) return "Insufficient independent model evidence";
+    if (/XI|lineup/i.test(t)) return "Lineup not confirmed";
     if (/Phase 5|calibration/i.test(t)) return "Calibration 未過";
     if (/health/i.test(t)) return "Data health 未過";
     return t.length > 18 ? t.slice(0, 18) + "…" : t;
   });
   const fallbackAdvice = primarySide && (primaryExpectedValuePct != null || primaryEdgePp != null)
     ? `${primarySelectionLabel} @ ${Number.isFinite(primaryOdds) ? primaryOdds.toFixed(2) : "—"} · ${Number.isFinite(primaryExpectedValuePct) ? "EV " + (primaryExpectedValuePct >= 0 ? "+" : "") + primaryExpectedValuePct.toFixed(1) + "%" : "機率差 " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}`
-    : "現時未有足夠資料形成清晰投注位。";
+    : "There is not enough verified evidence for a clear market position.";
   const bettingAdvice = story?.bettingAdvice?.thesis || analysis?.story?.advice || fallbackAdvice;
   const storyMode = story?.engine?.mode || null;
   const storyContent = story?.story || null;
@@ -998,19 +998,19 @@ export default function MatchDetailClient() {
     alignments: editorialAlignmentRows.filter((signal) => signal.source === row.source),
   }));
   const editorialSignalLabel = (signal) => {
-    const market = signal.market === "GOALS_OU" ? "入球" : signal.market === "CORNERS_OU" ? "角球" : "HDA";
+    const market = signal.market === "GOALS_OU" ? "Goals" : signal.market === "CORNERS_OU" ? "Corners" : "HDA";
     const selection = signal.editorialSelection === "OVER" ? "大"
       : signal.editorialSelection === "UNDER" ? "細"
-        : signal.editorialSelection === "H" ? "主"
+        : signal.editorialSelection === "H" ? "Home"
           : signal.editorialSelection === "D" ? "和"
-            : signal.editorialSelection === "A" ? "客"
+            : signal.editorialSelection === "A" ? "Away"
               : signal.editorialSelection || "—";
     const line = signal.editorialLine == null ? "" : " " + signal.editorialLine;
     return market + " " + selection + line;
   };
-  const editorialStatusLabel = (status) => status === "SUPPORT" ? "同模型一致"
-    : status === "CONTRADICT" ? "同模型相反"
-      : status === "DIFFERENT_LINE" ? "不同盤口"
+  const editorialStatusLabel = (status) => status === "SUPPORT" ? "Supports model"
+    : status === "CONTRADICT" ? "Contradicts model"
+      : status === "DIFFERENT_LINE" ? "Different line"
         : "Context";
   const storyEvidence = story?.evidenceSummary || {};
   const storyEvidenceTags = [
@@ -1025,9 +1025,9 @@ export default function MatchDetailClient() {
   const sourceModeLabel = analysisSourceMode.includes("FALLBACK") ? "DB FALLBACK" : analysisSourceMode.includes("CANONICAL") ? "CANONICAL FEED" : "SOURCE CHECK";
   const priceStatusLabel = referencePriceOnly ? "REFERENCE ONLY" : "CURRENT";
   const sideRows = [
-    { key: "H", label: match.homeZh || match.home || "主", odds: referencePriceOnly ? null : match.odds?.home, fair: market?.home },
+    { key: "H", label: match.home || match.homeEn || match.homeZh || "Home", odds: referencePriceOnly ? null : match.odds?.home, fair: market?.home },
     { key: "D", label: "和", odds: referencePriceOnly ? null : match.odds?.draw, fair: market?.draw },
-    { key: "A", label: match.awayZh || match.away || "客", odds: referencePriceOnly ? null : match.odds?.away, fair: market?.away },
+    { key: "A", label: match.away || match.awayEn || match.awayZh || "Away", odds: referencePriceOnly ? null : match.odds?.away, fair: market?.away },
   ];
 
   const recommendationRows = [
@@ -1039,7 +1039,7 @@ export default function MatchDetailClient() {
       edgePp: Number.isFinite(primaryEdgePp) ? primaryEdgePp : null,
       expectedValuePct: Number.isFinite(primaryExpectedValuePct) ? primaryExpectedValuePct : null,
       action: rawAction,
-      note: referencePriceOnly ? "REFERENCE PRICE" : "原本主推",
+      note: referencePriceOnly ? "REFERENCE PRICE" : "Primary HDA",
       available: Boolean(primarySide),
     },
     {
@@ -1050,29 +1050,29 @@ export default function MatchDetailClient() {
       edgePp: null,
       expectedValuePct: handicapAdvice?.expectedValuePct == null ? null : Number(handicapAdvice.expectedValuePct),
       action: String(handicapAdvice?.action || "WATCH").toUpperCase(),
-      note: handicapAdvice?.method === "MODEL_DERIVED_SCORE_DISTRIBUTION" ? "模型衍生 EV" : "讓球",
+      note: handicapAdvice?.method === "MODEL_DERIVED_SCORE_DISTRIBUTION" ? "Model-derived EV" : "Handicap",
       available: Boolean(handicapAdvice?.selection),
     },
     {
       key: "GOALS",
-      market: "入球大細",
+      market: "Goals O/U",
       selection: totalAdviceLabel(goalsAdvice),
       odds: goalsAdvice?.currentOdds == null ? null : Number(goalsAdvice.currentOdds),
       edgePp: goalsAdvice?.candidateEdgePp == null ? null : Number(goalsAdvice.candidateEdgePp),
       expectedValuePct: goalsAdvice?.expectedValuePct == null ? null : Number(goalsAdvice.expectedValuePct),
       action: String(goalsAdvice?.action || "WATCH").toUpperCase(),
-      note: goalsAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "次選",
+      note: goalsAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "Secondary",
       available: Boolean(goalsAdvice?.selection),
     },
     {
       key: "CORNERS",
-      market: "角球大細",
+      market: "Corners O/U",
       selection: totalAdviceLabel(cornersAdvice),
       odds: cornersAdvice?.currentOdds == null ? null : Number(cornersAdvice.currentOdds),
       edgePp: cornersAdvice?.candidateEdgePp == null ? null : Number(cornersAdvice.candidateEdgePp),
       expectedValuePct: cornersAdvice?.expectedValuePct == null ? null : Number(cornersAdvice.expectedValuePct),
       action: String(cornersAdvice?.action || "WATCH").toUpperCase(),
-      note: cornersAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "備選",
+      note: cornersAdvice?.oddsStatus === "REFERENCE_STALE" ? "MODEL / REF" : "Alternative",
       available: Boolean(cornersAdvice?.selection),
     },
   ].filter((row) => row.available);
@@ -1082,9 +1082,9 @@ export default function MatchDetailClient() {
   const phase4Arbs = Array.isArray(marketIntel.arbitrage) ? marketIntel.arbitrage : [];
   const bestValue = marketIntel.bestValue || phase4Values[0] || null;
   const phase4SelectionLabel = (selection) => {
-    if (selection === "HOME") return match.homeZh || match.home || "主勝";
+    if (selection === "HOME") return match.home || match.homeEn || match.homeZh || "Home";
     if (selection === "DRAW") return "和";
-    if (selection === "AWAY") return match.awayZh || match.away || "客勝";
+    if (selection === "AWAY") return match.away || match.awayEn || match.awayZh || "Away";
     return selection || "—";
   };
   const phase4Sources = Number(bestValue?.model_source_count || 0);
@@ -1239,13 +1239,13 @@ export default function MatchDetailClient() {
         </div>
 
         <div className="detail-advice-line">
-          <span>精算結論</span>
+          <span>Decision</span>
           <p>{bettingAdvice}</p>
         </div>
 
         {recommendationRows.length > 1 ? (
           <div className="detail-extra-recommendations">
-            <span>其他投注建議</span>
+            <span>Other market ideas</span>
             <div>
               {recommendationRows.slice(1, 4).map((row, index) => (
                 <div className="detail-extra-recommendation" key={row.key}>
@@ -1265,18 +1265,27 @@ export default function MatchDetailClient() {
           </div>
         ) : null}
         <div style={{ marginTop:6, color:"#7a8981", fontSize:8.5, fontWeight:750 }}>
-          HDA / 大細 / 角球 Edge 用 probability points (pp)；亞洲讓球因為有走盤、半贏半輸，改用模型衍生 EV%，兩者唔應混埋比較。
+          HDA, goals and corners edges use probability points (pp). Asian handicap uses model-derived EV% because push and half-win/half-loss outcomes make the measures non-equivalent.
         </div>
 
         {!decisionCleared && blockerTags.length ? (
           <div className="detail-blocker-line">
-            <span>未通過</span>
+            <span>Blocked by</span>
             <div>{blockerTags.map((tag, index) => <b key={tag + index}>{tag}</b>)}</div>
           </div>
         ) : null}
       </section>
 
       <EvidenceArticle match={match} deep={deep} analysis={analysis} story={story} />
+
+      <nav className="detail-section-nav" aria-label="Match detail sections">
+        <a href="#model-consensus">Models</a>
+        <a href="#market-totals">Goals & corners</a>
+        <a href="#team-form">Form</a>
+        <a href="#head-to-head">H2H</a>
+        <a href="#team-news">Team news</a>
+        <a href="#analysis">Article</a>
+      </nav>
 
       {false && storyContent ? (
         <section className="panel match-story-panel analyst-brief-panel">
@@ -1453,9 +1462,9 @@ export default function MatchDetailClient() {
         </section>
       ) : null}
 
-      <section className="panel model-visual-panel">
+      <section className="panel model-visual-panel" id="model-consensus">
         <div className="panel-title">
-          <div><p>MODEL CONSENSUS</p><h2>邊個模型支持呢個投注位</h2></div>
+          <div><p>MODEL CONSENSUS</p><h2>Which models support the current position?</h2></div>
           <span>{primarySide || "—"} · {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "% fair" : "market pending"}</span>
         </div>
         <ModelEdgeChart
@@ -1661,15 +1670,15 @@ export default function MatchDetailClient() {
         </section>
       )}
 
-      <section className="panel totals-board-panel">
-        <div className="panel-title"><div><p>HKJC TOTALS</p><h2>入球及角球</h2></div></div>
+      <section className="panel totals-board-panel" id="market-totals">
+        <div className="panel-title"><div><p>HKJC MARKETS</p><h2>Goals and corners</h2></div></div>
         <div className="totals-board">
           <div className="totals-row">
-            <div className="totals-name"><span>入球大細</span><b>盤口 {match.goals?.line || "—"}</b></div>
-            <div className="totals-prices"><b>大 {match.goals?.line || "—"} · {formatOdds(match.goals?.over)}</b><b>細 {match.goals?.line || "—"} · {formatOdds(match.goals?.under)}</b></div>
+            <div className="totals-name"><span>Goals O/U</span><b>Line {match.goals?.line || "—"}</b></div>
+            <div className="totals-prices"><b>Over {match.goals?.line || "—"} · {formatOdds(match.goals?.over)}</b><b>Under {match.goals?.line || "—"} · {formatOdds(match.goals?.under)}</b></div>
             <div className="totals-model-note">
               <div className={"totals-suggestion " + totalAdviceTone(goalsAdvice)}>
-                <span>建議</span>
+                <span>Signal</span>
                 <strong>{totalAdviceLabel(goalsAdvice)}</strong>
                 {goalsAdvice?.currentOdds != null ? <em>@ {formatOdds(goalsAdvice.currentOdds)}</em> : null}
                 <b>{totalAdviceEdge(goalsAdvice)}</b>
@@ -1677,18 +1686,18 @@ export default function MatchDetailClient() {
               </div>
               {goalsLineModel?.over != null
                 ? <small className={goalsLineModel.derived ? "line-derived" : ""}>
-                    {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · 大 {(goalsLineModel.over * 100).toFixed(0)}% · 細 {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
+                    {goalsLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · Over {(goalsLineModel.over * 100).toFixed(0)}% · Under {(goalsLineModel.under * 100).toFixed(0)}% · Avg {goalsLineModel.avg ?? "—"}
                   </small>
-                : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "同線模型 NO DATA"}</small>}
+                : <small className={goalsCompare.comparable ? "" : "line-warning"}>{goalsCompare.label || "Same-line model unavailable"}</small>}
             </div>
           </div>
 
           <div className="totals-row">
-            <div className="totals-name"><span>角球大細</span><b>盤口 {match.corners?.line || "—"}</b></div>
-            <div className="totals-prices"><b>大 {match.corners?.line || "—"} · {formatOdds(match.corners?.over)}</b><b>細 {match.corners?.line || "—"} · {formatOdds(match.corners?.under)}</b></div>
+            <div className="totals-name"><span>Corners O/U</span><b>Line {match.corners?.line || "—"}</b></div>
+            <div className="totals-prices"><b>Over {match.corners?.line || "—"} · {formatOdds(match.corners?.over)}</b><b>Under {match.corners?.line || "—"} · {formatOdds(match.corners?.under)}</b></div>
             <div className="totals-model-note">
               <div className={"totals-suggestion " + totalAdviceTone(cornersAdvice)}>
-                <span>建議</span>
+                <span>Signal</span>
                 <strong>{totalAdviceLabel(cornersAdvice)}</strong>
                 {cornersAdvice?.currentOdds != null ? <em>@ {formatOdds(cornersAdvice.currentOdds)}</em> : null}
                 <b>{totalAdviceEdge(cornersAdvice)}</b>
@@ -1696,9 +1705,9 @@ export default function MatchDetailClient() {
               </div>
               {cornersLineModel?.over != null
                 ? <small className={cornersLineModel.derived ? "line-derived" : ""}>
-                    {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · 大 {(cornersLineModel.over * 100).toFixed(0)}% · 細 {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
+                    {cornersLineModel.derived ? "MODEL-DERIVED" : "FOREBET"} · Over {(cornersLineModel.over * 100).toFixed(0)}% · Under {(cornersLineModel.under * 100).toFixed(0)}% · Avg {cornersLineModel.avg == null ? "—" : Number(cornersLineModel.avg).toFixed(1)}
                   </small>
-                : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "同線模型 NO DATA"}</small>}
+                : <small className={cornersCompare.comparable ? "" : "line-warning"}>{cornersCompare.label || "Same-line model unavailable"}</small>}
             </div>
           </div>
         </div>
@@ -1707,7 +1716,7 @@ export default function MatchDetailClient() {
 
       <section className="panel model-intelligence-panel phase4-board-panel">
         <div className="panel-title">
-          <div><p>PHASE 4 · MARKET INTELLIGENCE</p><h2>Value / Arbitrage 市場掃描</h2></div>
+          <div><p>MARKET COMPARISON</p><h2>Value and price comparison</h2></div>
           <span>{String(marketIntel.mode || "DETECT_ONLY").replaceAll("_", " ")}</span>
         </div>
 
@@ -1715,7 +1724,7 @@ export default function MatchDetailClient() {
           <div className="phase4-value-cell">
             <span>TOP SIGNAL</span>
             <strong>{bestValue ? phase4SelectionLabel(bestValue.selection_key) : "—"}</strong>
-            <small>{bestValue ? (bestValue.provider_id || "—") + " @" + formatOdds(bestValue.odds_decimal) : "未有可比較 value"}</small>
+            <small>{bestValue ? (bestValue.provider_id || "—") + " @" + formatOdds(bestValue.odds_decimal)  : "No comparable value signal"}</small>
           </div>
 
           <div className="phase4-metric-cell">
@@ -1753,7 +1762,7 @@ export default function MatchDetailClient() {
 
         {(phase4Values.length || phase4Arbs.length) ? (
           <details className="model-deep-dive phase4-deep-dive">
-            <summary>完整 Phase 4 signals</summary>
+            <summary>Market comparison details</summary>
             {phase4Values.length ? (
               <div className="evidence-rows">
                 {phase4Values.slice(0, 6).map((row, index) => (
@@ -1779,36 +1788,36 @@ export default function MatchDetailClient() {
           </details>
         ) : null}
 
-        <p className="fineprint">Value 依賴模型機率；Arbitrage 只依賴可同時成交、settlement 相容嘅跨平台價格。Execution 維持 OFF / fail-closed。</p>
+        <p className="fineprint">Value signals depend on model probabilities. Arbitrage requires simultaneously available, settlement-compatible prices across distinct providers. Automatic execution remains off and fail-closed.</p>
       </section>
 
 
-      <section className="panel team-form-panel">
+      <section className="panel team-form-panel" id="team-form">
         <div className="panel-title">
-          <div><p>TEAM FORM</p><h2>近期表現比較</h2></div>
+          <div><p>TEAM FORM</p><h2>Recent form comparison</h2></div>
           <span>{formQualityLabel(match.formDetail?.quality)}</span>
         </div>
         <div className="team-form-grid">
           <TeamFormCard
-            title="主隊 HOME"
+            title="HOME"
             name={match.homeZh || match.home}
             detail={match.formDetail?.home}
           />
           <TeamFormCard
-            title="客隊 AWAY"
+            title="AWAY"
             name={match.awayZh || match.away}
             detail={match.formDetail?.away}
           />
         </div>
         <p className="fineprint">
-          最近賽果只用已確認 HKJC match results；W=勝、D=和、L=負。Model sample 係 Team-Form 模型可用樣本量，唔等同上面只展示嘅最近 5 場。
+          Recent results use confirmed HKJC match results only. W = win, D = draw, L = loss. Model sample shows the Team-Form modelling sample and is not the same as the five recent matches displayed above.
           {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
         </p>
       </section>
 
-      <section className="panel h2h-panel">
+      <section className="panel h2h-panel" id="head-to-head">
         <div className="panel-title">
-          <div><p>HEAD TO HEAD</p><h2>對賽成績</h2></div>
+          <div><p>HEAD TO HEAD</p><h2>Previous meetings</h2></div>
           <span>{h2hQualityLabel(h2hQuality, h2hGames)}</span>
         </div>
 
@@ -1818,24 +1827,24 @@ export default function MatchDetailClient() {
               <div>
                 <span>{match.homeZh || match.home}</span>
                 <strong>{h2hHomeWins}</strong>
-                <small>勝</small>
+                <small>Wins</small>
               </div>
               <div className="h2h-draw">
-                <span>和局</span>
+                <span>Draws</span>
                 <strong>{h2hDraws}</strong>
-                <small>{h2hGames} 場</small>
+                <small>{h2hGames} matches</small>
               </div>
               <div>
                 <span>{match.awayZh || match.away}</span>
                 <strong>{h2hAwayWins}</strong>
-                <small>勝</small>
+                <small>Wins</small>
               </div>
             </div>
 
             <div className="h2h-metrics">
-              <div><span>對賽入球</span><b>{h2hHomeGoals} - {h2hAwayGoals}</b></div>
-              <div><span>平均總入球</span><b>{Number.isFinite(h2hAvgGoals) ? h2hAvgGoals.toFixed(2) : "—"}</b></div>
-              <div><span>最近方向</span><b>{h2h.last5 || "—"}</b></div>
+              <div><span>H2H goals</span><b>{h2hHomeGoals} - {h2hAwayGoals}</b></div>
+              <div><span>Avg total goals</span><b>{Number.isFinite(h2hAvgGoals) ? h2hAvgGoals.toFixed(2) : "—"}</b></div>
+              <div><span>Recent sequence</span><b>{h2h.last5 || "—"}</b></div>
             </div>
 
             <div className="h2h-list">
@@ -1853,34 +1862,34 @@ export default function MatchDetailClient() {
           <div className="h2h-empty">
             <strong>
               {h2hQuality === "HISTORY_PARTIAL"
-                ? "HKJC 歷史覆蓋仍在補齊"
+                ? "HKJC history coverage is still partial"
                 : h2hQuality === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY"
-                  ? "可用 HKJC 歷史內未找到兩隊直接交手"
-                  : "H2H 資料正在同步"}
+                  ? "No direct meeting found in the available HKJC history"
+                   : "H2H data is pending"}
             </strong>
             <span>
               {h2hQuality === "HISTORY_PARTIAL"
-                ? "暫時唔將缺少對賽當成負面訊號，等歷史資料完成後再更新。"
-                : "沒有已驗證交手 ≠ FAIL；系統會保持中性，不會用不存在的數據推斷。"}
+                ? "Missing H2H is not treated as negative evidence while historical coverage is incomplete."
+                 : "No verified meeting does not imply a negative signal. The model remains neutral rather than inventing history."}
             </span>
           </div>
         )}
 
         <p className="fineprint">
-          只用 HKJC stable team ID 對應嘅已確認賽果；H / D / A 以今場主隊角度計算。最多顯示最近 5 次直接交手。
+          Only confirmed results joined through stable HKJC team IDs are used. H / D / A is expressed from the current home team perspective. Up to five recent direct meetings are shown.
           {h2h?.source ? " · Source: " + h2h.source : ""}
         </p>
       </section>
 
       <section className="panel model-intelligence-panel">
         <div className="panel-title">
-          <div><p>MODEL INTELLIGENCE</p><h2>模型實際內容</h2></div>
-          <span>{modelCardsAvailable}/5 有可用 H/D/A</span>
+          <div><p>MODEL INTELLIGENCE</p><h2>Model detail</h2></div>
+          <span>{modelCardsAvailable}/5 H/D/A models available</span>
         </div>
-        <p className="panel-intro">先睇共識，再按需要展開原始模型細節。H / D / A 同 Edge 放埋一行，方便直接比較。</p>
+        <p className="panel-intro">Start with consensus, then expand model detail only when needed. H / D / A and edge remain aligned for quick comparison.</p>
         <ModelScoreboard rows={coreModelRows} targetSide={primarySide} market={market} />
         <details className="model-deep-dive">
-          <summary>查看各模型詳細數據</summary>
+          <summary>Open model details</summary>
           <div className="model-intel-grid">
           <ModelIntelCard
             code="FOREBET"
@@ -1889,12 +1898,12 @@ export default function MatchDetailClient() {
             state={probabilityAvailable(match.forebet) ? "MODEL" : null}
             stateReason={match.health?.forebetCoverageStatus || match.health?.forebetState}
             metrics={[
-              { label: "預測比分", value: forebetDeep.predicted_score || match.forebetDetail?.predictedScore || "—" },
-              { label: "平均入球", value: forebetDeep.avg_goals == null ? "—" : numText(forebetDeep.avg_goals, 2) },
+              { label: "Predicted score", value: forebetDeep.predicted_score || match.forebetDetail?.predictedScore || "—" },
+              { label: "Average goals", value: forebetDeep.avg_goals == null ? "—" : numText(forebetDeep.avg_goals, 2) },
               { label: "O2.5 / U2.5", value: `${pct(forebetDeep.prob_over25 ?? match.forebetDetail?.ou25?.over, 0)} / ${pct(forebetDeep.prob_under25 ?? match.forebetDetail?.ou25?.under, 0)}` },
-              { label: "角球預測", value: forebetDeep.corner_predicted_score || forebetDeep.corner_prediction || "—" },
+              { label: "Corner prediction", value: forebetDeep.corner_predicted_score || forebetDeep.corner_prediction || "—" },
               { label: "O9.5 / U9.5", value: `${pct(forebetDeep.corner_prob_over95 ?? match.forebetDetail?.corners95?.over, 0)} / ${pct(forebetDeep.corner_prob_under95 ?? match.forebetDetail?.corners95?.under, 0)}` },
-              { label: "平均角球", value: forebetDeep.avg_corners == null ? "—" : numText(forebetDeep.avg_corners, 2) },
+              { label: "Average corners", value: forebetDeep.avg_corners == null ? "—" : numText(forebetDeep.avg_corners, 2) },
             ]}
             source={forebetDeep.forebet_detail_url ? "Forebet detail · " + (forebetDeep.forebet_league_short || "") : null}
           />
@@ -1906,7 +1915,7 @@ export default function MatchDetailClient() {
             state={dcDetail?.available ? "MODELED" : null}
             stateReason={dcDetail?.missingReason || dcDetail?.quality}
             metrics={[
-              { label: "xG 主 / 客", value: `${numText(dcDetail?.expectedGoals?.home, 2)} / ${numText(dcDetail?.expectedGoals?.away, 2)}` },
+              { label: "xG H / A", value: `${numText(dcDetail?.expectedGoals?.home, 2)} / ${numText(dcDetail?.expectedGoals?.away, 2)}` },
               { label: "Over 2.5", value: pct(dcDetail?.over25, 1) },
               { label: "Training", value: dcDetail?.trainingMatches ? `${dcDetail.trainingMatches} matches` : "—" },
               { label: "League", value: dcDetail?.league || "—" },
@@ -1923,7 +1932,7 @@ export default function MatchDetailClient() {
             state={piDetail?.available ? "MODELED" : null}
             stateReason={piDetail?.missingReason || piDetail?.quality}
             metrics={[
-              { label: "Rating 主 / 客", value: `${numText(piDetail?.ratings?.home, 3)} / ${numText(piDetail?.ratings?.away, 3)}` },
+              { label: "Rating H / A", value: `${numText(piDetail?.ratings?.home, 3)} / ${numText(piDetail?.ratings?.away, 3)}` },
               { label: "Rating diff", value: numText(piDetail?.ratings?.difference, 3) },
               { label: "Training", value: piDetail?.trainingMatches ? `${piDetail.trainingMatches} matches` : "—" },
               { label: "League", value: piDetail?.league || "—" },
@@ -1940,9 +1949,9 @@ export default function MatchDetailClient() {
             state={probabilityAvailable(match.form) ? "MODELED" : null}
             stateReason={formDeep.quality || match.formDetail?.quality}
             metrics={[
-              { label: "Form xG 主 / 客", value: `${numText(formDeep.form_xg_home ?? match.formDetail?.home?.expectedGoals, 2)} / ${numText(formDeep.form_xg_away ?? match.formDetail?.away?.expectedGoals, 2)}` },
-              { label: "有效樣本 主 / 客", value: `${formDeep.home_games ?? match.formDetail?.home?.modelGames ?? 0} / ${formDeep.away_games ?? match.formDetail?.away?.modelGames ?? 0}` },
-              { label: "主客場樣本", value: `${formDeep.home_venue_games ?? match.formDetail?.home?.venueGames ?? 0} / ${formDeep.away_venue_games ?? match.formDetail?.away?.venueGames ?? 0}` },
+              { label: "Form xG H / A", value: `${numText(formDeep.form_xg_home ?? match.formDetail?.home?.expectedGoals, 2)} / ${numText(formDeep.form_xg_away ?? match.formDetail?.away?.expectedGoals, 2)}` },
+              { label: "Effective sample H / A", value: `${formDeep.home_games ?? match.formDetail?.home?.modelGames ?? 0} / ${formDeep.away_games ?? match.formDetail?.away?.modelGames ?? 0}` },
+              { label: "Venue sample H / A", value: `${formDeep.home_venue_games ?? match.formDetail?.home?.venueGames ?? 0} / ${formDeep.away_venue_games ?? match.formDetail?.away?.venueGames ?? 0}` },
               { label: "Quality", value: formDeep.quality || match.formDetail?.quality || "—" },
             ]}
             source={formDeep.model_source || match.formDetail?.source}
@@ -1971,8 +1980,8 @@ export default function MatchDetailClient() {
             state={optaCoverage}
             stateReason={optaHasAny ? optaCoverage : "SOURCE_ABSENT"}
             metrics={[
-              { label: "Power 主 / 客", value: `${numText(optaHomeRating, 1)} / ${numText(optaAwayRating, 1)}` },
-              { label: "Rank 主 / 客", value: `${optaHomeRank == null ? "—" : "#" + optaHomeRank} / ${optaAwayRank == null ? "—" : "#" + optaAwayRank}` },
+              { label: "Power H / A", value: `${numText(optaHomeRating, 1)} / ${numText(optaAwayRating, 1)}` },
+              { label: "Rank H / A", value: `${optaHomeRank == null ? "—" : "#" + optaHomeRank} / ${optaAwayRank == null ? "—" : "#" + optaAwayRank}` },
               { label: "Coverage", value: optaCoverage },
               { label: "Match confidence", value: `${numText(optaData.home_match_confidence ?? optaData.homeConfidence, 2)} / ${numText(optaData.away_match_confidence ?? optaData.awayConfidence, 2)}` },
             ]}
@@ -2020,23 +2029,23 @@ export default function MatchDetailClient() {
         </section>
       )}
 
-      <section className="panel human-factor-panel">
+      <section className="panel human-factor-panel" id="team-news">
         <div className="panel-title">
-          <div><p>PHASE 2 · HUMAN FACTORS</p><h2>人為因素訊號</h2></div>
+          <div><p>TEAM NEWS</p><h2>Human factors and lineups</h2></div>
           <span>{humanQuality}</span>
         </div>
 
         <div className="human-signal-strip">
           <div className="human-signal-card">
-            <span>傷停壓力</span>
+            <span>Confirmed absences</span>
             <strong>{injurySignal}</strong>
             <div className="injury-pressure">
               <div>
-                <small>主 {injuriesHome ?? "?"}</small>
+                <small>Home {injuriesHome ?? "?"}</small>
                 <i><b style={{ width: ((Number(injuriesHome) || 0) / injuryMax * 100) + "%" }}></b></i>
               </div>
               <div>
-                <small>客 {injuriesAway ?? "?"}</small>
+                <small>Away {injuriesAway ?? "?"}</small>
                 <i><b style={{ width: ((Number(injuriesAway) || 0) / injuryMax * 100) + "%" }}></b></i>
               </div>
             </div>
@@ -2044,14 +2053,14 @@ export default function MatchDetailClient() {
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
             <span>Official XI</span>
-            <strong>{lineupConfirmed ? "已確認＋身份已解決" : lineupState === "IDENTITY_PARTIAL" ? "來源已確認 · 身份未完整" : lineupState === "PENDING" ? "等待公布" : "未配對"}</strong>
-            <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved` : "未有 confirmed lineup"}</small>
+            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
+            <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved`  : "No confirmed lineup rows"}</small>
           </div>
 
           <div className="human-signal-card">
             <span>Evidence quality</span>
             <strong>{humanQuality}</strong>
-            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : "fixture 未配對"}</small>
+            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : "fixture not matched"}</small>
           </div>
         </div>
 
@@ -2079,12 +2088,12 @@ export default function MatchDetailClient() {
             </div>
           </details>
         ) : (
-          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source 已確認，但球員 identity 未完成；未當成已確認球員事實。" : "Official lineup 尚未發布；只顯示 identity-resolved confirmed evidence，唔用 projected XI 冒充正選。"}</div>
+          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source is confirmed, but player identity reconciliation is incomplete; these rows are not treated as confirmed player facts." : "Official lineup is not yet available; only identity-resolved confirmed evidence is shown, and projected XI rows are never presented as confirmed starters."}</div>
         )}
 
         {(managerEvidence.length || playerStatusEvidence.length) ? (
           <details className="human-deep-dive">
-            <summary>查看球員 / 教練 evidence</summary>
+            <summary>Player and manager evidence</summary>
             {managerEvidence.length ? (
               <div className="evidence-rows">
                 {managerEvidence.map((row) => (
