@@ -65,10 +65,10 @@ function currentQuote(match, analysis, story) {
     side === "D" ? match?.odds?.draw :
     side === "A" ? match?.odds?.away : null;
   const observedAt =
+    analysis?.evidence?.phase1Health?.priceObservedAt ||
     analysis?.evidence?.phase1Health?.oddsUpdatedAt ||
     match?.oddsUpdatedAt ||
-    match?.updatedAt ||
-    analysis?.generatedAt ||
+    match?.health?.hkjcPriceChangedAt ||
     null;
 
   return {
@@ -204,6 +204,29 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
         <div><span>Market / selection</span><strong>{safe(quote.market)} · {safe(quote.selection)}</strong><small>{quote.line === null ? "Line not applicable / unknown" : "Line " + quote.line}</small></div>
         <div><span>Observed price</span><strong>{quoteState.stale ? "Not current" : price(quote.decimalPrice)}</strong><small>As of {dateTime(quote.observedAt)}</small></div>
         <div><span>Decision state</span><strong>{action.replaceAll("_", " ")}</strong><small>{candidate.replaceAll("_", " ")}</small></div>
+      </section>
+
+      <section className="ft-article-grid">
+        <div>
+          <span>Expected value</span>
+          <strong>{decision.expectedValuePct == null ? "Unknown" : (decision.expectedValuePct >= 0 ? "+" : "") + Number(decision.expectedValuePct).toFixed(1) + "%"}</strong>
+          <small>{decision.candidateEdgePp == null ? "Model-vs-market gap unavailable" : "Probability gap " + (decision.candidateEdgePp >= 0 ? "+" : "") + Number(decision.candidateEdgePp).toFixed(1) + "pp"}</small>
+        </div>
+        <div>
+          <span>Independent evidence</span>
+          <strong>{decision.evidenceFamilyCount == null ? "Unknown" : decision.evidenceFamilyCount + " model family" + (Number(decision.evidenceFamilyCount) === 1 ? "" : "ies")}</strong>
+          <small>{decision.supportCount == null || decision.evidenceFamilyCount == null ? "Support count unavailable" : decision.supportCount + "/" + decision.evidenceFamilyCount + " support the selected side"}</small>
+        </div>
+        <div>
+          <span>Model disagreement</span>
+          <strong>{decision.dispersion == null ? (Number(decision.evidenceFamilyCount) < 2 ? "Not measurable with <2 families" : "Unavailable") : (Number(decision.dispersion) * 100).toFixed(1) + "pp"}</strong>
+          <small>Cross-family probability spread for the selected side</small>
+        </div>
+        <div>
+          <span>Source fetch</span>
+          <strong>{dateTime(analysis?.evidence?.phase1Health?.fetchedAt || match?.health?.hkjcFetchedAt)}</strong>
+          <small>Fetch time is separate from the market-price observation shown above</small>
+        </div>
       </section>
 
       <section className="ft-article-columns">
