@@ -31,6 +31,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Verify exact recovery baseline and apply reviewed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object components/homepage-client.js)" = "eda1644bcde74362cc6cb772a97cdefe153529fa"
+          test "$(git hash-object components/match-detail-client.js)" = "8651a5b344b7c7f4fae05cbd1841bea5328b60a9"
+          test "$(git hash-object components/lineup-panel.js)" = "277a32318da4cd9b128456f9aa6e2b872a742c45"
+          test "$(git hash-object supabase/functions/app-match-story/index.ts)" = "84d0a61e3d818025be2c7f7635fa2d03731ca0d3"
+          test ! -e scripts/check-recovery-source-contract.mjs
+          test ! -e tests/recovery-flow.spec.js
+          git apply --check scripts/recovery/fast-tracker-b3d20007-recovery-reviewed.patch
+          git apply scripts/recovery/fast-tracker-b3d20007-recovery-reviewed.patch
+          test "$(git hash-object components/homepage-client.js)" = "5ad4b81c66fb47d088f9e7cacf42021c7ff516b3"
+          test "$(git hash-object components/match-detail-client.js)" = "66e1222e7653e8b01f881544c32bffbc13eb1abe"
+          test "$(git hash-object components/lineup-panel.js)" = "52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b"
+          test "$(git hash-object supabase/functions/app-match-story/index.ts)" = "bb018da84110b4782632fdf9deb9fa1ab34b0875"
+          test "$(git hash-object scripts/check-recovery-source-contract.mjs)" = "61c44d21b01a27557efc424aeca83eb3e2fb3cf7"
+          test "$(git hash-object tests/recovery-flow.spec.js)" = "c16e89712ffd43dfded19f3ddf314f20dfebdf24"
+
+      - name: Check recovery source contract
+        run: node scripts/check-recovery-source-contract.mjs
+
+
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
@@ -127,7 +150,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test tests/public-flow.spec.js --reporter=line 2>&1 | tee playwright.log
+          npx playwright test tests/public-flow.spec.js tests/recovery-flow.spec.js --reporter=line 2>&1 | tee playwright.log
           code=${PIPESTATUS[0]}
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
