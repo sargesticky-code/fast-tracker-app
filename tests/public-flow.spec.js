@@ -141,7 +141,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page) {
+async function mockApis(page, withStory = true) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
   });
@@ -157,6 +157,10 @@ async function mockApis(page) {
   await page.route("**/functions/v1/app-match-story?**", async route => {
     const url = new URL(route.request().url());
     expect(url.searchParams.get("lang")).toBe("en");
+    if (!withStory) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "story_unavailable" }) });
+      return;
+    }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(storyPayload()) });
   });
 }
@@ -188,3 +192,15 @@ for (const device of [
     expect(overflow).toBeLessThanOrEqual(2);
   });
 }
+
+test("article remains readable when English story cache/upstream is unavailable", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, false);
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Northbridge FC vs Riverside United: evidence-based match analysis")).toBeVisible();
+  await expect(page.getByText("No verified player-status evidence is currently available. This is unknown coverage, not zero injuries.")).toBeVisible();
+});
