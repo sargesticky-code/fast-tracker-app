@@ -3200,3 +3200,34 @@
   top:auto!important;
   z-index:auto!important;
 }
+
+
+/* Final screenshot-inspected public-flow cleanup */
+.detail-section-nav{
+  position:static!important;
+  top:auto!important;
+  z-index:auto!important;
+  backdrop-filter:none!important;
+}
+.public-system-link{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:8px 0 0;
+  padding:8px 10px;
+  border:1px solid #d9e3eb;
+  border-radius:6px;
+  background:#f7fafc;
+  color:#718397;
+  font-size:8px;
+}
+.public-system-link a{
+  flex:0 0 auto;
+  color:#1b5f91;
+  font-weight:900;
+  text-decoration:none;
+}
+@media(max-width:680px){
+  .public-system-link{align-items:flex-start;flex-direction:column;gap:5px}
+}
