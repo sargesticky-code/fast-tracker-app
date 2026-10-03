@@ -15,6 +15,50 @@ function serverKey(){
   return "";
 }
 function cleanError(e:any){return e?{code:e.code||null,message:e.message||String(e)}:null;}
+
+function normalizedSide(value:any){
+  const side=String(value||"").trim().toUpperCase();
+  if(side==="H"||side==="HOME") return "H";
+  if(side==="A"||side==="AWAY") return "A";
+  return null;
+}
+function compactToken(value:any){
+  return String(value||"").trim().toLowerCase().replace(/\s+/g," ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+}
+function evidenceKey(table:string,row:any){
+  const id=String(row?.id??"").trim();
+  return id ? `${table}:${id}` : `${table}:${String(row?.hkjc_event_id||"unknown")}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
+}
+function playerClaimFingerprint(row:any){
+  return [
+    String(row?.hkjc_event_id||""),
+    normalizedSide(row?.team_side)||"?",
+    String(row?.player_key||""),
+    compactToken(row?.status_type),
+    compactToken(row?.status_value),
+  ].join("|");
+}
+function annotatePlayerEvidence(row:any,canonicalKeys:Set<string>,table:string){
+  const playerKey=String(row?.player_key||"").trim();
+  const side=normalizedSide(row?.team_side);
+  const canonical=Boolean(playerKey&&canonicalKeys.has(playerKey));
+  const sourceConfirmed=row?.confirmed===true;
+  const identityStatus=canonical?"CANONICAL":"UNRESOLVED";
+  const factStatus=sourceConfirmed&&canonical
+    ?"CONFIRMED"
+    : sourceConfirmed
+      ?"SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"
+      :"UNCONFIRMED";
+  return {
+    ...row,
+    team_side:side||row?.team_side||null,
+    evidence_key:evidenceKey(table,row),
+    source_link:row?.source_url||null,
+    identity_status:identityStatus,
+    fact_status:factStatus,
+    record_group:playerClaimFingerprint(row),
+  };
+}
 function normalizeH2H(row:any,error:any){
   if(error) return {status:"FAIL",isFailure:true,label:"對賽資料讀取失敗",reason:error.message||"query_error"};
   if(!row) return {status:"NO_DATA",isFailure:false,label:"暫無對賽資料",reason:"no_h2h_row"};
@@ -82,6 +126,20 @@ Deno.serve(async(req:Request)=>{
     if((v as any).error) errors[k]=(v as any).error;
   }
 
+
+  const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
+  const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
+  let canonicalKeys=new Set<string>();
+  let canonicalPlayerError:any=null;
+  if(playerKeys.length){
+    const canonicalPlayers=await db.from("phase2_players").select("player_key").in("player_key",playerKeys);
+    if(canonicalPlayers.error) canonicalPlayerError=cleanError(canonicalPlayers.error);
+    else canonicalKeys=new Set((canonicalPlayers.data||[]).map((row:any)=>String(row.player_key)));
+  }
+  if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
+  const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalKeys,"phase2_player_status_evidence"));
+  const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalKeys,"phase2_match_lineup_evidence"));
+
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
   const arbRows=[...(arbMarket.data||[])].sort((a:any,b:any)=>Number(b.net_roi_pct||0)-Number(a.net_roi_pct||0));
 
@@ -101,8 +159,8 @@ Deno.serve(async(req:Request)=>{
     humanFactors:{
       summary:human.data,
       eventMap:eventMap.data,
-      playerStatus:playerStatus.data,
-      lineup:lineups.data,
+      playerStatus:annotatedPlayerStatus,
+      lineup:annotatedLineups,
       lineupStrength:lineupStrength.data,
       managers:managers.data,
     },
