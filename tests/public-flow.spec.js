@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
-function fixtureFeed(dataCase = "empty") {
+function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = false) {
   const kickoff = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const richSide = (side) => ({
     recent: [
@@ -25,6 +25,9 @@ function fixtureFeed(dataCase = "empty") {
     : dataCase === "partial"
       ? { quality: "INSUFFICIENT_PARTIAL_HISTORY", source: "HKJC_RESULTS", home: richSide("home"), away: null }
       : { quality: "INSUFFICIENT_HISTORY", source: "HKJC_RESULTS", home: null, away: null };
+  const totals = totalsCase === "empty"
+    ? { goals: { line: null, over: null, under: null }, corners: { line: null, over: null, under: null } }
+    : { goals: { line: 2.5, over: 1.88, under: 1.92 }, corners: { line: 9.5, over: 1.90, under: 1.90 } };
   return {
     generatedAt: new Date().toISOString(),
     source: "E2E_FIXTURE",
@@ -43,10 +46,10 @@ function fixtureFeed(dataCase = "empty") {
       pi: { home: 0.45, draw: 0.29, away: 0.26 },
       form: { home: 0.47, draw: 0.27, away: 0.26 },
       multi: { home: 0.46, draw: 0.28, away: 0.26 },
-      goals: { line: 2.5, over: 1.88, under: 1.92 },
-      corners: { line: 9.5, over: 1.90, under: 1.90 },
-      updatedAt: new Date().toISOString(),
-      health: { hkjcFreshness: "FRESH" },
+      goals: totals.goals,
+      corners: totals.corners,
+      updatedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 60 * 60 * 1000).toISOString(),
+      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH" },
       formDetail
     }],
     systemHealth: {}
@@ -257,7 +260,60 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
   };
 }
 
-function analysisPayload() {
+function analysisPayload(totalsCase = "partial") {
+  const supportedGoals = {
+    market: "GOALS_OU",
+    line: 2.5,
+    selection: "OVER",
+    selectionLabel: "Over 2.5",
+    currentOdds: 1.88,
+    candidateClass: "WATCH_SINGLE_SOURCE",
+    action: "WATCH",
+    evidenceFamilyCount: 1,
+    supportCount: 1,
+    dispersion: null,
+    models: [{
+      key: "FORM",
+      label: "Team Form expected goals",
+      over: 0.56,
+      under: 0.44,
+      weight: 0.9,
+      sources: 1,
+      method: "FORM_XG_POISSON",
+      provenanceGroup: "HKJC_RESULTS",
+      memberKeys: ["FORM"]
+    }]
+  };
+  const supportedCorners = {
+    market: "CORNERS_OU",
+    line: 9.5,
+    selection: "OVER",
+    selectionLabel: "Over 9.5",
+    currentOdds: 1.90,
+    candidateClass: "WATCH_SINGLE_SOURCE",
+    action: "WATCH",
+    evidenceFamilyCount: 1,
+    supportCount: 1,
+    dispersion: null,
+    models: [{
+      key: "FOREBET",
+      label: "Forebet corners",
+      over: 0.54,
+      under: 0.46,
+      weight: 1,
+      sources: 1,
+      method: "FOREBET_CORNERS",
+      provenanceGroup: "FOREBET",
+      memberKeys: ["FOREBET"]
+    }]
+  };
+  const noModel = (market) => ({
+    market,
+    candidateClass: "NO_MODEL",
+    action: "PASS",
+    evidenceFamilyCount: 0,
+    models: []
+  });
   return {
     generatedAt: new Date().toISOString(),
     decision: {
@@ -275,36 +331,8 @@ function analysisPayload() {
       dispersion: null
     },
     marketAdvice: {
-      goals: {
-        market: "GOALS_OU",
-        line: 4.5,
-        selection: "UNDER",
-        selectionLabel: "Under 4.5",
-        currentOdds: 1.90,
-        referenceOdds: null,
-        candidateClass: "WATCH_SINGLE_SOURCE",
-        action: "WATCH",
-        evidenceFamilyCount: 1,
-        supportCount: 1,
-        dispersion: null,
-        models: [{
-          key: "FORM",
-          label: "Team Form expected goals",
-          over: 0.1436,
-          under: 0.8564,
-          weight: 0.9,
-          sources: 1,
-          method: "FORM_XG_POISSON",
-          provenanceGroup: "HKJC_RESULTS",
-          memberKeys: ["FORM"]
-        }]
-      },
-      corners: {
-        candidateClass: "NO_MODEL",
-        action: "PASS",
-        evidenceFamilyCount: 0,
-        models: []
-      }
+      goals: totalsCase === "empty" ? noModel("GOALS_OU") : supportedGoals,
+      corners: totalsCase === "populated" ? supportedCorners : noModel("CORNERS_OU")
     },
     evidence: {
       phase1Health: {
@@ -369,9 +397,9 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty" } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty", totalsCase = "partial", totalsStale = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed(dataCase)) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed(dataCase, totalsCase, totalsStale)) });
   });
   await page.route("**/functions/v1/app-live-feed**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
@@ -380,7 +408,7 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, playerCase, historical: historicalDetail, dataCase })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
-    const payload = analysisPayload();
+    const payload = analysisPayload(totalsCase);
     if (stale) {
       payload.decision.oddsStatus = "STALE";
       payload.decision.candidateClass = "DATA_RISK";
@@ -532,6 +560,65 @@ for (const device of [
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
   });
+}
+
+for (const totalsCase of ["populated", "partial", "empty"]) {
+  for (const device of [
+    { name: "desktop", viewport: { width: 1440, height: 900 } },
+    { name: "mobile", viewport: { width: 390, height: 844 } }
+  ]) {
+    test(device.name + " " + totalsCase + " goals and corners hierarchy", async ({ page }) => {
+      await page.setViewportSize(device.viewport);
+      await mockApis(page, { dataCase: "populated", totalsCase, totalsStale: totalsCase === "partial" });
+
+      await page.goto("http://127.0.0.1:4173/");
+      await page.getByRole("button", { name: "Corners" }).click();
+      await page.locator('a[href*="FBTEST1"]').first().click();
+
+      const totals = page.locator("#market-totals");
+      await expect(totals.getByText("Goals and corners", { exact: true })).toBeVisible({ timeout: 10000 });
+
+      if (totalsCase === "populated") {
+        await expect(totals.locator(".totals-row-compact")).toHaveCount(0);
+        await expect(totals.getByText("Over 2.5", { exact: true })).toBeVisible();
+        await expect(totals.getByText("Over 9.5", { exact: true })).toBeVisible();
+        await expect(totals.getByText(/Supported market-specific probability evidence/)).toHaveCount(2);
+      } else if (totalsCase === "partial") {
+        await expect(totals.locator(".totals-row-compact")).toHaveCount(1);
+        await expect(totals.getByText("No supported Corners probability", { exact: true })).toBeVisible();
+        await expect(totals.getByText("Corners model gate: NO_MODEL — no supported probability evidence is available.", { exact: true })).toBeVisible();
+        await expect(totals.getByText("STALE / REFERENCE ONLY", { exact: true })).toBeVisible();
+        await expect(totals.getByText("Over 9.5 · 1.90", { exact: true })).toBeVisible();
+        await expect(totals.getByText("Under 9.5 · 1.90", { exact: true })).toBeVisible();
+        const details = totals.locator("details.totals-state-details");
+        expect(await details.evaluate(el => el.open)).toBe(false);
+        await details.locator(":scope > summary").focus();
+        await page.keyboard.press("Enter");
+        expect(await details.evaluate(el => el.open)).toBe(true);
+        await expect(details.getByText(/Market: Corners O\/U · Line 9.5/)).toBeVisible();
+      } else {
+        await expect(totals.locator(".totals-row-compact")).toHaveCount(2);
+        await expect(totals.getByText("No HKJC Goals line", { exact: true })).toBeVisible();
+        await expect(totals.getByText("No HKJC Corners line", { exact: true })).toBeVisible();
+        await expect(totals.getByText("HKJC line is unavailable; no same-line model comparison can be made.", { exact: true })).toHaveCount(2);
+        await expect(totals.getByText("Line —", { exact: true })).toHaveCount(2);
+        await expect(totals.getByText(/Over — · —/)).toHaveCount(2);
+        await expect(totals.getByText(/Under — · —/)).toHaveCount(2);
+        await expect(totals.getByText("CURRENT OBSERVATION", { exact: true })).toHaveCount(2);
+      }
+
+      await page.getByRole("link", { name: "Article" }).click();
+      await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible();
+      const articleDetails = page.locator("#analysis details.ft-article-deep");
+      await articleDetails.locator(":scope > summary").focus();
+      await page.keyboard.press("Enter");
+      expect(await articleDetails.evaluate(el => el.open)).toBe(true);
+
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(2);
+      await page.screenshot({ path: `test-results/dashboard-${device.name}-${totalsCase}-goals-corners.png`, fullPage: true });
+    });
+  }
 }
 
 for (const stateCase of ["populated", "partial", "empty"]) {
