@@ -161,3 +161,48 @@ Fixture tests prove UI behavior, not that a specific live recommendation is corr
 - populated canonical quote table;
 - any genuine current Bet365/HKJC same-market comparison;
 - production deployment of PR #2.
+
+
+## Decision-snapshot validation
+
+Direct response-body inspection of the production `app-match-analysis` endpoint is not available through the current connector set: the browser connector is disconnected, the generic web fetch cannot access the function URL, and the Supabase connector exposes function source/logs but no invoke action.
+
+This is a **read-access limitation**, not evidence of a model failure.
+
+Production function evidence that is available:
+
+- `app-match-analysis` is ACTIVE, version 32.
+- Supabase function logs record a successful `GET 200` for `FB6114` at 2026-10-03 12:47:23 HKT (execution 2820 ms, response length 3772 bytes).
+- An earlier request at 11:54 HKT returned 500, followed later by a successful request. This indicates a transient/runtime episode rather than proof that the current endpoint is unavailable.
+- The active v32 source was retrieved and inspected.
+
+### Reconstructed real decision state
+
+The following is reconstructed from **active v32 deterministic source plus current stored FB6114 evidence**, not copied from an unread response body:
+
+- The canonical active Phase 1 feed excludes passed-kickoff upcoming fixtures. FB6114 therefore falls back to stored database evidence when analyzed after kickoff.
+- Fallback mode is a hard fail-closed gate in v32: HDA becomes `DATA_RISK / NO_BET`, `currentOdds = null`, and the stored HDA quote is reference-only.
+- Only Team Form supplies a usable 1X2 probability family. Forebet is unresolved, DC/Pi are `SPARSE_GRAPH_REJECTED`, and no multisource consensus row exists. Even without the fallback/staleness gate, fewer than two independent families cannot become Value/Strong Value; the family gate caps it at WATCH.
+- The historical HKJC HDA numbers would mathematically make the away price look positive under Team Form alone (Form away 24.8462% versus HKJC no-vig fair about 18.59% at 4.75), but this is **not an actionable edge** because the price is historical, kickoff has passed, and there is only one usable family.
+- Goals 3.5 and corners 10.5 are stored historical HKJC lines. There is no usable Forebet totals/corners model and no DC expected-goal row for this match, so market-specific model evidence is missing. HDA Team Form evidence must not be borrowed for these markets.
+- `hkjc_upcoming_current` no longer contains FB6114, so a current Asian-handicap line/price is unavailable. Asian handicap is therefore unavailable/data-risk rather than inferred from the stored HDA quote.
+
+### Current match state and lineup roles
+
+At the latest read:
+
+- `matches.status` still said `SECONDHALF`.
+- `live_score_current` said `finished`, score Atletico La Paz 1-2 Venados, source `SPORTSCORE`.
+- The status disagreement is source-lag evidence. The finished live-score state must prevent a prematch quote being represented as current.
+- The 39 confirmed Flashscore lineup rows break down into **22 confirmed starters** and **17 confirmed substitutes/bench**. They are not 39 starters.
+- Player-status evidence remains absent, so injury/suspension coverage is unknown.
+
+### Real-evidence fixes added after this check
+
+- `app-match-analysis` branch code now fails closed on terminal/post-kickoff prematch state and checks actual price-observation age, not merely recent fetch age.
+- HDA and binary market outputs null `currentOdds` and mark stale data reference-only.
+- Match-detail fallback now uses `odds_updated_at`, suppresses old/post-kickoff prices, and may replace a cached prematch card with authoritative stale/terminal state.
+- The public evidence article independently rejects post-kickoff or >6-hour prematch quotes even if another layer incorrectly calls them current.
+- Article lineup counts now separate starters from substitutes/bench.
+
+These are PR changes only. Production Edge Function version 32 has not been replaced in this phase.
