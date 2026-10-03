@@ -34,7 +34,7 @@ function p(v: unknown): number | null {
 }
 
 type T = { home: number; draw: number; away: number };
-type Family = { key: string; label: string; probs: T; weight: number; sources?: number; provenanceGroup?: string; memberKeys?: string[] };
+type Family = { key: string; label: string; probs: T; weight: number; sources?: number; provenanceGroup?: string; memberKeys?: string[]; independentEligible?: boolean };
 
 function triplet(h: unknown, d: unknown, a: unknown): T | null {
   const home = p(h), draw = p(d), away = p(a);
@@ -75,7 +75,7 @@ function provenanceGroup(sourceValue: unknown, fallback: string) {
 
 function collapseCorrelatedFamilies(items: Family[]): Family[] {
   const grouped = new Map<string, Family[]>();
-  for (const item of items) {
+  for (const item of items.filter((row) => row.independentEligible !== false)) {
     const key = item.provenanceGroup || item.key;
     grouped.set(key, [...(grouped.get(key) || []), item]);
   }
@@ -603,12 +603,13 @@ type BinaryModel = {
   method?: string;
   provenanceGroup?: string;
   memberKeys?: string[];
+  independentEligible?: boolean;
 };
 
 
 function collapseCorrelatedBinaryModels(items: BinaryModel[]): BinaryModel[] {
   const grouped = new Map<string, BinaryModel[]>();
-  for (const item of items) {
+  for (const item of items.filter((row) => row.independentEligible !== false)) {
     const key = item.provenanceGroup || item.key;
     grouped.set(key, [...(grouped.get(key) || []), item]);
   }
@@ -847,6 +848,7 @@ function buildBinaryAdvice(opts: {
       method: m.method ?? null,
       provenanceGroup: m.provenanceGroup ?? m.key,
       memberKeys: m.memberKeys ?? [m.key],
+      independentEligible: m.independentEligible !== false,
     })),
     advice,
   };
@@ -1048,6 +1050,7 @@ Deno.serve(async (req: Request) => {
     // from Forebet/other external predictions, so it is kept as its own
     // uncertainty bucket rather than being treated as method-level evidence.
     provenanceGroup: "MULTISOURCE_AGGREGATE",
+    independentEligible: false,
   });
   const independentFamilies = collapseCorrelatedFamilies(families);
 
@@ -1377,6 +1380,7 @@ Deno.serve(async (req: Request) => {
       sources: Math.max(1, multiCount),
       method: "NATIVE_OU25",
       provenanceGroup: "MULTISOURCE_AGGREGATE",
+      independentEligible: false,
     });
   }
 
@@ -1636,7 +1640,8 @@ Deno.serve(async (req: Request) => {
     evidence: {
       market,
       consensus,
-      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, provenanceGroup:f.provenanceGroup ?? f.key, memberKeys:f.memberKeys ?? [f.key], probabilities:f.probs, pick:pick(f.probs) })),
+      families: decisionFamilies.map(f => ({ key:f.key, label:f.label, weight:f.weight, sources:f.sources ?? null, provenanceGroup:f.provenanceGroup ?? f.key, memberKeys:f.memberKeys ?? [f.key], independentEligible:f.independentEligible !== false, probabilities:f.probs, pick:pick(f.probs) })),
+      supplementalFamilies: families.filter(f => f.independentEligible === false).map(f => ({ key:f.key, label:f.label, provenanceGroup:f.provenanceGroup ?? f.key, reason:"member source-record lineage is not explicit enough to prove independence", probabilities:f.probs })),
       prematchConsensus,
       familySupport,
       phase1Health: {
