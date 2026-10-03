@@ -554,3 +554,64 @@ Rollback order is the reverse: PR #10 first, then PR #9, then PR #8, while PR #6
 Genuinely missing authorization: merge/release of any PR, changing `app-live-feed` server implementation if/when source is recovered, cron/DB/index/compute changes, and any production validation requiring deployment.
 
 Smallest next action after CI: if PR #10 behavior tests are green, restore its base to PR #9 and keep the whole stack unreleased. The unresolved dependency is the missing source-controlled `app-live-feed` server implementation plus absent historical wait/lock diagnostics for 15:44–15:48. Do not resume generic root-cause probing without new evidence.
+
+
+### Final PR #10 behavior verification — 2026-10-04
+
+The behavior review was intentionally iterative rather than treating the first mocked run as proof.
+
+#### CI progression
+
+1. **Run 37139922622 — 25/27 passed, failure.** Two failures were test-design defects rather than accepted behavior regressions:
+   - homepage coherence test targeted a `storySummary` evidence ribbon that the redesigned homepage does not render; the real homepage boundary is fixture identity/predicted score → English detail fallback, while PR #6's separate contract guards English cached story-summary selection;
+   - one coalescing test held several intercepted endpoints behind one shared Playwright gate, which distorted independent route invocation counts.
+2. **Run 37140175069 — 30/31 passed, failure.** Feed, live, analysis and story delayed-lane coalescing passed; deadline cleanup/retry, unavailable-vs-absent, canonical-missing stale-response protection and authoritative-stale ordering also passed. Only the detail lane produced two requests. This exposed a real second caller rather than a test artifact.
+3. Source trace found `app/details/page.js` renders both `MatchDetailClient` and `LineupPanel`. `LineupPanel` independently fetched `app-match-detail` on mount and every 60s, so component-local single-flight in `MatchDetailClient` could never guarantee page-level detail coalescing.
+4. A shared module-level request deduper `lib/single-flight-fetch.js` was added. Both detail consumers now use the same key `match-detail:${matchId}`. The helper stores one in-flight promise and returns cloned `Response` objects to each consumer so one body read does not consume the other's response.
+5. **Final verified source/test head: `691cf5557d5db28d97b45c4970edacda0ee734c3`.** GitHub PR Build Verification **37140371900 — SUCCESS**.
+
+#### Final behavior evidence
+
+Final rendered suite: **31/31 passed in 24.0s**. In addition to the prior desktop/mobile product-flow cases, the behavior suite now demonstrates:
+- delayed Phase-1 feed lane remains single-flight under repeated refresh triggers;
+- delayed detail endpoint remains page-level single-flight across both `MatchDetailClient` and `LineupPanel`;
+- delayed live lane remains single-flight while pending;
+- delayed analysis and story lanes remain single-flight across accelerated repeated timer ticks;
+- test-only forced AbortSignal expiry reaches `finally`, clears the gate, permits a later retry and does not allow the old aborted response to overwrite the later result;
+- a transport/read 503 renders `Match data is currently unavailable` and does not become a false canonical-fixture-absent state;
+- a conclusive `fixtureSource:MISSING` detail result cannot be resurrected by an older delayed Phase-1 feed;
+- authoritative stale/terminal detail remains ahead of an older prematch feed, including the visible source state;
+- homepage fixture identity + predicted score carry into the detail route, and when the English story endpoint is unavailable the English evidence fallback remains readable while legacy Chinese analysis prose is suppressed.
+
+All existing safety contracts remained green: English story cache/fallback, provider/market, real-evidence safety, evidence independence, player identity, static build/routes and rendered desktop/mobile product flow.
+
+CI artifact: `11280132390`, `dashboard-redesign-ab12c4bf97717219d1cd3266264f255d6eddbe16`, SHA256 `fd09c8802a336cf12d2664e3214e892afe7375bca6bf53cd554cd588a94eae2e`.
+
+#### Combined review semantics
+
+The canonical unreleased stack is now:
+**PR #6 English story repair → PR #8 backend read fail-fast → PR #9 frontend backpressure → PR #10 behavior/race + shared-detail correction.**
+
+PR #10 is restored to base `review/frontend-read-backpressure-v1` (PR #9). The verified source/test head above is the implementation proof; any later docs-only commit is not a substitute for that exact CI run.
+
+The production root-cause conclusion remains unchanged: the initiating 15:44–15:48 database event is **unknown** because historical wait/lock/blocking-PID state is unavailable. The focused transition pass is complete and generic root-cause probing is stopped. `app-live-feed` server implementation also remains absent from this repository, so its server-side bound cannot be independently reviewed here; live is therefore kept client single-flight without a shorter client abort that could reopen while server work remains active.
+
+#### Reviewable release / rollback plan
+
+No release is authorized by this review. If explicit release authorization is later granted, preserve dependency order:
+1. PR #6 — English cached-summary / deterministic English fallback repair;
+2. PR #8 — bounded PostgREST/server read semantics and read-failure-not-fixture-absence behavior;
+3. PR #9 — frontend single-flight/backpressure;
+4. PR #10 — behavior-proven race correction and shared detail request dedupe.
+
+Post-release validation must be small and bounded: one homepage + one detail fixture flow, per-lane request concurrency, Phase-1/detail tail latency, unavailable-vs-absent rendering, stale-detail ordering, and English homepage fixture/score → detail fallback coherence. Do not hammer the full feed or resume generic DB probing.
+
+Rollback order is reverse: PR #10 → PR #9 → PR #8. PR #6 can be independently retained or rolled back according to English-story acceptance. No DB migration rollback is required by PRs #6/#8/#9/#10.
+
+Genuinely missing authorization/dependency:
+- explicit merge/release/deployment authorization;
+- source provenance/control for deployed `app-live-feed` if server-side live-read containment is to be reviewed;
+- any DB/cron/index/compute change;
+- production validation that requires releasing this stack.
+
+Smallest next action: **stop engineering changes here and review PR #10 as the final nonproduction behavior gate.** If the user later authorizes a release, release the stack in dependency order and perform only the bounded acceptance sample above. Without release authorization, there is no further production action to take.
