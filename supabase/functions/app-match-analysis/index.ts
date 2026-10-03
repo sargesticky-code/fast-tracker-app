@@ -1423,7 +1423,7 @@ Deno.serve(async (req: Request) => {
   };
 
   const errors: any = {};
-  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,upcomingOdds,liveShadow,scenarios,modelTotals })) {
+  for (const [k,v] of Object.entries({ human,eventMap,playerStatus,lineups,managers,movement,liveScore,liveStats,liveOdds,upcomingOdds,liveShadow,scenarios,modelTotals,formTotals })) {
     if ((v as any).error) errors[k] = (v as any).error;
   }
 
