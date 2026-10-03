@@ -73,6 +73,11 @@ function provenanceGroup(sourceValue: unknown, fallback: string) {
   return fallback;
 }
 
+function knownProvenanceGroup(sourceValue: unknown) {
+  const group = provenanceGroup(sourceValue, "UNKNOWN");
+  return group === "UNKNOWN" ? null : group;
+}
+
 function collapseCorrelatedFamilies(items: Family[]): Family[] {
   const grouped = new Map<string, Family[]>();
   for (const item of items.filter((row) => row.independentEligible !== false)) {
@@ -1025,20 +1030,28 @@ Deno.serve(async (req: Request) => {
 
   const families: Family[] = [];
   if (forebet) families.push({ key: "FOREBET", label: "Forebet", probs: forebet, weight: 1, provenanceGroup: "FOREBET" });
-  if (internal) families.push({
-    key: "INTERNAL",
-    label: "Dixon-Coles + Pi family",
-    probs: internal,
-    weight: 1,
-    provenanceGroup: provenanceGroup(modelTotals.data?.model_source ?? r.internal_model_source, "INTERNAL_UNKNOWN"),
-  });
-  if (form) families.push({
-    key: "FORM",
-    label: "Team Form",
-    probs: form,
-    weight: 0.9,
-    provenanceGroup: provenanceGroup(formTotals.data?.model_source, "FORM_UNKNOWN"),
-  });
+  if (internal) {
+    const provenance = knownProvenanceGroup(modelTotals.data?.model_source ?? r.internal_model_source);
+    families.push({
+      key: "INTERNAL",
+      label: "Dixon-Coles + Pi family",
+      probs: internal,
+      weight: 1,
+      provenanceGroup: provenance ?? "INTERNAL_UNKNOWN",
+      independentEligible: Boolean(provenance),
+    });
+  }
+  if (form) {
+    const provenance = knownProvenanceGroup(formTotals.data?.model_source);
+    families.push({
+      key: "FORM",
+      label: "Team Form",
+      probs: form,
+      weight: 0.9,
+      provenanceGroup: provenance ?? "FORM_UNKNOWN",
+      independentEligible: Boolean(provenance),
+    });
+  }
   const multiCount = Number(r.multisource_count ?? r.multisource_member_count ?? 0);
   if (multi) families.push({
     key: "MULTI",
@@ -1341,7 +1354,8 @@ Deno.serve(async (req: Request) => {
       over: dcGoalsOver,
       weight: 0.9,
       method: live ? "LIVE_DC_RESIDUAL" : "DC_XG_POISSON",
-      provenanceGroup: provenanceGroup(modelTotals.data?.model_source, "DIXON_COLES_UNKNOWN"),
+      provenanceGroup: knownProvenanceGroup(modelTotals.data?.model_source) ?? "DIXON_COLES_UNKNOWN",
+      independentEligible: Boolean(knownProvenanceGroup(modelTotals.data?.model_source)),
     });
   }
   const formRow:any = formTotals.data ?? null;
@@ -1367,7 +1381,8 @@ Deno.serve(async (req: Request) => {
       weight: 0.9,
       method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
       sources: 1,
-      provenanceGroup: provenanceGroup(formRow?.model_source, "TEAM_FORM_UNKNOWN"),
+      provenanceGroup: knownProvenanceGroup(formRow?.model_source) ?? "TEAM_FORM_UNKNOWN",
+      independentEligible: Boolean(knownProvenanceGroup(formRow?.model_source)),
     });
   }
   const multiGoalsOver = p(r.multisource_ou_over);
@@ -1691,7 +1706,8 @@ Deno.serve(async (req: Request) => {
           awayVenueGames: Number(formRow?.away_venue_games ?? 0),
           expectedGoalsHome: n(formRow?.form_xg_home),
           expectedGoalsAway: n(formRow?.form_xg_away),
-          provenanceGroup: provenanceGroup(formRow?.model_source, "TEAM_FORM_UNKNOWN"),
+          provenanceGroup: knownProvenanceGroup(formRow?.model_source) ?? "TEAM_FORM_UNKNOWN",
+          independentEvidenceEligible: Boolean(knownProvenanceGroup(formRow?.model_source)),
           evidenceKey: `form_predictions:${id}`,
           sourceUrl: formRow?.raw?.source_url ?? null,
           method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON",
@@ -1705,7 +1721,8 @@ Deno.serve(async (req: Request) => {
           teamMatchQuality: n(modelTotals.data?.team_match_quality),
           expectedGoalsHome: n(modelTotals.data?.dc_xg_home),
           expectedGoalsAway: n(modelTotals.data?.dc_xg_away),
-          provenanceGroup: provenanceGroup(modelTotals.data?.model_source, "DIXON_COLES_UNKNOWN"),
+          provenanceGroup: knownProvenanceGroup(modelTotals.data?.model_source) ?? "DIXON_COLES_UNKNOWN",
+          independentEvidenceEligible: Boolean(knownProvenanceGroup(modelTotals.data?.model_source)),
           period: null,
           evidenceKey: `model_predictions:${id}`,
           sourceUrl: modelTotals.data?.raw?.source_url ?? null,
