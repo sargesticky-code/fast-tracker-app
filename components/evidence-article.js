@@ -78,7 +78,12 @@ function lineupState(deep) {
   const eventMap = deep?.humanFactors?.eventMap || null;
   const rows = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
   if (eventMap?.lineup_confirmed_at) return ["CONFIRMED", "Confirmed lineup"];
-  if (rows.length) return ["PREDICTED", "Predicted / provisional lineup"];
+  if (rows.length) {
+    const confirmed = rows.filter((row) => row?.confirmed === true).length;
+    const unconfirmed = rows.filter((row) => row?.confirmed !== true).length;
+    if (confirmed > 0 && unconfirmed === 0) return ["CONFIRMED", "Confirmed lineup"];
+    return ["PREDICTED", "Predicted / provisional lineup"];
+  }
   if (eventMap) return ["PENDING", "Lineup pending"];
   return ["UNKNOWN", "Lineup evidence unavailable"];
 }
