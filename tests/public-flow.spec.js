@@ -444,9 +444,10 @@ test("canonical confirmed player status keeps durable source attribution", async
   await page.goto("http://127.0.0.1:4173/");
   await page.locator('a[href*="FBTEST1"]').first().click();
 
-  await expect(page.getByText("Canonical Player", { exact: true })).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Confirmed source + canonical player identity", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Evidence: phase2_player_status_evidence:2001/)).toBeVisible();
+  const article = page.locator("#analysis");
+  await expect(article.getByText(/Canonical Player/)).toBeVisible({ timeout: 10000 });
+  await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toBeVisible();
+  await expect(article.getByText(/Evidence: phase2_player_status_evidence:2001/)).toBeVisible();
   const sourceLink = page.locator('#analysis a[href="https://example.test/injury/2001"]');
   await expect(sourceLink).toHaveCount(1);
 });
@@ -458,10 +459,11 @@ test("source-confirmed player with unresolved identity never becomes a confirmed
   await page.goto("http://127.0.0.1:4173/");
   await page.locator('a[href*="FBTEST1"]').first().click();
 
-  await expect(page.getByText("Nico O'Reilly", { exact: true })).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Source reports status · player identity unresolved", { exact: true })).toBeVisible();
-  await expect(page.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/phase2_player_status_evidence:2002/)).toBeVisible();
+  const article = page.locator("#analysis");
+  await expect(article.getByText(/Nico O'Reilly/)).toBeVisible({ timeout: 10000 });
+  await expect(article.getByText("Source reports status · player identity unresolved", { exact: true })).toBeVisible();
+  await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
+  await expect(article.getByText(/phase2_player_status_evidence:2002/)).toBeVisible();
 });
 
 test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page }) => {
@@ -471,9 +473,10 @@ test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page
   await page.goto("http://127.0.0.1:4173/");
   await page.locator('a[href*="FBTEST1"]').first().click();
 
-  await expect(page.getByText("Lukas Provod", { exact: true })).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Unconfirmed status · player identity unresolved", { exact: true })).toBeVisible();
-  await expect(page.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
+  const article = page.locator("#analysis");
+  await expect(article.getByText(/Lukas Provod/)).toBeVisible({ timeout: 10000 });
+  await expect(article.getByText("Unconfirmed status · player identity unresolved", { exact: true })).toBeVisible();
+  await expect(article.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
 });
 
 test("official source lineup with unresolved player identity remains partial", async ({ page }) => {
