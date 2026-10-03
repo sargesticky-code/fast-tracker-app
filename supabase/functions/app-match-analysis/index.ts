@@ -1230,8 +1230,20 @@ Deno.serve(async (req: Request) => {
       : `現價 ${oddsText}`;
 
   const lineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
-  const injuryHome = Number(human.data?.raw?.injury_count_home ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="HOME").length ?? 0);
-  const injuryAway = Number(human.data?.raw?.injury_count_away ?? (playerStatus.data || []).filter((x:any)=>x.team_side==="AWAY").length ?? 0);
+  const playerStatusRows = Array.isArray(playerStatus.data) ? playerStatus.data : [];
+  const explicitInjuryHome = n(human.data?.raw?.injury_count_home);
+  const explicitInjuryAway = n(human.data?.raw?.injury_count_away);
+  // Empty evidence is unknown, not proof of zero injuries/suspensions.
+  const injuryHome = explicitInjuryHome !== null
+    ? explicitInjuryHome
+    : playerStatusRows.length
+      ? playerStatusRows.filter((x:any)=>String(x.team_side||"").toUpperCase()==="HOME").length
+      : null;
+  const injuryAway = explicitInjuryAway !== null
+    ? explicitInjuryAway
+    : playerStatusRows.length
+      ? playerStatusRows.filter((x:any)=>String(x.team_side||"").toUpperCase()==="AWAY").length
+      : null;
   const humanQuality = human.data?.quality ?? (eventMap.data ? "MAPPED" : "NO_DATA");
 
   const liveState = live ? {
@@ -1261,7 +1273,7 @@ Deno.serve(async (req: Request) => {
   const marketSentence = market && consensus
     ? `${live ? "HKJC live" : "HKJC"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}；${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型中心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}。`
     : "市場或模型資料未足以建立可比較機率。";
-  const humanSentence = `Phase 2：${humanQuality}；傷停 evidence 主/客 ${injuryHome}/${injuryAway}；正選 ${lineupConfirmed ? "已確認" : "未確認"}。`;
+  const humanSentence = `Phase 2: ${humanQuality}; player-status evidence home/away ${injuryHome ?? "unknown"}/${injuryAway ?? "unknown"}; lineup ${lineupConfirmed ? "confirmed" : "not confirmed"}.`;
   const liveSentence = liveState
     ? `Phase 3：${liveState.minute ?? "—"}' ${liveState.score || "—"}；Expected-vs-Actual ${liveState.shadowStatus || "WAIT"}，預期控制 ${liveState.expectedSide || "—"}、實際控制 ${liveState.actualSide || "—"}，${liveState.metricCount} 個 live metrics。`
     : "Phase 3：賽事未進入可用 live evidence 狀態。";
