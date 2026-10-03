@@ -251,6 +251,6 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Confirmed lineup")).toBeVisible();
+  await expect(page.getByText("Confirmed lineup", { exact: true })).toBeVisible();
   await expect(page.getByText("1 confirmed rows · 0 provisional/unconfirmed rows")).toBeVisible();
 });
