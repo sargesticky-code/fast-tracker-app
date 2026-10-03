@@ -29,7 +29,7 @@ function fixtureFeed() {
   };
 }
 
-function detailPayload({ confirmedLineup = false, historical = false } = {}) {
+function detailPayload({ confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historical = false } = {}) {
   return {
     fixture: {
       hkjc_event_id: "FBTEST1",
@@ -74,31 +74,115 @@ function detailPayload({ confirmedLineup = false, historical = false } = {}) {
     humanFactors: {
       eventMap: {
         match_quality: 0.97,
-        lineup_confirmed_at: null
+        lineup_confirmed_at: (confirmedLineup || unresolvedLineup) ? new Date().toISOString() : null
       },
       lineup: confirmedLineup ? [
         {
-          team_side: "HOME",
+          id: 1001,
+          team_side: "H",
+          player_key: "P1001",
           player_name: "Alex Smith",
           starter: true,
           confirmed: true,
-          source_name: "FLASHSCORE_OFFICIAL"
+          source_name: "API_FOOTBALL",
+          source_url: "https://example.test/lineup/1001",
+          evidence_key: "phase2_match_lineup_evidence:1001",
+          identity_status: "CANONICAL",
+          fact_status: "CONFIRMED",
+          record_group: "FBTEST1|H|P1001||"
         },
         {
-          team_side: "HOME",
+          id: 1002,
+          team_side: "H",
+          player_key: "P1002",
           player_name: "Jamie Lee",
           starter: false,
           confirmed: true,
-          source_name: "FLASHSCORE_OFFICIAL"
+          source_name: "API_FOOTBALL",
+          source_url: "https://example.test/lineup/1002",
+          evidence_key: "phase2_match_lineup_evidence:1002",
+          identity_status: "CANONICAL",
+          fact_status: "CONFIRMED",
+          record_group: "FBTEST1|H|P1002||"
         }
-      ] : [{
-        team_side: "HOME",
+      ] : unresolvedLineup ? [{
+        id: 1101,
+        team_side: "H",
+        player_key: "998877",
+        player_name: "Unresolved Official Player",
+        starter: true,
+        confirmed: true,
+        source_name: "FLASHSCORE_OFFICIAL",
+        source_url: "https://example.test/lineup/1101",
+        evidence_key: "phase2_match_lineup_evidence:1101",
+        identity_status: "UNRESOLVED",
+        fact_status: "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED",
+        record_group: "FBTEST1|H|998877||"
+      }] : [{
+        id: 1201,
+        team_side: "H",
+        player_key: "PREDICTED-ALEX",
         player_name: "Alex Smith",
         starter: true,
         confirmed: false,
-        source_name: "PREDICTED_XI"
+        source_name: "PREDICTED_XI",
+        evidence_key: "phase2_match_lineup_evidence:1201",
+        identity_status: "UNRESOLVED",
+        fact_status: "UNCONFIRMED",
+        record_group: "FBTEST1|H|PREDICTED-ALEX||"
       }],
-      playerStatus: [],
+      playerStatus: playerCase === "confirmed" ? [{
+        id: 2001,
+        hkjc_event_id: "FBTEST1",
+        team_side: "H",
+        player_key: "P2001",
+        status_type: "INJURY",
+        status_value: "Out",
+        confirmed: true,
+        confidence: 0.95,
+        source_name: "API_FOOTBALL",
+        source_url: "https://example.test/injury/2001",
+        evidence_key: "phase2_player_status_evidence:2001",
+        source_link: "https://example.test/injury/2001",
+        identity_status: "CANONICAL",
+        fact_status: "CONFIRMED",
+        record_group: "FBTEST1|H|P2001|injury|out",
+        raw: { player_name: "Canonical Player" }
+      }] : playerCase === "unresolved" ? [{
+        id: 2002,
+        hkjc_event_id: "FBTEST1",
+        team_side: "A",
+        player_key: "1300526",
+        status_type: "INJURY",
+        status_value: "Doubtful",
+        confirmed: true,
+        confidence: 0.90,
+        source_name: "FOTMOB",
+        source_url: "https://www.fotmob.com/match/5181853",
+        evidence_key: "phase2_player_status_evidence:2002",
+        source_link: "https://www.fotmob.com/match/5181853",
+        identity_status: "UNRESOLVED",
+        fact_status: "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED",
+        record_group: "FBTEST1|A|1300526|injury|doubtful",
+        raw: { player_name: "Nico O'Reilly" }
+      }] : playerCase === "ambiguous" ? [{
+        id: 2003,
+        hkjc_event_id: "FBTEST1",
+        team_side: "H",
+        player_key: "Lukas Provod",
+        status_type: "INJURY",
+        status_value: "Ankle injury; expected early October return",
+        confirmed: false,
+        confidence: 0.87,
+        source_name: "FotMob",
+        source_url: "https://www.fotmob.com/matches/czechia-vs-croatia/2vkax6",
+        evidence_key: "phase2_player_status_evidence:2003",
+        source_link: "https://www.fotmob.com/matches/czechia-vs-croatia/2vkax6",
+        identity_status: "UNRESOLVED",
+        fact_status: "UNCONFIRMED",
+        record_group: "FBTEST1|H|Lukas Provod|injury|ankle-injury-expected-early-october-return",
+        raw: { player_name: "Lukas Provod" }
+      }] : [],
       managers: []
     },
     scenario: []
@@ -157,6 +241,8 @@ function analysisPayload() {
     evidence: {
       phase1Health: {
         sourceMode: "CANONICAL",
+        evidenceKey: "hkjc_odds_current:FBTEST1",
+        sourceUrl: null,
         priceObservedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
         fetchedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString()
       },
@@ -172,6 +258,8 @@ function analysisPayload() {
           expectedGoalsHome: 1.09304,
           expectedGoalsAway: 1.65055,
           provenanceGroup: "HKJC_RESULTS",
+          evidenceKey: "form_predictions:FBTEST1",
+          sourceUrl: null,
           method: "FORM_XG_POISSON"
         }
       }
@@ -213,7 +301,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, historicalDetail = false } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed()) });
   });
@@ -221,7 +309,7 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
   });
   await page.route("**/functions/v1/app-match-detail?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, historical: historicalDetail })) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, playerCase, historical: historicalDetail })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
     const payload = analysisPayload();
@@ -332,7 +420,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Confirmed lineup", { exact: true })).toBeVisible();
+  await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
   await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
 });
 
@@ -346,4 +434,55 @@ test("post-kickoff historical detail overrides cached prematch price", async ({ 
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
   await expect(page.locator("#analysis").getByText("Not current")).toBeVisible();
   await expect(page.locator("#analysis").getByText("WATCH / SKIP")).toBeVisible();
+});
+
+
+test("canonical confirmed player status keeps durable source attribution", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { playerCase: "confirmed" });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("Canonical Player", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Confirmed source + canonical player identity", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Evidence: phase2_player_status_evidence:2001/)).toBeVisible();
+  const sourceLink = page.locator('#analysis a[href="https://example.test/injury/2001"]');
+  await expect(sourceLink).toHaveCount(1);
+});
+
+test("source-confirmed player with unresolved identity never becomes a confirmed fact", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { playerCase: "unresolved" });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("Nico O'Reilly", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Source reports status · player identity unresolved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/phase2_player_status_evidence:2002/)).toBeVisible();
+});
+
+test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { playerCase: "ambiguous" });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("Lukas Provod", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Unconfirmed status · player identity unresolved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Confirmed source + canonical player identity", { exact: true })).toHaveCount(0);
+});
+
+test("official source lineup with unresolved player identity remains partial", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await mockApis(page, { unresolvedLineup: true });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await page.locator('a[href*="FBTEST1"]').first().click();
+
+  await expect(page.getByText("Official lineup source confirmed · player identity reconciliation incomplete", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toHaveCount(0);
 });
