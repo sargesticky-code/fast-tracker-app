@@ -378,3 +378,18 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Coherent release candidate after green CI: PR6→PR8→PR9→PR10→PR11.
 - [ ] Reverse rollback: PR11→PR10→PR9→PR8; PR6 independently reversible.
 - [ ] Existing UI/live-blocker authorization remains product authorization context; genuinely new approval is still required for DB/index/schema/compute, cron schedule changes, provider/feed expansion, spend or access expansion.
+
+
+### Multi-stage deadline correction before release-candidate acceptance
+
+- [x] Detail-page periodic Phase-1 refresh changed from full feed to `view=summary`; 20s client deadline now matches a one-DB-phase server path.
+- [x] Shared match-detail deadline raised to 35s for its possible two DB phases.
+- [x] Analysis deadline raised to 70s for its possible four bounded DB phases.
+- [x] Story optional AI fetch bounded at 15s; story client single-flight deadline raised to 120s for the reviewed multi-stage path.
+- [x] Recovered live endpoint = 15s market phase + concurrent 15s enrichment/heartbeat phase; client live deadline = 35s.
+- [x] Public live errors no longer expose raw DB messages; `read_failure_not_fixture_absence` semantics retained.
+- [x] New behavior check requires detail Phase-1 refresh to request `view=summary`.
+- [x] New behavior check forces live abort cleanup and confirms a later live refresh succeeds.
+- [x] Final source/test implementation checkpoint before docs: `d07278390a83c7c0aaf513a087eb2cd69d97071e`.
+- [ ] Final PR #11 exact-head GitHub CI must pass before release-candidate review is closed.
+- [ ] No production release in this batch.
