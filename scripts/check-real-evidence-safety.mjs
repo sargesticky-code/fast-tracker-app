@@ -66,6 +66,7 @@ const checks = [
   [detail.includes("singleFlightFetch(`match-detail:${matchId}`") && lineupPanel.includes("singleFlightFetch(`match-detail:${matchId}`"), "match detail and lineup consumers must share one page-level detail request"],
   [singleFlight.includes("const inFlight = new Map()") && singleFlight.includes("response.clone()"), "shared single-flight fetch must deduplicate consumers without sharing a consumed Response body"],
   [detail.includes("DETAIL_SUMMARY_FEED_URL") && detail.includes("view=summary"), "detail route Phase-1 refresh must use the bounded summary feed rather than full enrichments"],
+  [detail.includes("let liveApplied = false") && detail.includes("if (liveApplied && previous?.live)") && detail.includes("if (!liveApplied)"), "newer live state must remain ahead of a later summary response"],
   [detail.includes("20000") && detail.includes("35000") && detail.includes("70000") && detail.includes("120000"), "browser deadlines must remain outside the corresponding bounded server-stage windows"],
 ];
 
