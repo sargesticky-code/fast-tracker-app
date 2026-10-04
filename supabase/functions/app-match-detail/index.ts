@@ -78,6 +78,35 @@ function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalNa
     record_group:playerClaimFingerprint(row,canonicalIdentity),
   };
 }
+function forebetEvidenceFallback(rows:any[]){
+  const evidence=Array.isArray(rows)?rows:[];
+  const byMarket=(market:string)=>evidence.find((r:any)=>String(r?.source_key||"").toUpperCase()==="FOREBET" && String(r?.market_key||"").toUpperCase()===market) || null;
+  const hda=byMarket("1X2"), ou=byMarket("OU25"), corners=byMarket("CORNERS95");
+  if(!hda && !ou && !corners) return null;
+  const timestamps=[hda?.source_updated_at,ou?.source_updated_at,corners?.source_updated_at,hda?.updated_at,ou?.updated_at,corners?.updated_at]
+    .filter(Boolean).map((v:any)=>new Date(v).getTime()).filter((v:number)=>Number.isFinite(v));
+  return {
+    source:"PREDICTION_EVIDENCE_CURRENT",
+    source_key:"FOREBET",
+    source_updated_at:timestamps.length?new Date(Math.max(...timestamps)).toISOString():null,
+    status:hda?.status ?? ou?.status ?? corners?.status ?? null,
+    pick:hda?.pick ?? null,
+    predicted_score:hda?.predicted_score ?? null,
+    prob_home:hda?.prob_home ?? null,
+    prob_draw:hda?.prob_draw ?? null,
+    prob_away:hda?.prob_away ?? null,
+    prob_over25:ou?.prob_over ?? null,
+    prob_under25:ou?.prob_under ?? null,
+    avg_goals:ou?.avg_goals ?? null,
+    corner_prob_over95:corners?.prob_over ?? null,
+    corner_prob_under95:corners?.prob_under ?? null,
+    avg_corners:corners?.avg_corners ?? null,
+    confidence:hda?.confidence ?? ou?.confidence ?? corners?.confidence ?? null,
+    evidence_keys:[hda&&"FOREBET:1X2",ou&&"FOREBET:OU25",corners&&"FOREBET:CORNERS95"].filter(Boolean),
+    forebet_detail_url:null,
+  };
+}
+
 function normalizeH2H(row:any,error:any){
   if(error) return {status:"FAIL",isFailure:true,label:"對賽資料讀取失敗",reason:error.message||"query_error"};
   if(!row) return {status:"NO_DATA",isFailure:false,label:"暫無對賽資料",reason:"no_h2h_row"};
@@ -172,7 +201,7 @@ Deno.serve(async(req:Request)=>{
     fixtureSource,
     models:{
       internal:model.data,
-      forebet:forebet.data,
+      forebet:forebet.data || forebetEvidenceFallback(predictionEvidence.data),
       form:form.data,
       opta:power.data,
       multisource:multisource.data,
