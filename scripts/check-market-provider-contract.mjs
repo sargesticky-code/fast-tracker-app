@@ -58,5 +58,7 @@ assert.equal(compareBookmakerQuotes([hkjc, { ...bet365, selection: "A" }], polic
 assert.equal(compareBookmakerQuotes([hkjc, bet365], { now: policy.now + 3600000 }).bookmakerCount, 0);
 assert.equal(compareBookmakerQuotes([{ ...hkjc, observedAt: null }], policy).bookmakerCount, 0);
 assert.equal(compareBookmakerQuotes([{ ...hkjc, status: "STALE" }], policy).bookmakerCount, 0);
+assert.equal(compareBookmakerQuotes([{ ...hkjc, observedAt: "2026-10-03 01:00:00" }], policy).comparisonStatus, "NO_USABLE_QUOTES");
+assert.equal(normalizeMarketQuote({ line: "  " }).line, null);
 
 console.log("Provider/market contract passed");
