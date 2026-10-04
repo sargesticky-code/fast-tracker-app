@@ -448,7 +448,7 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
 function FeaturedMatch({ match }) {
   if (!match) return null;
   const model = normalizedTriplet(preferredModel(match));
-  const edge = valueEdge(match);
+  const edge = match.liveNow ? null : valueEdge(match);
   return (
     <section className="ft-right-card">
       <div className="ft-right-head">Featured match</div>
@@ -470,6 +470,7 @@ function FeaturedMatch({ match }) {
 
 function ValuePicks({ matches }) {
   const picks = matches
+    .filter((match) => !match.liveNow)
     .map((match) => ({ match, edge: valueEdge(match) }))
     .filter(({ edge }) => Number.isFinite(edge?.expectedValue) && edge.expectedValue > 0)
     .sort((a, b) => b.edge.expectedValue - a.edge.expectedValue)
@@ -496,7 +497,7 @@ function ValuePicks({ matches }) {
 }
 
 function RightRail({ matches, selectedDate, onSelectDate }) {
-  const featured = matches.find((m) => valueEdge(m)?.expectedValue > 0.04) || matches[0];
+  const featured = matches.find((m) => !m.liveNow && valueEdge(m)?.expectedValue > 0.04) || matches[0];
   return (
     <aside className="ft-rightbar">
       <CalendarPanel selectedDate={selectedDate} onSelectDate={onSelectDate} />

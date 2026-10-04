@@ -31,6 +31,10 @@ test.describe("prematch fixture navigation", () => {
       await page.locator(".ft-sports").getByRole("button", { name: "Live", exact: true }).click();
       await expect(page.locator(".ft-match-row")).toHaveCount(1);
       await expect(page.locator(".ft-match-row")).toContainText("Live Club");
+      if (width === 1440) {
+        await expect(page.locator(".ft-value-rail a")).toHaveCount(0);
+        await expect(page.locator(".ft-featured-meta").getByText("—", { exact: true })).toBeVisible();
+      }
       await page.locator(".ft-daybar").getByRole("button", { name: "Tomorrow", exact: true }).click();
       await expect(page.locator(".ft-match-row")).toHaveCount(1);
       await expect(page.locator(".ft-match-row")).toContainText("Tomorrow Club");
