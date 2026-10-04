@@ -227,8 +227,10 @@ function authorityFreshness(fetchedAt: unknown) {
   if (!fetchedAt) return { status: "MISSING", ageMinutes: null };
   const ageMinutes = Math.max(0, (Date.now() - new Date(String(fetchedAt)).getTime()) / 60000);
   if (!Number.isFinite(ageMinutes)) return { status: "UNKNOWN", ageMinutes: null };
-  if (ageMinutes > 15 * 60) return { status: "STALE", ageMinutes };
-  if (ageMinutes > 13 * 60) return { status: "AGING", ageMinutes };
+  // HKJC upcoming refresh is normally 15-minute cadence. Treat one missed cycle
+  // as tolerable for identity display, but never keep old prices actionable.
+  if (ageMinutes > 60) return { status: "STALE", ageMinutes };
+  if (ageMinutes > 30) return { status: "AGING", ageMinutes };
   return { status: "FRESH", ageMinutes };
 }
 
@@ -243,6 +245,19 @@ function noVig(home: unknown, draw: unknown, away: unknown) {
 
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
+  const pricesFresh = freshness.status === "FRESH";
+  const had = pricesFresh
+    ? { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) }
+    : { home: null, draw: null, away: null };
+  const handicap = pricesFresh
+    ? { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) }
+    : { line: null, home: null, away: null };
+  const goals = pricesFresh
+    ? { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) }
+    : { line: null, over: null, under: null };
+  const corners = pricesFresh
+    ? { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) }
+    : { line: null, over: null, under: null };
   return {
     id: r.hkjc_event_id,
     kickoff: r.kickoff_hkt,
@@ -261,20 +276,26 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       fetchedAt: r.fetched_at ?? null,
       poolStatus: r.pool_status ?? null,
       oddsUpdatedAt: r.odds_updated_at ?? null,
-      odds: { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) },
-      handicap: { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) },
-      goals: { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) },
-      corners: { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) },
+      odds: had,
+      handicap,
+      goals,
+      corners,
       score: null,
       stats: null,
       shadow: null,
     } : null,
-    odds: { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) },
-    market: noVig(r.had_home, r.had_draw, r.had_away),
-    handicap: { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) },
-    handicapAdvice: { status: "NO_MODEL", line: r.hdc_line ?? null, reason: "Model enrichment unavailable in summary recovery mode" },
-    goals: { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) },
-    corners: { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) },
+    odds: had,
+    market: pricesFresh ? noVig(r.had_home, r.had_draw, r.had_away) : null,
+    handicap,
+    handicapAdvice: {
+      status: "NO_MODEL",
+      line: handicap.line,
+      reason: pricesFresh
+        ? "Model enrichment unavailable in summary recovery mode"
+        : "HKJC price snapshot is stale; fixture identity only"
+    },
+    goals,
+    corners,
     forebetDetail: null,
     multisourceDetail: null,
     forebet: null,
@@ -296,9 +317,11 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       hkjcFreshness: freshness.status,
       evidenceChannelCount: 0,
       multisourceMemberCount: 0,
-      missingCanonical1x2: true,
+      missingCanonical1x2: !pricesFresh || had.home == null || had.draw == null || had.away == null,
       unifiedCoverageStatus: "HKJC_ONLY",
-      coverageExplanation: "HKJC fixture authority is available; model enrichment is temporarily unavailable.",
+      coverageExplanation: pricesFresh
+        ? "HKJC fixture authority is available; model enrichment is temporarily unavailable."
+        : "HKJC fixture identity is available, but the price snapshot is stale; odds and model actionability are suppressed.",
     },
     decision: null,
     decisionMarket: null,
