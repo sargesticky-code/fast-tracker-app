@@ -1042,3 +1042,7 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 ## Phase 2 authority continuation — 2026-10-05
 
 Baseline main `60dcd75231c5620491dce4a1879ba3de00f3661b`. Bounded review work wires detail/analysis to eligible `phase2_lineup_display_current` rows and exact canonical confirmed XIs. Confirmed-first view SQL is prepared but not applied. Actual selected data: 706 predicted rows, 704 eligible, two unavailability conflicts. Existing contracts, new helper tests and static build pass; local browser downloads are blocked, so rendered CI remains pending. Full continuation evidence and remaining strength/player-identity dependencies: `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`. No deployment, migration, DB write or merge.
+
+### Phase 2 PR43 rendered acceptance
+
+Executable source `650174c8ce096cce6fd3192618c793d4f0d8d4d1`, CI `37244467973` SUCCESS, 35/35 Playwright in 33.0s. Artifact `11318532786` (digest `sha256:5af151d03389d35f6748418cf63110045b4a56ac1d2dd2fe9c40788683749f3a`) reviewed on desktop/mobile. Article and Team News consistently warn that a partial official XI is incomplete; complete canonical official starters confirm without an event-map timestamp. Mocked CI acceptance only. PR43 remains draft; SQL, deployments and merge remain unperformed. Continue from the Phase 2 checkpoint.

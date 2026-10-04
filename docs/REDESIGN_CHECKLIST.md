@@ -131,7 +131,7 @@ Before stopping a redesign session, record:
 - [x] Confirmed 11v11 requires exact distinct canonical starters, independent of event-map timestamp.
 - [x] Current database conflict census and proposed ranking SELECT verified read-only.
 - [ ] Confirmed-first view SQL release (review SQL only; not applied).
-- [ ] PR CI rendered desktop/mobile partial-XI checks and screenshot review (local Chromium download blocked).
+- [x] PR43 CI run 37244467973: 35/35 rendered cases; desktop/mobile partial-XI screenshots visually reviewed. Local Chromium download remained blocked; acceptance came from CI.
 - [ ] Real endpoint verification after separately authorized release.
 
 Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
