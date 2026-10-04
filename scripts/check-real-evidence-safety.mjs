@@ -14,6 +14,7 @@ const hkjcLive = fs.readFileSync("supabase/functions/hkjc-live-direct/index.ts",
 const lineupPanel = fs.readFileSync("components/lineup-panel.js", "utf8");
 const singleFlight = fs.readFileSync("lib/single-flight-fetch.js", "utf8");
 const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
+const fotmobLineups = fs.readFileSync("supabase/functions/phase2-fotmob-lineups/index.ts", "utf8");
 
 const checks = [
   [analysis.includes("function statusIsTerminal"), "analysis must recognize terminal match states"],
@@ -25,7 +26,7 @@ const checks = [
   [analysis.includes('else if (decisionFamilies.length < 2) candidate = "WATCH"'), "HDA value classification must require at least two independent families"],
   [analysis.includes('if (!usable || !opts.fresh || opts.fallbackMode)'), "Asian handicap must fail closed when market/model/freshness is unusable"],
   [analysis.includes('else if (!models.length) candidateClass = "NO_MODEL"'), "binary market advice must distinguish no model from no edge"],
-  [analysis.includes('one("form_predictions")'), "goals analysis must query the validated Team Form model directly"],
+  [analysis.includes('oneWith(coreDb,"form_predictions")'), "goals analysis must query the validated Team Form model directly in the critical evidence lane"],
   [analysis.includes('formQuality === "FORM_MODELED"'), "Team Form goals input must pass the model quality gate"],
   [analysis.includes('formHomeGames >= 8') && analysis.includes('formAwayGames >= 8'), "Team Form goals input must preserve minimum sample-size gates"],
   [analysis.includes('key: "FORM"') && analysis.includes('method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON"'), "Team Form xG must remain a distinct market-specific goals family"],
@@ -60,6 +61,8 @@ const checks = [
   [phase1Feed.includes('const pricesFresh = freshness.status === "FRESH"') && phase1Feed.includes('market: pricesFresh ? noVig') && phase1Feed.includes('HKJC price snapshot is stale; fixture identity only'), "stale authority snapshot must preserve identity while suppressing prices and actionability"],
   [phase1Feed.includes('forebet: null') && phase1Feed.includes('dc: null') && phase1Feed.includes('pi: null') && phase1Feed.includes('form: null') && phase1Feed.includes('multi: null'), "authority-only summary must keep unavailable model channels null rather than zero"],
   [phase1Feed.includes('decision: null') && phase1Feed.includes('decisionEdge: null'), "authority-only summary must not fabricate betting decisions or edge"],
+  [phase1Feed.includes('lightweightFullRecovery') && phase1Feed.includes('prediction_evidence_current') && phase1Feed.includes('quality==="MODELED"'), "full-feed degradation must recover canonical evidence without promoting unmodeled DC/Pi"],
+  [analysis.includes('createReadClientWithTimeout') && analysis.includes('optionalDb') && detailApi.includes('createReadClientWithTimeout') && detailApi.includes('AUTHORITY_SUMMARY'), "detail and analysis must isolate optional enrichment pressure from canonical fixture/model recovery"],
   [[hkjcUpcoming,hkjcLive].every((src)=>src.includes("DB_TIMEOUT_MS = 12_000") && src.includes("db: { retry:false }") && src.includes("global: { fetch: boundedDbFetch }")), "HKJC authority refresh functions must bound database operations and disable retry amplification"],
   [hkjcUpcoming.includes('mode")==="summary"') && hkjcUpcoming.includes('HKJC_OFFICIAL_GRAPHQL_READ_ONLY') && hkjcUpcoming.includes('requests:1'), "HKJC upcoming must expose a database-free one-request summary mode"],
   [hkjcLive.includes('mode")==="summary"') && hkjcLive.includes('gql(["HAD","EHA"],9000)') && hkjcLive.includes('mode:"summary"'), "HKJC live must expose a database-free bounded summary mode"],
@@ -69,7 +72,7 @@ const checks = [
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
   [analysis.includes('app-phase1-feed?hours=48&view=summary') && analysis.includes('summaryMatchToAnalysisRow') && analysis.indexOf('readSummaryAuthority(sbUrl,id)') < analysis.indexOf('db.rpc("ft_internal_app_phase1_feed"'), "analysis must prefer the bounded authority summary before the congested 48h RPC"],
-  [analysis.includes('many("prediction_evidence_current","private")') && analysis.includes('forebetEvidenceHda=evidenceRow') && analysis.includes('modelTotals.data?.quality==="MODELED"'), "analysis must recover stored Forebet/internal model evidence without treating aggregate availability as independence"],
+  [analysis.includes('manyWith(coreDb,"prediction_evidence_current","private")') && analysis.includes('forebetEvidenceHda=evidenceRow') && analysis.includes('modelTotals.data?.quality==="MODELED"'), "analysis must recover stored Forebet/internal model evidence before optional fan-out without treating aggregate availability as independence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
   [storyApi.includes("AI_READ_TIMEOUT_MS = 15_000") && storyApi.includes("AbortSignal.timeout(AI_READ_TIMEOUT_MS)"), "optional AI story fetch must have its own bounded deadline"],
@@ -77,6 +80,7 @@ const checks = [
   [detail.includes("const requestsInFlight = {") && detail.includes("if (cancelled || requestsInFlight.live) return;"), "detail live polling must coalesce overlapping requests"],
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now()') && detail.includes("35000"), "live polling must stay single-flight with a client deadline outside the reviewed server bound"],
   [detail.includes("requestsInFlight.match") && detail.includes("requestsInFlight.detail") && detail.includes("requestsInFlight.analysis") && detail.includes("requestsInFlight.story"), "detail full/detail/narrative lanes must remain single-flight"],
+  [fotmobLineups.includes("DETAIL_TIMEOUT_MS=5_000") && fotmobLineups.includes("DETAIL_CONCURRENCY=3") && fotmobLineups.includes("await mapLimit(picked,DETAIL_CONCURRENCY"), "FotMob lineup producer must bound provider latency and avoid sequential detail starvation"],
   [detail.includes("authoritativeDetailBlocksFeed") && detail.includes("canonicalMissing || authoritativeDetailBlocksFeed"), "delayed feed responses must not overwrite conclusive missing or authoritative stale detail state"],
   [detail.includes("singleFlightFetch(`match-detail:${matchId}`") && lineupPanel.includes("singleFlightFetch(`match-detail:${matchId}`"), "match detail and lineup consumers must share one page-level detail request"],
   [singleFlight.includes("const inFlight = new Map()") && singleFlight.includes("response.clone()"), "shared single-flight fetch must deduplicate consumers without sharing a consumed Response body"],

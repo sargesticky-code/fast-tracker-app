@@ -299,6 +299,129 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
   };
 }
 
+
+function evidenceTriplet(row:any){
+  const home=num(row?.prob_home), draw=num(row?.prob_draw), away=num(row?.prob_away);
+  return home==null||draw==null||away==null ? null : {home,draw,away};
+}
+
+async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:any,hours:number){
+  const headers={ Authorization:`Bearer ${serverKey}`, apikey:serverKey };
+  const summaryRes=await fetch(`${supabaseUrl}/functions/v1/app-phase1-feed?hours=${hours}&view=summary`,{
+    headers,
+    signal:AbortSignal.timeout(12_000),
+  });
+  if(!summaryRes.ok) throw new Error(`summary_recovery_http_${summaryRes.status}`);
+  const summary=await summaryRes.json();
+  const matches=Array.isArray(summary?.matches)?summary.matches:[];
+  const ids=matches.map((m:any)=>String(m?.id||"")).filter(Boolean);
+  if(!ids.length){
+    return {...summary,source:"supabase-lightweight-enrichment-recovery",view:"full",recoveryMode:"AUTHORITY_ONLY"};
+  }
+
+  const evidenceResult=await db.schema("private")
+    .from("prediction_evidence_current")
+    .select("hkjc_event_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
+    .in("hkjc_event_id",ids);
+  const modelResult=await db.from("model_predictions")
+    .select("hkjc_event_id,fetched_at,quality,model_source,model_league,training_matches,team_match_quality,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff")
+    .in("hkjc_event_id",ids);
+
+  const evidenceRows=Array.isArray(evidenceResult.data)?evidenceResult.data:[];
+  const modelRows=Array.isArray(modelResult.data)?modelResult.data:[];
+  const evidenceById=new Map<string,any[]>();
+  for(const row of evidenceRows){
+    const id=String(row?.hkjc_event_id||"");
+    if(!id) continue;
+    const bucket=evidenceById.get(id)||[];
+    bucket.push(row);
+    evidenceById.set(id,bucket);
+  }
+  const modelById=new Map(modelRows.map((row:any)=>[String(row?.hkjc_event_id||""),row]));
+
+  const recovered=matches.map((m:any)=>{
+    const id=String(m?.id||"");
+    const rows=evidenceById.get(id)||[];
+    const find=(source:string,market:string)=>rows.find((r:any)=>
+      String(r?.source_key||"").toUpperCase()===source &&
+      String(r?.market_key||"").toUpperCase()===market
+    )||null;
+    const fbHda=find("FOREBET","1X2");
+    const fbOu=find("FOREBET","OU25");
+    const fbCorners=find("FOREBET","CORNERS95");
+    const formRow=find("FORM","1X2");
+    const model:any=modelById.get(id)||null;
+    const modeled=model?.quality==="MODELED";
+    const forebet=evidenceTriplet(fbHda);
+    const form=evidenceTriplet(formRow);
+    const dc=modeled?evidenceTriplet({
+      prob_home:model?.dc_prob_home,prob_draw:model?.dc_prob_draw,prob_away:model?.dc_prob_away
+    }):null;
+    const pi=modeled?evidenceTriplet({
+      prob_home:model?.pi_prob_home,prob_draw:model?.pi_prob_draw,prob_away:model?.pi_prob_away
+    }):null;
+    const evidenceCount=[forebet,dc,pi,form].filter(Boolean).length;
+    return {
+      ...m,
+      forebet,
+      dc,
+      pi,
+      form,
+      forebetDetail:{
+        predictedScore:fbHda?.predicted_score??null,
+        ou25:{over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),avgGoals:num(fbOu?.avg_goals)},
+        corners95:{over:num(fbCorners?.prob_over),under:num(fbCorners?.prob_under),avgCorners:num(fbCorners?.avg_corners)},
+        goalsCurrentLine:lineModel(m?.goals?.line,fbOu?.avg_goals,2.5,fbOu?.prob_over,0.5,6.5),
+        cornersCurrentLine:lineModel(m?.corners?.line,fbCorners?.avg_corners,9.5,fbCorners?.prob_over,4.5,16.5),
+      },
+      dcDetail:modeled?{
+        quality:model?.quality??null,
+        source:model?.model_source??null,
+        league:model?.model_league??null,
+        fetchedAt:model?.fetched_at??null,
+        trainingMatches:Number(model?.training_matches??0),
+        teamMatchQuality:num(model?.team_match_quality),
+        probabilities:dc,
+        expectedGoals:{home:num(model?.dc_xg_home),away:num(model?.dc_xg_away)},
+        over25:num(model?.dc_prob_over25),
+        available:Boolean(dc),
+        missingReason:dc?null:(model?.quality??"NO_MODEL_ROW"),
+      }:null,
+      piDetail:modeled?{
+        quality:model?.quality??null,
+        source:model?.model_source??null,
+        league:model?.model_league??null,
+        fetchedAt:model?.fetched_at??null,
+        trainingMatches:Number(model?.training_matches??0),
+        teamMatchQuality:num(model?.team_match_quality),
+        probabilities:pi,
+        ratings:{home:num(model?.pi_home_rating),away:num(model?.pi_away_rating),difference:num(model?.pi_diff)},
+        available:Boolean(pi),
+        missingReason:pi?null:(model?.quality??"NO_MODEL_ROW"),
+      }:null,
+      health:{
+        ...(m?.health||{}),
+        evidenceChannelCount:evidenceCount,
+        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"HKJC_ONLY"),
+        recoveryMode:"LIGHTWEIGHT_CANONICAL_EVIDENCE",
+        enrichmentErrors:{
+          predictionEvidence:evidenceResult.error?String(evidenceResult.error.message||evidenceResult.error):null,
+          modelPredictions:modelResult.error?String(modelResult.error.message||modelResult.error):null,
+        },
+      },
+    };
+  });
+
+  return {
+    ...summary,
+    source:"supabase-lightweight-enrichment-recovery",
+    view:"full",
+    recoveryMode:"LIGHTWEIGHT_CANONICAL_EVIDENCE",
+    count:recovered.length,
+    matches:recovered,
+  };
+}
+
 function getServerKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
@@ -454,7 +577,13 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await db.rpc("ft_internal_app_phase1_feed", {
       window_hours: hours,
     });
-    if (error) throw new Error(`rpc_error:${error.code ?? "unknown"}:${error.message ?? "unknown"}`);
+    if (error) {
+      console.error("full_feed_rpc_degraded", error);
+      const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,db,hours);
+      return Response.json(recovered,{
+        headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"},
+      });
+    }
 
     const rows = Array.isArray(data) ? data : [];
 

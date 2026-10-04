@@ -15,7 +15,7 @@ const checks = [
   [detail.includes('payload?.fixtureSource === "MISSING" && !payload?.fixture'), "detail must detect canonical fixture absence"],
   [detail.includes('setReady(true);'), "missing canonical fixture must be able to terminate loading"],
   [detail.includes('cached && !canonicalMissing'), "missing canonical fixture must not restore stale cached match"],
-  [detailApi.includes('fixtureSource = fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : "MISSING"'), "detail API contract must expose fixtureSource=MISSING"],
+  [detailApi.includes('summaryFixture ? "AUTHORITY_SUMMARY"') && detailApi.includes('fixtureLive.data ? "LIVE" : "MISSING"'), "detail API must prefer authority summary while preserving fixtureSource=MISSING"],
   [detailApi.includes('"SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"'), "detail API must preserve unresolved canonical player identity"],
   [lineup.includes('factStatus(r) === "CONFIRMED"'), "lineup counts must use canonical-confirmed rows when fact_status exists"],
   [lineup.includes('playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")'), "availability rows must preserve canonical player identity gate"],
