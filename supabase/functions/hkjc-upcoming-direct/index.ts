@@ -176,7 +176,7 @@ Deno.serve(async (_req:Request)=>{
     const hil=chooseTwo(flatten(hilResult.matches),"HIL");
     const chl=chooseTwo(flatten(chlResult.matches),"CHL");
     const marketErrors={had:hadResult.error,hdc:hdcResult.error,hil:hilResult.error,chl:chlResult.error};
-    const degraded=Boolean(marketErrors.had||marketErrors.hil||marketErrors.chl);
+    let degraded=Boolean(marketErrors.had||marketErrors.hil||marketErrors.chl);
 
     const {data:previousRows}=await db.from("hkjc_upcoming_current")
       .select("hkjc_event_id,tournament_zh,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at");
@@ -213,6 +213,60 @@ Deno.serve(async (_req:Request)=>{
         odds_updated_at:updates.length?updates[updates.length-1]:null,
         raw:{sellingPools,inplayPools:m?.poolInfo?.inplayPools||[],source:"HKJC_OFFICIAL_GRAPHQL_DIRECT",requests:5,degraded,marketErrors,tournament_zh:txt(m?.tournament?.name_ch)}
       });
+    }
+
+    // Zero-snapshot guard: never let a transient HKJC list anomaly erase the dashboard.
+    // If the direct authority unexpectedly yields zero rows, rebuild from the freshly
+    // captured canonical matches plus last-good official odds and mark the run degraded.
+    if(!out.length){
+      const cutoff=new Date(now.getTime()-6*3600000).toISOString();
+      const {data:fallbackRows,error:fallbackError}=await db.from("matches")
+        .select("hkjc_event_id,hkjc_match_id,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at")
+        .eq("selling",true)
+        .gte("kickoff_hkt",now.toISOString())
+        .lte("kickoff_hkt",new Date(maxMs).toISOString())
+        .gte("fetched_at",cutoff);
+      if(fallbackError) throw new Error("upcoming_fallback_matches:"+fallbackError.message);
+
+      const fallbackIds=(fallbackRows||[]).map((x:any)=>String(x.hkjc_event_id||"")).filter(Boolean);
+      let fallbackOdds:any[]=[];
+      if(fallbackIds.length){
+        const {data:oddsRows,error:oddsError}=await db.from("hkjc_odds_current")
+          .select("hkjc_event_id,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,fetched_at,odds_updated_at")
+          .in("hkjc_event_id",fallbackIds);
+        if(oddsError) throw new Error("upcoming_fallback_odds:"+oddsError.message);
+        fallbackOdds=oddsRows||[];
+      }
+      const oddsById=new Map(fallbackOdds.map((x:any)=>[String(x.hkjc_event_id),x]));
+      for(const m of fallbackRows||[]){
+        const id=String(m.hkjc_event_id||""); if(!id) continue;
+        const o:any=oddsById.get(id)||{};
+        out.push({
+          hkjc_event_id:id,fetched_at:o.fetched_at||m.fetched_at||fetchedAt,match_id:m.hkjc_match_id||null,kickoff_hkt:m.kickoff_hkt,
+          status:m.status||"",tournament:m.tournament||"",tournament_zh:m.tournament_zh||null,
+          home_en:m.home_en||"",away_en:m.away_en||"",home_zh:m.home_zh||"",away_zh:m.away_zh||"",
+          live_eligible:Boolean(m.in_play),selling:true,pool_status:m.pool_status||"SELLINGSTARTED",
+          had_home:o.had_home??null,had_draw:o.had_draw??null,had_away:o.had_away??null,
+          hdc_line:o.hdc_line||null,hdc_home:o.hdc_home??null,hdc_away:o.hdc_away??null,
+          hil_line:o.hil_line||null,hil_over:o.hil_over??null,hil_under:o.hil_under??null,
+          chl_line:o.chl_line||null,chl_over:o.chl_over??null,chl_under:o.chl_under??null,
+          odds_updated_at:o.odds_updated_at||null,
+          raw:{source:"MATCHES_FALLBACK_GUARD",reason:"OFFICIAL_UPCOMING_ZERO",odds_fetched_at:o.fetched_at||null}
+        });
+      }
+      if(out.length){
+        degraded=true;
+        (marketErrors as any).fallback="OFFICIAL_UPCOMING_ZERO_MATCHES_GUARD";
+      }
+    }
+
+    if(!out.length){
+      await db.from("source_health").upsert({
+        source:"HKJC_UPCOMING_EDGE",metric:"heartbeat",value_text:"0",status:"FAIL",
+        notes:"Zero-snapshot guard blocked an empty authority refresh; last-good snapshot retained",
+        observed_at:fetchedAt,raw:{matches:0,reason:"OFFICIAL_UPCOMING_ZERO_NO_FALLBACK"}
+      },{onConflict:"source,metric"});
+      return Response.json({ok:false,status:"FAIL",rows:0,error:"official_upcoming_zero_no_fallback"},{status:503});
     }
 
     if(out.length){
