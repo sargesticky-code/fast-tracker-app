@@ -1,3 +1,4 @@
+import { eligibleLineupRows, confirmedStartingXI } from "../_shared/lineup-display.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
@@ -1193,7 +1194,7 @@ Deno.serve(async (req: Request) => {
     oneWith(optionalDb,"human_factors_current"),
     oneWith(optionalDb,"api_football_event_map"),
     manyWith(optionalDb,"phase2_player_status_evidence"),
-    manyWith(optionalDb,"phase2_match_lineup_evidence"),
+    manyWith(optionalDb,"phase2_lineup_display_current"),
     manyWith(optionalDb,"phase2_manager_evidence"),
     oneWith(optionalDb,"odds_movement_current"),
     oneWith(optionalDb,"live_score_current"),
@@ -1205,7 +1206,7 @@ Deno.serve(async (req: Request) => {
   ]);
 
 
-  const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
+  const playerEvidenceRaw=[...(playerStatus.data||[]),...eligibleLineupRows(lineups.data,id)];
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
   let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string}>();
   let playerIdentityError:any=null;
@@ -1218,7 +1219,7 @@ Deno.serve(async (req: Request) => {
     ]));
   }
   const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence",id));
-  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence",id));
+  const lineupRowsAnnotated=eligibleLineupRows(lineups.data,id).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence",id));
 
   const evidenceRows=predictionEvidence.data||[];
   const forebetEvidenceHda=evidenceRow(evidenceRows,"FOREBET","1X2");
@@ -1694,12 +1695,12 @@ Deno.serve(async (req: Request) => {
       ? `HKJC live 現價 ${oddsText}`
       : `現價 ${oddsText}`;
 
-  const sourceLineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
+  const sourceLineupConfirmed = lineupRowsAnnotated.some((row:any)=>row.confirmed===true);
   const confirmedStatusClaims = uniqueConfirmedClaims(playerStatusRowsAnnotated);
   const unresolvedStatusRows = playerStatusRowsAnnotated.filter((row:any)=>row.fact_status!=="CONFIRMED");
   const confirmedLineupRows = lineupRowsAnnotated.filter((row:any)=>row.fact_status==="CONFIRMED");
   const unresolvedLineupRows = lineupRowsAnnotated.filter((row:any)=>row.fact_status!=="CONFIRMED");
-  const lineupConfirmed = sourceLineupConfirmed && unresolvedLineupRows.length===0 && confirmedLineupRows.length>0;
+  const lineupConfirmed = confirmedStartingXI(lineupRowsAnnotated);
   // Count only canonically resolved, source-confirmed player claims. Multiple
   // providers describing the same underlying player/status record collapse by
   // record_group rather than becoming false independent corroboration.

@@ -1,3 +1,4 @@
+import { eligibleLineupRows, confirmedStartingXI } from "../_shared/lineup-display.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
@@ -226,7 +227,7 @@ Deno.serve(async(req:Request)=>{
     oneWith(optionalDb,"match_h2h_current"),
     oneWith(optionalDb,"api_football_event_map"),
     manyWith(optionalDb,"phase2_player_status_evidence"),
-    manyWith(optionalDb,"phase2_match_lineup_evidence"),
+    manyWith(optionalDb,"phase2_lineup_display_current"),
     manyWith(optionalDb,"phase2_lineup_strength_current"),
     manyWith(optionalDb,"phase2_manager_evidence"),
     oneWith(optionalDb,"multisource_consensus_current","*","private"),
@@ -244,7 +245,7 @@ Deno.serve(async(req:Request)=>{
   }
 
 
-  const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
+  const playerEvidenceRaw=[...(playerStatus.data||[]),...eligibleLineupRows(lineups.data,id)];
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
   let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string}>();
   let canonicalPlayerError:any=null;
@@ -258,7 +259,7 @@ Deno.serve(async(req:Request)=>{
   }
   if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
   const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence"));
-  const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence"));
+  const annotatedLineups=eligibleLineupRows(lineups.data,id).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence"));
 
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
   const arbRows=[...(arbMarket.data||[])].sort((a:any,b:any)=>Number(b.net_roi_pct||0)-Number(a.net_roi_pct||0));
@@ -281,6 +282,7 @@ Deno.serve(async(req:Request)=>{
       eventMap:eventMap.data,
       playerStatus:annotatedPlayerStatus,
       lineup:annotatedLineups,
+      lineupAuthority:{confirmed:confirmedStartingXI(annotatedLineups),source:"phase2_lineup_display_current",status:lineups.error?"UNAVAILABLE":annotatedLineups.length?"AVAILABLE":"NO_CURRENT_LINEUP",rawFallback:false},
       lineupStrength:lineupStrength.data,
       managers:managers.data,
     },

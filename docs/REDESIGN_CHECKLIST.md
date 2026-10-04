@@ -124,3 +124,14 @@ Before stopping a redesign session, record:
   - A current live-feed ID `FB6174` still returned `fixtureSource=MISSING` from `app-match-detail` despite auxiliary model/player evidence, so the canonical fixture/detail acceptance gap remains real.
 - Real-device mobile acceptance is still open: the available browser connector does not expose device/viewport emulation for the live deployed app, and the reviewed source is not released. CI mobile screenshots are deterministic mocked coverage only.
 - No merge, deployment, Edge release, migration, DB write, feed publication, access expansion or spending occurred.
+
+## Phase 2 authority review — 2026-10-05
+
+- [x] Both public detail and analysis consume eligible authoritative display rows in review code.
+- [x] Confirmed 11v11 requires exact distinct canonical starters, independent of event-map timestamp.
+- [x] Current database conflict census and proposed ranking SELECT verified read-only.
+- [ ] Confirmed-first view SQL release (review SQL only; not applied).
+- [ ] PR CI rendered desktop/mobile partial-XI checks and screenshot review (local Chromium download blocked).
+- [ ] Real endpoint verification after separately authorized release.
+
+Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.

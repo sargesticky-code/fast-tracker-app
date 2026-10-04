@@ -1044,3 +1044,17 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+// Deliberately partial source-confirmed evidence: the existing mock has one
+// home starter and one away substitute, not a complete confirmed 11v11.
+for (const width of [1280, 390]) {
+  test(`partial official XI stays incomplete on ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockApis(page, { confirmedLineup: true });
+    await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1");
+    const card = page.locator(".lineup-signal");
+    await expect(card).toContainText("Official source · starting XI incomplete");
+    await expect(card).not.toContainText("Confirmed · identities resolved");
+    await page.screenshot({ path: `test-results/dashboard-phase2-partial-${width}.png`, fullPage: true });
+  });
+}

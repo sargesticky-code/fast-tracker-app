@@ -57,6 +57,9 @@ jobs:
       - name: Check player evidence identity
         run: npm run check:player-evidence
 
+      - name: Check authoritative lineup display
+        run: npm run check:lineup-authority
+
       - name: Build static app
         id: static_build
         shell: bash

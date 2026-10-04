@@ -11,6 +11,7 @@
     "check:market-contract": "node scripts/check-market-provider-contract.mjs",
     "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
     "check:evidence-independence": "node scripts/check-evidence-independence.mjs",
+    "check:lineup-authority": "node scripts/check-lineup-display-authority.mjs",
     "check:player-evidence": "node scripts/check-player-evidence-identity.mjs"
   },
   "dependencies": {

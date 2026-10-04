@@ -1046,10 +1046,10 @@ export default function MatchDetailClient() {
   const injuriesAway = confirmedPlayerStatusEvidence.length
     ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "A").length
     : null;
-  const sourceLineupConfirmed = Boolean(eventMap?.lineup_confirmed_at);
-  const lineupConfirmed = sourceLineupConfirmed && confirmedLineupEvidence.length > 0 && unresolvedLineupIdentity.length === 0;
+  const sourceLineupConfirmed = lineupEvidence.some((row) => row.confirmed === true);
+  const lineupConfirmed = deep?.humanFactors?.lineupAuthority?.confirmed ?? (sourceLineupConfirmed && homeStarters.length === 11 && awayStarters.length === 11 && new Set(homeStarters).size === 11 && new Set(awayStarters).size === 11 && unresolvedLineupIdentity.length === 0);
   const lineupState = lineupConfirmed ? "CONFIRMED"
-    : sourceLineupConfirmed ? "IDENTITY_PARTIAL"
+    : sourceLineupConfirmed ? (unresolvedLineupIdentity.length ? "IDENTITY_PARTIAL" : "PARTIAL")
       : eventMap ? "PENDING" : "UNMAPPED";
   const injuryMax = Math.max(Number(injuriesHome) || 0, Number(injuriesAway) || 0, 1);
   const injuryGap = (Number(injuriesHome) || 0) - (Number(injuriesAway) || 0);
@@ -2340,7 +2340,7 @@ export default function MatchDetailClient() {
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
             <span>Official XI</span>
-            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
+            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PARTIAL" ? "Official source · starting XI incomplete" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
             <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved`  : "No confirmed lineup rows"}</small>
           </div>
 
