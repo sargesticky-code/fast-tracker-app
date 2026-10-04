@@ -995,3 +995,16 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] Production migration `20261004080635 classify_verified_shadow_events_in_live_guard` applied and source-controlled in commit `aabfd8d099a5f6449c59e7b415001f84cac3b56e`.
 - [ ] SofaScore remains HTTP 403 from the current environment. Treat it as an unavailable fallback, not as evidence of zero coverage.
 - [ ] Lower-coverage FotMob matches can legitimately provide event/lineup evidence without team statistics. Public UI should show verified events while leaving unavailable statistical metrics unknown.
+
+### Prewarm alert semantics recovery — 2026-10-04 08:18 UTC
+
+- [x] PR37 `Keep prewarm provider gaps out of live alerts` merged as `515a971d953c8817eb8cee331edcfb2b1832bb26`; CI run `37188121173` passed all contract, safety, static build, route and desktop/mobile rendered-flow checks.
+- [x] Exact merged `live-source-shadow` deployed as v9, build `SUPABASE-LIVE-SHADOW-20261004-3`, Edge SHA `1a0883391c43eecc084259611e073168cf679154305799ce37c3422300a60a80`.
+- [x] Alert semantics now separate live coverage from prewarm discovery: only a missing LIVE target escalates live coverage. PREWARM-only provider gaps remain visible in raw coverage counters but are non-blocking before kickoff.
+- [x] First natural post-deploy job16 run at 08:18 UTC succeeded. Edge logs show deployment v9 returned HTTP 200.
+- [x] Natural health result: `LIVE_SOURCE_SHADOW=OK`, `value=0/1`, note `Live shadow healthy 0/0; prewarm provider coverage 0/1 is non-blocking before kickoff.` Raw counters show live_gaps=0, prewarm_targets=1, prewarm_matched=0, prewarm_gaps=1.
+- [x] Natural job14 at 08:14 UTC verified the new guard schema is active: `live=0 score_bad=0 stats_bad=0 shadow_bad=0 score_only=0 no_metrics=0 events_only=0`.
+- [x] Pre-kickoff FB6306 public detail/analysis/story read-only verification returned HTTP 200 for all three, zero CJK, with analysis/story safely `NO_BET / DATA_RISK` while model/provider evidence is insufficient.
+- [x] Homepage authority summary at 08:17 UTC contained 59 fixtures including FB6306. FB6306 HKJC authority was FRESH with H/D/A 1.60 / 3.75 / 4.15 and remained `HKJC_ONLY / NO_MODEL`; no missing enrichment was converted into a recommendation.
+- [x] Scheduler stability remained intact through 08:18 UTC: 253 natural cron runs since 06:38 UTC, 253 succeeded, 0 failed, 0 startup timeout. Job23 continued succeeding in roughly 0.3-0.6s.
+- [ ] FB6306 prewarm provider discovery remains a genuine coverage gap: FotMob board has no credible match and SofaScore returns HTTP 403 from this environment. Do not weaken identity thresholds or fabricate a provider match.
