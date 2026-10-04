@@ -949,6 +949,17 @@ function evidenceRow(rows:any[],source:string,market:string){
 function englishPublicText(input: string) {
   let out = String(input);
   const replacements: Array<[string,string]> = [
+    ["只有 1 個獨立模型 family，方向只列觀望", "Only 1 independent model family; direction remains WATCH"],
+    ["EV 雖高但機率差不足 3pp，高賠率放大效應：只列觀望", "EV is positive but the probability gap is below 3pp; long-odds amplification keeps this at WATCH"],
+    ["高賠率尾部風險：Phase 5 calibration 未完成，Strong Value 上限降為 Value", "Long-odds tail risk: Phase 5 calibration is incomplete, so Strong Value is capped at Value"],
+    ["即場走勢與預期矛盾，降為觀望", "Live movement contradicts the expectation; downgrade to WATCH"],
+    ["賽事已開賽/完結，賽前價格只可作歷史參考", "The match has started or finished; pre-match prices are historical reference only"],
+    ["Phase 5 calibration 未完成：只限制自動注碼，不取消人工 recommendation", "Phase 5 calibration is incomplete; automated stake sizing is disabled, but the analytical recommendation remains visible"],
+    ["Phase 5 calibration 未完成只限制自動 stake sizing；方向同 Edge 照常顯示", "Phase 5 calibration is incomplete; automated stake sizing is disabled while direction and edge remain visible"],
+    ["現價 EV", "current price EV"],
+    ["模型 vs fair 機率差", "model vs fair probability gap"],
+    ["模型 family 支持", "model family support"],
+    ["模型分歧", "model dispersion"],
     ["主勝", "Home win"], ["客勝", "Away win"], ["和局", "Draw"],
     ["暫無投注位", "No actionable position"], ["亞洲讓球", "Asian handicap"],
     ["暫不建議", "No recommendation"], ["入球大細", "Goals O/U"], ["角球大細", "Corners O/U"],
@@ -982,7 +993,16 @@ function englishPublicText(input: string) {
   for (const [from,to] of replacements) out = out.split(from).join(to);
   out = out.replace(/[；]/g, "; ").replace(/[，]/g, ", ").replace(/[。]/g, ". ").replace(/[：]/g, ": ");
   out = out.replace(/[（]/g, "(").replace(/[）]/g, ")");
-  out = out.replace(/[\u3400-\u9fff]+/g, " ").replace(/\s+/g, " ").trim();
+  out = out.replace(/[\u3400-\u9fff]+/g, " ");
+  out = out
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([,.;:!?])\s*([,.;:!?])/g, "$1 ")
+    .replace(/\s*[、，]\s*/g, ", ")
+    .replace(/\s*[／]\s*/g, " / ")
+    .replace(/\s+/g, " ")
+    .replace(/(^|\s)[,;/]+(?=\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return out;
 }
 function englishPublicPayload(value: any): any {
