@@ -517,12 +517,12 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
   useEffect(() => {
     let cancelled = false;
-    let authorityInFlight = false;
+    let refreshInFlight = false;
     let enrichmentInFlight = false;
 
     async function refreshAuthority() {
-      if (cancelled || authorityInFlight || document.visibilityState === "hidden") return;
-      authorityInFlight = true;
+      if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
+      refreshInFlight = true;
       try {
         const res = await fetch(HOMEPAGE_FEED_URL, {
           signal: AbortSignal.timeout(20000),
@@ -548,7 +548,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       } catch {
         if (!cancelled) setFeedState({ status: "error", message: "Fixture refresh request failed" });
       } finally {
-        authorityInFlight = false;
+        refreshInFlight = false;
       }
     }
 
