@@ -68,6 +68,8 @@ const checks = [
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL') && detail.includes("35000"), "live client deadline must remain outside the bounded two-phase live server read window"],
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
+  [analysis.includes('app-phase1-feed?hours=48&view=summary') && analysis.includes('summaryMatchToAnalysisRow') && analysis.indexOf('readSummaryAuthority(sbUrl,id)') < analysis.indexOf('db.rpc("ft_internal_app_phase1_feed"'), "analysis must prefer the bounded authority summary before the congested 48h RPC"],
+  [analysis.includes('many("prediction_evidence_current","private")') && analysis.includes('forebetEvidenceHda=evidenceRow') && analysis.includes('modelTotals.data?.quality==="MODELED"'), "analysis must recover stored Forebet/internal model evidence without treating aggregate availability as independence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
   [storyApi.includes("AI_READ_TIMEOUT_MS = 15_000") && storyApi.includes("AbortSignal.timeout(AI_READ_TIMEOUT_MS)"), "optional AI story fetch must have its own bounded deadline"],
