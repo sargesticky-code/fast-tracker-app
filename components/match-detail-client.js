@@ -833,6 +833,20 @@ export default function MatchDetailClient() {
       })()
     : "—";
   const liveStats = match.live?.stats || null;
+  const liveShadowDetail = match.live?.shadowDetail || null;
+  const liveShadowEvents = Array.isArray(liveShadowDetail?.events) ? liveShadowDetail.events : [];
+  const verifiedLiveEvents = [...liveShadowEvents]
+    .sort((a, b) => Number(a?.time ?? a?.timeStr ?? 999) - Number(b?.time ?? b?.timeStr ?? 999))
+    .slice(-6)
+    .map((event) => {
+      const minute = Number(event?.time ?? event?.timeStr);
+      const type = String(event?.type || "Event");
+      const player = String(event?.player?.name || event?.fullName || event?.nameStr || "").trim();
+      const score = Array.isArray(event?.newScore) && event.newScore.length >= 2
+        ? `${event.newScore[0]}-${event.newScore[1]}`
+        : null;
+      return [Number.isFinite(minute) ? minute + "'" : null, type, player || null, score].filter(Boolean).join(" · ");
+    });
   const shadow = match.live?.shadow || null;
   const liveControlSide = shadow?.actualSide || visualControlSide(liveStats);
   const liveControlLabel = controlSideLabel(match, liveControlSide);
@@ -851,6 +865,7 @@ export default function MatchDetailClient() {
       if (detailStatus === "NOT_APPLICABLE" || (!detailStatus && liveScore.source === "HKJC_RUNNING_RESULT")) {
         Object.assign(statsLane, { state: "unavailable", label: "score-only" });
       }
+      else if (detailStatus === "CAPTURED_NO_METRICS") Object.assign(statsLane, { state: "unavailable", label: "no metrics" });
       else if (detailStatus === "DEFERRED_RATE_GUARD") Object.assign(statsLane, { state: "warn", label: "rate-limit" });
       else if (detailStatus === "DETAIL_EMPTY") Object.assign(statsLane, { state: "warn", label: "empty" });
     } else if (detailStatus === "DEFERRED_RATE_GUARD" && statsLane.state === "fresh") {
@@ -859,6 +874,9 @@ export default function MatchDetailClient() {
     return {
       odds: liveLaneStatus(match.live.fetchedAt || match.live.oddsUpdatedAt, 90, 180),
       score: liveLaneStatus(liveScore.capturedAt || liveScore.sourceUpdatedAt, 90, 180),
+      events: liveShadowEvents.length
+        ? liveLaneStatus(liveShadowDetail?.capturedAt, 180, 600)
+        : { state: "unavailable", label: "no verified events", age: Infinity },
       stats: statsLane,
       shadow: liveLaneStatus(shadow?.capturedAt, 180, 600),
     };
@@ -1690,11 +1708,24 @@ export default function MatchDetailClient() {
             <div className="live-lane-bar">
               <span className={"lane-" + liveLanes.odds.state}>ODDS <b>{liveLanes.odds.label}</b></span>
               <span className={"lane-" + liveLanes.score.state}>SCORE <b>{liveLanes.score.label}</b></span>
+              <span className={"lane-" + liveLanes.events.state}>EVENTS <b>{liveLanes.events.label}</b></span>
               <span className={"lane-" + liveLanes.stats.state}>STATS <b>{liveLanes.stats.label}</b></span>
               <span className={"lane-" + liveLanes.shadow.state}>MODEL <b>{liveLanes.shadow.label}</b></span>
               {liveBottleneck && liveBottleneck[1].state !== "fresh"
                 ? <strong>Slowest: {liveBottleneck[0]} {liveBottleneck[1].label}</strong>
                 : <strong className="fresh">Feeds aligned</strong>}
+            </div>
+          ) : null}
+
+          {verifiedLiveEvents.length ? (
+            <div className="evidence-rows" style={{ marginBottom: 12 }}>
+              <div>
+                <span>Verified live events · {liveShadowDetail?.source || "provider"}</span>
+                <b>{verifiedLiveEvents.join(" · ")}</b>
+                <small style={{ display:"block", marginTop:4 }}>
+                  Provider event evidence only · not promoted to xG, shots, corners or model inputs
+                </small>
+              </div>
             </div>
           ) : null}
 
