@@ -3,7 +3,7 @@
 ## Completed foundation
 
 - [x] Phase 1 probability gate rejects missing values and preserves valid fallback models and no-model fixtures.
-- [ ] Verify new missing-probability desktop/mobile screenshots in draft PR CI.
+- [x] PR42 CI 37244231413 and desktop/mobile missing-probability screenshots verified; production release separate.
 
 - [x] English public homepage
 - [x] Today / Live / Value / Tomorrow / All football navigation

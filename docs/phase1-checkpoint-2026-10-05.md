@@ -37,3 +37,15 @@ complete fixture navigation with responsive tests. Preserve identity and freshne
 Inventory flagged RLS disabled on `phase1_identity_deferred_queue`,
 `phase1_h2h_provider_event_map`, `phase1_h2h_provider_meetings`. Separate policy
 review remains necessary; no access changes applied.
+
+## CI acceptance
+
+Executable head: `af24bd4e4d002e2a2a043f1607a391ea15b02cd4`.
+PR: https://github.com/sargesticky-code/fast-tracker-app/pull/42 (draft).
+CI run `37244231413` succeeded, including the new desktop/mobile regressions.
+Artifact `11318033739`, `dashboard-redesign-4c0deef3ebeaabdacf0d0d32c2287e8839c846e0`.
+Both 1440px and 390px regression screenshots inspected: fallback 50/30/20
+visible, unknown row retained without a fabricated probability/pick/edge or
+null average rendered as zero, no page overflow. These are mocked screenshots.
+Real summary/full snapshots had the same 34 canonical IDs, team pairs and actual
+kickoff instants (timezone representations differ). No deployed change claimed.
