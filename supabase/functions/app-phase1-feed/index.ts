@@ -19,6 +19,13 @@ function createReadClient(url:string, key:string) {
     global: { fetch: boundedDbFetch },
   });
 }
+function createReadClientWithTimeout(url:string,key:string,timeoutMs:number){
+  return createClient(url,key,{
+    auth:{persistSession:false,autoRefreshToken:false},
+    db:{retry:false},
+    global:{fetch:(input:any,init:any={})=>fetch(input,{...init,signal:init?.signal??AbortSignal.timeout(timeoutMs)})},
+  });
+}
 
 
 function num(v: unknown) {
@@ -319,13 +326,15 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     return {...summary,source:"supabase-lightweight-enrichment-recovery",view:"full",recoveryMode:"AUTHORITY_ONLY"};
   }
 
-  const evidenceResult=await db.schema("private")
-    .from("prediction_evidence_current")
-    .select("hkjc_event_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
-    .in("hkjc_event_id",ids);
-  const modelResult=await db.from("model_predictions")
-    .select("hkjc_event_id,fetched_at,quality,model_source,model_league,training_matches,team_match_quality,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff")
-    .in("hkjc_event_id",ids);
+  const [evidenceResult,modelResult]=await Promise.all([
+    db.schema("private")
+      .from("prediction_evidence_current")
+      .select("hkjc_event_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
+      .in("hkjc_event_id",ids),
+    db.from("model_predictions")
+      .select("hkjc_event_id,fetched_at,quality,model_source,model_league,training_matches,team_match_quality,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff")
+      .in("hkjc_event_id",ids),
+  ]);
 
   const evidenceRows=Array.isArray(evidenceResult.data)?evidenceResult.data:[];
   const modelRows=Array.isArray(modelResult.data)?modelResult.data:[];
@@ -455,6 +464,7 @@ Deno.serve(async (req: Request) => {
     if (!supabaseUrl || !serverKey) throw new Error("server_config_missing");
 
     const db = createReadClient(supabaseUrl, serverKey);
+    const fullRpcDb = createReadClientWithTimeout(supabaseUrl,serverKey,8_000);
 
     if (summaryOnly) {
       const now = new Date();
@@ -574,12 +584,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { data, error } = await db.rpc("ft_internal_app_phase1_feed", {
+    const { data, error } = await fullRpcDb.rpc("ft_internal_app_phase1_feed", {
       window_hours: hours,
     });
     if (error) {
       console.error("full_feed_rpc_degraded", error);
-      const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,db,hours);
+      const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,createReadClientWithTimeout(supabaseUrl,serverKey,8_000),hours);
       return Response.json(recovered,{
         headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"},
       });
