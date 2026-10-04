@@ -754,7 +754,7 @@ Deno.serve(async (req: Request) => {
 
     const u = new URL(req.url);
     const id = String(u.searchParams.get("id") || "").trim();
-    const language = u.searchParams.get("lang") === "en" ? "en" : "zh-HK";
+    const language = "en";
     const styleRaw = String(u.searchParams.get("style") || "professional").toLowerCase();
     const style = ["professional","concise","broadcast"].includes(styleRaw) ? styleRaw : "professional";
     if (!/^[A-Za-z0-9_-]{2,40}$/.test(id)) {
