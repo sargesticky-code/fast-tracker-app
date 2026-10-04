@@ -45,6 +45,9 @@ jobs:
       - name: Check English story contract
         run: npm run check:story
 
+      - name: Check international authority identity and provenance
+        run: npm run check:international-authority
+
       - name: Check provider and bookmaker contract
         run: npm run check:market-contract
 

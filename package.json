@@ -9,6 +9,7 @@
     "check:ui": "node scripts/check-visible-escapes.mjs",
     "check:story": "node scripts/check-english-story-contract.mjs",
     "check:market-contract": "node scripts/check-market-provider-contract.mjs",
+    "check:international-authority": "node scripts/check-international-authority.mjs",
     "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
     "check:evidence-independence": "node scripts/check-evidence-independence.mjs",
     "check:player-evidence": "node scripts/check-player-evidence-identity.mjs"
