@@ -29,6 +29,41 @@ const FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
+const ENRICHMENT_FEED_URL = FEED_URL;
+const HK_TIME_ZONE = "Asia/Hong_Kong";
+
+const AUTHORITY_KEYS = new Set([
+  "id","kickoff","status","league","leagueZh","home","away","homeZh","awayZh",
+  "inPlay","liveEligible","liveNow","live","odds","market","handicap","goals","corners","updatedAt"
+]);
+
+function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
+  const authorityMatches = Array.isArray(authorityFeed?.matches) ? authorityFeed.matches : [];
+  const enrichmentMatches = Array.isArray(enrichmentFeed?.matches) ? enrichmentFeed.matches : [];
+  if (!enrichmentMatches.length) return { ...authorityFeed, matches: authorityMatches, count: authorityMatches.length };
+
+  const richById = new Map(enrichmentMatches.filter((m) => m?.id).map((m) => [String(m.id), m]));
+  const matches = authorityMatches.map((authority) => {
+    const rich = richById.get(String(authority?.id ?? ""));
+    if (!rich) return authority;
+
+    const merged = { ...authority };
+    for (const [key, value] of Object.entries(rich)) {
+      if (AUTHORITY_KEYS.has(key)) continue;
+      if (value !== null && value !== undefined) merged[key] = value;
+    }
+    if (rich.health) merged.health = rich.health;
+    return merged;
+  });
+
+  return {
+    ...authorityFeed,
+    matches,
+    count: matches.length,
+    enrichmentSource: enrichmentFeed?.source ?? null,
+    enrichmentGeneratedAt: enrichmentFeed?.generatedAt ?? null,
+  };
+}
 
 const primaryNav = [
   ["Today", Goal, "today"],
@@ -180,13 +215,27 @@ function MarketOdds({ match, marketKey = "HDA" }) {
 function dateKey(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: HK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
+}
+
+function hkWeekend(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const day = d.toLocaleDateString("en-US", { timeZone: HK_TIME_ZONE, weekday: "short" });
+  return day === "Sat" || day === "Sun";
 }
 
 function shortTime(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "TBA";
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("en-GB", { timeZone: HK_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function scoreText(match) {
@@ -468,10 +517,12 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
   useEffect(() => {
     let cancelled = false;
-    let refreshInFlight = false;
-    async function refresh() {
-      if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
-      refreshInFlight = true;
+    let authorityInFlight = false;
+    let enrichmentInFlight = false;
+
+    async function refreshAuthority() {
+      if (cancelled || authorityInFlight || document.visibilityState === "hidden") return;
+      authorityInFlight = true;
       try {
         const res = await fetch(HOMEPAGE_FEED_URL, {
           signal: AbortSignal.timeout(20000),
@@ -491,35 +542,58 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           return;
         }
         if (!cancelled) {
-          setFeed(next);
+          setFeed((current) => mergeAuthorityWithEnrichment(next, current));
           setFeedState({ status: "ready", message: null });
         }
       } catch {
-        if (!cancelled) setFeedState({ status: "error", message: "Feed refresh request failed" });
+        if (!cancelled) setFeedState({ status: "error", message: "Fixture refresh request failed" });
       } finally {
-        refreshInFlight = false;
+        authorityInFlight = false;
       }
     }
-    refresh();
-    const timer = setInterval(refresh, 60000);
+
+    async function refreshEnrichment() {
+      if (cancelled || enrichmentInFlight || document.visibilityState === "hidden") return;
+      enrichmentInFlight = true;
+      try {
+        const res = await fetch(ENRICHMENT_FEED_URL, {
+          signal: AbortSignal.timeout(35000),
+        });
+        if (!res.ok) return;
+        const rich = await res.json();
+        if (!Array.isArray(rich?.matches) || !rich.matches.length) return;
+        if (!cancelled) setFeed((current) => mergeAuthorityWithEnrichment(current, rich));
+      } catch {
+        // Enrichment is best-effort. Fixture authority must remain visible even
+        // when the heavier model/story pipeline is unavailable.
+      } finally {
+        enrichmentInFlight = false;
+      }
+    }
+
+    refreshAuthority();
+    const warmEnrichment = setTimeout(refreshEnrichment, 1500);
+    const authorityTimer = setInterval(refreshAuthority, 60000);
+    const enrichmentTimer = setInterval(refreshEnrichment, 300000);
+
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(warmEnrichment);
+      clearInterval(authorityTimer);
+      clearInterval(enrichmentTimer);
     };
   }, []);
 
   const matches = Array.isArray(feed?.matches) ? feed.matches : [];
   const now = useMemo(() => new Date(nowMs || Date.now()), [nowMs]);
   const todayKey = dateKey(now);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowKey = dateKey(tomorrow);
+  const tomorrowKey = dateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 
   const counts = useMemo(() => ({
     today: matches.filter(m => dateKey(m.kickoff) === todayKey).length,
     live: matches.filter(m => m.liveNow).length,
     tomorrow: matches.filter(m => dateKey(m.kickoff) === tomorrowKey).length,
-    weekend: matches.filter(m => [0,6].includes(new Date(m.kickoff).getDay())).length,
+    weekend: matches.filter(m => hkWeekend(m.kickoff)).length,
     all: matches.length,
     value: matches.filter(m => Number(valueEdge(m)?.expectedValue) >= 0.04).length,
   }), [matches, todayKey, tomorrowKey]);
@@ -540,7 +614,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
       if (activeMode === "live") return Boolean(m.liveNow);
       if (activeMode === "tomorrow") return dateKey(m.kickoff) === tomorrowKey;
-      if (activeMode === "weekend") return [0, 6].includes(new Date(m.kickoff).getDay());
+      if (activeMode === "weekend") return hkWeekend(m.kickoff);
       if (activeMode === "all") return true;
       if (activeMode === "value") return Number(valueEdge(m)?.expectedValue) >= 0.04;
       return dayOffset === 0 ? (m.liveNow || dateKey(m.kickoff) === targetKey) : dateKey(m.kickoff) === targetKey;
