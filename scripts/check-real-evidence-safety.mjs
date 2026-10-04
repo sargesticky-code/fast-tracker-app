@@ -14,6 +14,7 @@ const hkjcLive = fs.readFileSync("supabase/functions/hkjc-live-direct/index.ts",
 const lineupPanel = fs.readFileSync("components/lineup-panel.js", "utf8");
 const singleFlight = fs.readFileSync("lib/single-flight-fetch.js", "utf8");
 const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
+const fotmobLineups = fs.readFileSync("supabase/functions/phase2-fotmob-lineups/index.ts", "utf8");
 
 const checks = [
   [analysis.includes("function statusIsTerminal"), "analysis must recognize terminal match states"],
@@ -79,6 +80,7 @@ const checks = [
   [detail.includes("const requestsInFlight = {") && detail.includes("if (cancelled || requestsInFlight.live) return;"), "detail live polling must coalesce overlapping requests"],
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL + "?_=" + Date.now()') && detail.includes("35000"), "live polling must stay single-flight with a client deadline outside the reviewed server bound"],
   [detail.includes("requestsInFlight.match") && detail.includes("requestsInFlight.detail") && detail.includes("requestsInFlight.analysis") && detail.includes("requestsInFlight.story"), "detail full/detail/narrative lanes must remain single-flight"],
+  [fotmobLineups.includes("DETAIL_TIMEOUT_MS=5_000") && fotmobLineups.includes("DETAIL_CONCURRENCY=3") && fotmobLineups.includes("await mapLimit(picked,DETAIL_CONCURRENCY"), "FotMob lineup producer must bound provider latency and avoid sequential detail starvation"],
   [detail.includes("authoritativeDetailBlocksFeed") && detail.includes("canonicalMissing || authoritativeDetailBlocksFeed"), "delayed feed responses must not overwrite conclusive missing or authoritative stale detail state"],
   [detail.includes("singleFlightFetch(`match-detail:${matchId}`") && lineupPanel.includes("singleFlightFetch(`match-detail:${matchId}`"), "match detail and lineup consumers must share one page-level detail request"],
   [singleFlight.includes("const inFlight = new Map()") && singleFlight.includes("response.clone()"), "shared single-flight fetch must deduplicate consumers without sharing a consumed Response body"],
