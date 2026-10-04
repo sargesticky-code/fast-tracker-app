@@ -25,7 +25,7 @@ const checks = [
   [analysis.includes('else if (decisionFamilies.length < 2) candidate = "WATCH"'), "HDA value classification must require at least two independent families"],
   [analysis.includes('if (!usable || !opts.fresh || opts.fallbackMode)'), "Asian handicap must fail closed when market/model/freshness is unusable"],
   [analysis.includes('else if (!models.length) candidateClass = "NO_MODEL"'), "binary market advice must distinguish no model from no edge"],
-  [analysis.includes('one("form_predictions")'), "goals analysis must query the validated Team Form model directly"],
+  [analysis.includes('oneWith(coreDb,"form_predictions")'), "goals analysis must query the validated Team Form model directly in the critical evidence lane"],
   [analysis.includes('formQuality === "FORM_MODELED"'), "Team Form goals input must pass the model quality gate"],
   [analysis.includes('formHomeGames >= 8') && analysis.includes('formAwayGames >= 8'), "Team Form goals input must preserve minimum sample-size gates"],
   [analysis.includes('key: "FORM"') && analysis.includes('method: live ? "LIVE_FORM_RESIDUAL" : "FORM_XG_POISSON"'), "Team Form xG must remain a distinct market-specific goals family"],
