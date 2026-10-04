@@ -75,3 +75,28 @@ live is separated, tomorrow/+2 and calendar reset work, search reaches row 35,
 All contains all 38 fixtures, partial coverage is visible. CI/screenshots pending.
 Full +2-day coverage requires a wider actual provider/read window; current API
 caps 48h. This change labels the limit and does not fabricate later fixtures.
+
+### Iteration 2 acceptance
+
+Final executable head: `3cebf6ee2c0268aa65afdd7b825eb3abbde31fc0`.
+CI `37245034168`: SUCCESS; all contracts/build/routes and 36/36 Playwright cases
+passed (34.5s). Artifact `11318463911`,
+`dashboard-redesign-e6e0d80001924769a5998b7132aec43a7847af2f`.
+Desktop 1440px and mobile 390px screenshots reviewed: 35 fixture count retained,
+current date labels, partial +2 coverage, search and spacing readable, no overflow.
+Screenshots/regression fixtures remain deterministic, not deployed data.
+
+First navigation CI caught search hidden at mobile width; repaired the existing
+search field and sticky layout rather than weakening the test. Live-mode right
+rail no longer exposes prematch EV as live value.
+
+Read-only 24h-vs-48h comparison: 30 vs 34 canonical IDs, four additional IDs, zero
+removed IDs; extra fixtures are on Oct6/Oct7 HKT. Requests were minutes apart, not
+a claim of frozen simultaneous snapshots. Provider, fixture IDs, DB and schedules
+remain unchanged. No merge/release occurred. PR42 continues as the Phase 1 draft.
+
+Next highest-value unblocked issue: audit homepage value labels against model
+family/confidence gates and actual quote freshness. The current homepage filters
+nominal EV directly rather than using the existing candidate band; inspect stale,
+correlated and single-family cases before changing behavior. Broader bookmaker
+coverage and full +2-day window remain Phase 0/provider dependencies.

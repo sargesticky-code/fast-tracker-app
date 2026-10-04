@@ -134,4 +134,4 @@ Before stopping a redesign session, record:
 - [x] Request supported 48h feed and show all returned rows.
 - [x] Separate live from upcoming date/value/weekend filters.
 - [x] Label partial date-window coverage; preserve unknown metadata.
-- [ ] Verify new desktop/mobile navigation CI and screenshots.
+- [x] Navigation CI 37245034168: 36/36 passed; 1440px/390px screenshots reviewed. Mobile search now accessible.

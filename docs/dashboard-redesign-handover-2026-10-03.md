@@ -1056,3 +1056,7 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - Current real summary: 34 unique fixtures / three live; Oct5=14, Oct6=19, Oct7=1 HKT.
 - Local checks/build passed; responsive CI and screenshot acceptance pending. No release/database/schedule/provider changes.
 - Detailed continuation: `docs/phase1-checkpoint-2026-10-05.md`.
+
+- Iteration 2 accepted executable `3cebf6ee2c0268aa65afdd7b825eb3abbde31fc0`: CI `37245034168` SUCCESS, 36/36 cases. Artifact `11318463911`, desktop/mobile navigation screenshots reviewed.
+- Responsive regression exposed hidden mobile search; field/layout repaired. Prematch EV is suppressed in live right rail. Real 48h request added four canonical fixtures versus 24h (30 -> 34).
+- No merge/deployment. Next: audit homepage nominal value classification against candidate bands and quote timestamps. Wider +2-day provider window remains unavailable.
