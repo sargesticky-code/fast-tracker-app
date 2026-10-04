@@ -2,6 +2,34 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  test(`prematch missing probabilities and fallback at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const feed = fixtureFeed();
+    const first = feed.matches[0];
+    first.multi = { home: null, draw: 0.3, away: 0.2 };
+    first.forebet = null;
+    first.dc = null;
+    first.pi = null;
+    first.expectedGoals = null;
+    first.form = { home: 0.5, draw: 0.3, away: 0.2 };
+    feed.matches.push({ ...first, id: "FBTEST2", home: "Unknown Model FC", form: null });
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+    await page.goto("http://127.0.0.1:4173/");
+    const valid = page.locator(".ft-match-row").filter({ hasText: "Northbridge FC" });
+    const unknown = page.locator(".ft-match-row").filter({ hasText: "Unknown Model FC" });
+    await expect(valid.locator(".ft-prob-numbers")).toHaveText("H 50%D 30%A 20%");
+    await expect(unknown.locator(".ft-prob-numbers")).toHaveText("H —%D —%A —%");
+    await expect(unknown.locator(".ft-pred-pill")).toHaveText("—");
+    await expect(unknown.locator(".ft-edge")).toHaveText("—");
+    await expect(valid.locator(".ft-goal-number")).toHaveText("—");
+    await expect(unknown).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/dashboard-prematch-unknown-${viewport.width}.png`, fullPage: true });
+  });
+}
+
 function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = false) {
   const kickoff = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const richSide = (side) => ({

@@ -21,6 +21,7 @@ import {
   formatOdds,
   leagueDisplayName,
   matchDetailHref,
+  normalizedTriplet,
   preferredModel,
   valueEdge,
 } from "@/lib/fast-tracker";
@@ -161,21 +162,6 @@ function englishLeagueName(match) {
     if (!/[\u3400-\u9fff]/.test(raw)) return raw;
   }
   return "Football";
-}
-
-function normalizedTriplet(match) {
-  const model = preferredModel(match);
-  if (!model) return null;
-  const vals = [Number(model.home), Number(model.draw), Number(model.away)];
-  if (!vals.every(Number.isFinite)) return null;
-  const adjusted = vals.map((v) => (v > 1.5 ? v / 100 : v));
-  const total = adjusted.reduce((a, b) => a + b, 0);
-  if (!(total > 0)) return null;
-  return {
-    home: adjusted[0] / total,
-    draw: adjusted[1] / total,
-    away: adjusted[2] / total,
-  };
 }
 
 function pct(value) {
@@ -387,10 +373,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
 
       <div className="ft-table-body">
         {matches.length ? matches.map((match) => {
-          const model = normalizedTriplet(match);
+          const model = normalizedTriplet(preferredModel(match));
           const edge = match.liveNow ? null : valueEdge(match);
           const market = match.market || fairMarket(match.odds);
-          const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
+          const avgGoalsRaw = match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals;
+          const avgGoals = avgGoalsRaw == null || typeof avgGoalsRaw === "boolean" || String(avgGoalsRaw).trim() === ""
+            ? NaN : Number(avgGoalsRaw);
           const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
@@ -458,7 +446,7 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
 
 function FeaturedMatch({ match }) {
   if (!match) return null;
-  const model = normalizedTriplet(match);
+  const model = normalizedTriplet(preferredModel(match));
   const edge = valueEdge(match);
   return (
     <section className="ft-right-card">

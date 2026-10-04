@@ -1038,3 +1038,11 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] PR41 `Translate live WATCH rationale cleanly` merged as `6019f7a35ba8f4a95bde59a2d54f2a40c19676d0`; app-match-analysis v38 Edge SHA `005ea910d5d959557a8e4db7cfe32273978b4137cb4ef2b9a9b6b0cc63c5251c` deployed. FB6144 read-only verification remained `WATCH`, 0 CJK, and now returns a grammatical English rationale while preserving EV, evidence-family and auto-stake gates.
 - [x] Database scheduler stability continued through 10:55 UTC: 648 natural pg_cron runs since 06:38 UTC, all 648 succeeded, 0 failed, 0 startup timeout.
 - [ ] The targeted Forebet-success -> Static Data Push `workflow_run` bridge is source-controlled and the Static Push workflow itself passed run #291, but the 10:45 UTC scheduled Forebet producer had not entered the GitHub Actions queue by 10:55 UTC. Keep this as scheduler-level natural acceptance pending; do not replace it with a manual producer dispatch.
+
+### Phase 1 probability safety — 2026-10-05
+
+- Baseline main: `60dcd75231c5620491dce4a1879ba3de00f3661b`; branch `fix/phase1-missing-probabilities`.
+- Missing H/D/A values now fail closed; a valid fallback model remains visible. Homepage and EV share normalization. Null average goals remain unknown.
+- Seven local contract/safety checks and static export build passed. Real full feed: 34 fixtures, 26 modelled, eight unknown, zero invalid revised distributions.
+- Local Chromium download failed; desktop/mobile tests and screenshots await draft PR CI. No production change.
+- Full continuation state and next fixture-window gap: `docs/phase1-checkpoint-2026-10-05.md`.

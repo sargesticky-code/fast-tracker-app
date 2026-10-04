@@ -54,6 +54,9 @@ jobs:
       - name: Check evidence independence
         run: npm run check:evidence-independence
 
+      - name: Check prematch probability gates
+        run: npm run check:prematch
+
       - name: Check player evidence identity
         run: npm run check:player-evidence
 
