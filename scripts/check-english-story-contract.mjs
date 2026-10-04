@@ -3,6 +3,8 @@ import fs from "node:fs";
 const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
 const feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
 const story = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
+const analysis = fs.readFileSync("supabase/functions/app-match-analysis/index.ts", "utf8");
+const deepDetail = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
 
 const checks = [
   [detail.includes("&lang=en&style=professional"), "match detail must request the English story"],
@@ -15,6 +17,9 @@ const checks = [
   [story.includes('watchNext: language==="en" ? englishCaveats'), "English deterministic story must use structured English caveats"],
   [story.includes('commentary.filter((row:any) => /^en(?:-|$)/i.test'), "English deterministic story must not copy non-English commentary text"],
   [story.includes('const englishOuLabel=(row:any)'), "English match script must derive O/U labels from structured selections"],
+  [story.includes('const language = "en";'), "story endpoint must force English public output"],
+  [analysis.includes("englishPublicPayload"), "analysis endpoint must normalize public output to English"],
+  [deepDetail.includes("Head-to-head data read failed"), "detail endpoint public H2H labels must be English"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
@@ -24,7 +29,3 @@ if (failed.length) {
   process.exit(1);
 }
 console.log("English story cache/fallback contract passed");
-
-assert.ok(storySource.includes('const language = "en";'), "story endpoint must force English public output");
-assert.ok(analysisSource.includes("englishPublicPayload"), "analysis endpoint must normalize public output to English");
-assert.ok(detailSource.includes("Head-to-head data read failed"), "detail endpoint public H2H labels must be English");
