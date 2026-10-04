@@ -139,10 +139,10 @@ function pct(v: number | null, dp = 1) {
 }
 
 function sideLabel(side: string | null, home: string, away: string) {
-  if (side === "H") return "主勝 · " + home;
-  if (side === "D") return "和局";
-  if (side === "A") return "客勝 · " + away;
-  return "暫無投注位";
+  if (side === "H") return "Home win · " + home;
+  if (side === "D") return "Draw";
+  if (side === "A") return "Away win · " + away;
+  return "No actionable position";
 }
 
 function oddsFor(r: any, side: string | null) {
@@ -436,18 +436,18 @@ function buildHandicapAdvice(opts: {
   if (!usable || !opts.fresh || opts.fallbackMode) {
     return {
       market: "ASIAN_HANDICAP",
-      label: "亞洲讓球",
+      label: "Asian handicap",
       line: opts.lineValue ?? null,
       selection: null,
-      selectionLabel: "暫不建議",
+      selectionLabel: "No recommendation",
       currentOdds: null,
       expectedValuePct: null,
       candidateClass: "DATA_RISK",
       action: "NO_BET",
       method: "MODEL_DERIVED_SCORE_DISTRIBUTION",
       advice: !usable
-        ? "亞洲讓球：現時未有完整 HKJC 讓球盤或可用模型分布。"
-        : "亞洲讓球：市場價格 freshness 未通過，暫不以舊價計 Value。",
+        ? "Asian handicap：current HKJC handicap market or usable model distribution is incomplete."
+        : "Asian handicap：market price freshness failed; stale prices are not used for value.",
     };
   }
 
@@ -493,21 +493,21 @@ function buildHandicapAdvice(opts: {
     ? `${opts.homeName} ${lineText}`
     : side === "AWAY"
       ? `${opts.awayName} ${lines!.map((x) => -x).map((x) => (x > 0 ? "+" : "") + x).join("/")}`
-      : "暫不建議";
+      : "No recommendation";
   const evText = ev === null ? "—" : `${ev >= 0 ? "+" : ""}${(ev * 100).toFixed(1)}%`;
-  let advice = "亞洲讓球：模型計算後未見正期望值。";
+  let advice = "Asian handicap：model calculation shows no positive expected value.";
   if (side && ev !== null && ev > 0) {
-    const supportText = `${supportCount}/${Math.max(1, familyEvs.length)} 個 evidence family 為正值`;
-    const dispersionText = evDispersion !== null ? `，模型 EV 分歧 ${(evDispersion * 100).toFixed(1)}pp` : "";
+    const supportText = `${supportCount}/${Math.max(1, familyEvs.length)} evidence families are positive`;
+    const dispersionText = evDispersion !== null ? `, model EV dispersion ${(evDispersion * 100).toFixed(1)}pp` : "";
     const whyWatch = action === "WATCH"
-      ? "；EV 雖正，但 family 數量、支持率或模型分歧未過 Value gate"
+      ? "; EV is positive but family count, support ratio or model dispersion did not pass the Value gate"
       : "";
-    advice = `${action === "WATCH" ? "觀望" : action === "LEAN" ? "輕微傾向" : action.includes("STRONG") ? "強 Value 候選" : "Value 候選"} ${selectionLabel} @ ${odds?.toFixed(2) ?? "—"}；模型衍生 EV ${evText}，${supportText}${dispersionText}${whyWatch}。`;
+    advice = `${action === "WATCH" ? "Watch" : action === "LEAN" ? "Lean" : action.includes("STRONG") ? "Strong Value candidate" : "Value candidate"} ${selectionLabel} @ ${odds?.toFixed(2) ?? "—"}; model-derived EV ${evText}; ${supportText}${dispersionText}${whyWatch}.`;
   }
 
   return {
     market: "ASIAN_HANDICAP",
-    label: "亞洲讓球",
+    label: "Asian handicap",
     line: opts.lineValue ?? null,
     selection: side,
     selectionLabel,
@@ -772,9 +772,9 @@ function buildBinaryAdvice(opts: {
   const marketProbability = selection === "OVER" ? market?.over ?? null : selection === "UNDER" ? market?.under ?? null : null;
   const lineText = line === null ? "—" : String(line).replace(/\.0$/, "");
   const selectionLabel = selection === "OVER"
-    ? `大 ${lineText}`
+    ? `Over ${lineText}`
     : selection === "UNDER"
-      ? `細 ${lineText}`
+      ? `Under ${lineText}`
       : "PASS";
 
   const selectedModelProbabilities = selection === "OVER"
@@ -819,29 +819,29 @@ function buildBinaryAdvice(opts: {
   const edgePp = edge === null ? null : edge * 100;
   const expectedValuePct = expectedValue === null || !Number.isFinite(expectedValue) ? null : expectedValue * 100;
   const sourceCount = models.reduce((s, m) => s + Math.max(1, Number(m.sources || 1)), 0);
-  let advice = "PASS：未有足夠模型證據形成方向。";
+  let advice = "PASS: insufficient model evidence for a direction.";
   if (candidateClass === "DATA_RISK") {
     const why = dataRiskReason === "MISSING_MARKET_PRICE"
-      ? "HKJC 現價未齊"
+      ? "HKJC current price is incomplete"
       : dataRiskReason === "MISSING_MARKET_LINE"
-        ? "HKJC 盤口線未齊"
+        ? "HKJC market line is incomplete"
         : dataRiskReason === "REFERENCE_PRICE_ONLY"
-          ? "目前只得參考舊價"
-          : "HKJC 現價已超過 freshness 門檻";
-    advice = `${opts.label}：暫不下注，因為${why}；呢個係資料 gate，唔代表市場本身冇價值。`;
+          ? "only stale reference prices are available"
+          : "HKJC current price exceeded the freshness threshold";
+    advice = `${opts.label} : no bet because ${why}. This is a data gate, not a claim that the market has no value.`;
   }
-  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 現盤，但未有可比較模型，所以暫不下注；原因係冇模型，而唔係計過冇 Edge。`;
-  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：已按現價計算，最佳方向 EV 仍然 ≤ 0%，所以跳過。`;
+  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}: HKJC has a current market, but no comparable model is available, so no bet. The reason is missing model evidence, not a calculated lack of edge.`;
+  else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}: calculated at the current price; the best direction still has EV ≤ 0%, so pass.`;
   else if (selection) {
     const lead = candidateClass.includes("VALUE")
-      ? "Value 候選"
+      ? "Value candidate"
       : candidateClass === "LEAN"
-        ? "輕微傾向"
+        ? "Lean"
         : "觀察";
     const thinGapNote = expectedValuePct !== null && expectedValuePct >= 4 && edgePp !== null && edgePp < 3
-      ? "；EV 雖高但機率差不足 3pp，可能受高賠率放大，只列觀望"
+      ? "; EV 雖High但機率差不足 3pp; 可能受High賠率放大; 只列Watch"
       : "";
-    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；現價 EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}，模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}（機率差 ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}），${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}${thinGapNote}。`;
+    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}; current EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}; model ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)} (probability gap ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}); ${supportCount}/${models.length}  evidence families support / ${sourceCount} source signals${dispersion !== null ? "; model dispersion " + (dispersion * 100).toFixed(1) + "pp" : ""}${thinGapNote}.`;
   }
 
   return {
@@ -1231,8 +1231,8 @@ Deno.serve(async (req: Request) => {
   });
   const independentFamilies = collapseCorrelatedFamilies(families);
 
-  const home = r.home_zh || r.home_en || "主隊";
-  const away = r.away_zh || r.away_en || "客隊";
+  const home = r.home_en || r.home_zh || "Home team";
+  const away = r.away_en || r.away_zh || "Away team";
   const shadow = liveShadow.data;
   const liveOddsRow:any = liveOdds.data || null;
 
@@ -1412,29 +1412,29 @@ Deno.serve(async (req: Request) => {
   if (decisionFamilies.length < 2) confidenceScore = Math.min(confidenceScore, 48);
   if (!fresh || hardLiveDataGap || fallbackMode) confidenceScore = Math.min(confidenceScore, 25);
   confidenceScore = Math.round(clamp(confidenceScore, 0, 100));
-  const confidenceLabel = confidenceScore >= 75 ? "高"
-    : confidenceScore >= 58 ? "中高"
-      : confidenceScore >= 45 ? "中"
-        : "低";
+  const confidenceLabel = confidenceScore >= 75 ? "High"
+    : confidenceScore >= 58 ? "MediumHigh"
+      : confidenceScore >= 45 ? "Medium"
+        : "Low";
 
   const recommendationReasons = [
-    expectedValuePctNow !== null ? `現價 EV ${expectedValuePctNow >= 0 ? "+" : ""}${expectedValuePctNow.toFixed(1)}%` : "無可計現價 EV",
-    edgePpNow !== null ? `模型 vs fair 機率差 ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : null,
-    `${support}/${decisionFamilies.length} 模型 family 支持`,
-    decisionFamilies.length === 1 ? "只有 1 個獨立模型 family，方向只列觀望" : null,
+    expectedValuePctNow !== null ? `Current EV ${expectedValuePctNow >= 0 ? "+" : ""}${expectedValuePctNow.toFixed(1)}%` : "No calculable current EV",
+    edgePpNow !== null ? `Model vs fair probability gap ${edgePpNow >= 0 ? "+" : ""}${edgePpNow.toFixed(1)}pp` : null,
+    `${support}/${decisionFamilies.length} model families support`,
+    decisionFamilies.length === 1 ? "只有 1 個獨立模型 family; 方向只列Watch" : null,
     expectedValuePctNow !== null && expectedValuePctNow >= 4 && edgePpNow !== null && edgePpNow < 3
-      ? "EV 雖高但機率差不足 3pp，高賠率放大效應：只列觀望"
+      ? "EV 雖High但機率差不足 3pp; High賠率放大效應：只列Watch"
       : null,
     calibrationPending && bestOdds !== null && bestOdds >= 8
-      ? "高賠率尾部風險：Phase 5 calibration 未完成，Strong Value 上限降為 Value"
+      ? "High賠率尾部Risk: Phase 5 calibration 未完成; Strong Value 上限降為 Value"
       : null,
     dispersion !== null ? `模型分歧 ${(dispersion * 100).toFixed(1)}pp` : null,
-    live ? `${liveMetricCount} 項 live metrics` : null,
-    liveContradiction ? "即場走勢與預期矛盾，降為觀望" : null,
-    !fresh ? "市場價格 freshness 未通過" : null,
-    !live && kickoffStarted ? "賽事已開賽/完結，賽前價格只可作歷史參考" : null,
+    live ? `${liveMetricCount} live metrics` : null,
+    liveContradiction ? "即場走勢與預期矛盾; 降為Watch" : null,
+    !fresh ? "Market price freshness failed" : null,
+    !live && kickoffStarted ? "Match has started/ended; pre-match prices are historical reference only" : null,
     !live && prematchPriceAgeSeconds !== null ? `prematch price age ${Math.round(prematchPriceAgeSeconds)}s` : null,
-    hardLiveDataGap ? "缺可靠比分／分鐘" : null,
+    hardLiveDataGap ? "Reliable score/minute is missing" : null,
     live && liveOddsAgeSeconds !== null ? `live price ${Math.round(liveOddsAgeSeconds)}s` : null,
   ].filter(Boolean);
 
@@ -1589,7 +1589,7 @@ Deno.serve(async (req: Request) => {
 
   const goalsAdvice = buildBinaryAdvice({
     marketKey: "GOALS_OU",
-    label: "入球大細",
+    label: "Goals O/U",
     lineValue: currentGoalsLine,
     overOdds: currentGoalsOver,
     underOdds: currentGoalsUnder,
@@ -1601,7 +1601,7 @@ Deno.serve(async (req: Request) => {
   });
   const cornersAdvice = buildBinaryAdvice({
     marketKey: "CORNERS_OU",
-    label: "角球大細",
+    label: "Corners O/U",
     lineValue: currentCornersLine,
     overOdds: currentCornersOver,
     underOdds: currentCornersUnder,
@@ -1617,10 +1617,10 @@ Deno.serve(async (req: Request) => {
   const evText = expectedValuePctNow === null ? "—" : ((expectedValuePctNow >= 0 ? "+" : "") + expectedValuePctNow.toFixed(1) + "%");
   const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
   const priceRead = fallbackMode
-    ? (bestOdds === null ? "HKJC current price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
+    ? (bestOdds === null ? "HKJC current price 未確認" : `Stale reference price ${oddsText} (not a current price)`)
     : live
-      ? `HKJC live 現價 ${oddsText}`
-      : `現價 ${oddsText}`;
+      ? `HKJC live current price ${oddsText}`
+      : `Current price ${oddsText}`;
 
   const sourceLineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
   const confirmedStatusClaims = uniqueConfirmedClaims(playerStatusRowsAnnotated);
@@ -1656,89 +1656,89 @@ Deno.serve(async (req: Request) => {
   const movementData = movement.data;
   const movementText = movementData
     ? `${movementData.signal || "COLLECTING"} · ${movementData.movement_side || "—"} · 24H ${movementData.move_24h_pp == null ? "—" : Number(movementData.move_24h_pp).toFixed(1) + "pp"} · ${movementData.model_alignment || "—"}`
-    : "未有足夠 odds history";
+    : "Insufficient odds history";
 
   const modelSentence = families.length
     ? bestSide
-      ? `支持 ${selection} 嘅模型：${supportingFamilies.length ? supportingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : (x.edgePp >= 0 ? "+" : "") + x.edgePp.toFixed(1) + "pp"}`).join("、") : "暫無"}；未支持：${opposingFamilies.length ? opposingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : x.edgePp.toFixed(1) + "pp"}`).join("、") : "無"}。`
-      : families.map(f => `${f.label}: ${sideLabel(pick(f.probs), home, away)}`).join("；")
-    : "目前沒有足夠模型 evidence";
+      ? `Models supporting ${selection}: ${supportingFamilies.length ? supportingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : (x.edgePp >= 0 ? "+" : "") + x.edgePp.toFixed(1) + "pp"}`).join("、") : "none"}; not supporting: ${opposingFamilies.length ? opposingFamilies.map(x => `${x.label} ${x.edgePp === null ? "" : x.edgePp.toFixed(1) + "pp"}`).join("、") : "none"}.`
+      : families.map(f => `${f.label}: ${sideLabel(pick(f.probs), home, away)}`).join("; ")
+    : "Insufficient model evidence";
   const marketSentence = market && consensus
-    ? `${live ? "HKJC live" : "HKJC"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}；${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型中心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}。`
-    : "市場或模型資料未足以建立可比較機率。";
+    ? `${live ? "HKJC live" : "HKJC"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}; ${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型Medium心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}.`
+    : "Market or model data is insufficient to establish comparable probabilities.";
   const humanSentence = `Phase 2: ${humanQuality}; canonically resolved player-status claims home/away ${injuryHome ?? "unknown"}/${injuryAway ?? "unknown"}; unresolved player-status rows ${unresolvedStatusRows.length}; lineup ${lineupConfirmed ? "confirmed with resolved identities" : sourceLineupConfirmed ? "source-confirmed but identity reconciliation incomplete" : "not confirmed"}.`;
   const liveSentence = liveState
-    ? `Phase 3：${liveState.minute ?? "—"}' ${liveState.score || "—"}；Expected-vs-Actual ${liveState.shadowStatus || "WAIT"}，預期控制 ${liveState.expectedSide || "—"}、實際控制 ${liveState.actualSide || "—"}，${liveState.metricCount} 個 live metrics。`
-    : "Phase 3：賽事未進入可用 live evidence 狀態。";
+    ? `Phase 3: ${liveState.minute ?? "—"}' ${liveState.score || "—"}; Expected-vs-Actual ${liveState.shadowStatus || "WAIT"}; expected control ${liveState.expectedSide || "—"}; actual control ${liveState.actualSide || "—"}; ${liveState.metricCount} live metrics.`
+    : "Phase 3: Match has not entered a usable live-evidence state.";
 
   const invalidators: string[] = [];
-  if (fallbackMode) invalidators.push("賽事暫不在 canonical active feed；只用 database fallback，投注 action 強制 NO_BET");
-  if (!fresh) invalidators.push(live ? "HKJC live 市場價格超過 4 分鐘 freshness 門檻" : "HKJC 市場不新鮮");
-  if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");
-  if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
-  if (families.length < 2) invalidators.push("獨立 evidence family 少於 2");
-  if (!lineupConfirmed && !live) invalidators.push(sourceLineupConfirmed ? "Official XI source 已確認，但球員 identity reconciliation 未完整" : "Official XI 尚未確認");
-  if (dispersion !== null && dispersion > 0.18) invalidators.push("模型分歧較大");
-  if (!productionValidated) invalidators.push("Phase 5 calibration 未完成：只限制自動注碼，不取消人工 recommendation");
+  if (fallbackMode) invalidators.push("Match is not in the canonical active feed; database fallback only, so action is forced to NO_BET");
+  if (!fresh) invalidators.push(live ? "HKJC live market price exceeds the 4-minute freshness threshold" : "HKJC market is stale");
+  if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health is not OK");
+  if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage is incomplete, but live market + usable models can still calculate a direction");
+  if (families.length < 2) invalidators.push("Fewer than 2 independent evidence families");
+  if (!lineupConfirmed && !live) invalidators.push(sourceLineupConfirmed ? "Official XI source is confirmed, but player identity reconciliation is incomplete" : "Official XI is not confirmed");
+  if (dispersion !== null && dispersion > 0.18) invalidators.push("Model dispersion is high");
+  if (!productionValidated) invalidators.push("Phase 5 calibration is incomplete: automated staking is restricted, but manual recommendations remain visible");
   if (liveState?.shadowStatus && ["CONTRADICTION","REJECT","RISK"].some(k => String(liveState.shadowStatus).toUpperCase().includes(k))) {
-    invalidators.push("Live actual 與 pre-match expectation 出現明顯矛盾");
+    invalidators.push("Live actuals materially contradict the pre-match expectation");
   }
 
   const headline = bestSide && best.edge !== null
     ? `${selection} · EV ${evText} · 機率差 ${edgeText}`
-    : `${home} vs ${away} · 暫未見可執行 Edge`;
+    : `${home} vs ${away} · no actionable edge yet`;
 
   const modelConsensusLabel = families.length >= 3 && agreement >= 0.66 && (dispersion === null || dispersion <= 0.12)
-    ? "模型共識較集中"
+    ? "模型共識較集Medium"
     : families.length >= 2 && agreement >= 0.5
-      ? "模型有一定支持"
-      : "模型支持有限";
+      ? "Models provide some support"
+      : "Model support is limited";
   const strongestSupport = supportingFamilies[0] || null;
   const strongestOpposition = opposingFamilies[0] || null;
   const professionalSummary = bestSide && best.edge !== null
-    ? `${priceRead}；模型估計 ${selection} 勝率 ${pct(bestProb)}，按現價計 EV ${evText}。HKJC no-vig fair 約 ${pct(marketProb)}，機率差 ${edgeText}；${modelConsensusLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
-    : `目前市場與可用模型未形成清晰正 Edge；先以資料完整度同價格變化為主。`;
+    ? `${priceRead}; model estimates ${selection} probability ${pct(bestProb)}; current-price EV ${evText}. HKJC no-vig fair is about ${pct(marketProb)}; probability gap ${edgeText}; ${modelConsensusLabel}; ${supportingFamilies.length}/${families.length} 個 evidence family 定價High過市場.`
+    : `目前市場與可用模型未形成清晰正 Edge; 先以資料完整度同價格變化為主.`;
   const supportRead = bestSide
-    ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "pp" : "暫無明顯支持"}。`
-    : "暫未形成可比較支持。";
+    ? `Primary support: ${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "pp" : "none明顯支持"}.`
+    : "暫未形成可比較支持.";
   const counterRead = bestSide
-    ? `反方／風險：${strongestOpposition ? strongestOpposition.label + " " + strongestOpposition.edgePp!.toFixed(1) + "pp" : "暫無模型明顯反對"}；${invalidators.length ? invalidators.join("；") : "未見額外 data-risk flag"}。`
-    : `風險：${invalidators.length ? invalidators.join("；") : "資料不足以建立 Edge"}。`;
+    ? `Counter-case / risk: ${strongestOpposition ? strongestOpposition.label + " " + strongestOpposition.edgePp!.toFixed(1) + "pp" : "none模型明顯反對"}; ${invalidators.length ? invalidators.join("; ") : "no additional data-risk flag"}.`
+    : `Risk: ${invalidators.length ? invalidators.join("; ") : "insufficient data to establish an edge"}.`;
 
-  let advice = "PASS：現時未見足夠正 Edge。";
+  let advice = "PASS：現時未見足夠正 Edge.";
   if (candidate === "DATA_RISK") {
     const why = !market
-      ? "HKJC 即場市場未齊，無法計 fair probability"
+      ? "HKJC 即場市場未齊; none法計 fair probability"
       : !decisionFamilies.length
-        ? "未有可用模型機率"
+        ? "No usable model probability"
         : !fresh
-          ? "HKJC live 價格超過 4 分鐘，避免用舊價製造假 Edge"
+          ? "HKJC live price is older than 4 minutes; avoid creating a false edge from stale prices"
           : live && (!scorePair || resolvedLiveMinute === null)
-            ? "缺可靠比分／分鐘，未能按剩餘時間重估"
-            : "資料可信度未達計算門檻";
-    advice = `暫不下注：${why}。呢個係資料 gate，唔代表場波本身冇投注價值。`;
+            ? "Reliable score/minute is missing; 未能按剩餘時間重估"
+            : "Data reliability is below the calculation threshold";
+    advice = `NO BET: ${why}.呢個係資料 gate; 唔代表場波本身冇投注價值.`;
   } else if (live && bestSide && best.edge !== null) {
     const stateText = canStateAdjust
-      ? `${liveState?.score || "—"} / ${liveState?.minute ?? "—"}' 已按剩餘時間重估 H/D/A`
-      : "以目前可用模型估值";
+      ? `${liveState?.score || "—"} / ${liveState?.minute ?? "—"}' H/D/A adjusted for remaining time`
+      : "Valued using currently available models";
     const liveEvidenceText = (liveState?.metricCount || 0) > 0
-      ? `${liveState?.metricCount} 項 live metrics，場面控制 ${liveState?.actualSide || "—"}`
-      : "暫時主要靠比分、分鐘、即場賠率同賽前模型";
+      ? `${liveState?.metricCount} live metrics; 場面控制 ${liveState?.actualSide || "—"}`
+      : "Currently based mainly on score, minute, live prices and pre-match models";
     if (candidate.includes("VALUE_CANDIDATE")) {
-      advice = `可考慮下注 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}），${supportingFamilies.length}/${decisionFamilies.length} 個模型 family 支持；${liveEvidenceText}。`;
+      advice = `Consider ${selection} @ ${oddsText}：Current EV ${evText}; ${stateText}; 模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)} (probability gap ${edgeText}); ${supportingFamilies.length}/${decisionFamilies.length} model families support; ${liveEvidenceText}.`;
     } else if (candidate === "LEAN") {
-      advice = `輕注／偏向 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}）。方向存在，但優勢未到 Value 級。`;
+      advice = `Lean ${selection} @ ${oddsText}：Current EV ${evText}; ${stateText}; 模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)} (probability gap ${edgeText}）.方向存在; 但優勢未到 Value 級.`;
     } else if (candidate === "WATCH") {
-      advice = `觀望 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；EV 為正，但機率差 ${edgeText}、模型支持、分歧或信心其中一項未達 Value 門檻，等價位／場面再改善。`;
+      advice = `Watch ${selection} @ ${oddsText}：Current EV ${evText}; ${stateText}; EV 為正; 但機率差 ${edgeText}、模型支持、分歧或信心其Medium一項未達 Value 門檻; 等價位／場面再改善.`;
     } else {
-      advice = `暫時跳過：${stateText} 後，按 HKJC live 現價計算，最佳方向 EV 仍然 ≤ 0%，所以唔落注。`;
+      advice = `PASS: ${stateText} 後; 按 HKJC live 現價計算; 最佳方向 EV 仍然 ≤ 0%; 所以唔落注.`;
     }
   }
-  else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：現價 EV ${evText}，但獨立 evidence family 太少或模型分歧未收斂，暫未提升至 Value。` : advice;
-  else if (candidate === "LEAN") advice = `輕微傾向 ${selection} @ ${oddsText}：現價 EV ${evText}（機率差 ${edgeText}），但未到 Value 級。`;
-  else if (candidate.includes("VALUE_CANDIDATE")) advice = `Value 候選 ${selection} @ ${oddsText}：現價 EV ${evText}（機率差 ${edgeText}），${supportingFamilies.length}/${decisionFamilies.length} 個 evidence family 支持。`;
+  else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：Current EV ${evText}; 但獨立 evidence family 太少或模型分歧未收斂; 暫未提升至 Value.` : advice;
+  else if (candidate === "LEAN") advice = `Lean ${selection} @ ${oddsText}：Current EV ${evText} (probability gap ${edgeText}); 但未到 Value 級.`;
+  else if (candidate.includes("VALUE_CANDIDATE")) advice = `Value candidate ${selection} @ ${oddsText}：Current EV ${evText} (probability gap ${edgeText}); ${supportingFamilies.length}/${decisionFamilies.length}  evidence families support.`;
   if (!productionValidated && !["DATA_RISK","NO_EDGE"].includes(candidate)) {
-    advice += " Phase 5 calibration 未完成只限制自動 stake sizing；方向同 Edge 照常顯示。";
+    advice += " Phase 5 calibration 未完成只限制自動 stake sizing; 方向同 Edge 照常顯示.";
   }
 
   const phaseCoverage = {
@@ -1802,10 +1802,10 @@ Deno.serve(async (req: Request) => {
       modelRead: modelSentence,
       humanRead: humanSentence,
       liveRead: liveSentence,
-      movementRead: `Phase 4：${movementText}。`,
+      movementRead: `Phase 4：${movementText}.`,
       supportRead,
       counterRead,
-      riskRead: invalidators.length ? `主要風險/失效條件：${invalidators.join("；")}。` : "目前未見額外 data-risk flag。",
+      riskRead: invalidators.length ? `Primary risks/invalidators: ${invalidators.join("; ")}.` : "目前no additional data-risk flag.",
       advice,
       handicapAdvice: handicapAdvice.advice,
       goalsAdvice: goalsAdvice.advice,
