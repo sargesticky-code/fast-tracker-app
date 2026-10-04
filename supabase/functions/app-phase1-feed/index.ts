@@ -284,7 +284,7 @@ async function legacyGithubAuthorityFallback(hours: number) {
     const kickoff = String(raw.kickoff_hkt ?? "").trim();
     const kickoffMs = Date.parse(kickoff);
     if (!eventId || !Number.isFinite(kickoffMs)) continue;
-    if (kickoffMs < nowMs - 3 * 60 * 60 * 1000 || kickoffMs >= endMs) continue;
+    if (kickoffMs < nowMs || kickoffMs >= endMs) continue;
     const ended = ["MATCHENDED", "INPLAYMATCHENDED"].includes(String(raw.status ?? "").toUpperCase());
     const selling = csvBool(raw.selling) || String(raw.pool_status ?? "").toUpperCase() === "SELLINGSTARTED";
     if (ended || !selling) continue;
@@ -296,7 +296,7 @@ async function legacyGithubAuthorityFallback(hours: number) {
     rows.push({
       ...raw,
       fetched_at: fetchedAt,
-      live_eligible: csvBool(raw.in_play),
+      live_eligible: false,
       hdc_line: raw.hdc_line || null,
       hdc_home: raw.hdc_home || null,
       hdc_away: raw.hdc_away || null,
@@ -307,7 +307,7 @@ async function legacyGithubAuthorityFallback(hours: number) {
   if (!rows.length) throw new Error("github_authority_empty");
   return {
     source: "github-hkjc-authority-fallback",
-    rows: rows.map((row) => ({ row, liveNow: csvBool(row.in_play) })),
+    rows: rows.map((row) => ({ row, liveNow: false })),
     diagnostics: {
       upstream: "UNAVAILABLE",
       snapshot: "UNAVAILABLE",
