@@ -20,6 +20,13 @@ function createReadClient(url:string, key:string) {
     global: { fetch: boundedDbFetch },
   });
 }
+function createReadClientWithTimeout(url:string,key:string,timeoutMs:number){
+  return createClient(url,key,{
+    auth:{persistSession:false,autoRefreshToken:false},
+    db:{retry:false},
+    global:{fetch:(input:any,init:any={})=>fetch(input,{...init,signal:init?.signal??AbortSignal.timeout(timeoutMs)})},
+  });
+}
 
 
 function serverKey() {
@@ -953,6 +960,8 @@ Deno.serve(async (req: Request) => {
   const key = serverKey();
   if (!sbUrl || !key) return Response.json({ error: "server_config_missing" }, { status: 500, headers: cors });
   const db = createReadClient(sbUrl, key);
+  const coreDb = createReadClientWithTimeout(sbUrl,key,8_000);
+  const optionalDb = createReadClientWithTimeout(sbUrl,key,4_000);
 
   let authorityRpcError:any = null;
   let r:any = null;
@@ -1085,36 +1094,42 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const one = async (table: string, schema = "public") => {
-    const q = (schema === "public" ? db : db.schema(schema)).from(table).select("*").eq("hkjc_event_id", id).maybeSingle();
+  const oneWith = async (client:any, table: string, schema = "public") => {
+    const q = (schema === "public" ? client : client.schema(schema)).from(table).select("*").eq("hkjc_event_id", id).maybeSingle();
     const x = await q;
     return { data: x.data ?? null, error: oneError(x.error) };
   };
-  const many = async (table: string, schema = "public") => {
-    const q = (schema === "public" ? db : db.schema(schema)).from(table).select("*").eq("hkjc_event_id", id);
+  const manyWith = async (client:any, table: string, schema = "public") => {
+    const q = (schema === "public" ? client : client.schema(schema)).from(table).select("*").eq("hkjc_event_id", id);
     const x = await q;
     return { data: x.data ?? [], error: oneError(x.error) };
   };
 
+  // Critical probability evidence is deliberately read before the optional
+  // human/live fan-out. This prevents connection pressure in optional layers
+  // from starving the model rows already stored for the match.
+  const predictionEvidence = await manyWith(coreDb,"prediction_evidence_current","private");
+  const [modelTotals,formTotals] = await Promise.all([
+    oneWith(coreDb,"model_predictions"),
+    oneWith(coreDb,"form_predictions"),
+  ]);
+
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
-    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals, formTotals, predictionEvidence
+    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios
   ] = await Promise.all([
-    one("human_factors_current"),
-    one("api_football_event_map"),
-    many("phase2_player_status_evidence"),
-    many("phase2_match_lineup_evidence"),
-    many("phase2_manager_evidence"),
-    one("odds_movement_current"),
-    one("live_score_current"),
-    one("live_stats_current"),
-    one("hkjc_live_odds_current"),
-    one("hkjc_upcoming_current"),
-    one("live_expected_actual_current"),
-    many("match_scenario_current"),
-    one("model_predictions"),
-    one("form_predictions"),
-    many("prediction_evidence_current","private"),
+    oneWith(optionalDb,"human_factors_current"),
+    oneWith(optionalDb,"api_football_event_map"),
+    manyWith(optionalDb,"phase2_player_status_evidence"),
+    manyWith(optionalDb,"phase2_match_lineup_evidence"),
+    manyWith(optionalDb,"phase2_manager_evidence"),
+    oneWith(optionalDb,"odds_movement_current"),
+    oneWith(optionalDb,"live_score_current"),
+    oneWith(optionalDb,"live_stats_current"),
+    oneWith(optionalDb,"hkjc_live_odds_current"),
+    oneWith(optionalDb,"hkjc_upcoming_current"),
+    oneWith(optionalDb,"live_expected_actual_current"),
+    manyWith(optionalDb,"match_scenario_current"),
   ]);
 
 
@@ -1137,6 +1152,7 @@ Deno.serve(async (req: Request) => {
   const forebetEvidenceHda=evidenceRow(evidenceRows,"FOREBET","1X2");
   const forebetEvidenceOu=evidenceRow(evidenceRows,"FOREBET","OU25");
   const forebetEvidenceCorners=evidenceRow(evidenceRows,"FOREBET","CORNERS95");
+  const formEvidenceHda=evidenceRow(evidenceRows,"FORM","1X2");
   if(r.forebet_home==null && forebetEvidenceHda?.prob_home!=null){
     r.forebet_home=forebetEvidenceHda.prob_home;
     r.forebet_draw=forebetEvidenceHda.prob_draw;
@@ -1161,9 +1177,9 @@ Deno.serve(async (req: Request) => {
     r.pi_away=modelTotals.data?.pi_prob_away ?? null;
   }
   if(r.form_home==null){
-    r.form_home=formTotals.data?.form_prob_home ?? null;
-    r.form_draw=formTotals.data?.form_prob_draw ?? null;
-    r.form_away=formTotals.data?.form_prob_away ?? null;
+    r.form_home=formTotals.data?.form_prob_home ?? formEvidenceHda?.prob_home ?? null;
+    r.form_draw=formTotals.data?.form_prob_draw ?? formEvidenceHda?.prob_draw ?? null;
+    r.form_away=formTotals.data?.form_prob_away ?? formEvidenceHda?.prob_away ?? null;
   }
   r.evidence_channel_count=[
     r.forebet_home,r.dc_home,r.pi_home,r.form_home,r.multisource_home
