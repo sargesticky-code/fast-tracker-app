@@ -279,8 +279,8 @@ Deno.serve(async (req: Request) => {
         league: r.tournament,
         home: r.home_en,
         away: r.away_en,
-        homeZh: r.home_zh,
-        awayZh: r.away_zh,
+        homeZh: r.home_en,
+        awayZh: r.away_en,
         liveNow: true,
         inPlay: true,
         live: {
