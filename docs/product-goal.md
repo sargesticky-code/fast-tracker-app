@@ -422,3 +422,23 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Merge/release PR #19 under existing bounded live-blocker authorization and verify exact phase1 deployed source parity.
 - [ ] Run one bounded real desktop/mobile homepage→current-detail sample; do not force ingest if no current fixture is naturally available.
 - [ ] Overall product goal remains incomplete; article/live/model acceptance remains separate from authority-list recovery.
+
+
+### Authority-first recovery release acceptance — 2026-10-04
+
+- [x] PR #19 merged as `7552d6251408f2c6279ea0b1f19d27ac620a4ea6`.
+- [x] Implementation head `394ae12703fe12c97aa671744edf861b64ad3f0e` passed CI `37167113029`, 32/32 rendered tests; artifact `11290705009`, digest `sha256:e148e489c0557015c042c4b69a07ce97109ed1445a33efc330088f449e814774`.
+- [x] Cloudflare production build `d3454a40-a77e-454c-a5e9-b427e203b139`, Version `d3706288-7bea-4e81-b699-751c93620a67`, SUCCESS.
+- [x] `app-phase1-feed` v61 exact source parity: bundle `2924a052cdbbcd8b7d2f3fd9ebb6174db5731fe141aa909fef0ef79d9e65f6a8`, Git blob `c134355d056438954c9e222f0fa791ed2484bf64`.
+- [x] No ingest refresh or DB write forced for acceptance.
+- [x] Natural production path returned summary 200 in ~0.98s after release.
+- [x] Real desktop/mobile production acceptance run `37167349410`: 34/34.
+- [x] Homepage source = `hkjc-official-direct`, **61 current fixtures** on both desktop/mobile.
+- [x] Real current fixture **FB6219 Tampa Bay Rowdies vs Miami FC** opened on both viewports with canonical ID/HKJC/stale guard/unknown≠zero visible.
+- [x] Authority-only summary preserved decision/model unknowns as null rather than zero/fabricated.
+- [x] Real Phase-1 summary calls 200 in ~0.49–2.78s; current detail endpoint 200 in ~15.1s.
+- [ ] `app-match-analysis?id=FB6219` still 503 after ~30s; model/article enrichment remains incomplete.
+- [ ] No substantive English article observed in the real production sample.
+- [ ] Full HKJC live write path still has an intermittent long/500 sample; not required by homepage authority summary but remains a separate robustness gap.
+- [ ] Overall product goal is not complete.
+- [ ] Next bounded task: current-fixture analysis/detail enrichment chain only; no generic DB investigation or DB/cron/index/compute changes without new authorization.
