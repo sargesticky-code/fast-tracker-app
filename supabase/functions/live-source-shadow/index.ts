@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
-const BUILD = "SUPABASE-LIVE-SHADOW-20260922-1";
+const BUILD = "SUPABASE-LIVE-SHADOW-20261004-2";
 const DB_READ_TIMEOUT_MS = 8_000;
 const PROVIDER_TIMEOUT_MS = 8_000;
 const DETAIL_TIMEOUT_MS = 6_000;
@@ -193,6 +193,22 @@ function statVal(v:any){
   const m=txt(v).match(/-?\d+(?:\.\d+)?/);
   return m?Number(m[0]):null;
 }
+function flattenFotmobHeaderEvents(node:any){
+  const out:any[]=[];
+  const seen=new Set<string>();
+  const walk=(value:any)=>{
+    if(Array.isArray(value)){ for(const item of value) walk(item); return; }
+    if(!value||typeof value!=="object") return;
+    const looksLikeEvent = value.eventId!==undefined || value.type!==undefined || value.time!==undefined || value.timeStr!==undefined;
+    if(looksLikeEvent){
+      const sig=txt(value.eventId)||[txt(value.type),txt(value.time??value.timeStr),txt(value.playerId),txt(value.isHome)].join("|");
+      if(sig&&!seen.has(sig)){ seen.add(sig); out.push(value); }
+    }
+    for(const child of Object.values(value)) walk(child);
+  };
+  walk(node);
+  return out;
+}
 function extractFotmobSections(detail:any){
   const teamStats:any[]=[];
   const periods=detail?.content?.stats?.Periods||{};
@@ -230,7 +246,7 @@ function extractFotmobSections(detail:any){
   }
   return {
     team_stats:deduped,
-    events:Array.isArray(detail?.header?.events)?detail.header.events:[],
+    events:flattenFotmobHeaderEvents(detail?.header?.events),
     momentum:Array.isArray(detail?.content?.matchFacts?.momentum?.main?.data)?detail.content.matchFacts.momentum.main.data:[],
     corners
   };
