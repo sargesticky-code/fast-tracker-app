@@ -41,6 +41,7 @@ const checks = [
   [sync.includes('"hkjc_event_id",false,50)'), "HKJC odds sync must use smaller batches after observed statement timeout"],
   [detailApi.includes('identity_status:identityStatus') && detailApi.includes('const identityStatus=canonical?"CANONICAL":"UNRESOLVED"'), "detail API must expose canonical player identity state"],
   [detailApi.includes('fact_status:factStatus'), "detail API must distinguish source confirmation from canonical fact confirmation"],
+  [detailApi.includes('forebetEvidenceFallback(predictionEvidence.data)') && detailApi.includes('source:"PREDICTION_EVIDENCE_CURRENT"') && detailApi.includes('source_key:"FOREBET"'), "detail Forebet fallback must reuse stored prediction evidence without inventing a second source"],
   [analysis.includes('uniqueConfirmedClaims(playerStatusRowsAnnotated)'), "analysis must deduplicate overlapping player-status records by claim fingerprint"],
   [analysis.includes('row.fact_status!=="CONFIRMED"'), "analysis must exclude unresolved player identity from confirmed human-factor counts"],
   [analysis.includes('evidenceKey: `form_predictions:${id}`') && analysis.includes('evidenceKey: `model_predictions:${id}`'), "model claims must carry durable source-record evidence keys"],
