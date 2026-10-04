@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
 const feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
+const liveFeed = fs.readFileSync("supabase/functions/app-live-feed/index.ts", "utf8");
 const story = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
 const analysis = fs.readFileSync("supabase/functions/app-match-analysis/index.ts", "utf8");
 const deepDetail = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
@@ -21,6 +22,9 @@ const checks = [
   [analysis.includes("englishPublicPayload"), "analysis endpoint must normalize public output to English"],
   [deepDetail.includes("Head-to-head data read failed"), "detail endpoint public H2H labels must be English"],
   [deepDetail.includes("englishDetailPayload"), "detail endpoint must sanitize public payload to English"],
+  [feed.includes("leagueZh: r.tournament ?? null") && feed.includes("homeZh: r.home_en ?? null") && feed.includes("awayZh: r.away_en ?? null"), "summary feed compatibility fields must mirror English public identity"],
+  [feed.includes("leagueZh: displayAuthority?.tournament ?? r.tournament ?? null") && feed.includes("homeZh: r.home_en") && feed.includes("awayZh: r.away_en"), "full feed compatibility fields must mirror English public identity"],
+  [liveFeed.includes("homeZh: r.home_en") && liveFeed.includes("awayZh: r.away_en"), "live feed compatibility identity fields must remain English-only"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
