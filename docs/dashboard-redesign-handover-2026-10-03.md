@@ -801,3 +801,134 @@ Implementation head **`394ae12703fe12c97aa671744edf861b64ad3f0e`** passed CI **`
 The smallest coherent recovery release is PR #19 plus the existing PR #16 runtime. No migration, DB write, forced ingest, index, cron, compute, provider expansion, new hosting/access or spend is part of this recovery.
 
 After merge/release, verify exact Edge source parity for `app-phase1-feed`, confirm Cloudflare revision, and perform one bounded real desktop+mobile homepage→current-detail sample. Acceptance must report actual fixture identity/freshness and distinguish direct upstream from snapshot fallback. If the current homepage has no fixture, record that exact upstream/data dependency rather than forcing a refresh.
+
+
+## Authority-first production recovery completed — 2026-10-04
+
+### Final saved/released state
+
+- PR #19 `Prefer fresh HKJC authority and suppress stale fallback prices` merged as **`7552d6251408f2c6279ea0b1f19d27ac620a4ea6`**.
+- Implementation head **`394ae12703fe12c97aa671744edf861b64ad3f0e`** passed GitHub CI **`37167113029` SUCCESS**, including all safety/provider/identity/independence/build/static-route checks and **32/32 rendered flow tests**. Artifact `11290705009`, SHA256 `e148e489c0557015c042c4b69a07ce97109ed1445a33efc330088f449e814774`.
+- The release preserved the working data-pipeline principle: official HKJC authority first, English/Forebet presentation on top, model/story/live enrichment optional rather than required for fixture visibility.
+- Official HKJC direct summary is now preferred whenever it succeeds; the DB authority snapshot is a fallback only after upstream failure.
+- Snapshot freshness is FRESH ≤30 minutes, AGING 30–60 minutes, STALE >60 minutes. Stale snapshots can preserve fixture identity but do **not** expose actionable H/D/A, fair market, handicap, goals/corners prices, model output, decisions or edge.
+- Authority-only model fields remain null and decisions remain null, preserving unknown≠zero.
+- The separate unreviewed Railway/static boot-feed change was reverted; static Cloudflare HTML uses the safe empty boot payload and hydrates from runtime authority data.
+
+### Exact deployed revisions
+
+- Production/main release commit: **`7552d6251408f2c6279ea0b1f19d27ac620a4ea6`**.
+- Cloudflare Workers build: **`d3454a40-a77e-454c-a5e9-b427e203b139`**, SUCCESS.
+- Cloudflare Version ID: **`d3706288-7bea-4e81-b699-751c93620a67`**.
+- `app-phase1-feed` deployed as **v61**, bundle SHA256 **`2924a052cdbbcd8b7d2f3fd9ebb6174db5731fe141aa909fef0ef79d9e65f6a8`**, Git blob **`c134355d056438954c9e222f0fa791ed2484bf64`**, byte-for-byte identical to merged main.
+- Existing PR16 function releases remained byte-identical to main: HKJC upcoming v11, HKJC live v11, app-live-feed v9. No forced ingest/refresh was issued.
+
+### Natural production evidence before final safeguard release
+
+Without forcing any authority refresh, existing logs showed the merged PR16 path operating successfully:
+- 01:06 UTC: HKJC live summary 200 / ~2.58s, upcoming summary 200 / ~2.87s, Phase-1 summary 200 / ~5.46s.
+- 01:07 UTC: upcoming 200 / ~1.59s, live 200 / ~1.75s, Phase-1 200 / ~2.02s.
+- 01:08 UTC: summary calls commonly ~0.23–0.92s, Phase-1 ~0.74–1.21s.
+- After v61 deployment: 01:11 UTC HKJC live summary 200 / ~0.66s, upcoming 200 / ~0.66s, Phase-1 summary 200 / ~0.98s.
+
+A full DB-writing HKJC live run still had one ~38s/500 sample. The homepage recovery does not depend on that write path; this remains a separate ingestion robustness issue and no forced write/refresh was performed to manufacture acceptance.
+
+### Real production desktop/mobile acceptance
+
+Temporary non-merged PR #21 ran genuine Chromium against the **actual Cloudflare production URL** after the release. CI run **`37167349410` SUCCESS**, total **34/34 tests**.
+
+Desktop 1365×900:
+- homepage HTTP 200;
+- runtime summary feed HTTP 200;
+- source **`hkjc-official-direct`**;
+- **61 current fixtures**;
+- no `Fixture feed temporarily unavailable` state;
+- chosen current fixture **FB6219 — Tampa Bay Rowdies vs Miami FC, USL, kickoff 2026-10-04 07:30 +08:00**;
+- HKJC freshness **FRESH**, fetch age ~0.016 minutes;
+- H/D/A odds 9.00 / 3.06 / 1.44 and no-vig market 0.0981 / 0.2886 / 0.6133;
+- decision = null, decisionEdge = null; Forebet/DC/PI/Form/Multi summary models all absent/null as designed in authority-only mode.
+
+Mobile 390×844 reproduced the same fixture/source/identity and fresh HKJC market state, with feed HTTP 200 and **61 fixtures**.
+
+The real current detail URL for FB6219 loaded HTTP 200 on both desktop and mobile. UI evidence:
+- canonical fixture ID visible;
+- `FAST TRACKER MATCH ANALYSIS` visible;
+- no transport-unavailable state;
+- no canonical-missing state;
+- stale-price protection visible;
+- `Unknown — not zero absences` visible;
+- Hong Kong Jockey Club visible.
+
+Narrow Supabase logs for the same sample confirm:
+- Phase-1 summary 200 in ~0.49–2.78s;
+- `app-match-detail?id=FB6219` 200 in ~15.14–15.16s;
+- `app-match-analysis?id=FB6219` returned 503 in ~30.2–30.8s.
+
+Therefore fixture authority, English homepage presentation, current fixture identity, HKJC market display, unknown≠zero, stale-price guard, desktop and mobile current-detail navigation are **live-verified**. Model/article enrichment is **not** fully accepted: the analysis endpoint still failed in this sample and no substantive English article heading/body was observed. Do not infer article/model completion from the authority recovery.
+
+### Remaining gaps and smallest next task
+
+The dashboard is usable again for current fixtures, but the broader product goal remains incomplete.
+
+Remaining gaps:
+- `app-match-analysis` still returned 503 for the sampled current fixture after ~30s;
+- substantive English article generation was not observed in the real sample;
+- full DB-writing HKJC live ingest still has intermittent long/failing executions;
+- optional Forebet/DC/PI/Form/Multi enrichments are intentionally absent from the authority-only summary and should be restored only when their read paths are healthy;
+- current live stats/xG/article evidence still needs a separate real in-play acceptance sample.
+
+**Smallest next task:** investigate only the current-fixture analysis/detail enrichment chain for FB6219 (or the next naturally current fixture) using read-only logs/source and determine which bounded read still causes `app-match-analysis` 503. Do not reopen generic DB-trigger investigation, do not force ingest, and do not modify DB/index/cron/compute without separate authorization.
+
+
+### Current-main superseding acceptance after PR #20
+
+A frontend-only follow-up, PR #20 `Fix homepage dual-lane data and HK date filters`, merged after the first production acceptance sample. Therefore the authoritative current-main acceptance is the later sample below, not the earlier `7552d625...` UI snapshot.
+
+Current production/main: **`a2f6ba43051a4c2622ea2a138e9175506f5e351e`**.
+
+PR #20 details:
+- source head `61b39320d43458964fa3df139a16e6fbfbd723aa`;
+- CI `37167427092` SUCCESS;
+- change scope: homepage only;
+- HKJC authority summary remains the non-blocking fixture lane;
+- full enrichment is best-effort on a separate slower lane and cannot erase authority fixtures;
+- Today/Tomorrow/weekend and displayed kickoff times are normalized to `Asia/Hong_Kong`;
+- no DB/schema/cron/provider change.
+
+Cloudflare deployed current main successfully:
+- Build **`95b7d5be-9909-4372-ba87-9764f3328407`**;
+- Version **`c9f8fd3c-38bf-46b9-995d-d80921439c7f`**.
+
+Final current-production acceptance used temporary non-merged PR #23 and genuine Chromium against the Cloudflare URL. Run **`37167649729` SUCCESS**, total **34/34** tests.
+
+Desktop 1365×900:
+- homepage HTTP 200;
+- authority feed HTTP 200;
+- source `hkjc-official-direct`;
+- **61 current fixtures**;
+- no unavailable state;
+- current fixture **FB6219 — Tampa Bay Rowdies vs Miami FC — USL — 2026-10-04 07:30 +08:00**;
+- freshness `FRESH`, fetch age ~0.015m;
+- current H/D/A 14.50 / 3.40 / 1.30;
+- decision = null, decisionEdge = null;
+- Forebet/DC/PI/Form/Multi authority-summary models remain null by design.
+
+Mobile 390×844 reproduced the same source/count/fixture/identity and fresh HKJC market state, feed 200.
+
+Current detail page for FB6219 on both viewports:
+- HTTP 200;
+- canonical ID visible;
+- no transport-unavailable state;
+- no canonical-missing state;
+- stale-price protection visible;
+- `Unknown — not zero absences` visible;
+- Hong Kong Jockey Club visible;
+- no substantive English article heading observed.
+
+Narrow backend logs for the same current-main sample:
+- Phase-1 summary 200 in ~0.97–1.85s;
+- 48h summary 200 in ~1.01–1.38s;
+- `app-match-detail?id=FB6219` 200 in ~15.25–15.38s;
+- `app-match-analysis?id=FB6219` 503 in ~30.17–30.36s.
+
+This supersedes the earlier UI acceptance as the exact current-main evidence. Authority/homepage recovery is live and usable. Full analysis/article enrichment remains the next bounded blocker.
