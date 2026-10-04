@@ -155,14 +155,14 @@ async function readSummaryFixture(sbUrl:string,id:string){
 }
 
 function normalizeH2H(row:any,error:any){
-  if(error) return {status:"FAIL",isFailure:true,label:"對賽資料讀取失敗",reason:error.message||"query_error"};
-  if(!row) return {status:"NO_DATA",isFailure:false,label:"暫無對賽資料",reason:"no_h2h_row"};
+  if(error) return {status:"FAIL",isFailure:true,label:"Head-to-head data read failed",reason:error.message||"query_error"};
+  if(!row) return {status:"NO_DATA",isFailure:false,label:"No head-to-head data",reason:"no_h2h_row"};
   const q=String(row.quality||"").toUpperCase();
   const games=Number(row.h2h_games||0);
-  if(q==="H2H_OK" && games>0) return {status:"OK",isFailure:false,label:`近${games}次對賽`,reason:null};
-  if(q==="NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY") return {status:"NO_HISTORY",isFailure:false,label:"可用歷史內無過往對賽",reason:q};
-  if(q==="HISTORY_PARTIAL") return {status:"PARTIAL",isFailure:false,label:"對賽歷史仍在補充",reason:q};
-  return {status:"PARTIAL",isFailure:false,label:games>0?`近${games}次對賽`:"對賽資料未完整",reason:q||"unknown_quality"};
+  if(q==="H2H_OK" && games>0) return {status:"OK",isFailure:false,label:`Last ${games} H2H meetings`,reason:null};
+  if(q==="NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY") return {status:"NO_HISTORY",isFailure:false,label:"No previous H2H in available history",reason:q};
+  if(q==="HISTORY_PARTIAL") return {status:"PARTIAL",isFailure:false,label:"H2H history is still being populated",reason:q};
+  return {status:"PARTIAL",isFailure:false,label:games>0?`Last ${games} H2H meetings`:"H2H data incomplete",reason:q||"unknown_quality"};
 }
 
 Deno.serve(async(req:Request)=>{
