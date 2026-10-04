@@ -42,3 +42,22 @@ Draft PR #43: https://github.com/sargesticky-code/fast-tracker-app/pull/43. Exec
 Artifact `11318532786`, `dashboard-redesign-7cae6debddef79c1d602dd73a6b460ae59338adc`, digest `sha256:5af151d03389d35f6748418cf63110045b4a56ac1d2dd2fe9c40788683749f3a`. The artifact name is the GitHub merge-test SHA; metadata confirms source head above. Both new desktop 1280px and mobile 390px partial-XI screenshots were downloaded and visually reviewed. Article and Team News show the same incomplete-XI warning, with no visible clipping/overlap. This is mocked rendered acceptance, not production or real-provider confirmation.
 
 Resume this SAME phase from this branch/PR. Do not recreate the investigation or release automatically. Confirmed-first SQL remains unapplied. The next unblocked review improvement is honest lineup-strength semantics: the current percentage is a completeness index with no importance weighting, while canonical player identity coverage remains unresolved.
+
+## Iteration 2 — authoritative prediction coverage and strength semantics
+
+Resumed from PR43 head `33803c431b6a4d6904a2374a04b8a2b6c1d9d741`; main remained `60dcd75231c5620491dce4a1879ba3de00f3661b`. PR43 remained open/draft/unmerged. Deployed app-match-detail still active v22 and still reading raw evidence. Earlier source, view-ranking and CI investigations were not restarted.
+
+Implemented public lineup consumption:
+- Current authoritative display predictions are shown with explicit predicted/unresolved-identity warnings; no player identity is invented or upgraded.
+- Prediction admission requires matching canonical fixture and requested id, explicit display authority, AVAILABLE status, rawFallback=false, eligible row, provider player key and name. Legacy raw prediction history stays hidden. Source-confirmed rows on a side suppress that side's predictions, including unresolved official evidence. Identical duplicates collapse; contradictory duplicates fail closed.
+- XI counts are reported coverage, never player-strength percentages. Incomplete or missing starters remain 10/11 or unknown; no placeholder player fills the eleven.
+- Lineup strength stays unavailable because the endpoint has no validated player-importance/full-strength baseline. The old V1_COMPLETENESS_INDEX (starter count minus raw absence-record penalties) is no longer displayed as football strength. Database producer/schema and legacy response fields remain intact.
+- Null/empty confidence stays unknown. Provider observation and capture timestamps are shown separately; capture time cannot masquerade as a provider update. A failed refresh with retained lineup evidence exposes unknown freshness.
+
+Current real-data check: FB6292 Cyprus vs Latvia. Applying the actual public selector to a read-only snapshot of the stored authoritative view yielded 10 reported home starters and 11 away starters, plus provider bench rows; all 45 admitted player rows had unresolved canonical identities. Kostas Pileas remained excluded. Source FOTMOB_PREDICTED; lineup confirmed=false; football strength=null. No registry rows or football data were written. The same conflict census also still excluded Edgar Sevikyan for FB6301 A.
+
+Strength census stayed 24 sides: 10 numeric V1 completeness scores, 14 unknown scores; there is no new weighted-strength source in this batch. Public percentage readiness requires a sourced player importance measure, documented team baseline, reconciled identities, deduplicated/current availability and retained source/snapshot provenance. Until that producer is implemented and verified, missing strength stays unavailable.
+
+Local checks: public-display helper tests (including official precedence, wrong fixture, raw history, conflicting duplicates and null strength/confidence), prior authority/article tests and all existing safety/story/market/identity checks passed. Static build passed. New rendered cases cover authoritative prediction names and excluded players at 1280/390px, unknown strength despite legacy 100/null scores, raw-history suppression and cached refresh-failure freshness. Rendered acceptance is pending CI, using the existing path because local Chromium remains unavailable.
+
+No schema change, DB write, ingestion/provider expansion, schedule change, Edge release, production deployment or merge. Continue the same PR; existing confirmed-first SQL still needs separate release preparation.

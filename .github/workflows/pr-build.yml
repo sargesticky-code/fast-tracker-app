@@ -60,6 +60,9 @@ jobs:
       - name: Check authoritative lineup display
         run: npm run check:lineup-authority
 
+      - name: Check public lineup semantics
+        run: npm run check:lineup-public
+
       - name: Build static app
         id: static_build
         shell: bash

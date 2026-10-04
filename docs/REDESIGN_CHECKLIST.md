@@ -135,3 +135,12 @@ Before stopping a redesign session, record:
 - [ ] Real endpoint verification after separately authorized release.
 
 Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
+
+## Phase 2 public prediction/strength review — iteration 2
+
+- [x] Eligible authoritative predicted names are visible with unresolved identity warnings; raw history stays hidden.
+- [x] Official evidence suppresses prediction on its side; exact fixture and duplicate safeguards tested.
+- [x] Legacy completeness scores no longer appear as football-strength percentages; missing/confidence stays unknown.
+- [x] Observation vs capture timestamps separated; retained failed-refresh evidence labelled freshness unknown.
+- [x] Actual stored FB6292 snapshot yields 10/11 vs 11/11 reported starters; excluded player remains excluded.
+- [ ] New desktop/mobile prediction and cached-outage browser cases and screenshot review in PR43 CI.
