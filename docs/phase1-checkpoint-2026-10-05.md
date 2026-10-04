@@ -49,3 +49,29 @@ visible, unknown row retained without a fabricated probability/pick/edge or
 null average rendered as zero, no page overflow. These are mocked screenshots.
 Real summary/full snapshots had the same 34 canonical IDs, team pairs and actual
 kickoff instants (timezone representations differ). No deployed change claimed.
+
+## Iteration 2 — complete fixture navigation
+
+Continue in the same draft PR42; previous executable source/CI acceptance remains
+recorded above. No prior change was merged or deployed.
+
+Implemented: default homepage/server read window uses the existing 48h endpoint;
+filtered rows are no longer silently truncated to 30. Today/Tomorrow/+2 days use
+a runtime clock and Hong Kong dates rather than static build time or a calendar
+selection. Calendar selection is a separate date filter; Today always resets the
+view to actual today. Upcoming date/weekend/value filters exclude live fixtures;
+Live and All retain them. Empty filters no longer promote unrelated fixtures in
+the right rail. Dates reaching/exceeding the supplied feed-window end show partial
+coverage instead of implying there are no later fixtures. Unknown window metadata
+does not become a zero-hour window. Configured feed URL overrides remain intact.
+
+Read-only summary at 2026-10-04 23:41:12 UTC: HTTP 200, 48h, 34 unique fixtures,
+three live; Hong Kong dates Oct5=14, Oct6=19, Oct7=1. Provider source remains
+`hkjc-official-direct`. No provider/identity/ingestion/schedule/database changes.
+
+Seven local checks and build passed. New desktop/mobile cases use a Los Angeles
+browser timezone with a fixed Hong Kong boundary date: 35 upcoming rows survive,
+live is separated, tomorrow/+2 and calendar reset work, search reaches row 35,
+All contains all 38 fixtures, partial coverage is visible. CI/screenshots pending.
+Full +2-day coverage requires a wider actual provider/read window; current API
+caps 48h. This change labels the limit and does not fabricate later fixtures.

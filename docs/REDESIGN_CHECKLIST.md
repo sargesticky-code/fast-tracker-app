@@ -127,3 +127,11 @@ Before stopping a redesign session, record:
   - A current live-feed ID `FB6174` still returned `fixtureSource=MISSING` from `app-match-detail` despite auxiliary model/player evidence, so the canonical fixture/detail acceptance gap remains real.
 - Real-device mobile acceptance is still open: the available browser connector does not expose device/viewport emulation for the live deployed app, and the reviewed source is not released. CI mobile screenshots are deterministic mocked coverage only.
 - No merge, deployment, Edge release, migration, DB write, feed publication, access expansion or spending occurred.
+
+## Phase 1 fixture navigation — iteration 2
+
+- [x] Use current Hong Kong date, preserving separate calendar selection.
+- [x] Request supported 48h feed and show all returned rows.
+- [x] Separate live from upcoming date/value/weekend filters.
+- [x] Label partial date-window coverage; preserve unknown metadata.
+- [ ] Verify new desktop/mobile navigation CI and screenshots.

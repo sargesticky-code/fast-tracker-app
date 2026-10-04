@@ -28,7 +28,7 @@ import {
 
 const FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_FEED_URL ||
-  "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
+  "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=48";
 const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
 const ENRICHMENT_FEED_URL = FEED_URL;
 const LIVE_FEED_URL =
@@ -433,6 +433,7 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
     <section className="ft-right-card ft-calendar">
       <div className="ft-calendar-title"><span>Match calendar</span><small>Choose a date to filter fixtures</small></div>
       <DayPicker
+        key={`${selectedDate.getFullYear()}-${selectedDate.getMonth()}`}
         mode="single"
         selected={selectedDate}
         onSelect={(date) => date && onSelectDate(date)}
@@ -522,13 +523,21 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       ? { status: "ready", message: null }
       : { status: "loading", message: null }
   );
-  const [dayOffset, setDayOffset] = useState(0);
+  const [now, setNow] = useState(new Date(nowMs || Date.now()));
   const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState("");
   const [activeMode, setActiveMode] = useState("today");
   const [activeLeague, setActiveLeague] = useState("");
   const [activeMarket, setActiveMarket] = useState("HDA");
   const [selectedDate, setSelectedDate] = useState(new Date(nowMs || Date.now()));
+
+  useEffect(() => {
+    // Static exports carry build-time props. Date navigation follows runtime time.
+    const updateClock = () => setNow(new Date());
+    updateClock();
+    const timer = setInterval(updateClock, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -625,22 +634,26 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   }, []);
 
   const matches = Array.isArray(feed?.matches) ? feed.matches : [];
-  const now = useMemo(() => new Date(nowMs || Date.now()), [nowMs]);
   const todayKey = dateKey(now);
   const tomorrowKey = dateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const plusTwoKey = dateKey(new Date(now.getTime() + 48 * 60 * 60 * 1000));
 
   const counts = useMemo(() => ({
-    today: matches.filter(m => dateKey(m.kickoff) === todayKey).length,
+    today: matches.filter(m => !m.liveNow && dateKey(m.kickoff) === todayKey).length,
     live: matches.filter(m => m.liveNow).length,
-    tomorrow: matches.filter(m => dateKey(m.kickoff) === tomorrowKey).length,
-    weekend: matches.filter(m => hkWeekend(m.kickoff)).length,
+    tomorrow: matches.filter(m => !m.liveNow && dateKey(m.kickoff) === tomorrowKey).length,
+    weekend: matches.filter(m => !m.liveNow && hkWeekend(m.kickoff)).length,
     all: matches.length,
-    value: matches.filter(m => Number(valueEdge(m)?.expectedValue) >= 0.04).length,
+    value: matches.filter(m => !m.liveNow && Number(valueEdge(m)?.expectedValue) >= 0.04).length,
   }), [matches, todayKey, tomorrowKey]);
 
-  const target = new Date(selectedDate || now);
-  target.setDate(target.getDate() + dayOffset);
-  const targetKey = dateKey(target);
+  const calendarKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+  const targetKey = activeMode === "tomorrow" ? tomorrowKey : activeMode === "plus2" ? plusTwoKey : activeMode === "date" ? calendarKey : todayKey;
+  const feedEndMs = feed?.generatedAt && feed?.windowHours != null && Number(feed.windowHours) > 0
+    ? Date.parse(feed.generatedAt) + Number(feed.windowHours) * 3600000 : NaN;
+  const feedEndKey = Number.isFinite(feedEndMs) ? dateKey(feedEndMs) : null;
+  const dateMode = ["today", "tomorrow", "plus2", "date"].includes(activeMode);
+  const partialDateCoverage = dateMode && feedEndKey && targetKey >= feedEndKey;
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -653,16 +666,15 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       }
 
       if (activeMode === "live") return Boolean(m.liveNow);
-      if (activeMode === "tomorrow") return dateKey(m.kickoff) === tomorrowKey;
-      if (activeMode === "weekend") return hkWeekend(m.kickoff);
+      if (activeMode === "weekend") return !m.liveNow && hkWeekend(m.kickoff);
       if (activeMode === "all") return true;
-      if (activeMode === "value") return Number(valueEdge(m)?.expectedValue) >= 0.04;
-      return dayOffset === 0 ? (m.liveNow || dateKey(m.kickoff) === targetKey) : dateKey(m.kickoff) === targetKey;
+      if (activeMode === "value") return !m.liveNow && Number(valueEdge(m)?.expectedValue) >= 0.04;
+      return !m.liveNow && dateKey(m.kickoff) === targetKey;
     });
 
     rows = rows.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
-    return rows.slice(0, 30);
-  }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey]);
+    return rows;
+  }, [matches, activeLeague, activeMode, query, targetKey]);
 
   const groupedVisible = useMemo(() => {
     const groups = new Map();
@@ -691,7 +703,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <button
             className={activeMode === mode ? "active" : ""}
             key={name}
-            onClick={() => { setActiveMode(mode); if (mode === "today") setDayOffset(0); }}
+            onClick={() => setActiveMode(mode)}
           >
             <Icon size={17} />{name}
           </button>
@@ -708,12 +720,9 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           </div>
 
           <div className="ft-daybar">
-            {[-2,-1,0,1,2].map((offset) => {
-              const d = new Date(selectedDate || now);
-              d.setDate(d.getDate() + offset);
-              const label = offset === 0 ? "Today" : d.toLocaleDateString("en-GB", { weekday: "short" });
-              return <button key={offset} className={dayOffset === offset && activeMode === "today" ? "active" : ""} onClick={() => { setDayOffset(offset); setActiveMode("today"); }}>{label}</button>;
-            })}
+            {[["Today", "today"], ["Tomorrow", "tomorrow"], ["+2 days", "plus2"]].map(([label, mode]) => (
+              <button key={mode} className={activeMode === mode ? "active" : ""} onClick={() => setActiveMode(mode)}>{label}</button>
+            ))}
             <label className="ft-form-toggle"><span>Show form</span><input type="checkbox" checked={showForm} onChange={e => setShowForm(e.target.checked)} /><i /></label>
           </div>
 
@@ -738,6 +747,13 @@ export default function HomepageClient({ initialFeed, nowMs }) {
               <span><strong>Fixture feed temporarily unavailable.</strong> Showing the last successful fixture list; freshness is unknown until refresh recovers.</span>
             </section>
           ) : null}
+
+          {partialDateCoverage && (
+            <section className="ft-form-note" role="status">
+              <CalendarDays size={18} />
+              <span>Partial date coverage: this feed currently extends through {formatKickoff(new Date(feedEndMs).toISOString())} HKT. Later fixtures are outside its window.</span>
+            </section>
+          )}
 
           {visible.some((m) => m.liveNow) ? (
             <div className="ft-live-ribbon">
@@ -765,7 +781,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           )}
         </section>
 
-        <RightRail matches={visible.length ? visible : matches.slice(0, 10)} selectedDate={selectedDate} onSelectDate={(date) => { setSelectedDate(date); setDayOffset(0); setActiveMode("today"); }} />
+        <RightRail matches={visible} selectedDate={dateMode && activeMode !== "date" ? new Date(`${targetKey}T12:00:00`) : selectedDate} onSelectDate={(date) => { setSelectedDate(date); setActiveMode("date"); }} />
       </div>
 
       <footer className="ft-footer-banner">

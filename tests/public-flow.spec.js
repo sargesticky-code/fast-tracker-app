@@ -2,6 +2,57 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
+test.describe("prematch fixture navigation", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+  for (const width of [1440, 390]) {
+    test(`complete coverage and Hong Kong dates at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.clock.setFixedTime(new Date("2026-10-04T23:00:00Z"));
+      const feed = fixtureFeed();
+      const base = feed.matches[0];
+      feed.generatedAt = "2026-10-04T23:00:00Z";
+      feed.windowHours = 48;
+      feed.matches = Array.from({ length: 35 }, (_, i) => ({ ...base, id: `FBNAV${i}`, home: `Upcoming Club ${i}`, kickoff: "2026-10-05T10:00:00+08:00" }));
+      feed.matches.push(
+        { ...base, id: "FBNAVLIVE", home: "Live Club", liveNow: true, kickoff: "2026-10-05T06:00:00+08:00" },
+        { ...base, id: "FBNAVTOMORROW", home: "Tomorrow Club", kickoff: "2026-10-06T20:00:00+08:00" },
+        { ...base, id: "FBNAVPLUS2", home: "Plus Two Club", kickoff: "2026-10-07T06:00:00+08:00" }
+      );
+      await page.route("**/functions/v1/app-phase1-feed?**", route => {
+        expect(new URL(route.request().url()).searchParams.get("hours")).toBe("48");
+        return route.fulfill({ json: feed });
+      });
+      await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+      await page.goto("http://127.0.0.1:4173/");
+      await expect(page.locator(".ft-match-row")).toHaveCount(35);
+      await expect(page.locator('.ft-match-row[href*="FBNAV34"]')).toHaveCount(1);
+      await expect(page.locator('.ft-match-row[href*="FBNAVLIVE"]')).toHaveCount(0);
+      await page.screenshot({ path: `test-results/dashboard-navigation-today-${width}.png` });
+      await page.locator(".ft-sports").getByRole("button", { name: "Live", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(1);
+      await expect(page.locator(".ft-match-row")).toContainText("Live Club");
+      await page.locator(".ft-daybar").getByRole("button", { name: "Tomorrow", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(1);
+      await expect(page.locator(".ft-match-row")).toContainText("Tomorrow Club");
+      await page.locator(".ft-daybar").getByRole("button", { name: "+2 days", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toContainText("Plus Two Club");
+      await expect(page.getByText(/Partial date coverage:/)).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+      await page.screenshot({ path: `test-results/dashboard-navigation-plus2-${width}.png`, fullPage: true });
+      if (width === 1440) {
+        await page.locator('.ft-calendar [data-day="2026-10-06"] button').click();
+        await expect(page.locator(".ft-match-row")).toContainText("Tomorrow Club");
+      }
+      await page.locator(".ft-sports").getByRole("button", { name: "Today", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(35);
+      await page.locator(".ft-sports").getByRole("button", { name: "All matches", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(38);
+      await page.getByPlaceholder("Search team, league or match...").fill("Upcoming Club 34");
+      await expect(page.locator(".ft-match-row")).toHaveCount(1);
+    });
+  }
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   test(`prematch missing probabilities and fallback at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);

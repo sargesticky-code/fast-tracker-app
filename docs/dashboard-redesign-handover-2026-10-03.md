@@ -1048,3 +1048,11 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - Full continuation state and next fixture-window gap: `docs/phase1-checkpoint-2026-10-05.md`.
 
 - PR42 executable head `af24bd4e4d002e2a2a043f1607a391ea15b02cd4`: CI `37244231413` SUCCESS. Screenshot artifact `11318033739`; new desktop/mobile unknown/fallback cases visually reviewed. Production remains unchanged.
+
+### Phase 1 fixture navigation — iteration 2
+
+- Extends draft PR42 from accepted parent `577769417e4c2cfefe952c66760a1953d625f163`.
+- Removes silent 30-row truncation, requests supported 48h window, fixes static/calendar date drift and separates live from upcoming filters.
+- Current real summary: 34 unique fixtures / three live; Oct5=14, Oct6=19, Oct7=1 HKT.
+- Local checks/build passed; responsive CI and screenshot acceptance pending. No release/database/schedule/provider changes.
+- Detailed continuation: `docs/phase1-checkpoint-2026-10-05.md`.
