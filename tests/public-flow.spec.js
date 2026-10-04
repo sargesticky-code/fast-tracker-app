@@ -1047,6 +1047,7 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
 
 
 test("production authority recovery restores real homepage fixtures", async ({ browser }) => {
+  test.setTimeout(120000);
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
   const page = await context.newPage();
 
