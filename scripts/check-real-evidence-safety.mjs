@@ -9,6 +9,8 @@ const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts"
 const phase1Feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
 const storyApi = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
 const liveFeedApi = fs.readFileSync("supabase/functions/app-live-feed/index.ts", "utf8");
+const hkjcUpcoming = fs.readFileSync("supabase/functions/hkjc-upcoming-direct/index.ts", "utf8");
+const hkjcLive = fs.readFileSync("supabase/functions/hkjc-live-direct/index.ts", "utf8");
 const lineupPanel = fs.readFileSync("components/lineup-panel.js", "utf8");
 const singleFlight = fs.readFileSync("lib/single-flight-fetch.js", "utf8");
 const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
@@ -51,6 +53,9 @@ const checks = [
   [liveFeedApi.includes("db: { retry: false }"), "live feed must disable built-in PostgREST retries during saturation"],
   [liveFeedApi.includes('readHealth[lane]') && liveFeedApi.includes('status: "UNAVAILABLE"'), "live feed enrichment failures must remain distinguishable from absent data"],
   [liveFeedApi.includes('semantics: "read_failure_not_fixture_absence"'), "live feed top-level failure must explicitly remain distinct from fixture absence"],
+  [phase1Feed.includes('source: "hkjc-authority-direct"') && phase1Feed.includes('if (summaryOnly)') && phase1Feed.includes('hkjc_upcoming_current'), "homepage summary must prefer direct HKJC authority before heavy enrichment RPC"],
+  [phase1Feed.includes('primaryMissingReason: "SUMMARY_AUTHORITY_ONLY"') && phase1Feed.includes('HKJC fixture authority is available; model enrichment is temporarily unavailable.'), "authority-only summary must preserve unknown model evidence rather than invent predictions"],
+  [[hkjcUpcoming,hkjcLive].every((src)=>src.includes("DB_TIMEOUT_MS = 12_000") && src.includes("db: { retry:false }") && src.includes("global: { fetch: boundedDbFetch }")), "HKJC authority refresh functions must bound database operations and disable retry amplification"],
   [!liveFeedApi.includes('error: String(error?.message') && liveFeedApi.includes('reason: "db_read_failed"'), "public live read-health must avoid exposing raw database error text"],
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL') && detail.includes("35000"), "live client deadline must remain outside the bounded two-phase live server read window"],
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
