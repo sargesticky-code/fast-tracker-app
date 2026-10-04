@@ -458,3 +458,16 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Await the next natural job-36 run and verify runtime/result from logs/source_health. Acceptance target is a completed bounded run rather than the prior 129–150s EarlyDrop pattern; then verify current fixture lineup rows appear naturally.
 - [ ] Jobs 6/16/17 remain unchanged. Read-only evidence still shows live-score-direct/live-source-shadow ~150s failures and pg_cron startup pressure; any producer/schedule change needs its own smallest reversible source-controlled proposal.
 - [ ] Overall product goal remains incomplete until current detail -> analysis -> English story/live flow is observed on the deployed versions with real stored model/form/lineup data, and remaining source gaps (odds movement, power/Opta, multisource, article cache) are distinguished from read failures.
+
+
+### Continuity checkpoint — PR #26 / #27 — 2026-10-04 03:10 UTC
+
+- [x] PR #26 `Bound live producer I/O and restore continuity` merged as `e77c1d3c4e67525e6cb53b67f1c267db317950cf`; reviewed head `347b2f7ce4e6863295509313a3c86d76ed619406`; CI run `37172019143` SUCCESS.
+- [x] PR #27 `Keep English story available during DB pressure` merged as `b1ef3d6fc9bc24f51890a94a6dc9687840ac1109`; reviewed head `51893b6c00a198b57f1080603c848940647d75a0`; CI run `37172316771` SUCCESS.
+- [x] Exact GitHub-main / deployed Edge source parity verified: phase1 feed v63, detail v20, analysis v35, story v29, lineup v7, live-score-direct v14, live-source-shadow v7.
+- [x] Real post-release reads: v63 summary HTTP 200 in 0.4-2.1s; v63 full feed HTTP 200 in 16.9s (improved from prior 46.7s); v20 detail FB6240 HTTP 200 in 22.8s; v35 analysis FB6240 HTTP 200 in 22.1s.
+- [x] Railway public service remains online, 1/1 running, 0 crashes/recent failures, no pending work.
+- [ ] Natural v7 lineup/live acceptance is blocked before Edge, not by the new producer code. Job 36 started at 02:52:05 UTC but no v7 Edge request followed.
+- [ ] Read-only root-cause evidence: job 23 `phase4-market-refresh` runs every 5m; its 02:50 `phase4.refresh_core()` invocation remained active into the 02:52 lineup window and timed out at ~02:52:10 inside `phase4.refresh_model_consensus()`. That function deletes and rebuilds `phase4.model_consensus_current` from matches/model_predictions/forebet_predictions. The overlap coincides with cron startup timeouts for live/lineup work.
+- [ ] No cron/function DB write changes were made. Exact additional authorization required for the next root fix: permission to modify the Phase 4 DB-writing refresh implementation and/or its cron timing, through a reviewed migration/schedule change. Until authorized, keep job 23/6/16/17/36 schedules unchanged and treat missing natural producer runs as upstream cron/DB-pressure blocked, not as Edge-code failure.
+- [ ] Next independent safe verification: observe the next natural lineup/live invocation after a non-overlapping window and verify source_health/current-fixture rows; observe a natural story v29 request before claiming article runtime recovery.
