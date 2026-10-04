@@ -525,6 +525,7 @@ Deno.serve(async (_req:Request)=>{
       if(detailUpsertError) throw detailUpsertError;
     }
 
+    let identityRpcErrors=0;
     if(out.length){
       const {error}=await db.from("live_source_shadow_current").upsert(out,{onConflict:"hkjc_event_id"});
       if(error) throw error;
@@ -532,7 +533,6 @@ Deno.serve(async (_req:Request)=>{
       const identityRows=out.filter((row:any)=>
         row.source_match_id && row.source!=="SOURCE_GAP" && Number.isFinite(Number(row.match_confidence))
       );
-      let identityRpcErrors=0;
       await mapLimit(identityRows,IDENTITY_CONCURRENCY,async(row)=>{
         const identitySource=String(row.source).startsWith("FOTMOB")
           ? "FOOTBALL_LIVE_API_SELF_HOSTED"
