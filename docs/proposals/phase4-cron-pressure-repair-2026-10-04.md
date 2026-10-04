@@ -278,3 +278,8 @@ Cron-level evidence then shows the remaining upstream problem:
 - 03:23: jobs 6/17/16 hit **job startup timeout**.
 
 This post-release evidence strengthens the schedule-level diagnosis: producer code can execute with bounded failure when Edge is reached, but crowded cron windows can prevent the request from reaching Edge at all.
+
+
+## Applied status
+
+Approved by the human and applied at 2026-10-04 03:45 UTC. Live verification after application showed job 23 active with unchanged command `select phase4.refresh_core();` and schedule `0,6,12,16,20,26,30,36,40,46,50,54 * * * *`. No function/schema/index or manual refresh/producer action was performed. Natural-run acceptance remains pending; the 03:45 pre-change start is excluded and the first post-change run began at 03:46:01.531 UTC.
