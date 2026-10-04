@@ -858,3 +858,18 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 3. Deploy exact merged `app-match-detail` and `app-match-analysis` source to Supabase; verify byte parity and real endpoint behavior before any broader release claim.
 4. Next independent read-only investigation: why successful `phase2-fotmob-lineups` executions still yield zero current canonical lineup rows. Determine provider fixture coverage versus identity/write gating.
 5. Keep jobs 6/16/17 unchanged until a separate smallest reversible proposal is justified by read-only evidence.
+
+
+### Holistic recovery release — PR #25 — 2026-10-04 02:31 UTC
+
+- [x] PR #25 `Collapse enrichment reads and recover stored model data` passed CI at exact reviewed head `a17f4dae0a823e3416f156b3dd1d5e4fc88e45bf` and merged as `41b423c0046dfe4d9b7c1a707d9226091ae2bac6`.
+- [x] CI run `37171091141` passed visible-escape, English story, provider/bookmaker, real-evidence, evidence-independence, player-identity, build, static routes and rendered desktop/mobile flow; screenshots were uploaded.
+- [x] Exact merged sources deployed with byte parity: `app-phase1-feed` v62, `app-match-detail` v20, `app-match-analysis` v35, `phase2-fotmob-lineups` v7.
+- [x] Homepage full-feed degradation now falls back to authority summary + canonical `prediction_evidence_current`; DC/Pi are promoted only when `model_predictions.quality=MODELED`. Authority-only/stale-price/unknown!=zero rules remain intact.
+- [x] Detail now gets canonical fixture identity from the fast 48h authority summary before optional DB fan-out; Forebet continues to recover only from stored canonical evidence. Analysis reads canonical prediction evidence/model/form before optional human/live/movement reads with shorter deadlines.
+- [x] FotMob lineup producer source is now tracked. Provider detail work is bounded to 5s per request and concurrency 3, while MAX_DETAIL=12 and existing identity/write gates are unchanged. Cron job 36 was not changed or manually fired; natural cron execution is the acceptance path.
+- [x] First natural post-release request: `app-phase1-feed` v62 summary returned 200 in 837ms.
+- [ ] Post-release v20/v35 endpoint-body verification is not yet available: Opera is disconnected, generic web fetch cannot access the project endpoint, and the pg_net verification request is queued behind current DB pressure. Do not convert source parity/CI into a fabricated live-body claim.
+- [ ] Await the next natural job-36 run and verify runtime/result from logs/source_health. Acceptance target is a completed bounded run rather than the prior 129–150s EarlyDrop pattern; then verify current fixture lineup rows appear naturally.
+- [ ] Jobs 6/16/17 remain unchanged. Read-only evidence still shows live-score-direct/live-source-shadow ~150s failures and pg_cron startup pressure; any producer/schedule change needs its own smallest reversible source-controlled proposal.
+- [ ] Overall product goal remains incomplete until current detail -> analysis -> English story/live flow is observed on the deployed versions with real stored model/form/lineup data, and remaining source gaps (odds movement, power/Opta, multisource, article cache) are distinguished from read failures.
