@@ -534,3 +534,12 @@ button,input{font:inherit}
   .ft-footer-banner{display:none}
   .ft-home{padding-bottom:14px}
 }
+
+/* Keep fixture search usable on phones and tablets. */
+@media(max-width:900px){
+  .ft-top{height:100px;flex-wrap:wrap;gap:6px;padding:8px 10px}
+  .ft-brand{margin-right:auto}
+  .ft-search{display:flex;order:3;flex-basis:100%;width:100%;margin:0}
+  .ft-search input{min-width:0;font-size:16px}
+  .ft-filterbar{top:100px}
+}
