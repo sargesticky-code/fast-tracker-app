@@ -405,3 +405,20 @@ Routine development, testing, debugging and transitions between already agreed p
 - [x] Deployed v7 parity source checkpoint: commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, Supabase bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`.
 - [x] Coherent unreleased candidate = PR6→PR8→PR9→PR10→PR11.
 - [ ] Production remains unchanged in this review-only batch.
+
+
+### Authority-first recovery checkpoint — 2026-10-04
+
+- [x] PR #14 was already merged before recovery inspection; CI `37165925152` green, 32/32.
+- [x] PR #16 was already merged before recovery inspection; source `18d7e5739b40ac04c0fc624addb5859f0b33cd20`, CI `37166811378` green.
+- [x] PR #16 deployed Edge source parity verified: phase1 v60, HKJC upcoming/live v11, live feed v9.
+- [x] Natural production logs show direct HKJC summary + Phase-1 summary returning 200 in ~0.2–5.5s without forced ingest.
+- [x] Full DB-writing HKJC live path still had one ~38s/500 sample; homepage summary is independent of that path.
+- [x] PR #19 fixes upstream-vs-snapshot ordering: official HKJC upstream wins whenever successful; snapshot only after upstream failure.
+- [x] PR #19 fixes stale snapshot semantics: FRESH ≤30m, AGING 30–60m, STALE >60m; stale identity remains visible while stale prices/actionability are suppressed.
+- [x] Authority-only model fields and decisions remain null/unknown, never zero/fabricated.
+- [x] Unreviewed build-time boot-feed change is reverted; Cloudflare static HTML returns to empty boot state and hydrates from runtime authority summary.
+- [x] PR #19 implementation head `394ae12703fe12c97aa671744edf861b64ad3f0e` passed CI `37167113029`; rendered suite 32/32; artifact `11290705009`, digest `sha256:e148e489c0557015c042c4b69a07ce97109ed1445a33efc330088f449e814774`.
+- [ ] Merge/release PR #19 under existing bounded live-blocker authorization and verify exact phase1 deployed source parity.
+- [ ] Run one bounded real desktop/mobile homepage→current-detail sample; do not force ingest if no current fixture is naturally available.
+- [ ] Overall product goal remains incomplete; article/live/model acceptance remains separate from authority-list recovery.
