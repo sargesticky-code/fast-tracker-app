@@ -911,3 +911,14 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] The fallback reuses the existing authority freshness gate. Stale rows keep fixture identity only; HDA/handicap/goals/corners prices and model actionability remain suppressed. Unknown/stale is never converted to zero or a fabricated recommendation.
 - [x] No DB write, migration, schema/index, model formula, provider expansion, spend change, manual refresh, producer trigger or further cron edit is part of this patch.
 - [ ] Systemic cron capacity remains a separate operational dependency. The public homepage must no longer become blank because of that dependency, but ingest/live freshness can still degrade until cron workload is consolidated or otherwise given more execution headroom.
+
+
+### Public availability recovery released — 2026-10-04 04:31 UTC
+
+- [x] PR #29 `Keep homepage fixtures visible during Supabase cron saturation` passed PR Build Verification run `37177024256`, including build, static routes and rendered desktop/mobile flow.
+- [x] PR #29 reviewed head `91393d967dfda99b605e255ba736568f16d260b4` merged as `a242989f6926e2f6609e84d72aba99dc135ee65f`.
+- [x] Exact merged `app-phase1-feed` source deployed as Supabase Edge Function v65.
+- [x] The fallback artifact had real naturally-produced HKJC rows available in the requested horizon. Because its capture age exceeded the existing 60-minute freshness limit, the released mapper suppresses its prices/actionability and treats it as fixture identity only.
+- [x] Legacy fallback is future-only and non-live: it cannot turn an old `PREEVENT` row into a current live claim.
+- [x] Railway public UI code did not require a rebuild for this Edge-only recovery; the existing homepage already calls the canonical `app-phase1-feed?view=summary` endpoint and therefore picks up v65 without a frontend release.
+- [ ] Database/pg_cron contention remains real. `cron.max_running_jobs=32`, while the database has `max_connections=60` and `max_worker_processes=6`; startup timeouts have affected several independent jobs simultaneously. Do not claim live/lineup/model freshness fully recovered until natural producer evidence proves it.
