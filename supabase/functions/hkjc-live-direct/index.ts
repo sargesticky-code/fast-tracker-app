@@ -44,11 +44,11 @@ function vars(types:string[]){
     earlySettlementOnly: false, showAllMatch: false, tday: null, tIdList: null,
   };
 }
-async function gql(types:string[]){
+async function gql(types:string[], timeoutMs=25000){
   const r=await fetch(ENDPOINT,{
     method:"POST",headers:HEADERS,
     body:JSON.stringify({query:MATCH_ODDS,variables:vars(types)}),
-    signal:AbortSignal.timeout(25000),
+    signal:AbortSignal.timeout(timeoutMs),
   });
   if(!r.ok) throw new Error("hkjc_http_"+r.status);
   const j=await r.json();
@@ -144,6 +144,48 @@ function serviceKey(){
 
 Deno.serve(async (_req:Request)=>{
   const now=new Date();
+  const url=new URL(_req.url);
+  const readOnly=url.searchParams.get("mode")==="summary";
+
+  if(readOnly){
+    try{
+      const matches=await gql(["HAD","EHA"],9000);
+      const hadRows=flatten(matches);
+      const liveHad=hadRows.filter(r=>truthy(r.in_play)&&liveStatus(r.status)&&["","AVAILABLE"].includes(txt(r.comb_status).toUpperCase()));
+      const liveIds=[...new Set(liveHad.map(r=>txt(r.front_end_id)).filter(Boolean))].sort();
+      const base=new Map<string,any>();
+      const fetchedAt=now.toISOString();
+      for(const r of liveHad){
+        const eid=txt(r.front_end_id); if(!eid) continue;
+        const rec=base.get(eid)||{
+          fetched_at:fetchedAt,hkjc_event_id:eid,match_id:txt(r.match_id),kickoff_hkt:txt(r.kick_off)||null,
+          status:txt(r.status),tournament:txt(r.tournament),tournament_zh:txt(r.tournament_ch)||null,
+          home_en:txt(r.home),away_en:txt(r.away),home_zh:txt(r.home_ch),away_zh:txt(r.away_ch),
+          had_home:null,had_draw:null,had_away:null,
+          hdc_line:null,hdc_home:null,hdc_away:null,
+          hil_line:null,hil_over:null,hil_under:null,chl_line:null,chl_over:null,chl_under:null,
+          pool_status:txt(r.pool_status),odds_updated_at:txt(r.updated_at)||null,
+          running_home_score:num(r.running_home_score),running_away_score:num(r.running_away_score),
+          running_home_corner:num(r.running_home_corner),running_away_corner:num(r.running_away_corner),
+          running_corner:num(r.running_corner),match_updated_at:txt(r.match_updated_at)||null,
+          updated_at:fetchedAt
+        };
+        const p=txt(r.pool_status).toUpperCase()==="SELLINGSTARTED"?price(r.odds):null;
+        const sel=txt(r.selection).toUpperCase();
+        if(sel==="H") rec.had_home=p; else if(sel==="D") rec.had_draw=p; else if(sel==="A") rec.had_away=p;
+        if(txt(r.updated_at)) rec.odds_updated_at=txt(r.updated_at);
+        base.set(eid,rec);
+      }
+      const out=[...base.values()];
+      return Response.json({ok:true,mode:"summary",liveRows:out.length,data:out,fetchedAt},{
+        headers:{"Cache-Control":"public, max-age=5, stale-while-revalidate=15"}
+      });
+    }catch(e){
+      const message=e instanceof Error?e.message:String(e);
+      return Response.json({ok:false,mode:"summary",error:message},{status:503,headers:{"Cache-Control":"no-store"}});
+    }
+  }
+
   const supabaseUrl=Deno.env.get("SUPABASE_URL")||"";
   const key=serviceKey();
   if(!supabaseUrl||!key) return Response.json({ok:false,error:"server_config_missing"},{status:500});
