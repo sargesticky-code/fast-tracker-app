@@ -19,6 +19,13 @@ function createReadClient(url:string, key:string) {
     global: { fetch: boundedDbFetch },
   });
 }
+function createReadClientWithTimeout(url:string,key:string,timeoutMs:number){
+  return createClient(url,key,{
+    auth:{persistSession:false,autoRefreshToken:false},
+    db:{retry:false},
+    global:{fetch:(input:any,init:any={})=>fetch(input,{...init,signal:init?.signal??AbortSignal.timeout(timeoutMs)})},
+  });
+}
 
 
 function serverKey(){
@@ -107,6 +114,46 @@ function forebetEvidenceFallback(rows:any[]){
   };
 }
 
+async function readSummaryFixture(sbUrl:string,id:string){
+  const res=await fetch(`${sbUrl}/functions/v1/app-phase1-feed?hours=48&view=summary`,{
+    signal:AbortSignal.timeout(10_000),
+  });
+  if(!res.ok) return null;
+  const body=await res.json();
+  const m=Array.isArray(body?.matches)?body.matches.find((x:any)=>String(x?.id||"")===id):null;
+  if(!m) return null;
+  return {
+    hkjc_event_id:id,
+    kickoff_hkt:m?.kickoff??null,
+    status:m?.status??null,
+    tournament:m?.league??null,
+    tournament_zh:m?.leagueZh??null,
+    home_en:m?.home??null,
+    away_en:m?.away??null,
+    home_zh:m?.homeZh??null,
+    away_zh:m?.awayZh??null,
+    live_eligible:Boolean(m?.liveEligible||m?.liveNow),
+    selling:true,
+    pool_status:m?.live?.poolStatus??null,
+    had_home:m?.odds?.home??null,
+    had_draw:m?.odds?.draw??null,
+    had_away:m?.odds?.away??null,
+    hdc_line:m?.handicap?.line??null,
+    hdc_home:m?.handicap?.home??null,
+    hdc_away:m?.handicap?.away??null,
+    hil_line:m?.goals?.line??null,
+    hil_over:m?.goals?.over??null,
+    hil_under:m?.goals?.under??null,
+    chl_line:m?.corners?.line??null,
+    chl_over:m?.corners?.over??null,
+    chl_under:m?.corners?.under??null,
+    fetched_at:m?.health?.hkjcFetchedAt??m?.updatedAt??null,
+    odds_updated_at:m?.health?.hkjcPriceChangedAt??m?.live?.oddsUpdatedAt??null,
+    authority_source:"APP_PHASE1_SUMMARY",
+    live_now:Boolean(m?.liveNow),
+  };
+}
+
 function normalizeH2H(row:any,error:any){
   if(error) return {status:"FAIL",isFailure:true,label:"對賽資料讀取失敗",reason:error.message||"query_error"};
   if(!row) return {status:"NO_DATA",isFailure:false,label:"暫無對賽資料",reason:"no_h2h_row"};
@@ -129,46 +176,54 @@ Deno.serve(async(req:Request)=>{
   const sbUrl=Deno.env.get("SUPABASE_URL")||"",key=serverKey();
   if(!sbUrl||!key) return Response.json({error:"server_config_missing"},{status:500,headers:{...cors,"Cache-Control":"no-store"}});
   const db=createReadClient(sbUrl,key);
+  const coreDb=createReadClientWithTimeout(sbUrl,key,8_000);
+  const optionalDb=createReadClientWithTimeout(sbUrl,key,4_000);
+  let summaryFixture:any=null;
+  try{summaryFixture=await readSummaryFixture(sbUrl,id);}catch(e){console.error("detail_summary_authority_failed",e);}
 
-  const one=async(table:string,select="*",schema="public")=>{
-    const q=(schema==="public"?db:db.schema(schema)).from(table).select(select).eq("hkjc_event_id",id).maybeSingle();
+  const oneWith=async(client:any,table:string,select="*",schema="public")=>{
+    const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("hkjc_event_id",id).maybeSingle();
     const r=await q;
     return {data:r.data||null,error:cleanError(r.error)};
   };
-  const many=async(table:string,select="*",schema="public")=>{
-    const q=(schema==="public"?db:db.schema(schema)).from(table).select(select).eq("hkjc_event_id",id);
+  const manyWith=async(client:any,table:string,select="*",schema="public")=>{
+    const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("hkjc_event_id",id);
     const r=await q;
     return {data:r.data||[],error:cleanError(r.error)};
   };
 
-  const [
-    fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,
-    playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch
-  ]=await Promise.all([
-    one("hkjc_upcoming_current"),
-    one("hkjc_live_odds_current"),
-    one("model_predictions"),
-    one("forebet_predictions"),
-    one("form_predictions"),
-    one("hkjc_power_current"),
-    one("human_factors_current"),
-    many("match_scenario_current"),
-    one("odds_movement_current"),
-    one("match_h2h_current"),
-    one("api_football_event_map"),
-    many("phase2_player_status_evidence"),
-    many("phase2_match_lineup_evidence"),
-    many("phase2_lineup_strength_current"),
-    many("phase2_manager_evidence"),
-    many("prediction_evidence_current","*","private"),
-    one("multisource_consensus_current","*","private"),
-    many("phase4_value_api"),
-    many("phase4_arb_api"),
-    one("phase4_arb_watch_api"),
+  const predictionEvidence=await manyWith(coreDb,"prediction_evidence_current","*","private");
+  const [model,form]=await Promise.all([
+    oneWith(coreDb,"model_predictions"),
+    oneWith(coreDb,"form_predictions"),
   ]);
 
+  const [
+    fixtureUpcomingDb,fixtureLive,forebet,power,human,scenario,movement,h2h,eventMap,
+    playerStatus,lineups,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch
+  ]=await Promise.all([
+    summaryFixture?Promise.resolve({data:null,error:null}):oneWith(optionalDb,"hkjc_upcoming_current"),
+    oneWith(optionalDb,"hkjc_live_odds_current"),
+    oneWith(optionalDb,"forebet_predictions"),
+    oneWith(optionalDb,"hkjc_power_current"),
+    oneWith(optionalDb,"human_factors_current"),
+    manyWith(optionalDb,"match_scenario_current"),
+    oneWith(optionalDb,"odds_movement_current"),
+    oneWith(optionalDb,"match_h2h_current"),
+    oneWith(optionalDb,"api_football_event_map"),
+    manyWith(optionalDb,"phase2_player_status_evidence"),
+    manyWith(optionalDb,"phase2_match_lineup_evidence"),
+    manyWith(optionalDb,"phase2_lineup_strength_current"),
+    manyWith(optionalDb,"phase2_manager_evidence"),
+    oneWith(optionalDb,"multisource_consensus_current","*","private"),
+    manyWith(optionalDb,"phase4_value_api"),
+    manyWith(optionalDb,"phase4_arb_api"),
+    oneWith(optionalDb,"phase4_arb_watch_api"),
+  ]);
+  const fixtureUpcoming=summaryFixture?{data:summaryFixture,error:null}:fixtureUpcomingDb;
+
   const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
-  const fixtureSource = fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : "MISSING";
+  const fixtureSource = summaryFixture ? "AUTHORITY_SUMMARY" : fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : "MISSING";
   const errors:any={};
   for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
     if((v as any).error) errors[k]=(v as any).error;
