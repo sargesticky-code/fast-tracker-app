@@ -8,6 +8,7 @@ const cors = {
 };
 
 const DB_READ_TIMEOUT_MS = 15_000;
+const OPTIONAL_DB_TIMEOUT_MS = 5_000;
 const UPSTREAM_READ_TIMEOUT_MS = 45_000;
 const AI_READ_TIMEOUT_MS = 15_000;
 function boundedDbFetch(input:any, init:any = {}) {
@@ -18,6 +19,13 @@ function createReadClient(url:string, key:string) {
     auth: { persistSession:false, autoRefreshToken:false },
     db: { retry:false },
     global: { fetch: boundedDbFetch },
+  });
+}
+function createReadClientWithTimeout(url:string,key:string,timeoutMs:number){
+  return createClient(url,key,{
+    auth:{persistSession:false,autoRefreshToken:false},
+    db:{retry:false},
+    global:{fetch:(input:any,init:any={})=>fetch(input,{...init,signal:init?.signal??AbortSignal.timeout(timeoutMs)})},
   });
 }
 
@@ -781,12 +789,17 @@ Deno.serve(async (req: Request) => {
         if (!x?.error) detail=x;
       } catch {}
     }
-    const db = createReadClient(sbUrl, key);
-    const commentaryQuery = await db.from("match_commentary_evidence")
-      .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics,opinion_signals,relevance_score,parser_version")
-      .eq("hkjc_event_id", id)
-      .order("published_at", { ascending:false, nullsFirst:false })
-      .limit(8);
+    const db = createReadClientWithTimeout(sbUrl,key,OPTIONAL_DB_TIMEOUT_MS);
+    let commentaryQuery:any={data:[],error:null};
+    try{
+      commentaryQuery = await db.from("match_commentary_evidence")
+        .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics,opinion_signals,relevance_score,parser_version")
+        .eq("hkjc_event_id", id)
+        .order("published_at", { ascending:false, nullsFirst:false })
+        .limit(8);
+    }catch(e){
+      commentaryQuery={data:[],error:{message:String((e as any)?.message||e)}};
+    }
     const commentary = commentaryQuery.error ? [] : (commentaryQuery.data || []).map((row:any) => ({
       source:row.source ?? null,
       sourceType:row.source_type ?? null,
@@ -826,12 +839,17 @@ Deno.serve(async (req: Request) => {
     };
     const analysisHash = await sha256(packForHash);
 
-    const cached = await db.from("match_interpretations")
-      .select("analysis_hash,payload,model,framework,generated_at")
-      .eq("hkjc_event_id",id)
-      .eq("language",language)
-      .eq("style",style)
-      .maybeSingle();
+    let cached:any={data:null,error:null};
+    try{
+      cached = await db.from("match_interpretations")
+        .select("analysis_hash,payload,model,framework,generated_at")
+        .eq("hkjc_event_id",id)
+        .eq("language",language)
+        .eq("style",style)
+        .maybeSingle();
+    }catch(e){
+      cached={data:null,error:{message:String((e as any)?.message||e)}};
+    }
 
     if (!cached.error && cached.data?.analysis_hash === analysisHash && cached.data?.payload) {
       return Response.json({
@@ -909,23 +927,30 @@ Deno.serve(async (req: Request) => {
     };
 
     const now = new Date().toISOString();
-    const saved = await db.from("match_interpretations").upsert({
-      hkjc_event_id:id,
-      language,
-      style,
-      analysis_hash:analysisHash,
-      framework:ai.ok ? "openai-compatible-fetch-v5" : "ft-deterministic-story-v5",
-      model:ai.ok ? ai.model : null,
-      payload,
-      source_generated_at:analysis.generatedAt ?? null,
-      generated_at:now,
-      updated_at:now,
-    }, { onConflict:"hkjc_event_id,language,style" });
+    let saved:any={error:null};
+    try{
+      saved = await db.from("match_interpretations").upsert({
+        hkjc_event_id:id,
+        language,
+        style,
+        analysis_hash:analysisHash,
+        framework:ai.ok ? "openai-compatible-fetch-v5" : "ft-deterministic-story-v5",
+        model:ai.ok ? ai.model : null,
+        payload,
+        source_generated_at:analysis.generatedAt ?? null,
+        generated_at:now,
+        updated_at:now,
+      }, { onConflict:"hkjc_event_id,language,style" });
+    }catch(e){
+      saved={error:{code:null,message:String((e as any)?.message||e)}};
+    }
 
-    if (saved.error) {
+    if (commentaryQuery.error || cached.error || saved.error) {
       payload.diagnostics = {
         ...(payload.diagnostics || {}),
-        cacheWrite:{ code:saved.error.code ?? null, message:saved.error.message ?? String(saved.error) }
+        commentaryRead:commentaryQuery.error ? { message:commentaryQuery.error.message ?? String(commentaryQuery.error) } : null,
+        cacheRead:cached.error ? { message:cached.error.message ?? String(cached.error) } : null,
+        cacheWrite:saved.error ? { code:saved.error.code ?? null, message:saved.error.message ?? String(saved.error) } : null,
       };
     }
 
