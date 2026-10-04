@@ -1044,3 +1044,116 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+
+const FINAL_PROD_BASE = "https://fast-tracker-app.sargesticky.workers.dev";
+
+async function finalCurrentProductionAcceptance(browser, label, viewport, isMobile = false) {
+  const context = await browser.newContext({
+    viewport,
+    isMobile,
+    hasTouch: isMobile,
+    userAgent: isMobile
+      ? "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/154.0 Mobile Safari/537.36"
+      : undefined,
+  });
+  const page = await context.newPage();
+  const calls = [];
+  const starts = new Map();
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/app-")) starts.set(req, Date.now());
+  });
+  page.on("response", (res) => {
+    if (!res.url().includes("/functions/v1/app-")) return;
+    const req = res.request();
+    calls.push({
+      endpoint: res.url().split("/functions/v1/")[1]?.split("?")[0] || res.url(),
+      status: res.status(),
+      ms: starts.has(req) ? Date.now() - starts.get(req) : null,
+    });
+  });
+
+  const feedPromise = page.waitForResponse(
+    (res) => res.url().includes("/functions/v1/app-phase1-feed") && res.url().includes("view=summary"),
+    { timeout: 30000 }
+  ).catch(() => null);
+
+  const nav = await page.goto(FINAL_PROD_BASE + "/?final_acceptance=" + label + "-" + Date.now(), {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
+  });
+  const feedRes = await feedPromise;
+  await page.waitForTimeout(3000);
+
+  let feed = null;
+  if (feedRes?.ok()) {
+    try { feed = await feedRes.json(); } catch {}
+  }
+  const matches = Array.isArray(feed?.matches) ? feed.matches : [];
+  const chosen = matches[0] || null;
+  const body = await page.locator("body").innerText().catch(() => "");
+
+  const result = {
+    label,
+    viewport,
+    homepageHttp: nav?.status() ?? null,
+    feedStatus: feedRes?.status() ?? null,
+    feedSource: feed?.source ?? null,
+    feedCount: matches.length,
+    unavailableText: body.includes("Fixture feed temporarily unavailable"),
+    chosen: null,
+    detail: null,
+    calls,
+  };
+
+  if (chosen?.id) {
+    result.chosen = {
+      id: chosen.id,
+      home: chosen.home ?? null,
+      away: chosen.away ?? null,
+      league: chosen.league ?? null,
+      kickoff: chosen.kickoff ?? null,
+      freshness: chosen.health?.hkjcFreshness ?? null,
+      fetchAgeMinutes: chosen.health?.hkjcFetchAgeMinutes ?? null,
+      odds: chosen.odds ?? null,
+      decision: chosen.decision ?? null,
+      decisionEdge: chosen.decisionEdge ?? null,
+      models: {
+        forebet: chosen.forebet != null,
+        dc: chosen.dc != null,
+        pi: chosen.pi != null,
+        form: chosen.form != null,
+        multi: chosen.multi != null,
+      },
+    };
+
+    const href = page.locator('a[href*="' + String(chosen.id) + '"]').first();
+    const link = await href.getAttribute("href").catch(() => null);
+    const detailUrl = new URL(link || ("/details/?id=" + encodeURIComponent(chosen.id)), FINAL_PROD_BASE).toString();
+    const dnav = await page.goto(detailUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(9000);
+    const dtext = await page.locator("body").innerText().catch(() => "");
+    result.detail = {
+      httpStatus: dnav?.status() ?? null,
+      url: page.url(),
+      canonicalIdVisible: dtext.includes(String(chosen.id)),
+      unavailableVisible: dtext.includes("Match data is currently unavailable"),
+      canonicalMissingVisible: dtext.includes("Canonical fixture is unavailable"),
+      staleProtectionVisible: dtext.includes("Stale-price protection is active."),
+      unknownNotZeroVisible: dtext.includes("Unknown — not zero absences"),
+      hkjcVisible: dtext.includes("Hong Kong Jockey Club"),
+      englishArticleHeadingVisible: dtext.includes("Match Intelligence"),
+    };
+  }
+
+  console.log("FINAL_CURRENT_ACCEPTANCE_" + label.toUpperCase() + " " + JSON.stringify(result));
+  await context.close();
+}
+
+test("final current production desktop acceptance", async ({ browser }) => {
+  await finalCurrentProductionAcceptance(browser, "desktop", { width: 1365, height: 900 }, false);
+});
+
+test("final current production mobile acceptance", async ({ browser }) => {
+  await finalCurrentProductionAcceptance(browser, "mobile", { width: 390, height: 844 }, true);
+});
