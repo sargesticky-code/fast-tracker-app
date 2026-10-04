@@ -801,3 +801,60 @@ Implementation head **`394ae12703fe12c97aa671744edf861b64ad3f0e`** passed CI **`
 The smallest coherent recovery release is PR #19 plus the existing PR #16 runtime. No migration, DB write, forced ingest, index, cron, compute, provider expansion, new hosting/access or spend is part of this recovery.
 
 After merge/release, verify exact Edge source parity for `app-phase1-feed`, confirm Cloudflare revision, and perform one bounded real desktop+mobile homepage→current-detail sample. Acceptance must report actual fixture identity/freshness and distinguish direct upstream from snapshot fallback. If the current homepage has no fixture, record that exact upstream/data dependency rather than forcing a refresh.
+
+
+## Holistic data-recovery checkpoint — 2026-10-04 01:55 UTC
+
+The authority-first homepage recovery is holding on the real Railway public service. Production app revision is `a2f6ba43051a4c2622ea2a138e9175506f5e351e` / deployment `3112fcb0-4d30-4cde-a2ce-1489ee5fe320`. A real Linux/Chrome request to `/` returned 200 in ~2.6s and the current `app-phase1-feed` v61 summary lane is returning 200 in roughly 0.7–1.4s. This confirms fixture visibility is no longer coupled to the congested enrichment path.
+
+### Current data coverage, measured read-only
+
+For the current 24h fixture snapshot:
+- 54 fixtures are present;
+- H2H rows: 54/54;
+- form rows: 54/54;
+- lineup-strength rows: 45/54;
+- model-prediction rows: 54, but only 8 rows are quality=`MODELED`;
+- legacy `forebet_predictions`: 0 current rows;
+- canonical `private.prediction_evidence_current`: current FOREBET 1X2, OU25 and CORNERS95 evidence rows exist broadly across the fixture set;
+- raw lineup evidence: 0 current matches;
+- player-status evidence: 0 current matches;
+- odds movement: 0 current matches;
+- saved match interpretations/articles: 0 current matches;
+- HKJC power: 0 current matches;
+- multisource consensus: 0 current matches;
+- Phase4 value: 8 matches / 24 rows;
+- Phase4 arbitrage: 0 rows.
+
+This means several blank cards are genuine source gaps, but Forebet detail is specifically a stale-consumer regression: the current evidence moved to `prediction_evidence_current` while `app-match-detail` still read only the empty legacy table.
+
+### Real current detail/article flow
+
+Production logs show a real current sample:
+- `app-match-detail?id=FB6219`: 200 twice, ~15.2s;
+- `app-match-analysis?id=FB6219`: 503 twice, ~30.2s;
+- no story call followed.
+
+The 30s shape matches the current code path: a bounded 15s whole-window RPC first, followed by another bounded DB fallback phase. PR #24 removes that normal-path dependency by taking the already-proven 48h summary authority first, then overlaying single-match stored model/form/prediction evidence. The old whole-window RPC remains only as fallback. The same PR reconstructs Forebet detail strictly from stored FOREBET evidence rows and preserves null/unknown semantics.
+
+### DB-writing live/cron trace — read-only only
+
+Confirmed schedule identities:
+- job 6: `live-score-direct-5min` → `live-score-direct`;
+- job 16: `live-source-shadow-2min` → `live-source-shadow`;
+- job 17: `live-shadow-compare-1min` → `ft_refresh_live_shadow_compare_guard()`.
+
+Recent logs show:
+- `live-score-direct` v13 repeatedly reaching ~150s and ending 504/546 `WORKER_RESOURCE_LIMIT`;
+- `live-source-shadow` v6 also reaching ~150s and ending 504;
+- intermittent pg_cron startup timeouts for jobs 6, 16 and 17 while other runs still occasionally complete.
+
+No cron schedule or DB-writing function has been changed, disabled or manually fired. No migration, schema/index/compute expansion, new access, provider or spend was introduced.
+
+### Next bounded sequence
+
+1. Complete PR #24 exact-head CI and rendered flow.
+2. Merge only if green.
+3. Deploy exact merged `app-match-detail` and `app-match-analysis` source to Supabase; verify byte parity and real endpoint behavior before any broader release claim.
+4. Next independent read-only investigation: why successful `phase2-fotmob-lineups` executions still yield zero current canonical lineup rows. Determine provider fixture coverage versus identity/write gating.
+5. Keep jobs 6/16/17 unchanged until a separate smallest reversible proposal is justified by read-only evidence.

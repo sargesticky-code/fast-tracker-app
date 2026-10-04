@@ -8,6 +8,7 @@ const cors = {
 };
 
 const DB_READ_TIMEOUT_MS = 15_000;
+const SUMMARY_AUTHORITY_TIMEOUT_MS = 10_000;
 const UPSTREAM_READ_TIMEOUT_MS = 45_000;
 function boundedDbFetch(input:any, init:any = {}) {
   return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_READ_TIMEOUT_MS) });
@@ -877,6 +878,67 @@ function buildBinaryAdvice(opts: {
   };
 }
 
+async function readSummaryAuthority(sbUrl:string,id:string){
+  const res=await fetch(`${sbUrl}/functions/v1/app-phase1-feed?hours=48&view=summary`,{
+    signal:AbortSignal.timeout(SUMMARY_AUTHORITY_TIMEOUT_MS),
+  });
+  if(!res.ok) throw new Error(`summary_authority_http_${res.status}`);
+  const body=await res.json();
+  const match=Array.isArray(body?.matches)?body.matches.find((x:any)=>String(x?.id||"")===id):null;
+  return match||null;
+}
+
+function summaryMatchToAnalysisRow(m:any,id:string){
+  if(!m) return null;
+  return {
+    hkjc_event_id:id,
+    home_zh:m?.homeZh ?? null,
+    away_zh:m?.awayZh ?? null,
+    home_en:m?.home ?? null,
+    away_en:m?.away ?? null,
+    tournament:m?.league ?? null,
+    kickoff_hkt:m?.kickoff ?? null,
+    hkjc_home_odds:m?.odds?.home ?? null,
+    hkjc_draw_odds:m?.odds?.draw ?? null,
+    hkjc_away_odds:m?.odds?.away ?? null,
+    hkjc_novig_home:m?.market?.home ?? null,
+    hkjc_novig_draw:m?.market?.draw ?? null,
+    hkjc_novig_away:m?.market?.away ?? null,
+    hkjc_goals_line:m?.goals?.line ?? null,
+    hkjc_goals_over:m?.goals?.over ?? null,
+    hkjc_goals_under:m?.goals?.under ?? null,
+    hkjc_corners_line:m?.corners?.line ?? null,
+    hkjc_corners_over:m?.corners?.over ?? null,
+    hkjc_corners_under:m?.corners?.under ?? null,
+    forebet_home:null,forebet_draw:null,forebet_away:null,
+    forebet_ou_over:null,forebet_ou_under:null,forebet_avg_goals:null,
+    forebet_corners_over:null,forebet_corners_under:null,forebet_avg_corners:null,
+    dc_home:null,dc_draw:null,dc_away:null,
+    pi_home:null,pi_draw:null,pi_away:null,
+    form_home:null,form_draw:null,form_away:null,
+    multisource_home:null,multisource_draw:null,multisource_away:null,
+    multisource_count:0,multisource_member_count:0,
+    status:m?.status ?? null,
+    health_status:m?.health?.status ?? "SUMMARY_AUTHORITY",
+    hkjc_freshness:m?.health?.hkjcFreshness ?? (m?.liveNow?"LIVE":"UNKNOWN"),
+    hkjc_price_changed_at:m?.health?.hkjcPriceChangedAt ?? m?.live?.oddsUpdatedAt ?? null,
+    hkjc_fetched_at:m?.health?.hkjcFetchedAt ?? m?.live?.fetchedAt ?? null,
+    evidence_channel_count:0,
+    unified_coverage_status:m?.health?.unifiedCoverageStatus ?? "HKJC_ONLY",
+    diagnostic_codes:["SUMMARY_AUTHORITY_FIRST"],
+    decision:null,
+    decision_engine_version:"summary_authority_first_v1",
+    live_now:Boolean(m?.liveNow),
+  };
+}
+
+function evidenceRow(rows:any[],source:string,market:string){
+  return (Array.isArray(rows)?rows:[]).find((x:any)=>
+    String(x?.source_key||"").toUpperCase()===source &&
+    String(x?.market_key||"").toUpperCase()===market
+  ) || null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "GET") return Response.json({ error: "method_not_allowed" }, { status: 405, headers: cors });
@@ -892,11 +954,24 @@ Deno.serve(async (req: Request) => {
   if (!sbUrl || !key) return Response.json({ error: "server_config_missing" }, { status: 500, headers: cors });
   const db = createReadClient(sbUrl, key);
 
-  const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
-  const authorityRpcError = oneError(baseResult.error);
-  const rows = Array.isArray(baseResult.data) ? baseResult.data : [];
-  let r: any = rows.find((x: any) => String(x.hkjc_event_id) === id) || null;
-  let fallbackMode = Boolean(authorityRpcError);
+  let authorityRpcError:any = null;
+  let r:any = null;
+  let fallbackMode = false;
+
+  try {
+    const summaryMatch=await readSummaryAuthority(sbUrl,id);
+    if(summaryMatch) r=summaryMatchToAnalysisRow(summaryMatch,id);
+  } catch (summaryAuthorityError) {
+    console.error("analysis_summary_authority_failed",summaryAuthorityError);
+  }
+
+  if (!r) {
+    const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
+    authorityRpcError = oneError(baseResult.error);
+    const rows = Array.isArray(baseResult.data) ? baseResult.data : [];
+    r = rows.find((x: any) => String(x.hkjc_event_id) === id) || null;
+    fallbackMode = Boolean(authorityRpcError);
+  }
 
   if (!r) {
     const [matchRes, oddsRes, forebetRes, modelRes, formRes] = await Promise.all([
@@ -1023,7 +1098,7 @@ Deno.serve(async (req: Request) => {
 
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
-    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals, formTotals
+    liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios, modelTotals, formTotals, predictionEvidence
   ] = await Promise.all([
     one("human_factors_current"),
     one("api_football_event_map"),
@@ -1039,6 +1114,7 @@ Deno.serve(async (req: Request) => {
     many("match_scenario_current"),
     one("model_predictions"),
     one("form_predictions"),
+    many("prediction_evidence_current","private"),
   ]);
 
 
@@ -1056,6 +1132,42 @@ Deno.serve(async (req: Request) => {
   }
   const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence",id));
   const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence",id));
+
+  const evidenceRows=predictionEvidence.data||[];
+  const forebetEvidenceHda=evidenceRow(evidenceRows,"FOREBET","1X2");
+  const forebetEvidenceOu=evidenceRow(evidenceRows,"FOREBET","OU25");
+  const forebetEvidenceCorners=evidenceRow(evidenceRows,"FOREBET","CORNERS95");
+  if(r.forebet_home==null && forebetEvidenceHda?.prob_home!=null){
+    r.forebet_home=forebetEvidenceHda.prob_home;
+    r.forebet_draw=forebetEvidenceHda.prob_draw;
+    r.forebet_away=forebetEvidenceHda.prob_away;
+  }
+  if(r.forebet_ou_over==null && forebetEvidenceOu?.prob_over!=null){
+    r.forebet_ou_over=forebetEvidenceOu.prob_over;
+    r.forebet_ou_under=forebetEvidenceOu.prob_under;
+    r.forebet_avg_goals=forebetEvidenceOu.avg_goals;
+  }
+  if(r.forebet_corners_over==null && forebetEvidenceCorners?.prob_over!=null){
+    r.forebet_corners_over=forebetEvidenceCorners.prob_over;
+    r.forebet_corners_under=forebetEvidenceCorners.prob_under;
+    r.forebet_avg_corners=forebetEvidenceCorners.avg_corners;
+  }
+  if(r.dc_home==null && modelTotals.data?.quality==="MODELED"){
+    r.dc_home=modelTotals.data?.dc_prob_home ?? null;
+    r.dc_draw=modelTotals.data?.dc_prob_draw ?? null;
+    r.dc_away=modelTotals.data?.dc_prob_away ?? null;
+    r.pi_home=modelTotals.data?.pi_prob_home ?? null;
+    r.pi_draw=modelTotals.data?.pi_prob_draw ?? null;
+    r.pi_away=modelTotals.data?.pi_prob_away ?? null;
+  }
+  if(r.form_home==null){
+    r.form_home=formTotals.data?.form_prob_home ?? null;
+    r.form_draw=formTotals.data?.form_prob_draw ?? null;
+    r.form_away=formTotals.data?.form_prob_away ?? null;
+  }
+  r.evidence_channel_count=[
+    r.forebet_home,r.dc_home,r.pi_home,r.form_home,r.multisource_home
+  ].filter((x:any)=>x!==null&&x!==undefined&&x!=="").length;
 
   const forebet = triplet(r.forebet_home, r.forebet_draw, r.forebet_away);
   const dc = triplet(r.dc_home, r.dc_draw, r.dc_away);

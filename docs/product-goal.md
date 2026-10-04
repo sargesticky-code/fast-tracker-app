@@ -422,3 +422,24 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Merge/release PR #19 under existing bounded live-blocker authorization and verify exact phase1 deployed source parity.
 - [ ] Run one bounded real desktop/mobile homepage→current-detail sample; do not force ingest if no current fixture is naturally available.
 - [ ] Overall product goal remains incomplete; article/live/model acceptance remains separate from authority-list recovery.
+
+
+### Holistic data-recovery checkpoint — 2026-10-04 01:55 UTC
+
+- [x] Railway public service is on merge `a2f6ba43051a4c2622ea2a138e9175506f5e351e`, deployment `3112fcb0-4d30-4cde-a2ce-1489ee5fe320`, online 1/1 with zero recent deployment failures.
+- [x] Real public request observed on that deployment: `GET /` returned 200 in ~2.6s from the live Linux/Chrome client; Next assets loaded 200.
+- [x] Homepage authority path is healthy in real logs: `app-phase1-feed` v61 summary requests return 200 in roughly 0.7–1.4s in the sampled current window.
+- [x] Current 24h DB snapshot contains 54 fixtures; H2H exists for 54/54, form rows 54/54, lineup-strength rows 45/54.
+- [x] Internal `model_predictions` has 54 matching rows but only 8 are quality=`MODELED`; unknown/non-modeled remains unknown rather than zero.
+- [x] Current legacy `forebet_predictions` has 0 matching rows, while canonical `private.prediction_evidence_current` contains FOREBET 1X2/OU25/CORNERS95 evidence rows across the current fixture set. This is a consumer-path mismatch, not a source absence.
+- [x] Raw current lineup evidence = 0 matches; current player-status evidence = 0 matches. Derived lineup-strength data exists for 45 matches and must not be presented as confirmed XI.
+- [x] Current odds-movement rows = 0; saved `match_interpretations` = 0; HKJC power rows = 0; multisource consensus rows = 0; phase4 value rows exist for 8 matches / 24 rows; phase4 arb rows = 0.
+- [x] Real current detail flow sampled in production logs: `app-match-detail?id=FB6219` returned 200 twice at ~15.2s, while `app-match-analysis?id=FB6219` returned 503 twice at ~30.2s; story therefore did not proceed.
+- [x] PR #24 restores detail Forebet fields from the existing canonical prediction-evidence rows only; provenance remains `PREDICTION_EVIDENCE_CURRENT`, and missing values remain null.
+- [x] PR #24 also changes analysis to prefer the healthy 48h summary-authority path before the congested whole-window RPC and overlays stored FOREBET/DC/PI/Form evidence for the single match.
+- [x] Cron jobs traced read-only: job 6 = `live-score-direct-5min`; job 16 = `live-source-shadow-2min`; job 17 = `live-shadow-compare-1min`.
+- [x] Current live failures are demonstrated, not assumed: `live-score-direct` v13 and `live-source-shadow` v6 have ~150s 504/546 resource-limit executions; jobs 6/16/17 also show intermittent pg_cron startup timeouts during DB pressure.
+- [x] No cron was disabled or forced, no DB-writing refresh was issued, and no migration/schema/index/compute/provider/spend change was made.
+- [ ] PR #24 exact-head CI/rendered-flow must complete green, then merge and deploy only `app-match-detail` + `app-match-analysis` from exact main source and verify real endpoint logs.
+- [ ] Next smallest task after PR #24: trace why successful `phase2-fotmob-lineups` runs are not producing current canonical lineup rows; distinguish provider fixture coverage from identity/write gating before any producer change.
+- [ ] Separate constrained proposal required before changing DB-writing jobs 6/16/17; current evidence points to worker/resource and DB-startup pressure, not a justification for blind schedule disabling.
