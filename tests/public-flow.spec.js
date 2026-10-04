@@ -1044,3 +1044,67 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+
+test("production authority recovery restores real homepage fixtures", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
+  const page = await context.newPage();
+
+  const authority = {};
+  for (const [key, url] of [
+    ["upcoming", "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/hkjc-upcoming-direct"],
+    ["live", "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/hkjc-live-direct"],
+  ]) {
+    const started = Date.now();
+    try {
+      const res = await page.request.get(url, { timeout: 45000 });
+      let body = null;
+      try { body = await res.json(); } catch {}
+      authority[key] = { status: res.status(), ms: Date.now() - started, body };
+    } catch (error) {
+      authority[key] = { status: null, ms: Date.now() - started, error: String(error) };
+    }
+  }
+
+  let feedResponse = null;
+  const feedPromise = page.waitForResponse(
+    (res) => res.url().includes("/functions/v1/app-phase1-feed") && res.url().includes("view=summary"),
+    { timeout: 30000 }
+  ).catch(() => null);
+
+  const nav = await page.goto(
+    "https://fast-tracker-app.sargesticky.workers.dev/?recovery=" + Date.now(),
+    { waitUntil: "domcontentloaded", timeout: 30000 }
+  );
+  feedResponse = await feedPromise;
+  await page.waitForTimeout(3000);
+
+  let feed = null;
+  if (feedResponse?.ok()) {
+    try { feed = await feedResponse.json(); } catch {}
+  }
+  const rows = await page.locator(".ft-match-row").count();
+  const body = await page.locator("body").innerText().catch(() => "");
+  const firstRow = rows ? await page.locator(".ft-match-row").first().innerText().catch(() => "") : "";
+
+  const evidence = {
+    authority,
+    homepageStatus: nav?.status() ?? null,
+    feedStatus: feedResponse?.status() ?? null,
+    feedSource: feed?.source ?? null,
+    feedCount: Array.isArray(feed?.matches) ? feed.matches.length : null,
+    renderedRows: rows,
+    temporarilyUnavailable: body.includes("Fixture feed temporarily unavailable"),
+    firstRowSample: firstRow.slice(0, 500),
+  };
+  console.log("AUTHORITY_RECOVERY_ACCEPTANCE " + JSON.stringify(evidence));
+
+  expect(nav?.status()).toBe(200);
+  expect(feedResponse?.status()).toBe(200);
+  expect(feed?.source).toBe("hkjc-authority-direct");
+  expect(Array.isArray(feed?.matches) ? feed.matches.length : 0).toBeGreaterThan(0);
+  expect(rows).toBeGreaterThan(0);
+  expect(body.includes("Fixture feed temporarily unavailable")).toBeFalsy();
+
+  await context.close();
+});
