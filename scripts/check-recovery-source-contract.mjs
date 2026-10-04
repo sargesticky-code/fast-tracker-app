@@ -5,6 +5,7 @@ const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
 const lineup = fs.readFileSync("components/lineup-panel.js", "utf8");
 const story = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
 const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
+const phase1Api = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
 
 const checks = [
   [home.includes('feedState?.status === "error"'), "homepage must render a distinct feed-error state"],
@@ -25,6 +26,10 @@ const checks = [
   [!story.includes("fb?.corners?.avg!==null") && !story.includes("fb?.corners?.avg !== null"), "match script must not use unsafe optional-chain !== null Corners guard"],
   [story.includes("num(f.corners?.avg) !== null"), "fallback story must use null-safe numeric Corners gate"],
   [story.includes("num(fb?.corners?.avg)!==null"), "match script must use null-safe numeric Corners gate"],
+  [phase1Api.includes("github-hkjc-authority-fallback"), "summary recovery must expose the legacy GitHub authority fallback explicitly"],
+  [phase1Api.includes("LEGACY_GITHUB_AUTHORITY_FALLBACK"), "summary health must label legacy GitHub fallback distinctly"],
+  [phase1Api.includes("summary_snapshot_failed_using_github_authority"), "GitHub fallback must run only after direct and DB authority lanes fail"],
+  [phase1Api.includes("const pricesFresh = freshness.status === \"FRESH\""), "legacy authority fallback must retain stale-price suppression"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
@@ -33,4 +38,4 @@ if (failed.length) {
   for (const message of failed) console.error("- " + message);
   process.exit(1);
 }
-console.log("Recovery source contract passed: outage/empty distinction, canonical fixture exit, identity unknown≠zero, null-safe Corners.");
+console.log("Recovery source contract passed: outage/empty distinction, canonical fixture exit, identity unknown≠zero, null-safe Corners, stale-safe GitHub authority fallback.");
