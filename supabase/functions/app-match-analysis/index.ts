@@ -946,6 +946,54 @@ function evidenceRow(rows:any[],source:string,market:string){
   ) || null;
 }
 
+function englishPublicText(input: string) {
+  let out = String(input);
+  const replacements: Array<[string,string]> = [
+    ["主勝", "Home win"], ["客勝", "Away win"], ["和局", "Draw"],
+    ["暫無投注位", "No actionable position"], ["亞洲讓球", "Asian handicap"],
+    ["暫不建議", "No recommendation"], ["入球大細", "Goals O/U"], ["角球大細", "Corners O/U"],
+    ["暫不下注", "NO BET"], ["暫時跳過", "PASS"], ["觀望", "WATCH"], ["輕微傾向", "Lean"],
+    ["強 Value 候選", "Strong Value candidate"], ["Value 候選", "Value candidate"],
+    ["未有可用模型機率", "No usable model probability"],
+    ["未有足夠模型證據形成方向", "Insufficient model evidence for a direction"],
+    ["未有足夠 odds history", "Insufficient odds history"],
+    ["目前沒有足夠模型 evidence", "Insufficient model evidence"],
+    ["市場或模型資料未足以建立可比較機率", "Market or model data is insufficient to establish comparable probabilities"],
+    ["資料可信度未達計算門檻", "Data reliability is below the calculation threshold"],
+    ["市場價格 freshness 未通過", "Market price freshness failed"],
+    ["HKJC 市場不新鮮", "HKJC market is stale"],
+    ["缺可靠比分／分鐘", "Reliable score/minute is missing"],
+    ["Official XI 尚未確認", "Official XI is not confirmed"],
+    ["獨立 evidence family 少於 2", "Fewer than 2 independent evidence families"],
+    ["模型分歧較大", "Model dispersion is high"],
+    ["模型共識較集中", "Model consensus is concentrated"],
+    ["模型有一定支持", "Models provide some support"],
+    ["模型支持有限", "Model support is limited"],
+    ["暫未見可執行 Edge", "no actionable edge yet"],
+    ["目前未見額外 data-risk flag", "No additional data-risk flag"],
+    ["主要風險/失效條件", "Primary risks/invalidators"],
+    ["主要支持", "Primary support"], ["風險", "Risk"],
+    ["模型", "model"], ["現價", "current price"], ["機率差", "probability gap"],
+    ["支持", "support"], ["分歧", "dispersion"], ["場面控制", "actual control"],
+    ["賽事", "match"], ["資料", "data"], ["方向", "direction"], ["價格", "price"],
+    ["即場", "live"], ["比分", "score"], ["分鐘", "minute"], ["正選", "starting XI"],
+    ["主隊", "Home team"], ["客隊", "Away team"]
+  ];
+  for (const [from,to] of replacements) out = out.split(from).join(to);
+  out = out.replace(/[；]/g, "; ").replace(/[，]/g, ", ").replace(/[。]/g, ". ").replace(/[：]/g, ": ");
+  out = out.replace(/[（]/g, "(").replace(/[）]/g, ")");
+  out = out.replace(/[\u3400-\u9fff]+/g, " ").replace(/\s+/g, " ").trim();
+  return out;
+}
+function englishPublicPayload(value: any): any {
+  if (typeof value === "string") return englishPublicText(value);
+  if (Array.isArray(value)) return value.map(englishPublicPayload);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k,v]) => [k, englishPublicPayload(v)]));
+  }
+  return value;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "GET") return Response.json({ error: "method_not_allowed" }, { status: 405, headers: cors });
@@ -1231,8 +1279,8 @@ Deno.serve(async (req: Request) => {
   });
   const independentFamilies = collapseCorrelatedFamilies(families);
 
-  const home = r.home_zh || r.home_en || "主隊";
-  const away = r.away_zh || r.away_en || "客隊";
+  const home = r.home_en || r.home_zh || "Home team";
+  const away = r.away_en || r.away_zh || "Away team";
   const shadow = liveShadow.data;
   const liveOddsRow:any = liveOdds.data || null;
 
@@ -1760,7 +1808,7 @@ Deno.serve(async (req: Request) => {
   }
   if (playerIdentityError) errors.playerIdentity = playerIdentityError;
 
-  return Response.json({
+  const publicPayload = englishPublicPayload({
     generatedAt: new Date().toISOString(),
     id,
     engine: "FT_INTERPRETER_RULES_V3_HOLISTIC",
@@ -1914,7 +1962,8 @@ Deno.serve(async (req: Request) => {
       sourceMode: fallbackMode ? "DB_FALLBACK_FAIL_CLOSED" : "CANONICAL_ACTIVE_FEED",
       staking: "No automated stake sizing until Phase 5 calibration and Phase 7 risk controls are validated.",
     },
-  }, {
+  });
+  return Response.json(publicPayload, {
     headers: { ...cors, "Cache-Control": "public, max-age=20, stale-while-revalidate=40" },
   });
 });
