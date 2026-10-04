@@ -24,3 +24,9 @@ if (failed.length) {
   process.exit(1);
 }
 console.log("English story cache/fallback contract passed");
+
+
+// Public runtime is English-only even when callers omit lang.
+assert.ok(storySource.includes('const language = "en";'), "story endpoint must force English public output");
+assert.ok(!analysisSource.match(/[\u3400-\u9fff]/), "analysis public source must not contain CJK output literals");
+assert.ok(!detailSource.match(/[\u3400-\u9fff]/), "detail public source must not contain CJK output literals");
