@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
+import postgres from "npm:postgres@3.4.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,40 @@ function createReadClient(url:string, key:string) {
     db: { retry:false },
     global: { fetch: boundedDbFetch },
   });
+}
+
+const DIRECT_DB_URL = Deno.env.get("SUPABASE_DB_URL") ?? "";
+const directDb = DIRECT_DB_URL
+  ? postgres(DIRECT_DB_URL, { max: 2, connect_timeout: 5, idle_timeout: 5, prepare: false })
+  : null;
+
+async function readDirectSummary(hours:number) {
+  if (!directDb) throw new Error("direct_db_unavailable");
+  const [upcomingRows, liveRows] = await Promise.all([
+    directDb`
+      select hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,
+             home_en,away_en,home_zh,away_zh,live_eligible,selling,pool_status,
+             had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,
+             hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,
+             odds_updated_at,updated_at
+      from public.hkjc_upcoming_current
+      where selling is true
+        and kickoff_hkt >= now()
+        and kickoff_hkt < now() + (${hours} * interval '1 hour')
+      order by kickoff_hkt asc
+    `,
+    directDb`
+      select hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,
+             home_en,away_en,home_zh,away_zh,pool_status,
+             had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,
+             hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,
+             odds_updated_at,updated_at
+      from public.hkjc_live_odds_current
+      where fetched_at >= now() - interval '5 minutes'
+        and pool_status = 'SELLINGSTARTED'
+    `,
+  ]);
+  return { upcomingRows, liveRows };
 }
 
 
@@ -313,6 +348,42 @@ Deno.serve(async (req: Request) => {
     const db = createReadClient(supabaseUrl, serverKey);
 
     if (summaryOnly) {
+      try {
+        const { upcomingRows, liveRows } = await readDirectSummary(hours);
+        const byId = new Map<string, any>();
+        for (const row of upcomingRows ?? []) {
+          if (!row?.hkjc_event_id) continue;
+          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, false));
+        }
+        for (const row of liveRows ?? []) {
+          if (!row?.hkjc_event_id) continue;
+          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, true));
+        }
+        const directMatches = [...byId.values()].sort((a, b) => String(a.kickoff ?? "").localeCompare(String(b.kickoff ?? "")));
+        if (directMatches.length > 0) {
+          return Response.json({
+            generatedAt: new Date().toISOString(),
+            source: "hkjc-authority-direct-sql",
+            view: "summary",
+            windowHours: hours,
+            count: directMatches.length,
+            systemHealth: {
+              authorityMode: {
+                status: "OK",
+                value: "DIRECT_DATABASE",
+                notes: "Homepage summary bypasses the timed-out PostgREST/RPC path and reads current HKJC authority rows directly.",
+                observedAt: new Date().toISOString(),
+              },
+            },
+            matches: directMatches,
+          }, {
+            headers: { ...corsHeaders, "Cache-Control": "public, max-age=5, stale-while-revalidate=30" },
+          });
+        }
+      } catch (directError) {
+        console.error("summary_direct_db_failed", directError);
+      }
+
       const now = new Date();
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
