@@ -1,0 +1,831 @@
+diff --git a/components/homepage-client.js b/components/homepage-client.js
+index eda1644..74f9487 100644
+--- a/components/homepage-client.js
++++ b/components/homepage-client.js
+@@ -283,7 +283,7 @@ function ProbabilityStrip({ model }) {
+   );
+ }
+ 
+-function PredictionsTable({ matches, title = "", activeMarket = "HDA" }) {
++function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState = null }) {
+   return (
+     <section className="ft-table-section">
+       {title && <div className="ft-league-section-title">
+@@ -338,7 +338,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA" }) {
+               <MarketOdds match={match} marketKey={activeMarket} />
+             </a>
+           );
+-        }) : (
++        }) : feedState?.status === "error" ? (
++          <div className="ft-empty">
++            <strong>Fixture feed temporarily unavailable</strong>
++            <small>Fixture counts remain unknown until the next successful source refresh.</small>
++          </div>
++        ) : (
+           <div className="ft-empty">No fixtures are available in the current feed.</div>
+         )}
+       </div>
+@@ -436,6 +441,11 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
+ 
+ export default function HomepageClient({ initialFeed, nowMs }) {
+   const [feed, setFeed] = useState(initialFeed || { matches: [] });
++  const [feedState, setFeedState] = useState(
++    Array.isArray(initialFeed?.matches) && initialFeed.matches.length
++      ? { status: "ready", message: null }
++      : { status: "loading", message: null }
++  );
+   const [dayOffset, setDayOffset] = useState(0);
+   const [showForm, setShowForm] = useState(false);
+   const [query, setQuery] = useState("");
+@@ -449,10 +459,27 @@ export default function HomepageClient({ initialFeed, nowMs }) {
+     async function refresh() {
+       try {
+         const res = await fetch(FEED_URL, { cache: "no-store" });
+-        if (!res.ok) return;
++        if (!res.ok) {
++          let message = `HTTP ${res.status}`;
++          try {
++            const failure = await res.json();
++            message = [failure?.error, failure?.message].filter(Boolean).join(" · ") || message;
++          } catch {}
++          if (!cancelled) setFeedState({ status: "error", message });
++          return;
++        }
+         const next = await res.json();
+-        if (!cancelled && Array.isArray(next.matches)) setFeed(next);
+-      } catch {}
++        if (!Array.isArray(next?.matches)) {
++          if (!cancelled) setFeedState({ status: "error", message: "Feed response did not contain a fixture list" });
++          return;
++        }
++        if (!cancelled) {
++          setFeed(next);
++          setFeedState({ status: "ready", message: null });
++        }
++      } catch {
++        if (!cancelled) setFeedState({ status: "error", message: "Feed refresh request failed" });
++      }
+     }
+     refresh();
+     const timer = setInterval(refresh, 60000);
+@@ -564,9 +591,21 @@ export default function HomepageClient({ initialFeed, nowMs }) {
+                 <button className={activeMarket === key ? "active" : ""} key={key} onClick={() => setActiveMarket(key)}>{label}</button>
+               ))}
+             </div>
+-            <div className="ft-result-count"><b>{visible.length}</b> matches shown</div>
++            <div className="ft-result-count">
++              <b>{feedState.status === "error" && matches.length === 0 ? "—" : visible.length}</b>
++              {feedState.status === "error"
++                ? (matches.length ? " cached matches · feed unavailable" : " feed unavailable")
++                : " matches shown"}
++            </div>
+           </div>
+ 
++          {feedState.status === "error" && matches.length > 0 ? (
++            <section className="ft-form-note" role="status">
++              <Activity size={18} />
++              <span><strong>Fixture feed temporarily unavailable.</strong> Showing the last successful fixture list; freshness is unknown until refresh recovers.</span>
++            </section>
++          ) : null}
++
+           {visible.some((m) => m.liveNow) ? (
+             <div className="ft-live-ribbon">
+               <span className="ft-live-dot" />
+@@ -579,10 +618,10 @@ export default function HomepageClient({ initialFeed, nowMs }) {
+           <div className="ft-grouped-board">
+             {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
+               <div key={league}>
+-                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} />
++                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} />
+                 {index === 0 && <AdvertSlot variant="wide" />}
+               </div>
+-            )) : <PredictionsTable matches={[]} />}
++            )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
+           </div>
+ 
+           {showForm && (
+diff --git a/components/lineup-panel.js b/components/lineup-panel.js
+index 277a323..52d4643 100644
+--- a/components/lineup-panel.js
++++ b/components/lineup-panel.js
+@@ -156,11 +156,15 @@ function formatHkt(value) {
+ function statusTone(status) {
+   return status === "CONFIRMED"
+     ? { bg: palette.good, fg: "#17643f", text: "CONFIRMED 11v11" }
+-    : status === "PREDICTED_FULL"
+-      ? { bg: palette.warn, fg: "#845b0a", text: "PREDICTED 11v11" }
+-      : status === "PARTIAL"
+-        ? { bg: "#fff1e5", fg: "#8a541c", text: "PARTIAL" }
+-        : { bg: "#eef1ef", fg: "#68736d", text: "WAITING" };
++    : status === "IDENTITY_BLOCKED"
++      ? { bg: "#eef1ef", fg: "#68736d", text: "CANONICAL FIXTURE UNRESOLVED" }
++      : status === "IDENTITY_PARTIAL"
++        ? { bg: "#fff1e5", fg: "#8a541c", text: "IDENTITY RECONCILIATION" }
++        : status === "PREDICTED_FULL"
++          ? { bg: palette.warn, fg: "#845b0a", text: "PREDICTED 11v11" }
++          : status === "PARTIAL"
++            ? { bg: "#fff1e5", fg: "#8a541c", text: "PARTIAL" }
++            : { bg: "#eef1ef", fg: "#68736d", text: "WAITING" };
+ }
+ 
+ function statusLabel(row) {
+@@ -193,6 +197,10 @@ function statusName(row) {
+     || "Unknown player";
+ }
+ 
++function factStatus(row) {
++  return String(row?.fact_status || "").toUpperCase();
++}
++
+ function statusSide(row) {
+   const s = String(row?.team_side || row?.side || "").toUpperCase();
+   return s === "A" || s === "AWAY" ? "A" : s === "H" || s === "HOME" ? "H" : null;
+@@ -464,9 +472,17 @@ export default function LineupPanel() {
+ 
+   const view = useMemo(() => {
+     const hf = getHumanFactors(payload);
+-    const rows = findLineup(payload);
++    const sourceRows = findLineup(payload);
+     const fixture = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
+     const meta = hf?.lineupMeta || hf?.lineup_meta || payload?.lineupMeta || payload?.lineup_meta || {};
++    const identityAnnotated = sourceRows.some((r) => Boolean(r?.fact_status));
++    const unresolvedIdentityRows = identityAnnotated
++      ? sourceRows.filter((r) => factStatus(r) === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
++      : [];
++    const rows = identityAnnotated
++      ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
++      : sourceRows;
++    const canonicalFixtureMissing = String(payload?.fixtureSource || "").toUpperCase() === "MISSING";
+     const home = rows.filter((r) => side(r) === "H");
+     const away = rows.filter((r) => side(r) === "A");
+     const confirmedRows = rows.filter((r) => r?.confirmed === true);
+@@ -476,15 +492,23 @@ export default function LineupPanel() {
+     const awayStarters = away.filter((r) => r?.starter !== false);
+     const homeBench = home.filter((r) => r?.starter === false);
+     const awayBench = away.filter((r) => r?.starter === false);
+-    const status = meta?.status
+-      || (homeStarters.length >= 11 && awayStarters.length >= 11
+-        ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
+-        : rows.length ? "PARTIAL" : "MISSING");
++    const status = canonicalFixtureMissing
++      ? "IDENTITY_BLOCKED"
++      : unresolvedIdentityRows.length
++        ? "IDENTITY_PARTIAL"
++        : meta?.status
++          || (homeStarters.length >= 11 && awayStarters.length >= 11
++            ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
++            : rows.length ? "PARTIAL" : "MISSING");
+     const confidence = avgConfidence(rows);
+-    const source = meta?.source || rows[0]?.source_name || null;
+-    const sourceUrl = rows.find((r) => r?.source_url)?.source_url || null;
+-    const evidenceSources = meta?.evidenceSources || [...new Set(rows.map((r) => r?.source_name).filter(Boolean))];
+-    const playerStatus = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
++    const source = meta?.source || sourceRows[0]?.source_name || null;
++    const sourceUrl = sourceRows.find((r) => r?.source_url)?.source_url || null;
++    const evidenceSources = meta?.evidenceSources || [...new Set(sourceRows.map((r) => r?.source_name).filter(Boolean))];
++    const playerStatusRaw = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
++    const playerStatusAnnotated = playerStatusRaw.some((r) => Boolean(r?.fact_status));
++    const playerStatus = playerStatusAnnotated
++      ? playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")
++      : playerStatusRaw;
+     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
+     const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
+       : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
+@@ -497,21 +521,32 @@ export default function LineupPanel() {
+     const conflicts = rows.filter((r) => statusNames.has(String(r?.player_name || "").toLowerCase()));
+ 
+     return {
+-      rows, home, away, homeStarters, awayStarters, homeBench, awayBench,
++      rows, sourceRows, unresolvedIdentityRows, canonicalFixtureMissing,
++      unresolvedHome: unresolvedIdentityRows.filter((r) => side(r) === "H").length,
++      unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
++      home, away, homeStarters, awayStarters, homeBench, awayBench,
+       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
+-      playerStatus, managers, conflicts, homeStrength, awayStrength,
++      playerStatus, playerStatusRaw, managers, conflicts, homeStrength, awayStrength,
+       homeFormation: normalizeFormation(formation(homeStarters)),
+       awayFormation: normalizeFormation(formation(awayStarters)),
+       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
+       tournament: fixture.league || fixture.tournament || null,
+-      updatedAt: sourceUpdated(rows),
++      updatedAt: sourceUpdated(sourceRows),
+     };
+   }, [payload]);
+ 
+   if (!id) return null;
+ 
+   const tone = statusTone(view.status);
+-  const ready = view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
++  const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
++  const ready = !identityBlocked && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
++  const homeCount = identityBlocked
++    ? (view.homeStarters.length ? `${view.homeStarters.length}/11 resolved` : "—/11")
++    : `${view.homeStarters.length}/11`;
++  const awayCount = identityBlocked
++    ? (view.awayStarters.length ? `${view.awayStarters.length}/11 resolved` : "—/11")
++    : `${view.awayStarters.length}/11`;
++  const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked ? " · identity not complete" : ""}`;
+   const tabs = [
+     ["formation","Formation"],
+     ["squad","Squad"],
+@@ -526,7 +561,7 @@ export default function LineupPanel() {
+           <div>
+             <span>FULL LINEUP TOOL</span>
+             <strong>{view.homeTeam} vs {view.awayTeam}</strong>
+-            <small>{tone.text} · {view.homeStarters.length}/11 home · {view.awayStarters.length}/11 away</small>
++            <small>{tone.text} · {countSummary}</small>
+           </div>
+           <b>Open lineups</b>
+         </summary>
+@@ -546,8 +581,16 @@ export default function LineupPanel() {
+               </div>
+             </div>
+             <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(82px,1fr))",gap:7,minWidth:280}}>
+-              <Metric label="HOME XI" value={view.homeStarters.length + "/11"} detail={view.homeFormation || "formation pending"} />
+-              <Metric label="AWAY XI" value={view.awayStarters.length + "/11"} detail={view.awayFormation || "formation pending"} />
++              <Metric
++                label="HOME XI"
++                value={homeCount}
++                detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedHome ? `${view.unresolvedHome} source-confirmed row(s) await identity` : (view.homeFormation || "formation pending")}
++              />
++              <Metric
++                label="AWAY XI"
++                value={awayCount}
++                detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedAway ? `${view.unresolvedAway} source-confirmed row(s) await identity` : (view.awayFormation || "formation pending")}
++              />
+               <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : "prediction evidence"} />
+             </div>
+           </div>
+@@ -572,8 +615,8 @@ export default function LineupPanel() {
+         {!loading && !ready && view.rows.length === 0 ? (
+           <div style={{padding:22}}>
+             <div style={{padding:18,border:"1px dashed #cdd9d1",borderRadius:14,background:"#fff"}}>
+-              <b style={{display:"block",fontSize:14,color:palette.ink}}>Waiting for reliable 11v11 lineups</b>
+-              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions.</small>
++              <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedIdentityRows.length ? "Source lineup exists, but player identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
++              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>{view.canonicalFixtureMissing ? "Lineup rows are not promoted while the canonical fixture gate is unresolved." : view.unresolvedIdentityRows.length ? `${view.unresolvedIdentityRows.length} source-confirmed row(s) remain outside confirmed XI counts until canonical player identity resolves.` : "This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions."}</small>
+             </div>
+           </div>
+         ) : null}
+diff --git a/components/match-detail-client.js b/components/match-detail-client.js
+index 8651a5b..66e1222 100644
+--- a/components/match-detail-client.js
++++ b/components/match-detail-client.js
+@@ -532,6 +532,7 @@ export default function MatchDetailClient() {
+ 
+     let cancelled = false;
+     let resolvedFresh = false;
++    let canonicalMissing = false;
+ 
+     async function refreshMatch() {
+       try {
+@@ -559,6 +560,16 @@ export default function MatchDetailClient() {
+         const payload = await res.json();
+         if (cancelled || payload?.error) return;
+         setDeep(payload);
++        if (payload?.fixtureSource === "MISSING" && !payload?.fixture) {
++          canonicalMissing = true;
++          if (!resolvedFresh) {
++            setMatch(null);
++            setSource("SUPABASE DETAIL · canonical fixture missing");
++          }
++          // The detail endpoint has answered conclusively. Do not keep the
++          // route behind slower feed/live requests when canonical identity is missing.
++          setReady(true);
++        }
+         const fixtureFallback = matchFromDetailPayload(payload, matchId);
+         if (fixtureFallback) {
+           setMatch((previous) => {
+@@ -624,7 +635,7 @@ export default function MatchDetailClient() {
+ 
+     Promise.allSettled([refreshMatch(), refreshLive(), refreshDetail()]).then(() => {
+       if (cancelled) return;
+-      if (!resolvedFresh && cached) {
++      if (!resolvedFresh && cached && !canonicalMissing) {
+         setMatch(cached);
+         setSource("FALLBACK CACHE");
+       }
+@@ -699,12 +710,40 @@ export default function MatchDetailClient() {
+   }
+ 
+   if (!match) {
++    const canonicalFixtureMissing = deep?.fixtureSource === "MISSING" && !deep?.fixture;
++    const auxiliaryEvidenceCount = [
++      deep?.models?.internal,
++      deep?.models?.forebet,
++      deep?.models?.form,
++      deep?.models?.opta,
++      deep?.models?.multisource,
++      Array.isArray(deep?.humanFactors?.lineup) && deep.humanFactors.lineup.length ? deep.humanFactors.lineup : null,
++      Array.isArray(deep?.humanFactors?.playerStatus) && deep.humanFactors.playerStatus.length ? deep.humanFactors.playerStatus : null,
++    ].filter(Boolean).length;
+     return (
+       <main className="shell detail-shell">
+         <div className="detail-top"><a href="/" className="back">← Back to matches</a><span>{id}</span></div>
+         <section className="panel">
+-          <div className="panel-title"><div><p>MATCH</p><h2>Match data is currently unavailable</h2></div></div>
+-          <p className="fineprint">This route is available, but the current data source has not supplied this match. Return to the match list to choose another fixture.</p>
++          <div className="panel-title">
++            <div>
++              <p>MATCH</p>
++              <h2>{canonicalFixtureMissing ? "Canonical fixture is unavailable" : "Match data is currently unavailable"}</h2>
++            </div>
++          </div>
++          {canonicalFixtureMissing ? (
++            <>
++              <p className="fineprint">
++                Supporting records exist for this event ID, but no current canonical HKJC fixture was resolved.
++                Those records are not promoted into a match card, current prices, recommendation or confirmed lineup claim.
++              </p>
++              <p className="fineprint">
++                Identity gate active · {auxiliaryEvidenceCount || "no"} supporting evidence group{auxiliaryEvidenceCount === 1 ? "" : "s"} detected.
++                Article and market comparison remain unavailable until canonical fixture identity is restored.
++              </p>
++            </>
++          ) : (
++            <p className="fineprint">This route is available, but the current data source has not supplied this match. Return to the match list to choose another fixture.</p>
++          )}
+         </section>
+       </main>
+     );
+diff --git a/docs/REDESIGN_CHECKLIST.md b/docs/REDESIGN_CHECKLIST.md
+index da56a16..b37726d 100644
+--- a/docs/REDESIGN_CHECKLIST.md
++++ b/docs/REDESIGN_CHECKLIST.md
+@@ -62,3 +62,46 @@ Before stopping a redesign session, record:
+ - what was deliberately not changed;
+ - mocked vs real verification status;
+ - next concrete UI gap.
++
++## Recovery delivery gate — 2026-10-03
++
++- Baseline source: `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #3 head `a07a51b37d8a0e8641dbb4de833f702c31fea299` is a CI-only verification carrier, not deployed patched source.
++- Carrier CI run `37125963662` passed the exact baseline blob gate, `git apply --check`, exact patched blob gate, contracts, static build and 26/26 Playwright cases.
++- Exact patched source blobs verified by CI:
++  - homepage `5ad4b81c66fb47d088f9e7cacf42021c7ff516b3`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `61c44d21b01a27557efc424aeca83eb3e2fb3cf7`
++  - recovery browser flow `c16e89712ffd43dfded19f3ddf314f20dfebdf24`
++- Screenshot artifact: GitHub Actions artifact `11274697692`, name `dashboard-redesign-61465eb5f2890d4353c295474508013aebb83f7c`, digest `sha256:4d808ad56eb28871332dd757751d6db2f66f9b03ac7d2feae7d8780b35d48786`.
++- Exact CI screenshots were visually reviewed on desktop and 390px mobile. No overlap, raw escape text, misleading 0/11 state, or obvious empty-state integration break was found.
++- Cloudflare non-production branch builds are disabled; review branches are CI/review only. Railway production service `fast-tracker-public` remains sourced from `main` only.
++- Safety gates remain fail-closed: unknown is not zero; unresolved canonical fixture/player identity is not promoted; stale/reference-only prices remain non-actionable / NO_BET.
++- Still outstanding before dashboard delivery: production Phase-1 RPC 57014 tail latency; live story fix not released/verified against the real endpoint; current canonical fixture/feed recovery not proven; real-device/live mobile acceptance remains separate from deterministic CI mobile coverage.
++- No merge, production/preview deployment, Edge release, migration, DB write, generated feed publication, access expansion or spending is authorized by this checkpoint.
++
++## Focused PR4 source review acceptance — 2026-10-03
++
++- Reviewed source base remains `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #4 source revision `acf362499f0f0ce293a975be24b0ff004eb962a2` was reviewed against the exact base and its directly affected dependencies.
++- Six executable source/test blobs at that revision:
++  - homepage `74f9487aef1d3ea82f8857866c0a4ed55d622d76`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `83f51b47d38399a35a03fb709c07b43a9bc307b5`
++  - recovery browser flow `0495f7e99426dab2279c585824ec0d29c06bf8f8`
++- One actionable review defect was found and fixed before acceptance: after a successful fixture refresh followed by an outage, retained rows were visible without an explicit stale/freshness warning. The UI now labels them as cached and states that freshness is unknown until refresh recovers.
++- Race precedence is now covered in both orders: a fresh Phase-1 fixture survives a later `fixtureSource=MISSING` detail response, and a later fresh Phase-1 fixture can recover the route after the missing-detail state was shown. Detail/lineup identity remains fail-closed while canonical detail identity is unresolved.
++- Source-confirmed unresolved lineup/player rows remain outside confirmed XI counts; unresolved counts render `—/11` or resolved-only counts, never a false zero.
++- Story numeric guards use `num(...)` before Corners/avg-goals formatting and do not enter missing-object dereference branches.
++- Revised CI-only carrier head: `a499db6e49c23803720d4f2aeeaf7cbced0f6151`.
++- Revised carrier CI run `37127248110`: SUCCESS; exact baseline/apply/blob/doc checks, contracts, static build, and 29/29 Playwright cases passed in 26.2s.
++- Revised screenshot artifact: `11275733021`, name `dashboard-redesign-f1e9d88a19e94465037d2e40a7b0b486cfff30fc`, digest `sha256:ce5380478ab1de3521160903a26156013cc099e82748ff3325c48c892ab5973e`.
++- PR #3 remains a CI verification carrier; neither carrier head is deployed patched source.
++- CI screenshots and browser cases remain deterministic/mocked coverage, not evidence that the live Supabase feed/story or real mobile device is healthy.
++- Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
++- Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
++- No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
+diff --git a/docs/dashboard-redesign-handover-2026-10-03.md b/docs/dashboard-redesign-handover-2026-10-03.md
+index e0d7ec0..c220f33 100644
+--- a/docs/dashboard-redesign-handover-2026-10-03.md
++++ b/docs/dashboard-redesign-handover-2026-10-03.md
+@@ -177,3 +177,46 @@ The next bounded delivery gap is to make the redesigned dashboard reviewable thr
+ - do not turn this into a provider census or scraping expansion.
+ 
+ Until that is verified, CI screenshots remain the authoritative exact-head review surface and no claim should be made that the public Workers/Railway UI serves the review branch.
++
++## Recovery delivery gate — 2026-10-03
++
++- Baseline source: `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #3 head `a07a51b37d8a0e8641dbb4de833f702c31fea299` is a CI-only verification carrier, not deployed patched source.
++- Carrier CI run `37125963662` passed the exact baseline blob gate, `git apply --check`, exact patched blob gate, contracts, static build and 26/26 Playwright cases.
++- Exact patched source blobs verified by CI:
++  - homepage `5ad4b81c66fb47d088f9e7cacf42021c7ff516b3`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `61c44d21b01a27557efc424aeca83eb3e2fb3cf7`
++  - recovery browser flow `c16e89712ffd43dfded19f3ddf314f20dfebdf24`
++- Screenshot artifact: GitHub Actions artifact `11274697692`, name `dashboard-redesign-61465eb5f2890d4353c295474508013aebb83f7c`, digest `sha256:4d808ad56eb28871332dd757751d6db2f66f9b03ac7d2feae7d8780b35d48786`.
++- Exact CI screenshots were visually reviewed on desktop and 390px mobile. No overlap, raw escape text, misleading 0/11 state, or obvious empty-state integration break was found.
++- Cloudflare non-production branch builds are disabled; review branches are CI/review only. Railway production service `fast-tracker-public` remains sourced from `main` only.
++- Safety gates remain fail-closed: unknown is not zero; unresolved canonical fixture/player identity is not promoted; stale/reference-only prices remain non-actionable / NO_BET.
++- Still outstanding before dashboard delivery: production Phase-1 RPC 57014 tail latency; live story fix not released/verified against the real endpoint; current canonical fixture/feed recovery not proven; real-device/live mobile acceptance remains separate from deterministic CI mobile coverage.
++- No merge, production/preview deployment, Edge release, migration, DB write, generated feed publication, access expansion or spending is authorized by this checkpoint.
++
++## Focused PR4 source review acceptance — 2026-10-03
++
++- Reviewed source base remains `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #4 source revision `acf362499f0f0ce293a975be24b0ff004eb962a2` was reviewed against the exact base and its directly affected dependencies.
++- Six executable source/test blobs at that revision:
++  - homepage `74f9487aef1d3ea82f8857866c0a4ed55d622d76`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `83f51b47d38399a35a03fb709c07b43a9bc307b5`
++  - recovery browser flow `0495f7e99426dab2279c585824ec0d29c06bf8f8`
++- One actionable review defect was found and fixed before acceptance: after a successful fixture refresh followed by an outage, retained rows were visible without an explicit stale/freshness warning. The UI now labels them as cached and states that freshness is unknown until refresh recovers.
++- Race precedence is now covered in both orders: a fresh Phase-1 fixture survives a later `fixtureSource=MISSING` detail response, and a later fresh Phase-1 fixture can recover the route after the missing-detail state was shown. Detail/lineup identity remains fail-closed while canonical detail identity is unresolved.
++- Source-confirmed unresolved lineup/player rows remain outside confirmed XI counts; unresolved counts render `—/11` or resolved-only counts, never a false zero.
++- Story numeric guards use `num(...)` before Corners/avg-goals formatting and do not enter missing-object dereference branches.
++- Revised CI-only carrier head: `a499db6e49c23803720d4f2aeeaf7cbced0f6151`.
++- Revised carrier CI run `37127248110`: SUCCESS; exact baseline/apply/blob/doc checks, contracts, static build, and 29/29 Playwright cases passed in 26.2s.
++- Revised screenshot artifact: `11275733021`, name `dashboard-redesign-f1e9d88a19e94465037d2e40a7b0b486cfff30fc`, digest `sha256:ce5380478ab1de3521160903a26156013cc099e82748ff3325c48c892ab5973e`.
++- PR #3 remains a CI verification carrier; neither carrier head is deployed patched source.
++- CI screenshots and browser cases remain deterministic/mocked coverage, not evidence that the live Supabase feed/story or real mobile device is healthy.
++- Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
++- Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
++- No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
+diff --git a/docs/product-goal.md b/docs/product-goal.md
+index 7231796..d79ca0a 100644
+--- a/docs/product-goal.md
++++ b/docs/product-goal.md
+@@ -137,3 +137,46 @@ Routine development, testing, debugging and transitions between already agreed p
+ - [ ] External player-ID ingestion map for FOTMOB/Flashscore to canonical `phase2_players` — exact upstream identity dependency, not solved by fuzzy promotion.
+ 
+ - [x] Rendered responsive coverage includes populated/partial/empty Goals/Corners states on desktop and mobile, including keyboard expansion of secondary market metadata and homepage → detail → markets → article flow.
++
++## Recovery delivery gate — 2026-10-03
++
++- Baseline source: `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #3 head `a07a51b37d8a0e8641dbb4de833f702c31fea299` is a CI-only verification carrier, not deployed patched source.
++- Carrier CI run `37125963662` passed the exact baseline blob gate, `git apply --check`, exact patched blob gate, contracts, static build and 26/26 Playwright cases.
++- Exact patched source blobs verified by CI:
++  - homepage `5ad4b81c66fb47d088f9e7cacf42021c7ff516b3`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `61c44d21b01a27557efc424aeca83eb3e2fb3cf7`
++  - recovery browser flow `c16e89712ffd43dfded19f3ddf314f20dfebdf24`
++- Screenshot artifact: GitHub Actions artifact `11274697692`, name `dashboard-redesign-61465eb5f2890d4353c295474508013aebb83f7c`, digest `sha256:4d808ad56eb28871332dd757751d6db2f66f9b03ac7d2feae7d8780b35d48786`.
++- Exact CI screenshots were visually reviewed on desktop and 390px mobile. No overlap, raw escape text, misleading 0/11 state, or obvious empty-state integration break was found.
++- Cloudflare non-production branch builds are disabled; review branches are CI/review only. Railway production service `fast-tracker-public` remains sourced from `main` only.
++- Safety gates remain fail-closed: unknown is not zero; unresolved canonical fixture/player identity is not promoted; stale/reference-only prices remain non-actionable / NO_BET.
++- Still outstanding before dashboard delivery: production Phase-1 RPC 57014 tail latency; live story fix not released/verified against the real endpoint; current canonical fixture/feed recovery not proven; real-device/live mobile acceptance remains separate from deterministic CI mobile coverage.
++- No merge, production/preview deployment, Edge release, migration, DB write, generated feed publication, access expansion or spending is authorized by this checkpoint.
++
++## Focused PR4 source review acceptance — 2026-10-03
++
++- Reviewed source base remains `b3d20007bcddd44c0b63dd3311564e375f2392c9`.
++- PR #4 source revision `acf362499f0f0ce293a975be24b0ff004eb962a2` was reviewed against the exact base and its directly affected dependencies.
++- Six executable source/test blobs at that revision:
++  - homepage `74f9487aef1d3ea82f8857866c0a4ed55d622d76`
++  - detail `66e1222e7653e8b01f881544c32bffbc13eb1abe`
++  - lineup `52d46439bfdf085f4cd8e0ba5ce05da5ebc6c52b`
++  - story `bb018da84110b4782632fdf9deb9fa1ab34b0875`
++  - recovery source contract `83f51b47d38399a35a03fb709c07b43a9bc307b5`
++  - recovery browser flow `0495f7e99426dab2279c585824ec0d29c06bf8f8`
++- One actionable review defect was found and fixed before acceptance: after a successful fixture refresh followed by an outage, retained rows were visible without an explicit stale/freshness warning. The UI now labels them as cached and states that freshness is unknown until refresh recovers.
++- Race precedence is now covered in both orders: a fresh Phase-1 fixture survives a later `fixtureSource=MISSING` detail response, and a later fresh Phase-1 fixture can recover the route after the missing-detail state was shown. Detail/lineup identity remains fail-closed while canonical detail identity is unresolved.
++- Source-confirmed unresolved lineup/player rows remain outside confirmed XI counts; unresolved counts render `—/11` or resolved-only counts, never a false zero.
++- Story numeric guards use `num(...)` before Corners/avg-goals formatting and do not enter missing-object dereference branches.
++- Revised CI-only carrier head: `a499db6e49c23803720d4f2aeeaf7cbced0f6151`.
++- Revised carrier CI run `37127248110`: SUCCESS; exact baseline/apply/blob/doc checks, contracts, static build, and 29/29 Playwright cases passed in 26.2s.
++- Revised screenshot artifact: `11275733021`, name `dashboard-redesign-f1e9d88a19e94465037d2e40a7b0b486cfff30fc`, digest `sha256:ce5380478ab1de3521160903a26156013cc099e82748ff3325c48c892ab5973e`.
++- PR #3 remains a CI verification carrier; neither carrier head is deployed patched source.
++- CI screenshots and browser cases remain deterministic/mocked coverage, not evidence that the live Supabase feed/story or real mobile device is healthy.
++- Open delivery gaps remain: Phase-1 production RPC 57014 tail latency, unreleased/unverified live story fix, live canonical fixture/feed recovery, and real-device/live-data mobile acceptance.
++- Cloudflare non-production branch builds remain disabled and Railway production remains sourced from `main` only.
++- No merge, production/preview deployment, Edge release, migration, DB write, feed publication, access expansion or spending is authorized by this acceptance.
+diff --git a/scripts/check-recovery-source-contract.mjs b/scripts/check-recovery-source-contract.mjs
+new file mode 100644
+index 0000000..83f51b4
+--- /dev/null
++++ b/scripts/check-recovery-source-contract.mjs
+@@ -0,0 +1,36 @@
++import fs from "node:fs";
++
++const home = fs.readFileSync("components/homepage-client.js", "utf8");
++const detail = fs.readFileSync("components/match-detail-client.js", "utf8");
++const lineup = fs.readFileSync("components/lineup-panel.js", "utf8");
++const story = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
++const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
++
++const checks = [
++  [home.includes('feedState?.status === "error"'), "homepage must render a distinct feed-error state"],
++  [home.includes("No fixtures are available in the current feed."), "successful empty-feed state must remain distinct"],
++  [home.includes('setFeedState({ status: "ready", message: null })'), "valid matches array must clear outage state"],
++  [home.includes("Showing the last successful fixture list; freshness is unknown until refresh recovers."), "outage with retained rows must disclose unknown freshness"],
++  [home.includes('" cached matches · feed unavailable"'), "outage result count must label retained rows as cached"],
++  [detail.includes('payload?.fixtureSource === "MISSING" && !payload?.fixture'), "detail must detect canonical fixture absence"],
++  [detail.includes('setReady(true);'), "missing canonical fixture must be able to terminate loading"],
++  [detail.includes('cached && !canonicalMissing'), "missing canonical fixture must not restore stale cached match"],
++  [detailApi.includes('fixtureSource = fixtureUpcoming.data ? "UPCOMING" : fixtureLive.data ? "LIVE" : "MISSING"'), "detail API contract must expose fixtureSource=MISSING"],
++  [detailApi.includes('"SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"'), "detail API must preserve unresolved canonical player identity"],
++  [lineup.includes('factStatus(r) === "CONFIRMED"'), "lineup counts must use canonical-confirmed rows when fact_status exists"],
++  [lineup.includes('playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")'), "availability rows must preserve canonical player identity gate"],
++  [lineup.includes('"—/11"'), "identity-blocked XI count must remain unknown rather than zero"],
++  [lineup.includes('"IDENTITY_BLOCKED"'), "canonical fixture absence must block lineup promotion"],
++  [!story.includes("f.corners?.avg!==null") && !story.includes("f.corners?.avg !== null"), "story must not use unsafe optional-chain !== null Corners guard"],
++  [!story.includes("fb?.corners?.avg!==null") && !story.includes("fb?.corners?.avg !== null"), "match script must not use unsafe optional-chain !== null Corners guard"],
++  [story.includes("num(f.corners?.avg) !== null"), "fallback story must use null-safe numeric Corners gate"],
++  [story.includes("num(fb?.corners?.avg)!==null"), "match script must use null-safe numeric Corners gate"],
++];
++
++const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
++if (failed.length) {
++  console.error("Recovery source contract failed:");
++  for (const message of failed) console.error("- " + message);
++  process.exit(1);
++}
++console.log("Recovery source contract passed: outage/empty distinction, canonical fixture exit, identity unknown≠zero, null-safe Corners.");
+diff --git a/supabase/functions/app-match-story/index.ts b/supabase/functions/app-match-story/index.ts
+index 84d0a61..bb018da 100644
+--- a/supabase/functions/app-match-story/index.ts
++++ b/supabase/functions/app-match-story/index.ts
+@@ -171,9 +171,10 @@ function deepFacts(detail: any, language: string): string {
+       ? `H/D/A ${pctText(f.hda.home)}/${pctText(f.hda.draw)}/${pctText(f.hda.away)}`
+       : "";
+     const score=f.predictedScore ? `${language==="en"?"predicted score":"預測比分"} ${f.predictedScore}` : "";
+-    const goals=f.avgGoals!==null ? `${language==="en"?"average goals":"平均入球"} ${Number(f.avgGoals).toFixed(2)}` : "";
+-    const corners=f.corners?.avg!==null
+-      ? `${language==="en"?"corners":"角球"} ${f.corners.pick||"—"} 9.5 · avg ${Number(f.corners.avg).toFixed(2)} · O/U ${pctText(f.corners.over95)}/${pctText(f.corners.under95)}`
++    const goals=num(f.avgGoals)!==null ? `${language==="en"?"average goals":"平均入球"} ${Number(f.avgGoals).toFixed(2)}` : "";
++    const cornerAvg=num(f.corners?.avg);
++    const corners=cornerAvg!==null
++      ? `${language==="en"?"corners":"角球"} ${f.corners?.pick||"—"} 9.5 · avg ${cornerAvg.toFixed(2)} · O/U ${pctText(f.corners?.over95)}/${pctText(f.corners?.under95)}`
+       : "";
+     parts.push(["Forebet",hda,score,goals,corners].filter(Boolean).join(" · "));
+   }
+@@ -331,10 +332,10 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
+     ? (language==="en"
+       ? `Corners market: ${corners.selectionLabel || corners.selection} at line ${corners.line ?? "—"}; treat single-family evidence as watch-level until independently confirmed.`
+       : `角球環境：現時偏 ${corners.selectionLabel || corners.selection}，盤口 ${corners.line ?? "—"}；如果仍然只得單一 evidence family，就維持 WATCH 級。`)
+-    : fb?.corners?.avg!==null
++    : num(fb?.corners?.avg)!==null
+       ? (language==="en"
+-        ? `Corners context: Forebet average ${Number(fb.corners.avg).toFixed(1)}, reference lean ${fb.corners.pick || "—"} 9.5; HKJC-comparable direction is not yet reliable.`
+-        : `角球環境：Forebet 平均約 ${Number(fb.corners.avg).toFixed(1)} 個，reference 偏 ${fb.corners.pick || "—"} 9.5；但同 HKJC 可直接比較嘅方向暫未夠可靠。`)
++        ? `Corners context: Forebet average ${Number(fb?.corners?.avg).toFixed(1)}, reference lean ${fb?.corners?.pick || "—"} 9.5; HKJC-comparable direction is not yet reliable.`
++        : `角球環境：Forebet 平均約 ${Number(fb?.corners?.avg).toFixed(1)} 個，reference 偏 ${fb?.corners?.pick || "—"} 9.5；但同 HKJC 可直接比較嘅方向暫未夠可靠。`)
+       : (language==="en" ? "Corners market: insufficient comparable evidence." : "角球環境：可比較 evidence 暫時不足。");
+ 
+   const turningPoints:any[]=[];
+@@ -466,20 +467,20 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[]
+       partsZh.push(`預測比分 ${f.predictedScore}`);
+       partsEn.push(`a projected score of ${f.predictedScore}`);
+     }
+-    if (f.avgGoals !== null) {
++    if (num(f.avgGoals) !== null) {
+       partsZh.push(`平均入球 ${Number(f.avgGoals).toFixed(2)}`);
+       partsEn.push(`average goals ${Number(f.avgGoals).toFixed(2)}`);
+     }
+     if (partsZh.length) {
+       zhStory.push(`Forebet 提供嘅比賽形態係${partsZh.join("、")}。`);
+       enStory.push(`Forebet describes the likely match shape with ${partsEn.join(" and ")}.`);
+     }
+-    if (f.corners?.avg !== null) {
++    if (num(f.corners?.avg) !== null) {
+       zhStory.push(
+-        `角球方面，Forebet 偏向 ${f.corners.pick || "—"} 9.5，模型平均 ${Number(f.corners.avg).toFixed(2)} 個角球，O/U 9.5 機率約 ${pctText(f.corners.over95)}/${pctText(f.corners.under95)}。`
++        `角球方面，Forebet 偏向 ${f.corners?.pick || "—"} 9.5，模型平均 ${Number(f.corners?.avg).toFixed(2)} 個角球，O/U 9.5 機率約 ${pctText(f.corners?.over95)}/${pctText(f.corners?.under95)}。`
+       );
+       enStory.push(
+-        `For corners, Forebet leans ${f.corners.pick || "—"} 9.5, averaging ${Number(f.corners.avg).toFixed(2)} corners with O/U 9.5 probabilities of about ${pctText(f.corners.over95)}/${pctText(f.corners.under95)}.`
++        `For corners, Forebet leans ${f.corners?.pick || "—"} 9.5, averaging ${Number(f.corners?.avg).toFixed(2)} corners with O/U 9.5 probabilities of about ${pctText(f.corners?.over95)}/${pctText(f.corners?.under95)}.`
+       );
+     }
+   }
+diff --git a/tests/recovery-flow.spec.js b/tests/recovery-flow.spec.js
+new file mode 100644
+index 0000000..cd51f66
+--- /dev/null
++++ b/tests/recovery-flow.spec.js
+@@ -0,0 +1,223 @@
++const { test, expect } = require("@playwright/test");
++
++const json = (route, body, status = 200) =>
++  route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
++
++function recoveryMatch() {
++  return {
++    id: "FBRECOVERY",
++    home: "Northbridge FC",
++    away: "Riverside United",
++    league: "Recovery League",
++    kickoff: new Date().toISOString(),
++    liveNow: false,
++    odds: { home: null, draw: null, away: null },
++    goals: { line: null, over: null, under: null },
++    corners: { line: null, over: null, under: null },
++    health: { hkjcFreshness: "FRESH" }
++  };
++}
++
++async function routeRecoveryApis(page, { feed = "outage", detailCase = "missing", feedDelayMs = 0, detailDelayMs = 0 } = {}) {
++  let feedCalls = 0;
++  await page.route("**/functions/v1/app-phase1-feed?**", async route => {
++    feedCalls += 1;
++    if (feedDelayMs) await new Promise(resolve => setTimeout(resolve, feedDelayMs));
++    if (feed === "outage" || (feed === "freshThenOutage" && feedCalls > 1)) {
++      return json(route, {
++        error: "feed_unavailable",
++        message: "rpc_error:57014:canceling statement due to statement timeout"
++      }, 503);
++    }
++    if (feed === "empty") {
++      return json(route, {
++        generatedAt: new Date().toISOString(),
++        source: "RECOVERY_TEST_EMPTY",
++        windowHours: 24,
++        matches: [],
++        systemHealth: {}
++      });
++    }
++    if (feed === "fresh" || feed === "freshThenOutage") {
++      return json(route, {
++        generatedAt: new Date().toISOString(),
++        source: "RECOVERY_TEST_FRESH",
++        windowHours: 24,
++        matches: [recoveryMatch()],
++        systemHealth: {}
++      });
++    }
++    return json(route, { generatedAt: new Date().toISOString(), matches: [] });
++  });
++
++  await page.route("**/functions/v1/app-live-feed**", route =>
++    json(route, { generatedAt: new Date().toISOString(), matches: [] })
++  );
++
++  await page.route("**/functions/v1/app-match-detail?**", async route => {
++    if (detailDelayMs) await new Promise(resolve => setTimeout(resolve, detailDelayMs));
++    const unresolvedLineup = [{
++      id: 901,
++      hkjc_event_id: "FBRECOVERY",
++      team_side: "H",
++      player_key: "unresolved-player",
++      player_name: "Source Confirmed Player",
++      starter: true,
++      confirmed: true,
++      fact_status: "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED",
++      identity_status: "UNRESOLVED",
++      source_name: "FLASHSCORE_OFFICIAL"
++    }];
++    const fixture = detailCase === "unresolved" ? {
++      hkjc_event_id: "FBRECOVERY",
++      home_en: "Northbridge FC",
++      away_en: "Riverside United",
++      tournament: "Recovery League",
++      status: "PREEVENT",
++      kickoff_hkt: new Date(Date.now() + 3600000).toISOString(),
++      fetched_at: new Date().toISOString(),
++      odds_updated_at: new Date().toISOString(),
++      selling: true,
++      live_eligible: false,
++      had_home: null, had_draw: null, had_away: null,
++      hil_line: null, hil_over: null, hil_under: null,
++      chl_line: null, chl_over: null, chl_under: null
++    } : null;
++    return json(route, {
++      generatedAt: new Date().toISOString(),
++      id: "FBRECOVERY",
++      fixture,
++      fixtureSource: fixture ? "UPCOMING" : "MISSING",
++      models: {
++        form: { quality: "FORM_MODELED", home_games: 8, away_games: 8 },
++        forebet: null, internal: null, opta: null, multisource: null
++      },
++      humanFactors: {
++        summary: null, eventMap: null, playerStatus: [],
++        lineup: unresolvedLineup, lineupStrength: [], managers: []
++      },
++      scenario: [],
++      marketIntelligence: { mode: "DETECT_ONLY", value: [], arbitrage: [] }
++    });
++  });
++
++  await page.route("**/functions/v1/app-match-analysis?**", route =>
++    json(route, { error: "analysis_unavailable_for_recovery_fixture" }, 503)
++  );
++  await page.route("**/functions/v1/app-match-story?**", route =>
++    json(route, { error: "story_unavailable_for_recovery_fixture" }, 503)
++  );
++}
++
++test("feed outage is not presented as a successful zero-fixture feed", async ({ page }) => {
++  await routeRecoveryApis(page, { feed: "outage" });
++  await page.goto("http://127.0.0.1:4173/");
++  await expect(page.getByText("Fixture feed temporarily unavailable", { exact: true })).toBeVisible();
++  await expect(page.getByText(/Fixture counts remain unknown until the next successful source refresh/)).toBeVisible();
++  await expect(page.getByText("No fixtures are available in the current feed.", { exact: true })).toHaveCount(0);
++  await expect(page.locator(".ft-result-count")).toContainText("feed unavailable");
++});
++
++test("successful HTTP 200 empty feed remains a genuine zero-fixture state", async ({ page }) => {
++  await routeRecoveryApis(page, { feed: "empty" });
++  await page.goto("http://127.0.0.1:4173/");
++  await expect(page.getByText("No fixtures are available in the current feed.", { exact: true })).toBeVisible();
++  await expect(page.getByText("Fixture feed temporarily unavailable", { exact: true })).toHaveCount(0);
++  await expect(page.locator(".ft-result-count")).toContainText("0 matches shown");
++});
++
++test("outage after a successful refresh keeps rows but marks their freshness unknown", async ({ page }) => {
++  await page.addInitScript(() => {
++    const nativeSetInterval = window.setInterval.bind(window);
++    window.setInterval = (fn, delay, ...args) =>
++      nativeSetInterval(fn, delay === 60000 ? 150 : delay, ...args);
++  });
++  await routeRecoveryApis(page, { feed: "freshThenOutage" });
++  await page.goto("http://127.0.0.1:4173/");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
++  await expect(page.locator(".ft-result-count")).toContainText("cached matches · feed unavailable");
++  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-cached-outage.png", fullPage: true });
++});
++
++test("fresh feed match wins when missing canonical detail resolves later", async ({ page }) => {
++  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", detailDelayMs: 180 });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  const summary = page.locator("details.lineup-tool-disclosure > summary");
++  await expect(summary).toContainText("CANONICAL FIXTURE UNRESOLVED");
++  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-race-fresh-first.png", fullPage: true });
++});
++
++test("fresh feed match can recover the route after missing canonical detail resolves first", async ({ page }) => {
++  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", feedDelayMs: 180 });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  await page.screenshot({ path: "test-results/dashboard-desktop-recovery-race-detail-first.png", fullPage: true });
++});
++
++test("missing canonical fixture exits loading and unresolved lineup identity stays unknown", async ({ page }) => {
++  await routeRecoveryApis(page, { feed: "outage", detailCase: "missing" });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toBeVisible();
++  await expect(page.getByText("Loading match data…", { exact: true })).toHaveCount(0);
++  await expect(page.getByText(/Identity gate active/)).toBeVisible();
++
++  const summary = page.locator("details.lineup-tool-disclosure > summary");
++  await expect(summary).toContainText("CANONICAL FIXTURE UNRESOLVED");
++  await expect(summary).toContainText("—/11 home");
++  await expect(summary).not.toContainText("0/11 home");
++});
++
++test("source-confirmed unresolved player identity is not counted as 0/11", async ({ page }) => {
++  await routeRecoveryApis(page, { feed: "outage", detailCase: "unresolved" });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  const summary = page.locator("details.lineup-tool-disclosure > summary");
++  await expect(summary).toContainText("IDENTITY RECONCILIATION");
++  await expect(summary).toContainText("—/11 home");
++  await expect(summary).toContainText("identity not complete");
++  await expect(summary).not.toContainText("0/11 home");
++});
++
++test("mobile cached outage state is visibly marked freshness unknown", async ({ page }) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await page.addInitScript(() => {
++    const nativeSetInterval = window.setInterval.bind(window);
++    window.setInterval = (fn, delay, ...args) =>
++      nativeSetInterval(fn, delay === 60000 ? 150 : delay, ...args);
++  });
++  await routeRecoveryApis(page, { feed: "freshThenOutage" });
++  await page.goto("http://127.0.0.1:4173/");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  await expect(page.getByText(/Showing the last successful fixture list; freshness is unknown until refresh recovers/)).toBeVisible();
++  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-cached-outage.png", fullPage: true });
++});
++
++test("mobile fresh-first race keeps fresh match visible", async ({ page }) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", detailDelayMs: 180 });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible();
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-race-fresh-first.png", fullPage: true });
++});
++
++test("mobile detail-first race recovers to fresh match", async ({ page }) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await routeRecoveryApis(page, { feed: "fresh", detailCase: "missing", feedDelayMs: 180 });
++  await page.goto("http://127.0.0.1:4173/details/?id=FBRECOVERY");
++
++  await expect(page.getByText("Northbridge FC", { exact: true }).first()).toBeVisible({ timeout: 10000 });
++  await expect(page.getByText("Canonical fixture is unavailable", { exact: true })).toHaveCount(0);
++  await page.screenshot({ path: "test-results/dashboard-mobile-recovery-race-detail-first.png", fullPage: true });
++});
