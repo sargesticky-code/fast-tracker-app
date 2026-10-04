@@ -30,6 +30,9 @@ const FEED_URL =
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
 const ENRICHMENT_FEED_URL = FEED_URL;
+const LIVE_FEED_URL =
+  process.env.NEXT_PUBLIC_FAST_TRACKER_LIVE_FEED_URL ||
+  "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const HK_TIME_ZONE = "Asia/Hong_Kong";
 
 const AUTHORITY_KEYS = new Set([
@@ -37,6 +40,30 @@ const AUTHORITY_KEYS = new Set([
   "inPlay","liveEligible","liveNow","live","odds","market","handicap","goals","corners","updatedAt"
 ]);
 
+function mergeLiveOverlay(authorityFeed, liveFeed) {
+  const authorityMatches = Array.isArray(authorityFeed?.matches) ? authorityFeed.matches : [];
+  const liveMatches = Array.isArray(liveFeed?.matches) ? liveFeed.matches : [];
+  if (!authorityMatches.length || !liveMatches.length) return authorityFeed;
+  const liveById = new Map(liveMatches.filter((m) => m?.id).map((m) => [String(m.id), m]));
+  const matches = authorityMatches.map((authority) => {
+    if (!authority?.liveNow) return authority;
+    const liveRow = liveById.get(String(authority.id ?? ""));
+    if (!liveRow?.live) return authority;
+    return {
+      ...authority,
+      status: liveRow.status ?? authority.status,
+      inPlay: true,
+      liveNow: true,
+      liveEligible: true,
+      live: liveRow.live,
+    };
+  });
+  return {
+    ...authorityFeed,
+    matches,
+    liveOverlayGeneratedAt: liveFeed?.generatedAt ?? null,
+  };
+}
 function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
   const authorityMatches = Array.isArray(authorityFeed?.matches) ? authorityFeed.matches : [];
   const enrichmentMatches = Array.isArray(enrichmentFeed?.matches) ? enrichmentFeed.matches : [];
@@ -519,6 +546,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     let cancelled = false;
     let refreshInFlight = false;
     let enrichmentInFlight = false;
+    let liveInFlight = false;
 
     async function refreshAuthority() {
       if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
@@ -571,15 +599,39 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       }
     }
 
+    async function refreshLiveOverlay() {
+      if (cancelled || liveInFlight || document.visibilityState === "hidden") return;
+      liveInFlight = true;
+      try {
+        const res = await fetch(LIVE_FEED_URL + (LIVE_FEED_URL.includes("?") ? "&" : "?") + "_=" + Date.now(), {
+          cache: "no-store",
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!res.ok) return;
+        const livePayload = await res.json();
+        if (!Array.isArray(livePayload?.matches)) return;
+        if (!cancelled) setFeed((current) => mergeLiveOverlay(current, livePayload));
+      } catch {
+        // Live evidence is an overlay only. Authority fixtures remain visible
+        // if the live read lane is temporarily unavailable.
+      } finally {
+        liveInFlight = false;
+      }
+    }
+
     refreshAuthority();
+    const warmLive = setTimeout(refreshLiveOverlay, 800);
     const warmEnrichment = setTimeout(refreshEnrichment, 1500);
     const authorityTimer = setInterval(refreshAuthority, 60000);
+    const liveTimer = setInterval(refreshLiveOverlay, 30000);
     const enrichmentTimer = setInterval(refreshEnrichment, 300000);
 
     return () => {
       cancelled = true;
+      clearTimeout(warmLive);
       clearTimeout(warmEnrichment);
       clearInterval(authorityTimer);
+      clearInterval(liveTimer);
       clearInterval(enrichmentTimer);
     };
   }, []);
