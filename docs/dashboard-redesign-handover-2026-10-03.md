@@ -922,3 +922,27 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] Legacy fallback is future-only and non-live: it cannot turn an old `PREEVENT` row into a current live claim.
 - [x] Railway public UI code did not require a rebuild for this Edge-only recovery; the existing homepage already calls the canonical `app-phase1-feed?view=summary` endpoint and therefore picks up v65 without a frontend release.
 - [ ] Database/pg_cron contention remains real. `cron.max_running_jobs=32`, while the database has `max_connections=60` and `max_worker_processes=6`; startup timeouts have affected several independent jobs simultaneously. Do not claim live/lineup/model freshness fully recovered until natural producer evidence proves it.
+
+
+### Holistic cron/live recovery — 2026-10-04 06:44 UTC
+
+- [x] Production app-phase1-feed v65 has real runtime evidence: watchdog GET at 06:22:31 UTC returned HTTP 200 with deployment id ending in _65 and about 51 KB response.
+- [x] Current authority snapshot contains 57 upcoming fixtures inside 24h; HKJC upcoming snapshot remained fresh through 06:35 UTC.
+- [x] Live core is naturally updating again: three fresh HKJC live fixtures; live odds through 06:42 UTC and live score through 06:43 UTC.
+- [x] FotMob lineup producer recovered naturally at 06:22 UTC: 23 matched, 12 picked, 11 lineup matches, 442 promoted player rows, 200 bench rows, 5 injury rows and 17 manager rows.
+- [x] Root cron contention quantified over six hours. Highest startup-timeout counts were jobs 6, 17, 4 and 14; the repeated collision was monitoring/history work overlapping live producers.
+- [x] Producer cadence was preserved. Only non-producer monitoring/history schedules were deconflicted:
+  - job 14 -> 4,14,24,34,44,54 * * * *;
+  - job 17 -> 5,15,25,35,45,55 * * * *;
+  - job 8 -> 7,17,27,37,47,57 * * * *;
+  - job 15 -> 9,19,29,39,49,59 * * * *.
+- [x] Rollback schedules are recorded in migration 20261004064222_deconflict_live_guard_cron_schedules.sql.
+- [x] ft_refresh_live_layer_guard() no longer scans the full latest-detail view across about 47k history rows / about 123 MB. It now performs a per-live-fixture indexed latest-row lookup using the existing (hkjc_event_id, captured_at_hkt desc) index.
+- [x] Read-only EXPLAIN before release showed about 3.25 ms execution for the targeted lookup path on three live fixtures.
+- [x] First natural post-migration job-14 run at 06:44 UTC succeeded in 0.096s, versus roughly 10-32s immediately before optimization, while preserving the exact safety result: live=3, score_bad=0, stats_bad=0, shadow_bad=0, score_only=1, no_metrics=2.
+- [x] Two live matches now carry fresh FOOTBALL_LIVE_API_SELF_HOSTED score/minute evidence; the third remains HKJC score-only. Missing provider metrics remain explicitly no-metrics/score-only, never zero-filled.
+- [x] Database migrations are applied and source-controlled:
+  - production migration 20261004064150 optimize_live_layer_guard_current_detail_lookup, repo commit ee50aca1cad634c0da813143ec9a2cceba66f2d9;
+  - production migration 20261004064222 deconflict_live_guard_cron_schedules, repo commit b2ad4cbaf580f3735357206f221a9b58c154e662.
+- [ ] External live-detail coverage is still source-limited: two current matches return CAPTURED_NO_METRICS; one remains score-only, and SofaScore is returning 403. Do not fabricate xG/shots/corners for these cases.
+- [ ] Continue natural acceptance for Phase 4 and later lineup windows; no manual producer refresh was used for this recovery.
