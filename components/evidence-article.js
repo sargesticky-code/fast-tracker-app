@@ -95,14 +95,17 @@ function lineupState(deep) {
   if (eventMap?.lineup_confirmed_at && sourceConfirmedUnresolved > 0) {
     return ["PARTIAL", "Official lineup source confirmed · player identity reconciliation incomplete"];
   }
-  if (eventMap?.lineup_confirmed_at && rows.length > 0 && resolvedConfirmed === rows.length) {
-    return ["CONFIRMED", "Confirmed lineup with resolved player identities"];
-  }
+  const completeXI = ["H", "A"].every(side => {
+    const starters = rows.filter(row => (["H", "HOME"].includes(String(row.team_side).toUpperCase()) ? "H" : ["A", "AWAY"].includes(String(row.team_side).toUpperCase()) ? "A" : null) === side && row.starter === true);
+    const identities = starters.map(row => row.canonical_player_identity || row.player_key);
+    return starters.length === 11 && starters.every(row => row.fact_status === "CONFIRMED")
+      && identities.every(Boolean) && new Set(identities).size === 11;
+  });
+  const confirmed = deep?.humanFactors?.lineupAuthority?.confirmed ?? completeXI;
+  if (confirmed && completeXI) return ["CONFIRMED", "Confirmed lineup with resolved player identities"];
   if (rows.length) {
-    if (resolvedConfirmed > 0 && sourceConfirmedUnresolved === 0 && provisional === 0) {
-      return ["CONFIRMED", "Confirmed lineup with resolved player identities"];
-    }
     if (sourceConfirmedUnresolved > 0) return ["PARTIAL", "Source-confirmed lineup rows · player identity unresolved"];
+    if (resolvedConfirmed > 0 && provisional === 0) return ["PARTIAL", "Official source · starting XI incomplete"];
     return ["PREDICTED", "Predicted / provisional lineup"];
   }
   if (eventMap) return ["PENDING", "Lineup pending"];

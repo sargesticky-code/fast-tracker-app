@@ -716,7 +716,7 @@ test("stale market data disables an actionable article price", async ({ page }) 
   await expect(page.getByText("WATCH / SKIP")).toBeVisible();
 });
 
-test("confirmed lineup evidence is honored without event-map timestamp", async ({ page }) => {
+test("partial confirmed player rows do not confirm a whole lineup", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 820 });
   await mockApis(page, { confirmedLineup: true });
 
@@ -724,7 +724,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
-  await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
+  await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Official source · starting XI incomplete", { exact: true })).toBeVisible();
   await page.locator("#analysis details.ft-article-deep > summary").click();
   await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
 });
@@ -1058,3 +1058,21 @@ for (const width of [1280, 390]) {
     await page.screenshot({ path: `test-results/dashboard-phase2-partial-${width}.png`, fullPage: true });
   });
 }
+
+// A genuinely complete canonical official snapshot does not require the
+// unrelated API-Football event-map confirmation timestamp.
+test("complete canonical official XI confirms without event-map timestamp", async ({ page }) => {
+  await mockApis(page);
+  await page.route("**/functions/v1/app-match-detail?**", async route => {
+    const payload = detailPayload();
+    payload.humanFactors.eventMap = null;
+    payload.humanFactors.lineup = ["H", "A"].flatMap(side => Array.from({length:11}, (_,i) => ({
+      team_side:side, player_key:`CANONICAL-${side}-${i}`, canonical_player_identity:`${side}:${i}`,
+      player_name:`Test ${side} ${i}`, starter:true, confirmed:true, fact_status:"CONFIRMED", identity_status:"CANONICAL"
+    })));
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(payload)});
+  });
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1");
+  await expect(page.locator(".lineup-signal")).toContainText("Confirmed · identities resolved");
+  await expect(page.locator("#analysis .ft-article-safety-strip")).toContainText("Confirmed lineup with resolved player identities");
+});

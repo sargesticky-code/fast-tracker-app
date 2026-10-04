@@ -25,3 +25,14 @@ for (const name of ['app-match-detail','app-match-analysis']) {
 const sql=fs.readFileSync('docs/phase2-lineup-authority-review.sql','utf8');
 assert.ok(sql.includes('ORDER BY (stats.confirmed_rows > 0) DESC,'));
 console.log('Lineup authority passed: current display eligibility, fixture isolation, exact distinct canonical XIs, unknown fail-closed, durable provenance, confirmed-first SQL.');
+
+const article = fs.readFileSync('components/evidence-article.js','utf8');
+const articleFunction = article.slice(article.indexOf('function lineupState(deep)'), article.indexOf('function sampleRows(deep)'));
+const articleState = new Function(articleFunction + '; return lineupState;')();
+const deep = (rows, authority) => ({humanFactors:{lineup:rows,lineupAuthority:authority,eventMap:{lineup_confirmed_at:'2026-01-01'}}});
+assert.equal(articleState(deep(xi))[0], 'CONFIRMED');
+assert.equal(articleState(deep(xi.slice(1)))[0], 'PARTIAL');
+assert.equal(articleState(deep(xi,{confirmed:false}))[0], 'PARTIAL');
+assert.notEqual(articleState(deep(xi.slice(1),{confirmed:true}))[0], 'CONFIRMED');
+assert.equal(articleState({humanFactors:{lineup:xi,eventMap:null}})[0], 'CONFIRMED');
+console.log('Actual article confirmation function passed: full/partial XI, authoritative rejection and timestamp independence.');

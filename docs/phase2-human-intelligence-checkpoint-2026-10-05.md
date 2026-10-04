@@ -12,7 +12,7 @@ Both detail and analysis read raw `phase2_match_lineup_evidence`, bypassing sele
 
 - Both APIs read `phase2_lineup_display_current` and only expose explicitly eligible rows from the exact requested fixture and a valid side. No raw-history fallback on empty/error. Underlying `phase2_match_lineup_evidence:<id>` provenance is preserved.
 - Shared helper requires exactly eleven distinct canonical source-confirmed starters per side. Missing/unresolved identities, partial/overfull/duplicate XIs and predictions cannot confirm 11v11. Event-map timestamps alone cannot confirm an XI; a complete official snapshot does not require an API-Football timestamp.
-- Detail publishes lineupAuthority status/confirmation. Team News consumes it; partial official rows get an explicit incomplete-XI label.
+- Detail publishes lineupAuthority status/confirmation. Team News and the article safety strip consume it; partial official rows get an explicit incomplete-XI label.
 - Added executable helper tests and desktop/mobile partial-XI browser regression cases; CI runs the authority check.
 
 ## Database authority defect and review SQL
@@ -32,5 +32,5 @@ No DB writes, migrations, Edge deployment, Railway deployment, producer modifica
 - Canonical view has a rolling upcoming window (-2h/+48h); later live and historical detail may legitimately return NO_CURRENT_LINEUP. Preserve unknown state; investigate a current/history authority service before adding raw fallback.
 - Latest-fetch selection is still per provider, not per authority class: audit whether a provider can emit predictions after confirmation before changing its snapshot logic.
 - Canonical player reconciliation remains the ingestion dependency. Do not manufacture player registry mappings from names.
-- LineupPanel still suppresses identity-annotated predicted rows and strength side matching expects HOME/AWAY. Audit actual strength method and importance coverage before enabling a percentage; never convert null strength to zero or equate XI completeness to team strength.
+- LineupPanel still suppresses identity-annotated predicted rows. Actual strength view uses HOME/AWAY (matching this UI), V1_COMPLETENESS_INDEX, and a starter-count formula with raw unavailable-record penalties. Census: 10 known completeness percentages and 14 unknown sides. All 704 eligible predicted rows had zero canonical registry matches. Audit importance, identity, status deduplication and freshness before presenting football strength; never convert null strength to zero or equate XI completeness to team strength.
 - This batch does not repair provider coverage or invent missing players. Confirmed-first SQL must be released before claiming end-to-end authority precedence in production.
