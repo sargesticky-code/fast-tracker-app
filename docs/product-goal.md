@@ -471,3 +471,16 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Read-only root-cause evidence: job 23 `phase4-market-refresh` runs every 5m; its 02:50 `phase4.refresh_core()` invocation remained active into the 02:52 lineup window and timed out at ~02:52:10 inside `phase4.refresh_model_consensus()`. That function deletes and rebuilds `phase4.model_consensus_current` from matches/model_predictions/forebet_predictions. The overlap coincides with cron startup timeouts for live/lineup work.
 - [ ] No cron/function DB write changes were made. Exact additional authorization required for the next root fix: permission to modify the Phase 4 DB-writing refresh implementation and/or its cron timing, through a reviewed migration/schedule change. Until authorized, keep job 23/6/16/17/36 schedules unchanged and treat missing natural producer runs as upstream cron/DB-pressure blocked, not as Edge-code failure.
 - [ ] Next independent safe verification: observe the next natural lineup/live invocation after a non-overlapping window and verify source_health/current-fixture rows; observe a natural story v29 request before claiming article runtime recovery.
+
+
+### Phase 4 schedule applied — 2026-10-04 03:45 UTC
+
+- [x] Human explicitly approved PR28's schedule-only change.
+- [x] Pre-change live verification matched the reviewed contract exactly: job 23 `phase4-market-refresh`, active=true, command `select phase4.refresh_core();`, schedule `0,5,10,15,20,25,30,35,40,45,50,55 * * * *`.
+- [x] Applied **only** the job-23 schedule change with `cron.alter_job`.
+- [x] Post-change verification at `2026-10-04 03:45:47.026953+00`: schedule `0,6,12,16,20,26,30,36,40,46,50,54 * * * *`; active remained true; command remained exactly `select phase4.refresh_core();`.
+- [x] No function/schema/index changes; no manual Phase 4 refresh; no manual live/lineup producer invocation.
+- [x] The 03:45 job-23 start was pre-change/old-schedule work and timed out together with jobs 6/17; it is excluded from post-change acceptance.
+- [ ] First post-change natural job-23 run started at `03:46:01.531 UTC`; completion/status still pending at this checkpoint.
+- [ ] Acceptance remains: six natural Phase 4 runs, then natural jobs 6/16/17 and next lineup job 36 reaching Edge, while consensus/value/arb/freshness contracts remain preserved.
+- [ ] Rollback remains the reviewed original schedule: `0,5,10,15,20,25,30,35,40,45,50,55 * * * *`.
