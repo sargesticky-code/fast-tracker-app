@@ -981,3 +981,17 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] Railway then built exact main merge e11aff31c2dbbf615398dc9d9765158ad6acb492. Deployment d796d181-73e1-479f-9f61-3709ec4a28d9 reached SUCCESS; service is Online with 1/1 replica, zero recent failures and no warning/critical notifications.
 - [x] Phase 4 remained healthy during this work; latest natural job-23 runs through 07:26 UTC continued to succeed in roughly 0.26-0.57s.
 - [ ] Remaining limitation is genuine upstream metric coverage for lower-coverage matches. Current production live stats for FB6136 still contain no team xG/shots/corners. Keep these unknown; the recovered event lane does not mean full live stats are available.
+
+### Live provider event recovery — 2026-10-04 08:06 UTC
+
+- [x] PR32 `Parse grouped FotMob live events` merged as `e285b3d302d62545b5910dc1412dc4f372468f32`; CI run `37185235243` completed successfully across the existing contract/safety/build/render suite.
+- [x] Production `live-source-shadow` is v8, build `SUPABASE-LIVE-SHADOW-20261004-2`, matching the source-controlled grouped-event parser.
+- [x] Verified provider payload for FotMob match `5836296` returned HTTP 200. Coverage level is `lower`; `content.stats` is null, but `header.events` is a grouped object containing real goal events.
+- [x] Parser now recursively flattens and deduplicates actual FotMob event objects instead of accepting arrays only. It does not infer xG, shots, possession, corners, or any absent statistics.
+- [x] Natural shadow run at 07:58 UTC recovered FB6136 detail as `CAPTURED` with exactly 2 provider events, 0 team-stat rows, 0 momentum rows and null corners. This replaces the earlier false `CAPTURED_NO_METRICS` classification for that match.
+- [x] `LIVE_SHADOW_COMPARE` naturally recovered to OK at 07:55 UTC: coverage 1/1, score agreement 1/1, provider source-id comparison 0/0 when namespaces are not comparable, detail 1.
+- [x] Source-id comparison semantics are durable in migration `20261004071145_fix_live_shadow_source_id_namespace_comparison.sql`; HKJC ids are never compared directly to FotMob/SofaScore ids.
+- [x] `LIVE_LAYER_GUARD` now distinguishes `events_only` from `no_metrics`. Verified provider events can be present while xG/shots/corners remain unknown; this remains a WARN/source-limit state rather than pretending full stats exist.
+- [x] Production migration `20261004080635 classify_verified_shadow_events_in_live_guard` applied and source-controlled in commit `aabfd8d099a5f6449c59e7b415001f84cac3b56e`.
+- [ ] SofaScore remains HTTP 403 from the current environment. Treat it as an unavailable fallback, not as evidence of zero coverage.
+- [ ] Lower-coverage FotMob matches can legitimately provide event/lineup evidence without team statistics. Public UI should show verified events while leaving unavailable statistical metrics unknown.
