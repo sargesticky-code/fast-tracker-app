@@ -899,3 +899,15 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [ ] First post-change natural job-23 run started at `03:46:01.531 UTC`; completion/status still pending at this checkpoint.
 - [ ] Acceptance remains: six natural Phase 4 runs, then natural jobs 6/16/17 and next lineup job 36 reaching Edge, while consensus/value/arb/freshness contracts remain preserved.
 - [ ] Rollback remains the reviewed original schedule: `0,5,10,15,20,25,30,35,40,45,50,55 * * * *`.
+
+
+### Cron saturation + public authority fallback recovery — 2026-10-04 04:20 UTC
+
+- [x] Job 23 remained exactly on the human-approved schedule `0,6,12,16,20,26,30,36,40,46,50,54 * * * *`, active, command unchanged as `select phase4.refresh_core();`.
+- [x] Natural-run acceptance exposed the actual blocker instead of a Phase 4 code regression: job 23 succeeded at 03:46 UTC, then the 03:50, 03:54, 04:00, 04:06 and 04:12 runs failed with `job startup timeout`.
+- [x] The failure is database-wide cron contention, not job-23-only: at 04:12 UTC jobs 4, 8, 14, 23, 28 and 32 all logged startup timeouts. No additional cron change is made in this recovery.
+- [x] Deployed `app-phase1-feed` v63 also showed `full_feed_rpc_degraded` timeouts and `authority_snapshot_unavailable`, explaining why merged read-path fixes could still leave the public fixture list empty during database pressure.
+- [x] The legacy `football-fast-tracker` pipeline is still naturally updating on main. Its `data/hkjc_current.csv` remains a real HKJC-derived artifact and is used only as the third read-only fixture-authority fallback after both direct HKJC summary and Supabase last-good snapshot fail.
+- [x] The fallback reuses the existing authority freshness gate. Stale rows keep fixture identity only; HDA/handicap/goals/corners prices and model actionability remain suppressed. Unknown/stale is never converted to zero or a fabricated recommendation.
+- [x] No DB write, migration, schema/index, model formula, provider expansion, spend change, manual refresh, producer trigger or further cron edit is part of this patch.
+- [ ] Systemic cron capacity remains a separate operational dependency. The public homepage must no longer become blank because of that dependency, but ingest/live freshness can still degrade until cron workload is consolidated or otherwise given more execution headroom.

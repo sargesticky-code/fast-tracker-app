@@ -213,6 +213,111 @@ function noVig(home: unknown, draw: unknown, away: unknown) {
   return { home: ih / total, draw: id / total, away: ia / total };
 }
 
+
+const LEGACY_HKJC_AUTHORITY_URL =
+  "https://raw.githubusercontent.com/sargesticky-code/football-fast-tracker/main/data/hkjc_current.csv";
+
+function parseCsvRecords(text: string) {
+  const src = String(text ?? "").replace(/^\uFEFF/, "");
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else {
+          quoted = false;
+        }
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      quoted = true;
+    } else if (ch === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\n") {
+      row.push(cell.replace(/\r$/, ""));
+      if (row.some((value) => value !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+  if (cell.length || row.length) {
+    row.push(cell.replace(/\r$/, ""));
+    if (row.some((value) => value !== "")) rows.push(row);
+  }
+  if (rows.length < 2) return [];
+  const header = rows[0].map((value) => value.trim());
+  return rows.slice(1).map((values) =>
+    Object.fromEntries(header.map((key, i) => [key, values[i] ?? ""]))
+  );
+}
+
+function csvBool(value: unknown) {
+  return ["1", "true", "yes", "y"].includes(String(value ?? "").trim().toLowerCase());
+}
+
+async function legacyGithubAuthorityFallback(hours: number) {
+  const res = await fetch(LEGACY_HKJC_AUTHORITY_URL, {
+    headers: { Accept: "text/csv" },
+    signal: AbortSignal.timeout(6_000),
+  });
+  if (!res.ok) throw new Error(`github_authority_http_${res.status}`);
+  const parsed = parseCsvRecords(await res.text());
+  const nowMs = Date.now();
+  const endMs = nowMs + hours * 60 * 60 * 1000;
+  const rows: any[] = [];
+  let newestFetchedAt: string | null = null;
+
+  for (const raw of parsed) {
+    const eventId = String(raw.hkjc_event_id ?? "").trim();
+    const kickoff = String(raw.kickoff_hkt ?? "").trim();
+    const kickoffMs = Date.parse(kickoff);
+    if (!eventId || !Number.isFinite(kickoffMs)) continue;
+    if (kickoffMs < nowMs || kickoffMs >= endMs) continue;
+    const ended = ["MATCHENDED", "INPLAYMATCHENDED"].includes(String(raw.status ?? "").toUpperCase());
+    const selling = csvBool(raw.selling) || String(raw.pool_status ?? "").toUpperCase() === "SELLINGSTARTED";
+    if (ended || !selling) continue;
+
+    const fetchedAt = String(raw.fetched_at_hkt ?? "").trim() || null;
+    if (fetchedAt && (!newestFetchedAt || Date.parse(fetchedAt) > Date.parse(newestFetchedAt))) {
+      newestFetchedAt = fetchedAt;
+    }
+    rows.push({
+      ...raw,
+      fetched_at: fetchedAt,
+      live_eligible: false,
+      hdc_line: raw.hdc_line || null,
+      hdc_home: raw.hdc_home || null,
+      hdc_away: raw.hdc_away || null,
+      updated_at: fetchedAt,
+    });
+  }
+
+  if (!rows.length) throw new Error("github_authority_empty");
+  return {
+    source: "github-hkjc-authority-fallback",
+    rows: rows.map((row) => ({ row, liveNow: false })),
+    diagnostics: {
+      upstream: "UNAVAILABLE",
+      snapshot: "UNAVAILABLE",
+      github: "OK",
+      fetchedAt: newestFetchedAt,
+      rowCount: rows.length,
+    },
+  };
+}
+
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
   const pricesFresh = freshness.status === "FRESH";
@@ -542,7 +647,12 @@ Deno.serve(async (req: Request) => {
           winner = await upstreamPromise;
         } catch (upstreamError) {
           console.error("summary_direct_hkjc_failed_using_snapshot", upstreamError);
-          winner = await snapshotPromise;
+          try {
+            winner = await snapshotPromise;
+          } catch (snapshotError) {
+            console.error("summary_snapshot_failed_using_github_authority", snapshotError);
+            winner = await legacyGithubAuthorityFallback(hours);
+          }
         }
         const byId = new Map<string, any>();
         for (const item of winner.rows ?? []) {
@@ -561,8 +671,14 @@ Deno.serve(async (req: Request) => {
           systemHealth: {
             authorityMode: {
               status: "OK",
-              value: winner.source === "hkjc-official-direct" ? "HKJC_DIRECT_UPSTREAM" : "LAST_GOOD_AUTHORITY_SNAPSHOT",
-              notes: "Homepage fixtures are served independently of model/story enrichment.",
+              value: winner.source === "hkjc-official-direct"
+                ? "HKJC_DIRECT_UPSTREAM"
+                : winner.source === "hkjc-authority-snapshot"
+                  ? "LAST_GOOD_AUTHORITY_SNAPSHOT"
+                  : "LEGACY_GITHUB_AUTHORITY_FALLBACK",
+              notes: winner.source === "github-hkjc-authority-fallback"
+                ? "Homepage fixture identity is using the read-only legacy HKJC artifact because direct and DB authority lanes are unavailable; stale prices remain suppressed."
+                : "Homepage fixtures are served independently of model/story enrichment.",
               observedAt: new Date().toISOString(),
               raw: winner.diagnostics,
             },
