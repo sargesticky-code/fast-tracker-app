@@ -152,6 +152,7 @@ Deno.serve(async (req: Request) => {
     const statsMap = new Map<string, any>();
     const detailMap = new Map<string, any>();
     const shadowMap = new Map<string, any>();
+    const shadowDetailMap = new Map<string, any>();
 
     const readHealth: Record<string, any> = {
       market: { status: "OK", source: marketSource },
@@ -159,12 +160,13 @@ Deno.serve(async (req: Request) => {
       stats: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       detail: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       shadow: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
+      shadowDetail: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       heartbeats: { status: "PENDING" },
     };
     let heartbeats: any[] = [];
 
     if (ids.length) {
-      const [scoreResult, statsResult, detailResult, shadowResult, heartbeatResult] = await Promise.all([
+      const [scoreResult, statsResult, detailResult, shadowResult, shadowDetailResult, heartbeatResult] = await Promise.all([
         db.from("live_score_current")
           .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
           .in("hkjc_event_id", ids)
@@ -178,6 +180,9 @@ Deno.serve(async (req: Request) => {
         db.from("live_expected_actual_current")
           .select("hkjc_event_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,model_hda_consensus,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt")
           .in("hkjc_event_id", ids),
+        db.from("live_detail_shadow_current")
+          .select("hkjc_event_id,captured_at,source,source_match_id,detail_status,events")
+          .in("hkjc_event_id", ids),
         db.from("source_health")
           .select("source,status,observed_at")
           .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
@@ -189,6 +194,7 @@ Deno.serve(async (req: Request) => {
         stats: statsResult,
         detail: detailResult,
         shadow: shadowResult,
+        shadowDetail: shadowDetailResult,
         heartbeats: heartbeatResult,
       };
       for (const [lane, result] of Object.entries(laneResults)) {
@@ -202,6 +208,7 @@ Deno.serve(async (req: Request) => {
       const stats = statsResult.data ?? [];
       const details = detailResult.data ?? [];
       const shadows = shadowResult.data ?? [];
+      const shadowDetails = shadowDetailResult.data ?? [];
       heartbeats = heartbeatResult.data ?? [];
 
       for (const row of scores ?? []) scoreMap.set(row.hkjc_event_id, row);
@@ -247,6 +254,20 @@ Deno.serve(async (req: Request) => {
           },
         });
       }
+      for (const row of shadowDetails ?? []) {
+        const age = row.captured_at ? (Date.now() - new Date(row.captured_at).getTime()) / 60000 : Infinity;
+        const events = Array.isArray(row.events) ? row.events : [];
+        if (!Number.isFinite(age) || age > 10 || String(row.detail_status || "").toUpperCase() !== "CAPTURED" || !events.length) continue;
+        shadowDetailMap.set(row.hkjc_event_id, {
+          capturedAt: row.captured_at ?? null,
+          detailStatus: row.detail_status ?? null,
+          source: row.source ?? null,
+          sourceMatchId: row.source_match_id ?? null,
+          eventsCount: events.length,
+          events,
+          provenance: "SHADOW_PROVIDER_DETAIL",
+        });
+      }
     }
 
     const rows = (marketRows ?? []).map((r: any) => {
@@ -288,6 +309,7 @@ Deno.serve(async (req: Request) => {
           detail: detailMap.get(r.hkjc_event_id) ?? null,
           stats: statsMap.get(r.hkjc_event_id) ?? null,
           shadow: shadowMap.get(r.hkjc_event_id) ?? null,
+          shadowDetail: shadowDetailMap.get(r.hkjc_event_id) ?? null,
         },
       };
     });
