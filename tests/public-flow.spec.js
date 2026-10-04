@@ -1044,3 +1044,118 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+
+const PROD_AUTH_BASE = "https://fast-tracker-app.sargesticky.workers.dev";
+
+async function authorityProductionAcceptance(browser, label, viewport, isMobile = false) {
+  const context = await browser.newContext({
+    viewport,
+    isMobile,
+    hasTouch: isMobile,
+    userAgent: isMobile
+      ? "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/154.0 Mobile Safari/537.36"
+      : undefined,
+  });
+  const page = await context.newPage();
+  const starts = new Map();
+  const calls = [];
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/app-") || req.url().includes("/functions/v1/hkjc-")) {
+      starts.set(req, Date.now());
+    }
+  });
+  page.on("response", (res) => {
+    if (!(res.url().includes("/functions/v1/app-") || res.url().includes("/functions/v1/hkjc-"))) return;
+    const req = res.request();
+    calls.push({
+      endpoint: res.url().split("/functions/v1/")[1]?.split("?")[0] || res.url(),
+      status: res.status(),
+      ms: starts.has(req) ? Date.now() - starts.get(req) : null,
+    });
+  });
+
+  const feedPromise = page.waitForResponse(
+    (res) => res.url().includes("/functions/v1/app-phase1-feed") && res.url().includes("view=summary"),
+    { timeout: 30000 }
+  ).catch(() => null);
+
+  const nav = await page.goto(PROD_AUTH_BASE + "/?authority_acceptance=" + label + "-" + Date.now(), {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
+  });
+  const feedRes = await feedPromise;
+  await page.waitForTimeout(2500);
+
+  let feed = null;
+  if (feedRes?.ok()) {
+    try { feed = await feedRes.json(); } catch {}
+  }
+  const matches = Array.isArray(feed?.matches) ? feed.matches : [];
+  const chosen = matches[0] || null;
+  const body = await page.locator("body").innerText().catch(() => "");
+
+  const result = {
+    label,
+    viewport,
+    homepageHttp: nav?.status() ?? null,
+    feedStatus: feedRes?.status() ?? null,
+    feedSource: feed?.source ?? null,
+    feedCount: matches.length,
+    unavailableText: body.includes("Fixture feed temporarily unavailable"),
+    chosen: null,
+    detail: null,
+    calls,
+  };
+
+  if (chosen?.id) {
+    result.chosen = {
+      id: chosen.id,
+      home: chosen.home ?? null,
+      away: chosen.away ?? null,
+      league: chosen.league ?? null,
+      kickoff: chosen.kickoff ?? null,
+      hkjcFreshness: chosen.health?.hkjcFreshness ?? null,
+      hkjcFetchAgeMinutes: chosen.health?.hkjcFetchAgeMinutes ?? null,
+      odds: chosen.odds ?? null,
+      market: chosen.market ?? null,
+      decision: chosen.decision ?? null,
+      decisionEdge: chosen.decisionEdge ?? null,
+      modelPresence: {
+        forebet: chosen.forebet != null,
+        dc: chosen.dc != null,
+        pi: chosen.pi != null,
+        form: chosen.form != null,
+        multi: chosen.multi != null,
+      },
+    };
+
+    const detailUrl = PROD_AUTH_BASE + "/details/?id=" + encodeURIComponent(chosen.id) + "&authority_acceptance=" + label;
+    const detailNav = await page.goto(detailUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(9000);
+    const detailText = await page.locator("body").innerText().catch(() => "");
+    result.detail = {
+      httpStatus: detailNav?.status() ?? null,
+      url: page.url(),
+      canonicalIdVisible: detailText.includes(String(chosen.id)),
+      matchAnalysisVisible: detailText.includes("FAST TRACKER MATCH ANALYSIS"),
+      unavailableVisible: detailText.includes("Match data is currently unavailable"),
+      canonicalMissingVisible: detailText.includes("Canonical fixture is unavailable"),
+      staleProtectionVisible: detailText.includes("Stale-price protection is active."),
+      unknownNotZeroVisible: detailText.includes("Unknown — not zero absences"),
+      hkjcVisible: detailText.includes("Hong Kong Jockey Club"),
+      englishArticleHeadingVisible: detailText.includes("Match Intelligence"),
+    };
+  }
+
+  console.log("AUTHORITY_ACCEPTANCE_" + label.toUpperCase() + " " + JSON.stringify(result));
+  await context.close();
+}
+
+test("production authority-first desktop acceptance", async ({ browser }) => {
+  await authorityProductionAcceptance(browser, "desktop", { width: 1365, height: 900 }, false);
+});
+
+test("production authority-first mobile acceptance", async ({ browser }) => {
+  await authorityProductionAcceptance(browser, "mobile", { width: 390, height: 844 }, true);
+});
