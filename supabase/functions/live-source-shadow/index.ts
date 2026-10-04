@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
-const BUILD = "SUPABASE-LIVE-SHADOW-20261004-3";
+const BUILD = "SUPABASE-LIVE-SHADOW-20261004-4";
 const DB_READ_TIMEOUT_MS = 8_000;
 const PROVIDER_TIMEOUT_MS = 8_000;
 const DETAIL_TIMEOUT_MS = 6_000;
@@ -384,15 +384,28 @@ Deno.serve(async (_req:Request)=>{
     const canonicalNames=[...new Set([...targets.values()].flatMap((t:any)=>[txt(t.home_en),txt(t.away_en)]).filter(Boolean))];
     const aliasMap=new Map<string,string[]>();
     if(canonicalNames.length){
-      const {data:aliasRows}=await db.from("team_alias_resolved_v2")
-        .select("hkjc_name_en,alias,confidence")
-        .in("hkjc_name_en",canonicalNames)
-        .gte("confidence",0.90);
-      for(const a of aliasRows||[]){
-        const k=txt(a.hkjc_name_en); if(!k||!txt(a.alias)) continue;
+      const [{data:aliasRows,error:aliasErr},{data:legacyAliasRows,error:legacyAliasErr}]=await Promise.all([
+        db.from("team_alias_resolved_v2")
+          .select("hkjc_name_en,alias,confidence")
+          .in("hkjc_name_en",canonicalNames)
+          .gte("confidence",0.90),
+        db.from("team_aliases")
+          .select("source,alias,canonical_hkjc_name,confidence,status")
+          .in("canonical_hkjc_name",canonicalNames)
+          .in("source",["FOTMOB","SOFASCORE"])
+          .eq("status","ACTIVE")
+          .gte("confidence",0.94),
+      ]);
+      if(aliasErr) throw aliasErr;
+      if(legacyAliasErr) throw legacyAliasErr;
+      const addAlias=(canonical:any,alias:any)=>{
+        const k=txt(canonical),v=txt(alias); if(!k||!v) return;
         if(!aliasMap.has(k)) aliasMap.set(k,[]);
-        aliasMap.get(k)!.push(txt(a.alias));
-      }
+        const list=aliasMap.get(k)!;
+        if(!list.includes(v)) list.push(v);
+      };
+      for(const a of aliasRows||[]) addAlias(a.hkjc_name_en,a.alias);
+      for(const a of legacyAliasRows||[]) addAlias(a.canonical_hkjc_name,a.alias);
     }
     for(const t of targets.values()){
       t._home_aliases=aliasMap.get(txt(t.home_en))||[];
