@@ -188,6 +188,96 @@ function compactLiveStats(row: any) {
   };
 }
 
+function authorityFreshness(fetchedAt: unknown) {
+  if (!fetchedAt) return { status: "MISSING", ageMinutes: null };
+  const ageMinutes = Math.max(0, (Date.now() - new Date(String(fetchedAt)).getTime()) / 60000);
+  if (!Number.isFinite(ageMinutes)) return { status: "UNKNOWN", ageMinutes: null };
+  if (ageMinutes > 15 * 60) return { status: "STALE", ageMinutes };
+  if (ageMinutes > 13 * 60) return { status: "AGING", ageMinutes };
+  return { status: "FRESH", ageMinutes };
+}
+
+function noVig(home: unknown, draw: unknown, away: unknown) {
+  const h = num(home), d = num(draw), a = num(away);
+  if (h == null || d == null || a == null || h <= 1 || d <= 1 || a <= 1) return null;
+  const ih = 1 / h, id = 1 / d, ia = 1 / a;
+  const total = ih + id + ia;
+  if (!(total > 0)) return null;
+  return { home: ih / total, draw: id / total, away: ia / total };
+}
+
+function directAuthoritySummaryRow(r: any, liveNow = false) {
+  const freshness = authorityFreshness(r.fetched_at);
+  return {
+    id: r.hkjc_event_id,
+    kickoff: r.kickoff_hkt,
+    status: r.status ?? null,
+    league: r.tournament ?? null,
+    leagueZh: r.tournament_zh ?? null,
+    home: r.home_en ?? null,
+    away: r.away_en ?? null,
+    homeZh: r.home_zh ?? null,
+    awayZh: r.away_zh ?? null,
+    inPlay: liveNow,
+    liveEligible: Boolean(liveNow || r.live_eligible),
+    liveNow,
+    live: liveNow ? {
+      status: r.status ?? null,
+      fetchedAt: r.fetched_at ?? null,
+      poolStatus: r.pool_status ?? null,
+      oddsUpdatedAt: r.odds_updated_at ?? null,
+      odds: { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) },
+      handicap: { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) },
+      goals: { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) },
+      corners: { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) },
+      score: null,
+      stats: null,
+      shadow: null,
+    } : null,
+    odds: { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) },
+    market: noVig(r.had_home, r.had_draw, r.had_away),
+    handicap: { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) },
+    handicapAdvice: { status: "NO_MODEL", line: r.hdc_line ?? null, reason: "Model enrichment unavailable in summary recovery mode" },
+    goals: { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) },
+    corners: { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) },
+    forebetDetail: null,
+    multisourceDetail: null,
+    forebet: null,
+    dc: null,
+    dcDetail: null,
+    pi: null,
+    piDetail: null,
+    form: null,
+    formDetail: null,
+    multi: null,
+    health: {
+      status: freshness.status === "FRESH" ? "OK" : "ATTENTION",
+      primaryMissingReason: "SUMMARY_AUTHORITY_ONLY",
+      diagnostics: freshness.status === "FRESH" ? [] : ["HKJC_AUTHORITY_" + freshness.status],
+      hkjcFetchedAt: r.fetched_at ?? null,
+      hkjcPriceChangedAt: r.odds_updated_at ?? null,
+      hkjcMarketCapturedAt: r.fetched_at ?? null,
+      hkjcFetchAgeMinutes: freshness.ageMinutes,
+      hkjcFreshness: freshness.status,
+      evidenceChannelCount: 0,
+      multisourceMemberCount: 0,
+      missingCanonical1x2: true,
+      unifiedCoverageStatus: "HKJC_ONLY",
+      coverageExplanation: "HKJC fixture authority is available; model enrichment is temporarily unavailable.",
+    },
+    decision: null,
+    decisionMarket: null,
+    decisionSelection: null,
+    decisionEdge: null,
+    engineVersion: null,
+    oddsMovement: null,
+    power: null,
+    storySummary: null,
+    sourceContext: null,
+    updatedAt: r.updated_at ?? r.fetched_at ?? null,
+  };
+}
+
 function getServerKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
@@ -221,6 +311,61 @@ Deno.serve(async (req: Request) => {
     if (!supabaseUrl || !serverKey) throw new Error("server_config_missing");
 
     const db = createReadClient(supabaseUrl, serverKey);
+
+    if (summaryOnly) {
+      const now = new Date();
+      const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
+      const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+      const [upcomingResult, liveResult] = await Promise.all([
+        db.from("hkjc_upcoming_current")
+          .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,live_eligible,selling,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
+          .eq("selling", true)
+          .gte("kickoff_hkt", now.toISOString())
+          .lt("kickoff_hkt", end.toISOString())
+          .order("kickoff_hkt", { ascending: true }),
+        db.from("hkjc_live_odds_current")
+          .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
+          .gte("fetched_at", liveCutoff)
+          .eq("pool_status", "SELLINGSTARTED"),
+      ]);
+
+      if (!upcomingResult.error || !liveResult.error) {
+        const byId = new Map<string, any>();
+        for (const row of upcomingResult.data ?? []) {
+          if (!row?.hkjc_event_id) continue;
+          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, false));
+        }
+        for (const row of liveResult.data ?? []) {
+          if (!row?.hkjc_event_id) continue;
+          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, true));
+        }
+        const directMatches = [...byId.values()].sort((a, b) => String(a.kickoff ?? "").localeCompare(String(b.kickoff ?? "")));
+        if (directMatches.length > 0) {
+          return Response.json({
+            generatedAt: new Date().toISOString(),
+            source: "hkjc-authority-direct",
+            view: "summary",
+            windowHours: hours,
+            count: directMatches.length,
+            systemHealth: {
+              authorityMode: {
+                status: upcomingResult.error && liveResult.error ? "FAIL" : "OK",
+                value: "DIRECT_AUTHORITY",
+                notes: "Summary recovery bypasses model/enrichment RPC so fixtures remain visible.",
+                observedAt: new Date().toISOString(),
+                raw: {
+                  upcomingError: upcomingResult.error ? String(upcomingResult.error.message ?? upcomingResult.error) : null,
+                  liveError: liveResult.error ? String(liveResult.error.message ?? liveResult.error) : null,
+                },
+              },
+            },
+            matches: directMatches,
+          }, {
+            headers: { ...corsHeaders, "Cache-Control": "public, max-age=5, stale-while-revalidate=30" },
+          });
+        }
+      }
+    }
 
     const { data, error } = await db.rpc("ft_internal_app_phase1_feed", {
       window_hours: hours,
