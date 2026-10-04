@@ -961,3 +961,23 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] Latest live core remained fresh at 07:04 UTC. LIVE_SOURCE_SHADOW reported 1/1 identity/live coverage. LIVE_LAYER_GUARD reported score_bad=0, stats_bad=0 and shadow_bad=0.
 - [ ] Remaining live-detail limitation is upstream/source coverage, not scheduler failure: the current live case is CAPTURED_NO_METRICS and source-id agreement is unresolved. Preserve this as no-metrics/unknown; do not synthesize xG, shots, corners or false independent evidence.
 - [ ] SofaScore 403 / provider detail availability and unresolved canonical provider IDs remain external dependencies. They are not considered fixed by presentation or scheduling changes.
+
+### Live provider/event and Railway deployment recovery — 2026-10-04 07:27 UTC
+
+- [x] Fixed a false LIVE_SHADOW_COMPARE source-id warning. The old view compared raw provider ids across namespaces (for example HKJC 50076511 vs FotMob 5836296). Production migration 20261004071145 now compares source ids only when provider namespaces are comparable; FOOTBALL_LIVE_API_SELF_HOSTED is mapped to the FOTMOB namespace because that lane uses the verified FotMob identity.
+- [x] Natural job-17 acceptance at 07:15 UTC returned LIVE_SHADOW_COMPARE=OK with coverage=1/1, score=1/1 and id=0/0. Cross-provider ids are correctly non-comparable rather than false disagreement.
+- [x] Migration source is committed as supabase/migrations/20261004071145_fix_live_shadow_source_id_namespace_comparison.sql at d2f7e4bb564d6edb28cdddc0c12b1fc1d3f355da.
+- [x] A read-only FotMob detail sample for current live match FB6136 / source match 5836296 proved the provider payload contains two real goal events while team stats/xG/shotmap metrics are absent at coverageLevel=lower. Missing metrics therefore remain unknown.
+- [x] Fixed the verified FotMob parser gap in PR32, merged as e285b3d302d62545b5910dc1412dc4f372468f32. FotMob header.events may now be a grouped object; live-source-shadow flattens and deduplicates real event objects instead of accepting arrays only.
+- [x] PR32 CI run 37185235243 passed all contract, safety, static build, route and desktop/mobile rendered-flow checks.
+- [x] Exact merged live-source-shadow deployed as v8, Edge SHA ca6bd11d1dcdd5ed49ec54ed66e64f123a0023c9df873d515b270ba523f0f41a.
+- [x] Natural v8 runs at 07:18 and 07:23 UTC succeeded. FB6136 changed from CAPTURED_NO_METRICS in the shadow lane to CAPTURED with exactly two verified events: Tsubasa Umeki goal 2' and Daiki Sato goal 10'. team_stats_count remains 0 and momentum_count remains 0.
+- [x] Exposed these events as a separate fail-closed public evidence lane in PR33, merged as e11aff31c2dbbf615398dc9d9765158ad6acb492. app-live-feed only accepts CAPTURED, non-empty provider events no older than 10 minutes and labels provenance SHADOW_PROVIDER_DETAIL.
+- [x] Public live UI now has a separate EVENTS lane and explicitly labels CAPTURED_NO_METRICS as no metrics. Provider events are not promoted into xG, shots, corners, production stats, Expected-vs-Actual metrics, model inputs or betting recommendations.
+- [x] PR33 CI run 37185623861 passed all contract/safety checks, static build/routes and desktop/mobile rendered flow.
+- [x] Exact merged app-live-feed deployed as v10, Edge SHA 64c59dafc77b3b1951c91369b3a8fad16cb93bfadc8065829cc18b095f7f675c.
+- [x] Real production app-live-feed verification for FB6136 returned HTTP 200 with shadowDetail.eventsCount=2 and both verified goal events, while live.stats remained null and production detail remained CAPTURED_NO_METRICS.
+- [x] Found why recent visible frontend changes had not reached Railway: fast-tracker-public was pinned to old commit 13f41ddef79a20a6232a6a23d56822726d7193f7. The pin was removed and the same GitHub repo was reconnected to main without changing domain, build command, hosting project or environment.
+- [x] Railway then built exact main merge e11aff31c2dbbf615398dc9d9765158ad6acb492. Deployment d796d181-73e1-479f-9f61-3709ec4a28d9 reached SUCCESS; service is Online with 1/1 replica, zero recent failures and no warning/critical notifications.
+- [x] Phase 4 remained healthy during this work; latest natural job-23 runs through 07:26 UTC continued to succeed in roughly 0.26-0.57s.
+- [ ] Remaining limitation is genuine upstream metric coverage for lower-coverage matches. Current production live stats for FB6136 still contain no team xG/shots/corners. Keep these unknown; the recovered event lane does not mean full live stats are available.
