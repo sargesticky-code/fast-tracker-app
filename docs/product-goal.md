@@ -442,3 +442,20 @@ Routine development, testing, debugging and transitions between already agreed p
 - [ ] Full HKJC live write path still has an intermittent long/500 sample; not required by homepage authority summary but remains a separate robustness gap.
 - [ ] Overall product goal is not complete.
 - [ ] Next bounded task: current-fixture analysis/detail enrichment chain only; no generic DB investigation or DB/cron/index/compute changes without new authorization.
+
+
+### Current-main acceptance after PR #20
+
+- [x] Current main = `a2f6ba43051a4c2622ea2a138e9175506f5e351e`.
+- [x] PR #20 source `61b39320d43458964fa3df139a16e6fbfbd723aa`, CI `37167427092` SUCCESS.
+- [x] Cloudflare build `95b7d5be-9909-4372-ba87-9764f3328407`, Version `c9f8fd3c-38bf-46b9-995d-d80921439c7f`.
+- [x] Final current-production acceptance `37167649729`: 34/34.
+- [x] Desktop/mobile homepage source = `hkjc-official-direct`, **61 current fixtures**.
+- [x] Current fixture FB6219 opens on both viewports with canonical ID, HKJC, stale-price guard and unknown≠zero visible.
+- [x] Current Phase-1 summary 200 in ~0.97–1.85s; no unavailable state.
+- [x] Authority summary still keeps decisions/models null unless enrichment succeeds.
+- [ ] Current detail endpoint is usable but slow (~15.3s).
+- [ ] Current analysis endpoint still 503 after ~30.2s.
+- [ ] No substantive English article observed in the final current-main sample.
+- [ ] Overall product goal remains incomplete.
+- [ ] Next bounded task: isolate the current-fixture analysis enrichment failure only; do not reopen generic DB-trigger work or force ingest.
