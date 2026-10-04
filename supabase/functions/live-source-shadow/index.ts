@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
-const BUILD = "SUPABASE-LIVE-SHADOW-20261004-2";
+const BUILD = "SUPABASE-LIVE-SHADOW-20261004-3";
 const DB_READ_TIMEOUT_MS = 8_000;
 const PROVIDER_TIMEOUT_MS = 8_000;
 const DETAIL_TIMEOUT_MS = 6_000;
@@ -582,15 +582,28 @@ Deno.serve(async (_req:Request)=>{
     const matched=out.filter(x=>x.source!=="SOURCE_GAP").length;
     const liveTargets=out.filter(x=>x.target_state==="LIVE").length;
     const liveMatched=out.filter(x=>x.target_state==="LIVE"&&x.source!=="SOURCE_GAP").length;
-    const status=fotmobError&&sofaError?"FAIL":matched<out.length&&out.length?"WARN":"OK";
+    const prewarmTargets=out.length-liveTargets;
+    const prewarmMatched=matched-liveMatched;
+    const liveGaps=Math.max(0,liveTargets-liveMatched);
+    const providersUnavailable=Boolean(fotmobError&&sofaError);
+    const status=liveGaps>0
+      ? (providersUnavailable?"FAIL":"WARN")
+      : (!liveTargets&&providersUnavailable&&out.length?"WARN":"OK");
+    const notes=!out.length
+      ? "Supabase-native shadow idle; no live/prewarm targets."
+      : liveGaps>0
+        ? `Live shadow coverage ${liveMatched}/${liveTargets}; total identity coverage ${matched}/${out.length}.`
+        : prewarmMatched<prewarmTargets
+          ? `Live shadow healthy ${liveMatched}/${liveTargets}; prewarm provider coverage ${prewarmMatched}/${prewarmTargets} is non-blocking before kickoff.`
+          : `Supabase-native shadow identity matched ${matched}/${out.length}; live ${liveMatched}/${liveTargets}.`;
     await db.from("source_health").upsert({
       source:"LIVE_SOURCE_SHADOW",metric:"heartbeat",status,
       value_text:`${matched}/${out.length}`,
-      notes:out.length
-        ? `Supabase-native shadow identity matched ${matched}/${out.length}; live ${liveMatched}/${liveTargets}.`
-        : "Supabase-native shadow idle; no live/prewarm targets.",
+      notes,
       observed_at:now.toISOString(),
       raw:{build:BUILD,targets:out.length,matched,live_targets:liveTargets,live_matched:liveMatched,
+        live_gaps:liveGaps,prewarm_targets:prewarmTargets,prewarm_matched:prewarmMatched,
+        prewarm_gaps:Math.max(0,prewarmTargets-prewarmMatched),
         detail_attempts:detailAttempts,detail_success:detailSuccess,detail_no_metrics:detailNoMetrics,detail_errors:detailErrors,
         identity_rpc_errors:typeof identityRpcErrors==="number"?identityRpcErrors:0,
         fotmob_error:fotmobError,sofascore_error:sofaError}
