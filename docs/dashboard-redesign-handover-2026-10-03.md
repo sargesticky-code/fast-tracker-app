@@ -946,3 +946,18 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
   - production migration 20261004064222 deconflict_live_guard_cron_schedules, repo commit b2ad4cbaf580f3735357206f221a9b58c154e662.
 - [ ] External live-detail coverage is still source-limited: two current matches return CAPTURED_NO_METRICS; one remains score-only, and SofaScore is returning 403. Do not fabricate xG/shots/corners for these cases.
 - [ ] Continue natural acceptance for Phase 4 and later lineup windows; no manual producer refresh was used for this recovery.
+
+### Holistic recovery closeout — 2026-10-04 07:04 UTC
+
+- [x] Cron deconfliction remained stable through 07:04 UTC: 66 natural cron runs since 06:38 UTC, 66 succeeded, 0 failed, 0 startup timeout.
+- [x] Phase 4 natural acceptance is complete. Job 23 retained the approved schedule and exact command; at least six consecutive natural runs succeeded (06:20, 06:26, 06:30, 06:36, 06:40, 06:46 UTC), followed by further successes at 06:50, 06:54 and 07:00 UTC. Recent execution time is about 0.3-0.6s.
+- [x] Job 14 optimization is effective in production: the live-layer guard uses a targeted latest-row lookup for current live fixtures instead of scanning the whole live-detail latest view. First natural optimized run completed in 0.096s while preserving fail-closed safety semantics.
+- [x] Public English-only runtime leak fixed in PR30, merged as b02de19777284107a89bfd935fef30e6b5549591. CI run 37184312618 passed all contract, safety, static build, route and desktop/mobile rendered-flow checks.
+- [x] Exact merged PR30 source deployed: app-match-analysis v36 and app-match-story v30. Real FB6306 runtime bodies returned HTTP 200 and contained no CJK.
+- [x] Residual CJK in raw public match-detail fields fixed in PR31, merged as 529d13bce33d42e6a6398abdf8f6ab31bd5db6a6. CI run 37184560719 passed all contract, safety, static build, route and desktop/mobile rendered-flow checks.
+- [x] Exact merged PR31 app-match-detail deployed as v22 (Edge SHA 88891976ffae2d9ad346084f16dd0f48dfef550a57d1d377eb43e4e61728b2d6).
+- [x] Final real FB6306 production verification: app-match-detail, app-match-analysis and app-match-story all returned HTTP 200 and all three response bodies contained zero CJK characters.
+- [x] Latest Phase 2 lineup run at 06:52 UTC remained healthy: 51 matched, 12 picked, 9 lineup matches, 367 promoted player rows, 169 bench rows, 1 injury row and 12 manager rows, with cached evidence retained where appropriate.
+- [x] Latest live core remained fresh at 07:04 UTC. LIVE_SOURCE_SHADOW reported 1/1 identity/live coverage. LIVE_LAYER_GUARD reported score_bad=0, stats_bad=0 and shadow_bad=0.
+- [ ] Remaining live-detail limitation is upstream/source coverage, not scheduler failure: the current live case is CAPTURED_NO_METRICS and source-id agreement is unresolved. Preserve this as no-metrics/unknown; do not synthesize xG, shots, corners or false independent evidence.
+- [ ] SofaScore 403 / provider detail availability and unresolved canonical provider IDs remain external dependencies. They are not considered fixed by presentation or scheduling changes.
