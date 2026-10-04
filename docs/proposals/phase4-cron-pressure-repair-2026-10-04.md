@@ -259,3 +259,22 @@ Specific authorization required:
 > with no function/schema/index changes and natural-run verification only.
 
 Until that authorization is given, this file is review documentation only.
+
+## Additional natural-run evidence after PR26/27
+
+Observed after the live I/O bounding release, without any manual producer invocation:
+
+- 2026-10-04 03:13 UTC: `live-source-shadow` v7 reached Edge and returned 503 in **16.7s**.
+- 2026-10-04 03:13 UTC: `live-score-direct` v14 reached Edge and returned 503 in **41.3s**.
+- 2026-10-04 03:19 UTC: `live-score-direct` v14 reached Edge and returned 503 in **41.5s**.
+
+These are materially below the prior ~150s worker-limit failures, confirming the Edge-side I/O bounding is effective even though the database remains pressured.
+
+Cron-level evidence then shows the remaining upstream problem:
+
+- 03:20: job 23 `phase4-market-refresh` started and hit **job startup timeout** together with jobs 14/4/7.
+- 03:21: jobs 6/13/17 hit **job startup timeout**.
+- 03:22: job 36 `phase2-fotmob-lineups` started with jobs 37/8/14/4/28; all six hit **job startup timeout** before a v7 lineup Edge request was created.
+- 03:23: jobs 6/17/16 hit **job startup timeout**.
+
+This post-release evidence strengthens the schedule-level diagnosis: producer code can execute with bounded failure when Edge is reached, but crowded cron windows can prevent the request from reaching Edge at all.
