@@ -165,6 +165,20 @@ function normalizeH2H(row:any,error:any){
   return {status:"PARTIAL",isFailure:false,label:games>0?`Last ${games} H2H meetings`:"H2H data incomplete",reason:q||"unknown_quality"};
 }
 
+function englishDetailPayload(value:any, homeZh:string, homeEn:string, awayZh:string, awayEn:string):any {
+  if (typeof value === "string") {
+    if (homeZh && value === homeZh) return homeEn || value;
+    if (awayZh && value === awayZh) return awayEn || value;
+    if (value === "資料不足") return "Insufficient data";
+    if (!/[\u3400-\u9fff]/.test(value)) return value;
+    const cleaned=value.replace(/[\u3400-\u9fff]+/g," ").replace(/\s+/g," ").trim();
+    return cleaned || null;
+  }
+  if (Array.isArray(value)) return value.map(v=>englishDetailPayload(v,homeZh,homeEn,awayZh,awayEn));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,englishDetailPayload(v,homeZh,homeEn,awayZh,awayEn)]));
+  return value;
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   if(req.method!=="GET") return Response.json({error:"method_not_allowed"},{status:405,headers:{...cors,"Cache-Control":"no-store"}});
@@ -249,7 +263,7 @@ Deno.serve(async(req:Request)=>{
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
   const arbRows=[...(arbMarket.data||[])].sort((a:any,b:any)=>Number(b.net_roi_pct||0)-Number(a.net_roi_pct||0));
 
-  return Response.json({
+  const publicDetail=englishDetailPayload({
     generatedAt:new Date().toISOString(),
     id,
     fixture:fixture.data,
@@ -288,7 +302,8 @@ Deno.serve(async(req:Request)=>{
       mode:"DETECT_ONLY"
     },
     errors,
-  },{
+  }, String(fixture.data?.home_zh||""), String(fixture.data?.home_en||""), String(fixture.data?.away_zh||""), String(fixture.data?.away_en||""));
+  return Response.json(publicDetail,{
     headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}
   });
 });
