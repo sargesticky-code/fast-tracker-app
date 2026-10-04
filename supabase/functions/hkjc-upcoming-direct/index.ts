@@ -163,7 +163,52 @@ function chooseTwo(rows:any[],type:string){
 }
 
 Deno.serve(async (_req:Request)=>{
-  const now=new Date(), key=serviceKey(), supabaseUrl=Deno.env.get("SUPABASE_URL")||"";
+  const now=new Date();
+  const url=new URL(_req.url);
+  const readOnly=url.searchParams.get("mode")==="summary";
+  const requestedHours=Number(url.searchParams.get("hours")||"24");
+  const summaryHours=Math.max(1,Math.min(48,Number.isFinite(requestedHours)?requestedHours:24));
+
+  if(readOnly){
+    try{
+      const hadResult=await safeOdds(["HAD","EHA"]);
+      if(hadResult.error) throw new Error(hadResult.error);
+      const had=chooseHAD(flatten(hadResult.matches));
+      const maxMs=now.getTime()+summaryHours*3600000;
+      const fetchedAt=now.toISOString();
+      const out:any[]=[];
+      for(const m of hadResult.matches||[]){
+        const id=txt(m?.frontEndId); if(!id) continue;
+        const kickoff=txt(m?.kickOffTime); const kMs=Date.parse(kickoff);
+        if(!Number.isFinite(kMs)||kMs<=now.getTime()||kMs>maxMs) continue;
+        if(ended(m?.status)) continue;
+        const h=had.get(id); if(!h) continue;
+        out.push({
+          hkjc_event_id:id,fetched_at:fetchedAt,match_id:txt(m?.id)||null,kickoff_hkt:kickoff,
+          status:txt(m?.status),tournament:txt(m?.tournament?.code),
+          tournament_zh:txt(m?.tournament?.name_ch)||null,
+          home_en:txt(m?.homeTeam?.name_en),away_en:txt(m?.awayTeam?.name_en),
+          home_zh:txt(m?.homeTeam?.name_ch),away_zh:txt(m?.awayTeam?.name_ch),
+          live_eligible:Array.isArray(m?.poolInfo?.inplayPools)&&m.poolInfo.inplayPools.length>0,
+          selling:true,pool_status:"SELLINGSTARTED",
+          had_home:h.home??null,had_draw:h.draw??null,had_away:h.away??null,
+          hdc_line:null,hdc_home:null,hdc_away:null,
+          hil_line:null,hil_over:null,hil_under:null,
+          chl_line:null,chl_over:null,chl_under:null,
+          odds_updated_at:h.updated_at||txt(m?.updateAt)||null,updated_at:fetchedAt,
+          raw:{source:"HKJC_OFFICIAL_GRAPHQL_READ_ONLY",requests:1}
+        });
+      }
+      return Response.json({ok:true,mode:"summary",rows:out.length,data:out,fetchedAt},{
+        headers:{"Cache-Control":"public, max-age=15, stale-while-revalidate=45"}
+      });
+    }catch(e){
+      const message=e instanceof Error?e.message:String(e);
+      return Response.json({ok:false,mode:"summary",error:message},{status:503,headers:{"Cache-Control":"no-store"}});
+    }
+  }
+
+  const key=serviceKey(), supabaseUrl=Deno.env.get("SUPABASE_URL")||"";
   if(!key||!supabaseUrl) return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createDb(supabaseUrl,key);
   try{

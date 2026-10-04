@@ -102,20 +102,59 @@ Deno.serve(async (req: Request) => {
 
   try {
     const liveCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-    const { data: marketRows, error: marketError } = await db
-      .from("hkjc_live_odds_current")
-      .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,home_en,away_en,home_zh,away_zh,had_home,had_draw,had_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,pool_status,odds_updated_at")
-      .gte("fetched_at", liveCutoff);
-    if (marketError) throw marketError;
+    let marketRows:any[] = [];
+    let marketSource = "HKJC_DIRECT_UPSTREAM";
+
+    try {
+      const direct = await fetch(`${supabaseUrl}/functions/v1/hkjc-live-direct?mode=summary`, {
+        headers: { Authorization: `Bearer ${key}`, apikey: key },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!direct.ok) throw new Error(`live_direct_http_${direct.status}`);
+      const body = await direct.json();
+      marketRows = Array.isArray(body?.data) ? body.data : [];
+    } catch (directError) {
+      console.error("live_direct_upstream_failed", directError);
+      const { data, error } = await db
+        .from("hkjc_live_odds_current")
+        .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,home_en,away_en,home_zh,away_zh,had_home,had_draw,had_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,pool_status,odds_updated_at")
+        .gte("fetched_at", liveCutoff);
+      if (error) throw error;
+      marketRows = data ?? [];
+      marketSource = "DATABASE_SNAPSHOT";
+    }
 
     const ids = (marketRows ?? []).map((r: any) => r.hkjc_event_id).filter(Boolean);
     const scoreMap = new Map<string, any>();
+    for (const row of marketRows ?? []) {
+      const home = num(row.running_home_score);
+      const away = num(row.running_away_score);
+      const homeCorners = num(row.running_home_corner);
+      const awayCorners = num(row.running_away_corner);
+      if (home != null || away != null || homeCorners != null || awayCorners != null) {
+        scoreMap.set(row.hkjc_event_id, {
+          live_score: home != null && away != null ? `${home}-${away}` : null,
+          home_score: home,
+          away_score: away,
+          minute: null,
+          match_status: row.status ?? null,
+          source: "HKJC_RUNNING_RESULT",
+          source_match_id: row.match_id ?? null,
+          match_confidence: 1,
+          updated_at_source: row.fetched_at ?? null,
+          source_updated_at: row.match_updated_at ?? row.odds_updated_at ?? row.fetched_at ?? null,
+          home_corners: homeCorners,
+          away_corners: awayCorners,
+          total_corners: homeCorners != null && awayCorners != null ? homeCorners + awayCorners : num(row.running_corner),
+        });
+      }
+    }
     const statsMap = new Map<string, any>();
     const detailMap = new Map<string, any>();
     const shadowMap = new Map<string, any>();
 
     const readHealth: Record<string, any> = {
-      market: { status: "OK" },
+      market: { status: "OK", source: marketSource },
       score: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       stats: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       detail: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
@@ -254,17 +293,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!ids.length) {
-      const heartbeatResult = await db
-        .from("source_health")
-        .select("source,status,observed_at")
-        .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
-        .eq("metric", "heartbeat");
-      if (heartbeatResult.error) {
-        readHealth.heartbeats = { status: "UNAVAILABLE", reason: "db_read_failed" };
-      } else {
-        readHealth.heartbeats = { status: "OK" };
-        heartbeats = heartbeatResult.data ?? [];
-      }
+      readHealth.heartbeats = { status: "NOT_REQUIRED" };
     }
 
     return Response.json({

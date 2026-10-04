@@ -316,54 +316,111 @@ Deno.serve(async (req: Request) => {
       const now = new Date();
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
-      const [upcomingResult, liveResult] = await Promise.all([
-        db.from("hkjc_upcoming_current")
-          .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,live_eligible,selling,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
-          .eq("selling", true)
-          .gte("kickoff_hkt", now.toISOString())
-          .lt("kickoff_hkt", end.toISOString())
-          .order("kickoff_hkt", { ascending: true }),
-        db.from("hkjc_live_odds_current")
-          .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
-          .gte("fetched_at", liveCutoff)
-          .eq("pool_status", "SELLINGSTARTED"),
-      ]);
 
-      if (!upcomingResult.error || !liveResult.error) {
-        const byId = new Map<string, any>();
-        for (const row of upcomingResult.data ?? []) {
-          if (!row?.hkjc_event_id) continue;
-          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, false));
+      const upstreamPromise = (async () => {
+        const headers = { Authorization: `Bearer ${serverKey}`, apikey: serverKey };
+        const [upcomingFetch, liveFetch] = await Promise.allSettled([
+          fetch(`${supabaseUrl}/functions/v1/hkjc-upcoming-direct?mode=summary&hours=${hours}`, {
+            headers,
+            signal: AbortSignal.timeout(10_000),
+          }),
+          fetch(`${supabaseUrl}/functions/v1/hkjc-live-direct?mode=summary`, {
+            headers,
+            signal: AbortSignal.timeout(10_000),
+          }),
+        ]);
+
+        const rows:any[] = [];
+        const diagnostics:any = { upcoming:null, live:null };
+        if (upcomingFetch.status === "fulfilled") {
+          diagnostics.upcoming = upcomingFetch.value.status;
+          if (upcomingFetch.value.ok) {
+            const body = await upcomingFetch.value.json();
+            for (const row of body?.data ?? []) rows.push({ row, liveNow:false });
+          }
+        } else {
+          diagnostics.upcoming = "FETCH_FAILED";
         }
-        for (const row of liveResult.data ?? []) {
+        if (liveFetch.status === "fulfilled") {
+          diagnostics.live = liveFetch.value.status;
+          if (liveFetch.value.ok) {
+            const body = await liveFetch.value.json();
+            for (const row of body?.data ?? []) rows.push({ row, liveNow:true });
+          }
+        } else {
+          diagnostics.live = "FETCH_FAILED";
+        }
+        if (!rows.length) throw new Error("direct_hkjc_upstream_empty");
+        return { source:"hkjc-official-direct", rows, diagnostics };
+      })();
+
+      const snapshotPromise = (async () => {
+        const [upcomingResult, liveResult] = await Promise.all([
+          db.from("hkjc_upcoming_current")
+            .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,live_eligible,selling,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
+            .eq("selling", true)
+            .gte("kickoff_hkt", now.toISOString())
+            .lt("kickoff_hkt", end.toISOString())
+            .order("kickoff_hkt", { ascending: true }),
+          db.from("hkjc_live_odds_current")
+            .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
+            .gte("fetched_at", liveCutoff)
+            .eq("pool_status", "SELLINGSTARTED"),
+        ]);
+        if (upcomingResult.error && liveResult.error) throw new Error("authority_snapshot_unavailable");
+        const rows:any[] = [];
+        for (const row of upcomingResult.data ?? []) rows.push({ row, liveNow:false });
+        for (const row of liveResult.data ?? []) rows.push({ row, liveNow:true });
+        if (!rows.length) throw new Error("authority_snapshot_empty");
+        return {
+          source:"hkjc-authority-snapshot",
+          rows,
+          diagnostics:{
+            upcoming: upcomingResult.error ? "ERROR" : "OK",
+            live: liveResult.error ? "ERROR" : "OK",
+          },
+        };
+      })();
+
+      try {
+        const winner:any = await Promise.any([upstreamPromise, snapshotPromise]);
+        const byId = new Map<string, any>();
+        for (const item of winner.rows ?? []) {
+          const row=item?.row;
           if (!row?.hkjc_event_id) continue;
-          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, true));
+          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, Boolean(item.liveNow)));
         }
         const directMatches = [...byId.values()].sort((a, b) => String(a.kickoff ?? "").localeCompare(String(b.kickoff ?? "")));
-        if (directMatches.length > 0) {
-          return Response.json({
-            generatedAt: new Date().toISOString(),
-            source: "hkjc-authority-direct",
-            view: "summary",
-            windowHours: hours,
-            count: directMatches.length,
-            systemHealth: {
-              authorityMode: {
-                status: upcomingResult.error && liveResult.error ? "FAIL" : "OK",
-                value: "DIRECT_AUTHORITY",
-                notes: "Summary recovery bypasses model/enrichment RPC so fixtures remain visible.",
-                observedAt: new Date().toISOString(),
-                raw: {
-                  upcomingError: upcomingResult.error ? String(upcomingResult.error.message ?? upcomingResult.error) : null,
-                  liveError: liveResult.error ? String(liveResult.error.message ?? liveResult.error) : null,
-                },
-              },
+        if (!directMatches.length) throw new Error("authority_summary_empty");
+        return Response.json({
+          generatedAt: new Date().toISOString(),
+          source: winner.source,
+          view: "summary",
+          windowHours: hours,
+          count: directMatches.length,
+          systemHealth: {
+            authorityMode: {
+              status: "OK",
+              value: winner.source === "hkjc-official-direct" ? "HKJC_DIRECT_UPSTREAM" : "LAST_GOOD_AUTHORITY_SNAPSHOT",
+              notes: "Homepage fixtures are served independently of model/story enrichment.",
+              observedAt: new Date().toISOString(),
+              raw: winner.diagnostics,
             },
-            matches: directMatches,
-          }, {
-            headers: { ...corsHeaders, "Cache-Control": "public, max-age=5, stale-while-revalidate=30" },
-          });
-        }
+          },
+          matches: directMatches,
+        }, {
+          headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
+        });
+      } catch (summaryError) {
+        console.error("summary_authority_unavailable", summaryError);
+        return Response.json({
+          error: "feed_unavailable",
+          semantics: "read_failure_not_fixture_absence",
+          view: "summary",
+        }, {
+          status: 503,
+          headers: { ...corsHeaders, "Cache-Control": "no-store" },
+        });
       }
     }
 
