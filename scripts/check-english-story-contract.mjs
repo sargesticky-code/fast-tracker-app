@@ -20,6 +20,7 @@ const checks = [
   [story.includes('const language = "en";'), "story endpoint must force English public output"],
   [analysis.includes("englishPublicPayload"), "analysis endpoint must normalize public output to English"],
   [deepDetail.includes("Head-to-head data read failed"), "detail endpoint public H2H labels must be English"],
+  [deepDetail.includes("englishDetailPayload"), "detail endpoint must sanitize public payload to English"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
