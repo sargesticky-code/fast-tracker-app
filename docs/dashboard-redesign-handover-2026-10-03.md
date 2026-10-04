@@ -757,3 +757,47 @@ Artifact: **`11280418041`**, `dashboard-redesign-f6ad2aa083ad6669f81a123ac75c7e7
 Deployed-source parity checkpoint remains exact and independently auditable: deployed Supabase v7 bundle SHA256 `a05c56f6020c69ef9a74189d9c27876bc4dd16255c80ac54b01dc8bbe032fc6f`; exact recovered source persisted before edits at commit `3306b803a67a7c6068d34619f8ae890f0f867fea`, Git blob `99c471a72df39ab2dfc30280656cc55c9235f2ed`, 10,218 bytes.
 
 With this verification, the coherent review-only release candidate is PR6→PR8→PR9→PR10→PR11. Production remains unchanged in this batch.
+
+
+## Authority-first recovery after timed-out handoff — 2026-10-04
+
+This checkpoint records the actual saved state after the previous message-delivery timeout. No timed-out action was blindly replayed.
+
+### What was already saved/merged/deployed
+
+- PR #14 `Restore authority-first homepage recovery` had already merged as `33a29424807d9ada3bb1dbceab92e343034f3da3`. Its reviewed source head `be0bf233939bd99dab33872ad9f218a1d7ae8ea3` passed CI `37165925152` with all contracts/build/routes and **32/32** rendered-flow tests.
+- A separate direct main commit `9899ae524e0fb2ce51aaa7514335adfe72af7323` then changed static boot-feed behavior for Railway. This was not part of PR #14 and was subsequently reviewed as unsafe for the Cloudflare static path because it could bake a build-time fixture snapshot into static HTML.
+- PR #16 `Make homepage authority independent of database congestion` was already merged as `97e07834261af4529b67bf379ffa2fc7ff9686d3`. Source head `18d7e5739b40ac04c0fc624addb5859f0b33cd20` passed CI `37166811378`.
+- PR #16 created database-free `mode=summary` reads in the existing HKJC upcoming/live functions and changed homepage summary to use direct HKJC upstream independently of model/story enrichment. It also made app-live-feed prefer direct HKJC live authority with DB snapshot as fallback.
+- Deployed source after PR #16 was verified byte-for-byte against main: `app-phase1-feed` v60 SHA256 `92568745f5bf24a11285e61e390df90ec643c5efc098918b18a140806bd42d6b`; `hkjc-upcoming-direct` v11 SHA256 `085c4d4053c09765f5bfdc7c0efa23388ba9abf56900271df04e3719e080f331`; `hkjc-live-direct` v11 SHA256 `981e768c7bdc389bdd711c227f2926ce60ec9d87f4dbf8f4cead8ea809a28fa3`; `app-live-feed` v9 SHA256 `b43c6983af2f24d2c22f07300d8bbb05e5ed2076563521e851be25c6dde76a4b`.
+- Cloudflare build for main `97e078...` succeeded as build `5bb1c124-618a-44e8-98a2-451d1cd50019`.
+
+### Natural production evidence — no forced refresh
+
+Existing production logs after PR #16 show the authority-first path actually running successfully without any forced ingest or DB write:
+- 01:06 UTC: HKJC live summary 200 / ~2.58s; upcoming summary 200 / ~2.87s; Phase-1 summary 200 / ~5.46s.
+- 01:07 UTC: upcoming 200 / ~1.59s; live 200 / ~1.75s; Phase-1 200 / ~2.02s.
+- 01:08 UTC samples: upcoming/live 200 in ~0.23–0.92s and Phase-1 200 in ~0.74–1.21s.
+
+A later full cron-style `hkjc-live-direct` execution returned 500 after ~38s. This does not invalidate the homepage summary recovery because the read-only summary mode no longer depends on the DB-writing full-ingest path. No forced authority refresh was issued in this batch.
+
+### Review issue found and corrected
+
+PR #16 still had two safety/correctness risks:
+1. `Promise.any([upstreamPromise, snapshotPromise])` allowed a stale DB snapshot to beat fresh HKJC upstream merely by returning first.
+2. Snapshot freshness treated 13–15 hour-old data as fresh/aging and still exposed odds/markets.
+
+PR #19 `Prefer fresh HKJC authority and suppress stale fallback prices` corrects only those issues:
+- official HKJC upstream is always preferred if it succeeds; the DB snapshot starts concurrently but is used only after upstream failure;
+- snapshot freshness is FRESH ≤30m, AGING 30–60m, STALE >60m;
+- stale/aging snapshot identity can still show fixture ID, teams, league and kickoff, but H/D/A odds, fair market, handicap/goals/corners prices and betting actionability are suppressed unless the snapshot is FRESH;
+- model channels remain `null`, decision/edge remain `null`, preserving unknown≠zero and no-model semantics;
+- the unreviewed Railway build-time boot-feed behavior is reverted to the safe empty static boot feed so Cloudflare cannot bake a stale fixture snapshot into static HTML.
+
+Implementation head **`394ae12703fe12c97aa671744edf861b64ad3f0e`** passed CI **`37167113029` SUCCESS**. All safety/provider/identity/independence/build/static-route checks passed and the rendered suite was **32/32**. Artifact `11290705009`, SHA256 `e148e489c0557015c042c4b69a07ce97109ed1445a33efc330088f449e814774`.
+
+### Release boundary / next verification
+
+The smallest coherent recovery release is PR #19 plus the existing PR #16 runtime. No migration, DB write, forced ingest, index, cron, compute, provider expansion, new hosting/access or spend is part of this recovery.
+
+After merge/release, verify exact Edge source parity for `app-phase1-feed`, confirm Cloudflare revision, and perform one bounded real desktop+mobile homepage→current-detail sample. Acceptance must report actual fixture identity/freshness and distinguish direct upstream from snapshot fallback. If the current homepage has no fixture, record that exact upstream/data dependency rather than forcing a refresh.
