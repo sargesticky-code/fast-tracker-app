@@ -30,7 +30,7 @@ const FEED_URL =
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
 const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
 const ENRICHMENT_FEED_URL = FEED_URL;
-const LIVE_FEED_URL =
+// Railway autodeploy probe: watched-file comment only; no runtime behavior.\nconst LIVE_FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_LIVE_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const HK_TIME_ZONE = "Asia/Hong_Kong";
