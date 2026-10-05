@@ -313,7 +313,7 @@ function TeamPitch({ teamName, rows, accent, status }) {
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>{predicted ? "● yellow = predicted" : "✓ confirmed XI"}</small>
       </div>
       <div style={{padding:"10px 12px"}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
+        <div className="lineup-player-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
           {sorted.map((row, index) => {
             const flags = playerFlags(row);
             const country = playerCountry(row);
@@ -322,7 +322,7 @@ function TeamPitch({ teamName, rows, accent, status }) {
               <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e3ebe6",borderRadius:11,background:"#fafcfb"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:11,fontWeight:950,boxShadow:"inset 0 0 0 1px rgba(255,255,255,.22)"}}>{row?.shirt_number ?? "•"}</span>
                 <div style={{minWidth:0}}>
-                  <b style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
+                  <b className="lineup-player-name" style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
                   <small style={{display:"block",marginTop:2,fontSize:9,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                     {[country, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
                   </small>
@@ -537,12 +537,11 @@ export default function LineupPanel() {
   const lineupPending = view.sourceRows.length === 0;
   const countsUnknown = identityBlocked || lineupPending;
   const ready = !countsUnknown && view.homeStarters.length === 11 && view.awayStarters.length === 11;
-  const homeCount = countsUnknown
-    ? (view.homeStarters.length ? `${view.homeStarters.length}/11 resolved` : "—/11")
-    : view.homeStarters.length ? `${view.homeStarters.length}/11${view.predictedRows.length ? " reported" : ""}` : "—/11";
-  const awayCount = countsUnknown
-    ? (view.awayStarters.length ? `${view.awayStarters.length}/11 resolved` : "—/11")
-    : view.awayStarters.length ? `${view.awayStarters.length}/11${view.predictedRows.length ? " reported" : ""}` : "—/11";
+  const xiCount = (starters) => starters.length
+    ? `${starters.length}/11${starters.some((row) => row.confirmed === false) ? " reported" : countsUnknown ? " resolved" : ""}`
+    : "—/11";
+  const homeCount = xiCount(view.homeStarters);
+  const awayCount = xiCount(view.awayStarters);
   const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked || view.unresolvedPredictedRows.length ? " · identity not complete" : lineupPending ? " · lineup pending" : ""}`;
   const tabs = [
     ["formation","Formation"],
@@ -580,12 +579,12 @@ export default function LineupPanel() {
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(82px,1fr))",gap:7,minWidth:280}}>
               <Metric
                 label="HOME XI"
-                value={homeCount}
+                value={homeCount.replace(" reported", "")}
                 detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedHome ? `${view.unresolvedHome} source-confirmed row(s) await identity` : (view.homeFormation || "formation pending")}
               />
               <Metric
                 label="AWAY XI"
-                value={awayCount}
+                value={awayCount.replace(" reported", "")}
                 detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedAway ? `${view.unresolvedAway} source-confirmed row(s) await identity` : (view.awayFormation || "formation pending")}
               />
               <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : "prediction evidence"} />
@@ -748,6 +747,8 @@ export default function LineupPanel() {
         }
         @media (max-width: 520px) {
           .pro-lineup-grid { gap: 9px !important; }
+          .lineup-player-grid { grid-template-columns: 1fr !important; }
+          .lineup-player-name { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: anywhere; }
         }
       `}</style>
     </section>

@@ -1115,6 +1115,10 @@ for (const width of [1280,390]) {
     await expect(tool.locator('.lineup-strength-grid')).not.toContainText('0%');
     await expect(tool.locator('.lineup-strength-grid')).toContainText('Reported XI: 10/11 · predicted');
     await expect(page.locator('.lineup-signal')).not.toContainText('Confirmed · identities resolved');
+    await expect(page.locator('.lineup-signal')).toContainText('Predicted XI · awaiting confirmation');
+    if (width === 390) {
+      await expect(tool.getByText('Prediction H 1',{exact:true})).toHaveCSS('white-space','normal');
+    }
     await page.screenshot({path:`test-results/dashboard-phase2-predicted-${width}.png`,fullPage:true});
     await tool.getByRole('button',{name:'Sources',exact:true}).click();
     await expect(tool.getByText('Provider timestamp · Hong Kong time')).toBeVisible();

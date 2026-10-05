@@ -20,7 +20,7 @@ const mixed=lineupDisplayRows([...rows,official],payload,'TEST');
 assert.equal(mixed.filter(row=>row.team_side==='H').length,1,'official side is not backfilled with prediction');
 const unresolvedOfficial={...official,identity_status:'UNRESOLVED',fact_status:'SOURCE_CONFIRMED_IDENTITY_UNRESOLVED'};
 assert.equal(lineupDisplayRows([...rows,unresolvedOfficial],payload,'TEST').filter(row=>row.team_side==='H').length,0,'unresolved official evidence does not admit a replacement prediction');
-for(const value of [null,undefined,'','  ','bad'])assert.equal(lineupNumber(value),null);
+for(const value of [null,undefined,'','  ','bad',false,[],{}])assert.equal(lineupNumber(value),null);
 assert.equal(lineupNumber(0),0);
 assert.equal(lineupStrengthSummary(rows,'H').strengthPct,null,'eleven names are not 100% football strength');
 assert.equal(lineupStrengthSummary([],'H').reportedStarters,null,'no coverage is unknown, not zero');
