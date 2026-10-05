@@ -810,7 +810,7 @@ export default function MatchDetailClient() {
   const sourceContext = match.sourceContext || null;
   const sourceContextConfidence = Number(sourceContext?.matchConfidence);
   const sourceContextVerified = sourceContext && Number.isFinite(sourceContextConfidence) && sourceContextConfidence >= 0.94;
-  const goalSummary = prematchGoalSummary(match);
+  const goalSummary = prematchGoalSummary(match, deep);
   const predictedScore = goalSummary.score;
   const movement = match.oddsMovement || null;
   const movementPct = Number(movement?.rawOddsChangePct);

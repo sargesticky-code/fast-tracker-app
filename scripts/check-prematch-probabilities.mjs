@@ -68,3 +68,10 @@ assert.equal(prematchGoalSummary(goalMatch).score, null);
 for (const missing of [null, "", false]) assert.equal(prematchGoalSummary({ ...goalMatch, formDetail:{...goalMatch.formDetail, home:{expectedGoals:missing}} }).avgGoals, null);
 assert.equal(prematchGoalSummary({ ...goalMatch, form:null }).avgGoals, null);
 console.log("Goal summary wiring passed: published fields and valid form goals; no inferred score.");
+
+const deepGoal = { id:"CANONICAL", fixture:{hkjc_event_id:"CANONICAL"}, models:{form:{hkjc_event_id:"CANONICAL",quality:"FORM_MODELED",form_prob_home:.5,form_prob_draw:.3,form_prob_away:.2,form_xg_home:1.2,form_xg_away:1.1}} };
+assert.equal(prematchGoalSummary({id:"CANONICAL"},deepGoal).avgGoals,2.3);
+assert.equal(prematchGoalSummary({id:"OTHER"},deepGoal).avgGoals,null);
+assert.equal(prematchGoalSummary({id:"CANONICAL"},{...deepGoal,fixture:null}).avgGoals,null);
+assert.equal(prematchGoalSummary({id:"CANONICAL"},{...deepGoal,models:{form:{...deepGoal.models.form,hkjc_event_id:"OTHER"}}}).avgGoals,null);
+console.log("Authoritative goal fallback passed strict payload/fixture/model identity gates.");

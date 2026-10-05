@@ -3,6 +3,26 @@ const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
 for (const width of [1440, 390]) {
+  test(`detail-only goal models remain available at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({width,height:900});
+    const payload = detailPayload();
+    payload.id = "FBTEST1";
+    payload.models.forebet = {};
+    payload.models.form = { ...payload.models.form, hkjc_event_id:"FBTEST1", quality:"FORM_MODELED", form_prob_home:.5, form_prob_draw:.3, form_prob_away:.2 };
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({json:{matches:[]}}));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({json:{matches:[]}}));
+    await page.route("**/functions/v1/app-match-detail?**", route => route.fulfill({json:payload}));
+    await page.route("**/functions/v1/app-match-analysis?**", route => route.fulfill({status:503,json:{error:"unavailable"}}));
+    await page.route("**/functions/v1/app-match-story?**", route => route.fulfill({status:503,json:{error:"unavailable"}}));
+    await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
+    await expect(page.locator(".detail-goal-summary")).toContainText("2.73");
+    await expect(page.locator(".detail-goal-summary")).toContainText("Team Form expected goals");
+    await expect(page.locator(".detail-board-score")).toHaveCount(0);
+    await page.screenshot({path:`test-results/dashboard-detail-only-goals-${width}.png`,fullPage:true});
+  });
+}
+
+for (const width of [1440, 390]) {
   test(`homepage attributes displayed bookmaker quotes at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const feed = fixtureFeed();
