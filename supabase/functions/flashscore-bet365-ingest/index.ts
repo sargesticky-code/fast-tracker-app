@@ -68,13 +68,14 @@ Deno.serve(async () => {
   const capturedAt = typeof payload?.captured_at === "string" ? payload.captured_at : null;
   const capturedMs = capturedAt ? Date.parse(capturedAt) : NaN;
   const fixtures = Array.isArray(payload?.fixtures) ? payload.fixtures : [];
+  const discovered = Array.isArray(payload?.discovered) ? payload.discovered : [];
 
   if (!Number.isFinite(capturedMs) || now - capturedMs > MAX_AGE_MS) {
     await db.from("source_health").upsert({
       source: SOURCE, metric: "cloud_ingest", value_text: "STALE", status: "ERROR",
       notes: "Cloud snapshot missing or older than 20 minutes.",
       observed_at: new Date().toISOString(),
-      raw: { captured_at: capturedAt, fixture_count: fixtures.length },
+      raw: { captured_at: capturedAt, fixture_count: fixtures.length, discovered_count: discovered.length },
     }, { onConflict: "source,metric" });
     return Response.json({ error: "stale_snapshot", captured_at: capturedAt }, { status: 409 });
   }
@@ -90,7 +91,14 @@ Deno.serve(async () => {
   if (matchError) return Response.json({ error: "canonical_read_failed", detail: matchError.message }, { status: 500 });
 
   const observedNames = [...new Set(
-    fixtures.flatMap((row:any) => [String(row?.home ?? "").trim(), String(row?.away ?? "").trim()]).filter(Boolean)
+    [...fixtures, ...discovered]
+      .flatMap((row:any) => [String(row?.home ?? "").trim(), String(row?.away ?? "").trim()])
+      .filter(Boolean)
+  )];
+  const pricedNames = [...new Set(
+    fixtures
+      .flatMap((row:any) => [String(row?.home ?? "").trim(), String(row?.away ?? "").trim()])
+      .filter(Boolean)
   )];
 
   const [flashAliasResult, consensusAliasResult] = await Promise.all([
@@ -101,11 +109,11 @@ Deno.serve(async () => {
           .eq("status", "VERIFIED")
           .in("source_name", observedNames)
       : Promise.resolve({ data:[], error:null } as any),
-    observedNames.length
+    pricedNames.length
       ? db.from("team_name_master")
           .select("source,source_name,team_key,hkjc_name_en,status")
           .eq("status", "VERIFIED")
-          .in("source_name", observedNames)
+          .in("source_name", pricedNames)
       : Promise.resolve({ data:[], error:null } as any),
   ]);
 
@@ -150,6 +158,166 @@ Deno.serve(async () => {
     return { canonicalName:target.canonicalName, method:"VERIFIED_CROSS_SOURCE_CONSENSUS", sourceCount:target.sources.size };
   };
 
+  const pricedIds = new Set(
+    fixtures.map((row:any) => String(row?.provider_event_id ?? "").trim()).filter(Boolean)
+  );
+  const canonicalPool:any[] = [...(matches ?? [])];
+  const fixtureStage:any[] = [];
+  const canonicalCreates:any[] = [];
+  let fixtureExactExisting = 0;
+  let fixtureCreated = 0;
+  let fixtureDeferredNearby = 0;
+  let fixtureDiscoveredOnly = 0;
+  let fixtureInvalidTime = 0;
+  let fixtureAmbiguous = 0;
+
+  for (const row of discovered) {
+    const providerEventId = String(row?.provider_event_id ?? "").trim();
+    const home = String(row?.home ?? "").trim();
+    const away = String(row?.away ?? "").trim();
+    if (!providerEventId || !home || !away) continue;
+
+    const ko = kickoffUtc(row);
+    const koMs = ko ? Date.parse(ko) : NaN;
+    const homeAlias = resolveAlias(home);
+    const awayAlias = resolveAlias(away);
+    const resolvedHome = homeAlias.canonicalName ?? home;
+    const resolvedAway = awayAlias.canonicalName ?? away;
+    const fsId = "FS:" + providerEventId;
+
+    let identity = "DISCOVERED_ONLY";
+    let canonical:string|null = null;
+
+    const directProviderMatch = canonicalPool.find((m:any) => String(m?.hkjc_event_id ?? "") === fsId);
+    const exactCandidates = Number.isFinite(koMs)
+      ? canonicalPool.filter((m:any) => {
+          const mk = Date.parse(m?.kickoff_hkt ?? "");
+          return norm(m?.home_en) === norm(resolvedHome)
+            && norm(m?.away_en) === norm(resolvedAway)
+            && Number.isFinite(mk)
+            && Math.abs(mk - koMs) <= KICKOFF_TOLERANCE_MS;
+        })
+      : [];
+
+    if (directProviderMatch) {
+      identity = "EXACT_EXISTING";
+      canonical = fsId;
+      fixtureExactExisting++;
+    } else if (!Number.isFinite(koMs)) {
+      identity = "INVALID_TIME";
+      fixtureInvalidTime++;
+    } else if (exactCandidates.length === 1) {
+      identity = "EXACT_EXISTING";
+      canonical = String(exactCandidates[0].hkjc_event_id);
+      fixtureExactExisting++;
+    } else if (exactCandidates.length > 1) {
+      identity = "AMBIGUOUS";
+      fixtureAmbiguous++;
+    } else {
+      const sourceTeams = new Set([norm(resolvedHome), norm(resolvedAway)].filter(Boolean));
+      const nearby = canonicalPool.filter((m:any) => {
+        const mk = Date.parse(m?.kickoff_hkt ?? "");
+        if (!Number.isFinite(mk) || Math.abs(mk - koMs) > 20 * 60 * 1000) return false;
+        const targetTeams = [norm(m?.home_en), norm(m?.away_en)].filter(Boolean);
+        return targetTeams.some((name:string) => sourceTeams.has(name));
+      });
+
+      const canCreate = pricedIds.has(providerEventId) && koMs >= now;
+      if (nearby.length) {
+        identity = "DEFERRED_NEARBY";
+        fixtureDeferredNearby++;
+      } else if (canCreate) {
+        identity = "CREATED";
+        canonical = fsId;
+        fixtureCreated++;
+        const created = {
+          hkjc_event_id: fsId,
+          hkjc_match_id: providerEventId,
+          kickoff_hkt: ko,
+          status: "PREEVENT",
+          tournament: row?.competition ?? null,
+          home_en: resolvedHome,
+          away_en: resolvedAway,
+          home_zh: null,
+          away_zh: null,
+          pools: "HAD",
+          pool_status: "CLOUD_BET365",
+          in_play: false,
+          selling: true,
+          fetched_at: capturedAt,
+          source_updated_at: capturedAt,
+          raw: {
+            source: "FLASHSCORE",
+            provider_event_id: providerEventId,
+            identity_origin: "PROVIDER_CANONICAL_CREATED",
+            source_home: home,
+            source_away: away,
+            resolved_home: resolvedHome,
+            resolved_away: resolvedAway,
+            home_method: homeAlias.method,
+            away_method: awayAlias.method,
+          },
+          updated_at: new Date().toISOString(),
+        };
+        canonicalCreates.push(created);
+        canonicalPool.push(created);
+      } else {
+        identity = "DISCOVERED_ONLY";
+        fixtureDiscoveredOnly++;
+      }
+    }
+
+    fixtureStage.push({
+      provider_event_id: providerEventId,
+      captured_at: capturedAt,
+      fixture_date: row?.fixture_date ?? null,
+      kickoff_utc: ko,
+      league: row?.competition ?? null,
+      home,
+      away,
+      canonical_match_id: canonical,
+      identity_status: identity,
+      raw: {
+        ...row,
+        priced_complete_hda: pricedIds.has(providerEventId),
+        identity_resolution: {
+          resolved_home: resolvedHome,
+          resolved_away: resolvedAway,
+          home_method: homeAlias.method,
+          away_method: awayAlias.method,
+        }
+      },
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  if (canonicalCreates.length) {
+    const { error: canonicalCreateError } = await db
+      .from("matches")
+      .upsert(canonicalCreates, { onConflict: "hkjc_event_id" });
+    if (canonicalCreateError) {
+      return Response.json({ error: "canonical_fixture_create_failed", detail: canonicalCreateError.message }, { status: 500 });
+    }
+  }
+
+  if (fixtureStage.length) {
+    const { error: fixtureStageError } = await db
+      .from("flashscore_fixture_current")
+      .upsert(fixtureStage, { onConflict: "provider_event_id" });
+    if (fixtureStageError) {
+      return Response.json({ error: "fixture_stage_write_failed", detail: fixtureStageError.message }, { status: 500 });
+    }
+
+    const currentFixtureIds = fixtureStage.map((x:any) => x.provider_event_id);
+    const { data: oldFixtureRows } = await db.from("flashscore_fixture_current").select("provider_event_id");
+    const staleFixtureIds = (oldFixtureRows ?? [])
+      .map((x:any) => String(x.provider_event_id))
+      .filter((id:string) => !currentFixtureIds.includes(id));
+    if (staleFixtureIds.length) {
+      await db.from("flashscore_fixture_current").delete().in("provider_event_id", staleFixtureIds);
+    }
+  }
+
   const stage: any[] = [];
   const verified: any[] = [];
   let ambiguous = 0;
@@ -173,7 +341,7 @@ Deno.serve(async () => {
     const resolvedAway = awayAlias.canonicalName ?? away;
     const usedAlias = norm(resolvedHome) !== norm(home) || norm(resolvedAway) !== norm(away);
     const usedConsensus = homeAlias.method === "VERIFIED_CROSS_SOURCE_CONSENSUS" || awayAlias.method === "VERIFIED_CROSS_SOURCE_CONSENSUS";
-    const candidates = (matches ?? []).filter((m: any) => {
+    const candidates = canonicalPool.filter((m: any) => {
       if (norm(m.home_en) !== norm(resolvedHome) || norm(m.away_en) !== norm(resolvedAway)) return false;
       const mk = Date.parse(m.kickoff_hkt ?? "");
       return Number.isFinite(koMs) && Number.isFinite(mk) && Math.abs(mk - koMs) <= KICKOFF_TOLERANCE_MS;
@@ -196,7 +364,6 @@ Deno.serve(async () => {
     stage.push({
       provider_event_id: providerEventId,
       captured_at: capturedAt,
-    movement_refresh: movementRefreshError ? { status:"ERROR", message:movementRefreshError.message } : movementRefresh,
       fixture_date: row?.fixture_date ?? null,
       kickoff_utc: ko,
       league: row?.competition ?? null,
@@ -283,12 +450,22 @@ Deno.serve(async () => {
     if (snapshotError) return Response.json({ error: "snapshot_write_failed", detail: snapshotError.message }, { status: 500 });
   }
 
-  const { data: movementRefresh, error: movementRefreshError } = await db.rpc("ft_refresh_cloud_odds_movement");
-  if (movementRefreshError) {
-    console.error("cloud_odds_movement_refresh_failed", movementRefreshError);
-  }
+  const [{ data: marketRefresh, error: marketRefreshError }, { data: movementRefresh, error: movementRefreshError }] = await Promise.all([
+    db.rpc("ft_refresh_cloud_market_current"),
+    db.rpc("ft_refresh_cloud_odds_movement"),
+  ]);
+  if (marketRefreshError) console.error("cloud_private_market_refresh_failed", marketRefreshError);
+  if (movementRefreshError) console.error("cloud_odds_movement_refresh_failed", movementRefreshError);
 
   const healthRaw = {
+    discovered_count: discovered.length,
+    fixture_staged: fixtureStage.length,
+    fixture_exact_existing: fixtureExactExisting,
+    canonical_created: fixtureCreated,
+    fixture_deferred_nearby: fixtureDeferredNearby,
+    fixture_discovered_only: fixtureDiscoveredOnly,
+    fixture_invalid_time: fixtureInvalidTime,
+    fixture_ambiguous: fixtureAmbiguous,
     cloud_complete_hda: fixtures.length,
     staged: stage.length,
     verified: verified.length,
@@ -297,6 +474,12 @@ Deno.serve(async () => {
     alias_resolved: aliasResolved,
     consensus_resolved: consensusResolved,
     captured_at: capturedAt,
+    market_refresh: marketRefreshError
+      ? { status:"ERROR", message:marketRefreshError.message }
+      : marketRefresh,
+    movement_refresh: movementRefreshError
+      ? { status:"ERROR", message:movementRefreshError.message }
+      : movementRefresh,
   };
   await db.from("source_health").upsert({
     source: SOURCE, metric: "cloud_ingest",
