@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Check community schedule provenance
+        run: npm run check:openfootball
+
       - name: Check visible escape artifacts
         run: npm run check:ui
 

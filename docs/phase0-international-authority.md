@@ -173,3 +173,40 @@ existing market/real-evidence/independence/player/story/UI checks passed. Static
 Next.js build passed. Local browser installation failed because the Chromium
 download was truncated; rendered checks must run in normal GitHub CI. No real
 authenticated new-provider quote or production cutover has been verified.
+
+## GitHub schedule continuation — 2026-10-05
+
+Recovered the previously uncommitted OpenFootball adapter/collector, then completed
+its integration into package checks and PR CI. Source data is read from an
+inspected local checkout; no upstream executable code is installed or run.
+The checkout's LICENSE is CC0. Only the exact official GitHub origin is accepted.
+
+Implemented `lib/openfootball-schedule.js`, `scripts/collect-openfootball.mjs`,
+and `scripts/check-openfootball.mjs`. Each fixture keeps the pinned repository
+revision and the **individual file's last commit timestamp**, not the timestamp
+of an unrelated newer repository commit. Working-tree edits cannot masquerade
+as committed evidence. A bounded 3-day date-window coverage summary separates
+community schedule records from verified kickoff identities and current quotes.
+Dates have unknown source timezones: the UTC date window is an inventory filter,
+not an exact match admission rule. No canonical IDs or UTC kickoffs are invented.
+
+Actual inspected source revision:
+`e6744429ee395bc86f247348c6184bb08d4eb361`, last changed September 22.
+Collection on October 5 yielded 2,916 schedule records, 0 rejected, 0 quotes.
+October 5–7 UTC date inventory: 0 records. October 5–11: 73 records across 8
+competitions, 0 verified kickoffs, 0 current bookmaker quotes. The source is
+useful for schedule-gap auditing but does not solve current betting coverage.
+Do not promote it to core authority or present its commit time as observation
+freshness. Raw collection output stays outside the public repository.
+
+Regression checks cover invalid dates, duplicate records, unknown kickoffs,
+invalid times, revision pinning, per-file timestamps, dirty-tree isolation,
+non-official origin rejection and coverage windows. International authority
+and quote contracts passed alongside the new checks. No public UI changed;
+prior rendered CI applies only to the prior head, not this new batch.
+
+Resume: keep this source as shadow inventory. The independent useful next step
+is verified fixture bindings/canonical allocation using a source with genuine
+competition/team/kickoff evidence. Current bookmaker coverage still needs a
+working authorized odds route; installing an open-source client does not supply
+an API subscription or odds. Existing production producers remain intact.
