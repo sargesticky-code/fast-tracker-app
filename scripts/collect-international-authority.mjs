@@ -1,6 +1,29 @@
 // Bounded official API shadow collector. Writes one local evidence bundle;
 // never writes Supabase, replaces feeds, changes cron, or prints credentials.
 import fs from "node:fs/promises";
+import { timestamp } from "../lib/international-authority.js";
+
+// Page fetch times do not make duplicated bookmaker observations independent.
+export function reconcileCollectedQuotes(quotes) {
+  const records = new Map(), conflicts = new Map();
+  for (const quote of quotes) {
+    const key = JSON.stringify([quote.canonicalMatchId, quote.providerKey,
+      quote.providerEventId, quote.bookmakerKey, quote.market, quote.selection,
+      quote.line, timestamp(quote.observedAt)]);
+    if (conflicts.has(key)) continue;
+    const prior = records.get(key);
+    if (prior && prior.decimalPrice !== quote.decimalPrice) {
+      records.delete(key);
+      conflicts.set(key, { providerEventId: quote.providerEventId,
+        canonicalMatchId: quote.canonicalMatchId, bookmakerKey: quote.bookmakerKey,
+        market: quote.market, selection: quote.selection, line: quote.line,
+        observedAt: timestamp(quote.observedAt), reason: "CROSS_PAGE_CONFLICTING_OBSERVATION" });
+    } else if (!prior || Date.parse(quote.fetchedAt) > Date.parse(prior.fetchedAt)) {
+      records.set(key, quote);
+    }
+  }
+  return { quotes: [...records.values()], rejected: [...conflicts.values()] };
+}
 import { apiFootballFixtures, sportmonksFixtures, sportmonksPremiumQuotes, resolveFixture, oddsApiQuotes, apiFootballOdds } from "../lib/international-authority.js";
 
 export async function collect(config, { fetchImpl = fetch, env = process.env, now = () => new Date().toISOString() } = {}) {
@@ -68,7 +91,7 @@ export async function collect(config, { fetchImpl = fetch, env = process.env, no
         const identity = resolveFixture(fixture, config.bindings);
         evidence.fixtures.push({ ...fixture, ...identity, identityStatus: identity.status });
       }
-  }
+    }
   }
   for (const sport of config.sports) {
     const url = new URL(`https://api.the-odds-api.com/v4/sports/${sport}/odds`);
@@ -91,8 +114,11 @@ export async function collect(config, { fetchImpl = fetch, env = process.env, no
       const batch = sportmonksPremiumQuotes(payload, { fixtures: evidence.fixtures, fetchedAt, bookmakerRegistry: config.bookmakerRegistry,
         marketCatalogue: config.marketCatalogue, sourceTimezone: config.sourceTimezone });
       evidence.quotes.push(...batch.quotes); evidence.rejected.push(...batch.rejected);
+    }
   }
-  }
+  const reconciled = reconcileCollectedQuotes(evidence.quotes);
+  evidence.quotes = reconciled.quotes;
+  evidence.rejected.push(...reconciled.rejected);
   evidence.requestBudget = requestBudget;
   evidence.collectionStatus = "BOUNDED_COLLECTION_COMPLETE";
   return evidence;

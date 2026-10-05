@@ -266,3 +266,25 @@ missing provider credentials/entitlement. No new odds or kickoff claims are made
 Local authority, community-schedule and market contracts passed. Next: run this
 bounded collector against real accessible provider scope, then review identity
 bindings and additive quote storage; existing production feeds remain intact.
+
+## Complete-bundle quote reconciliation — 2026-10-05 continuation
+
+Prior remote head `2cf708dc253225c899ff3207d18b6c9c42467872` passed full
+CI run `37271148618`. Its local equivalent is `e4a5144`. No production/database
+changes or authenticated replacement coverage appeared between iterations.
+
+The collector now reconciles quotes across all response pages before returning
+its evidence bundle. Identical bookmaker observations collapse to one record
+with the latest successful fetch timestamp; original observedAt is retained.
+Different prices for the same oriented market/selection/line and observation
+are quarantined permanently within that bundle, with explicit rejected evidence.
+A later duplicate cannot restore the conflicted observation. Distinct bookmaker
+observation timestamps remain separate history. HDA conflict rejection also
+blocks the coverage gate even when another clean board exists in the bundle.
+
+Regression checks cover cross-page duplicates, price conflicts, third-row
+restoration attempts, distinct observations and downstream coverage blocking.
+Authority and market contracts pass; no real new-provider prices are claimed.
+Current provider access, verified bindings and storage/consumer cutover remain
+external dependencies. This improves correctness of the newly paginated path;
+existing production producers, schedules and schemas remain unchanged.

@@ -158,3 +158,20 @@ assert.equal(reused.readiness, 'BLOCKED');
 assert.equal(reused.conflictingFixtureIds.length, 2);
 assert.equal(reused.verifiedUpcoming, 0);
 console.log("International authority contracts passed (deterministic fixtures; no live coverage claim)");
+
+const { reconcileCollectedQuotes } = await import('./collect-international-authority.mjs');
+const quoteAcrossPages = { ...smEvidence.quotes[0], fetchedAt: '2026-10-04T10:01:00Z' };
+const repeated = reconcileCollectedQuotes([smEvidence.quotes[0], quoteAcrossPages]);
+assert.equal(repeated.quotes.length, 1);
+assert.equal(repeated.quotes[0].fetchedAt, quoteAcrossPages.fetchedAt);
+const conflictingPages = reconcileCollectedQuotes([smEvidence.quotes[0], { ...quoteAcrossPages, decimalPrice: 2.5 }, quoteAcrossPages]);
+assert.equal(conflictingPages.quotes.length, 0);
+assert.equal(conflictingPages.rejected.length, 1);
+assert.equal(conflictingPages.rejected[0].reason, 'CROSS_PAGE_CONFLICTING_OBSERVATION');
+assert.equal(reconcileCollectedQuotes([smEvidence.quotes[0], { ...quoteAcrossPages, observedAt: '2026-10-04T10:01:00Z', decimalPrice: 2.5 }]).quotes.length, 2);
+console.log('Cross-page observation reconciliation passed');
+
+const quarantinedCoverage = compareAuthorityCoverage(baseline, { ...coverageBundle,
+  rejected: [{ canonicalMatchId: binding.canonicalMatchId, market: 'HDA', reason: 'CROSS_PAGE_CONFLICTING_OBSERVATION' }] }, reportOptions);
+assert.equal(quarantinedCoverage.readiness, 'BLOCKED');
+assert.equal(quarantinedCoverage.freshHdaFixtures, 0);
