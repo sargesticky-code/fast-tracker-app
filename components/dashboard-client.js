@@ -48,11 +48,11 @@ function hasHardCoverageAlert(match) {
   const status = String(match?.health?.unifiedCoverageStatus || "");
   const coverage = modelCoverageCount(match);
 
-  if (status === "HKJC_STALE_OR_MISSING") return true;
+  if (status === "BET365_STALE_OR_MISSING") return true;
   if (status === "IDENTITY_BLOCK") return true;
 
   if (coverage === 0) {
-    return ["PIPELINE_COVERAGE_GAP", "SOURCE_COVERAGE_GAP", "HKJC_ONLY", ""].includes(status);
+    return ["PIPELINE_COVERAGE_GAP", "SOURCE_COVERAGE_GAP", "BET365_BROWSER", ""].includes(status);
   }
 
   return false;
@@ -822,7 +822,7 @@ function mergeLivePayload(feed, payload) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "FRESH", unifiedCoverageStatus: "HKJC_ONLY" },
+      health: { hkjcFreshness: "FRESH", unifiedCoverageStatus: "BET365_BROWSER" },
     });
   }
 
@@ -1320,7 +1320,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const dataAlerts = prematchAll.filter((m) => hasActionableDataAlert(m, clockMs)).length;
   const booting = currentFeed.source === "boot-empty";
   const isLive = currentFeed.source === "supabase-canonical-live";
-  const liveOddsAge = heartbeatAgeMinutes(currentFeed, "HKJC_LIVE_EDGE", clockMs);
+  const liveOddsAge = heartbeatAgeMinutes(currentFeed, "BET365_BROWSER", clockMs);
   const liveScoreAge = heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs);
   const liveAge = Math.max(liveOddsAge, liveScoreAge);
   const frontendGuardAge = heartbeatAgeMinutes(currentFeed, "FRONTEND_ROUTE_GUARD", clockMs);
@@ -1330,7 +1330,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const nativeLiveShadow = currentFeed?.systemHealth?.LIVE_SOURCE_SHADOW;
   const liveShadowCompare = currentFeed?.systemHealth?.LIVE_SHADOW_COMPARE;
   const pipelineWarnings = booting ? [] : [
-    heartbeatAgeMinutes(currentFeed, "HKJC_UPCOMING_EDGE", clockMs) > 30 ? "Upcoming HKJC" : null,
+    heartbeatAgeMinutes(currentFeed, "BET365_BROWSER", clockMs) > 30 ? "Bet365 feed" : null,
     liveOddsAge > 3 ? "Live odds" : null,
     liveScoreAge > 3 ? "Live score" : null,
     liveLayerGuard?.status === "FAIL" ? "Live core" : null,
@@ -1397,7 +1397,7 @@ export default function DashboardClient({ feed, nowMs }) {
             <div className="ft5-logo">FT</div>
             <div className="ft5-brand-copy">
               <b>Fast Track</b>
-              <span>HKJC × Multi-model Football Intelligence</span>
+              <span>Bet365 × Multi-model Football Intelligence</span>
             </div>
           </div>
           <div className="ft5-header-status">
@@ -1428,7 +1428,7 @@ export default function DashboardClient({ feed, nowMs }) {
           <div className="ft5-logo">FT</div>
           <div className="ft5-brand-copy">
             <b>Fast Track</b>
-            <span>HKJC × Multi-model Football Intelligence</span>
+            <span>Bet365 × Multi-model Football Intelligence</span>
           </div>
         </div>
 
