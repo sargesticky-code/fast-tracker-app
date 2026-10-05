@@ -25,6 +25,7 @@ import {
   normalizedTriplet,
   preferredModel,
   prematchValueSignal,
+  prematchGoalSummary,
 } from "@/lib/fast-tracker";
 
 const FEED_URL =
@@ -378,10 +379,9 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           const signal = prematchValueSignal(match, nowMs, feedState?.status === "ready");
           const edge = signal.edge;
           const market = match.market || fairMarket(match.odds);
-          const avgGoalsRaw = match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals;
-          const avgGoals = avgGoalsRaw == null || typeof avgGoalsRaw === "boolean" || String(avgGoalsRaw).trim() === ""
-            ? NaN : Number(avgGoalsRaw);
-          const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
+          const goalSummary = prematchGoalSummary(match);
+          const avgGoals = goalSummary.avgGoals;
+          const predictedScore = goalSummary.score || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
           const rowClasses = [
@@ -402,7 +402,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               <div className="ft-probs"><ProbabilityStrip model={model} /></div>
               <div data-label="H/D/A pick"><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div data-label="Predicted score">{predictedScore}</div>
-              <div className="ft-goal-number" data-label="Average goals">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
+              <div className="ft-goal-number" data-label="Average goals" title={goalSummary.source}>{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
               <div className="ft-value-state" data-label="H/D/A model EV" title={signal.reason}><span className={signal.eligible ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span>{edge && <small>{signal.label}</small>}</div>
               <div className="ft-score-cell" data-label="Live score">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}

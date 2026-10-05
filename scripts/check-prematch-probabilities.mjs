@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 // Load the actual public calculation module without changing the app's module mode.
 const source = fs.readFileSync("lib/fast-tracker.js", "utf8");
-const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel } = await import(
+const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel, prematchGoalSummary } = await import(
   `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
 );
 for (const missing of [null, undefined, "", "  ", false, true, [], {}, NaN, Infinity, -0.2, 101]) {
@@ -60,3 +60,11 @@ assert.equal(prematchValueSignal({ ...international, odds: { ...international.od
 assert.equal(prematchValueSignal({ ...international, odds: { ...international.odds, observedAt: "2026-10-04T23:30:00Z", freshness: "FRESH" } }, now).eligible, true);
 assert.equal(prematchValueSignal({ ...international, odds: { ...international.odds, providerKey: "UNKNOWN", observedAt: "2026-10-04T23:30:00Z", freshness: "FRESH" } }, now).eligible, false);
 console.log("Cross-provider freshness cannot borrow legacy quote evidence.");
+
+assert.deepEqual(prematchGoalSummary({ forebetDetail: { predictedScore: "2-1", ou25: { avgGoals: 2.8 } } }), { score: "2-1", avgGoals: 2.8, source: "Published goal model" });
+const goalMatch = { form: { home:.5, draw:.3, away:.2 }, formDetail: { quality:"FORM_MODELED", home:{expectedGoals:1.2}, away:{expectedGoals:1.1} } };
+assert.equal(prematchGoalSummary(goalMatch).avgGoals, 2.3);
+assert.equal(prematchGoalSummary(goalMatch).score, null);
+for (const missing of [null, "", false]) assert.equal(prematchGoalSummary({ ...goalMatch, formDetail:{...goalMatch.formDetail, home:{expectedGoals:missing}} }).avgGoals, null);
+assert.equal(prematchGoalSummary({ ...goalMatch, form:null }).avgGoals, null);
+console.log("Goal summary wiring passed: published fields and valid form goals; no inferred score.");

@@ -9,7 +9,7 @@ for (const width of [1440, 390]) {
     const base = feed.matches[0];
     feed.matches = [
       { ...base, id: "FBLEGACYSOURCE", home: "Legacy Source FC" },
-      { ...base, id: "FBINTSOURCE", home: "International Source FC", odds: { ...base.odds, providerKey: "BET365", observedAt: new Date(Date.now() - 60000).toISOString(), freshness: "FRESH" } },
+      { ...base, id: "FBINTSOURCE", home: "International Source FC", forebetDetail: { predictedScore: "3-1", ou25: { avgGoals: 3.4 } }, odds: { ...base.odds, providerKey: "BET365", observedAt: new Date(Date.now() - 60000).toISOString(), freshness: "FRESH" } },
       { ...base, id: "FBUNKNOWNSOURCE", home: "Unknown Source FC", health: {}, odds: { ...base.odds, providerKey: "UNRESOLVED" } },
     ];
     await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
@@ -17,6 +17,8 @@ for (const width of [1440, 390]) {
     await page.goto("http://127.0.0.1:4173/");
     await expect(page.locator('.ft-match-row[href*="FBLEGACYSOURCE"] .ft-market-odds')).toContainText("HKJC HDA");
     await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] .ft-market-odds')).toContainText("Bet365 HDA");
+    await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] [data-label="Predicted score"]')).toHaveText("3-1");
+    await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] .ft-goal-number')).toHaveText("3.40");
     await expect(page.locator('.ft-match-row[href*="FBUNKNOWNSOURCE"] .ft-market-odds')).toContainText("Source unverified HDA");
     if (width === 390) {
       for (const label of ["H/D/A pick", "Predicted score", "Average goals", "H/D/A model EV", "Live score"]) {
