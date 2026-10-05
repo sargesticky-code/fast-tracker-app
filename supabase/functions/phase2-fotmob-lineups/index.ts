@@ -1,3 +1,4 @@
+import { latestLineupRows, sourceLineupState, canPromoteLineupCapture } from "../_shared/lineup-snapshot.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
@@ -217,27 +218,14 @@ Deno.serve(async ()=>{
     }
     const canon=(k)=>aliasMap.get(k)||k;
     const ids=hk.map(x=>x.hkjc_event_id);
-    const lineupRes=ids.length?await db.from("phase2_match_lineup_evidence").select("hkjc_event_id,team_side,starter,confirmed,source_name").in("hkjc_event_id",ids):{data:[],error:null};
+    const lineupRes=ids.length?await db.from("phase2_match_lineup_evidence").select("hkjc_event_id,team_side,player_key,starter,confirmed,source_name,fetched_at").in("hkjc_event_id",ids):{data:[],error:null};
     if(lineupRes.error)throw lineupRes.error;
-    const state=new Map();
-    for(const r of lineupRes.data||[]){
-      const id=String(r.hkjc_event_id),source=String(r.source_name||"UNKNOWN");
-      if(!state.has(id))state.set(id,new Map());
-      const sm=state.get(id); if(!sm.has(source))sm.set(source,{h:0,a:0,confirmed:0});
-      const s=sm.get(source); if(r.starter&&r.team_side==="H")s.h++;if(r.starter&&r.team_side==="A")s.a++;if(r.confirmed)s.confirmed++;
-    }
-    const lineupState=(id)=>{
-      const m=state.get(String(id)); if(!m)return {full:false,confirmed:false};
-      const groups=[...m.values()];
-      return {
-        full:groups.some(s=>s.h===11&&s.a===11),
-        confirmed:groups.some(s=>s.h===11&&s.a===11&&s.confirmed>=22)
-      };
-    };
+    const latestRows=latestLineupRows(lineupRes.data||[],Date.now());
+    const lineupState=(id)=>sourceLineupState(latestRows.filter(row=>String(row.hkjc_event_id)===String(id)));
 
     // Reuse fresh cached FotMob details before spending any upstream requests.
     // This lets already-captured bench, coach and injury data flow into Phase 2 every run.
-    let cachedLineupMatches=0,cachedPartialOfficialMatches=0,cachedLineupRows=0,cachedBenchRows=0,cachedManagerRows=0,cachedInjuryRows=0;
+    let cachedLineupMatches=0,cachedPartialOfficialMatches=0,cachedLineupCaptureSkips=0,cachedLineupRows=0,cachedBenchRows=0,cachedManagerRows=0,cachedInjuryRows=0;
     const cachedLineups=[];
     const cachedManagers=[];
     const cachedInjuries=[];
@@ -246,7 +234,9 @@ Deno.serve(async ()=>{
       const ageMs=now-new Date(s.detail_fetched_at).getTime();
       if(!Number.isFinite(ageMs)||ageMs<0||ageMs>12*3600000)continue;
       const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id,s.detail_fetched_at,{home:s.home_external_id,away:s.away_external_id});
-      if(parsed.rows.length){
+      const promoteCached=parsed.rows.length>0&&canPromoteLineupCapture(parsed.rows,lineupRes.data||[],Date.now());
+      if(parsed.rows.length&&!promoteCached)cachedLineupCaptureSkips++;
+      if(promoteCached){
         cachedLineups.push(...parsed.rows);
         cachedLineupMatches++;
         if(parsed.partialOfficial)cachedPartialOfficialMatches++;
@@ -363,7 +353,7 @@ Deno.serve(async ()=>{
     }catch(e){detailFail++;console.warn("detail_fail",h.hkjc_event_id,String(e));}
 
     });
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,partialOfficialMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,partialOfficialMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupCaptureSkips,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",

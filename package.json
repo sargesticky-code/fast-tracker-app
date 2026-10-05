@@ -11,6 +11,7 @@
     "check:market-contract": "node scripts/check-market-provider-contract.mjs",
     "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
     "check:evidence-independence": "node scripts/check-evidence-independence.mjs",
+    "check:lineup-snapshot": "node scripts/check-lineup-snapshot.mjs",
     "check:lineup-ingestion": "node scripts/check-lineup-ingestion.mjs",
     "check:lineup-public": "node scripts/check-lineup-public-display.mjs",
     "check:lineup-authority": "node scripts/check-lineup-display-authority.mjs",

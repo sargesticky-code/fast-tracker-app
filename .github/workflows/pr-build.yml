@@ -60,6 +60,9 @@ jobs:
       - name: Check authoritative lineup display
         run: npm run check:lineup-authority
 
+      - name: Check coherent lineup snapshots
+        run: npm run check:lineup-snapshot
+
       - name: Check lineup capture freshness
         run: npm run check:lineup-ingestion
 
