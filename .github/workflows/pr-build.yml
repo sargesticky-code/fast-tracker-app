@@ -57,6 +57,13 @@ jobs:
       - name: Check Bet365 browser collector syntax
         run: npm run check:bet365-collector
 
+      - name: Check Bet365 Linux host scripts
+        shell: bash
+        run: |
+          bash -n scripts/install-bet365-browser-host.sh
+          bash -n scripts/run-bet365-browser-collector.sh
+          bash -n scripts/install-bet365-user-services.sh
+
       - name: Check provider and bookmaker contract
         run: npm run check:market-contract
 
