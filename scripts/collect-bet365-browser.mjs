@@ -97,6 +97,27 @@ for(const f of bundle.fixtures){
 await upsert("bet365_current",currentRows,"hkjc_event_id");
 await insert("odds_snapshots",snapshots);
 
+await upsert("source_health",[{
+  source:"BET365_BROWSER",
+  metric:"heartbeat",
+  value_text:`${bundle.fixtures.length} fixtures / ${bundle.quotes.length} quotes / ${currentRows.length} HDA boards`,
+  status:bundle.fixtures.length ? "OK" : "EMPTY",
+  notes:bundle.fixtures.length
+    ? "Bet365 browser host responded and collector completed."
+    : "Bet365 browser host responded successfully but returned no live football fixtures.",
+  observed_at:fetchedAt,
+  raw:{
+    upstreamRows:Array.isArray(payload)?payload.length:null,
+    fixtures:bundle.fixtures.length,
+    verifiedFixtures:bundle.fixtures.filter(f=>f.identityStatus==="VERIFIED").length,
+    ambiguousFixtures:bundle.fixtures.filter(f=>f.identityStatus==="AMBIGUOUS").length,
+    quotes:bundle.quotes.length,
+    normalizedQuotes:bundle.quotes.filter(q=>q.decimalPrice>1&&!q.suspended).length,
+    hdaBoards:currentRows.length,
+    rejections:bundle.rejected.length
+  }
+}],"source,metric");
+
 console.log(JSON.stringify({
   fetchedAt,upstreamRows:Array.isArray(payload)?payload.length:null,fixtures:bundle.fixtures.length,verifiedFixtures:bundle.fixtures.filter(f=>f.identityStatus==="VERIFIED").length,
   ambiguousFixtures:bundle.fixtures.filter(f=>f.identityStatus==="AMBIGUOUS").length,quotes:bundle.quotes.length,changedQuotes:changed.length,
