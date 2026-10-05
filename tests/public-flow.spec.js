@@ -21,10 +21,10 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
     goalsAgainst: side === "home" ? 11 : 13
   });
   const formDetail = dataCase === "populated"
-    ? { quality: "FORM_MODELED", source: "HKJC_RESULTS", home: richSide("home"), away: richSide("away") }
+    ? { quality: "FORM_MODELED", source: "VERIFIED_RESULTS", home: richSide("home"), away: richSide("away") }
     : dataCase === "partial"
-      ? { quality: "INSUFFICIENT_PARTIAL_HISTORY", source: "HKJC_RESULTS", home: richSide("home"), away: null }
-      : { quality: "INSUFFICIENT_HISTORY", source: "HKJC_RESULTS", home: null, away: null };
+      ? { quality: "INSUFFICIENT_PARTIAL_HISTORY", source: "VERIFIED_RESULTS", home: richSide("home"), away: null }
+      : { quality: "INSUFFICIENT_HISTORY", source: "VERIFIED_RESULTS", home: null, away: null };
   const totals = totalsCase === "empty"
     ? { goals: { line: null, over: null, under: null }, corners: { line: null, over: null, under: null } }
     : { goals: { line: 2.5, over: 1.88, under: 1.92 }, corners: { line: 9.5, over: 1.90, under: 1.90 } };
@@ -49,7 +49,7 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       goals: totals.goals,
       corners: totals.corners,
       updatedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 60 * 60 * 1000).toISOString(),
-      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH" },
+      health: { authorityFreshness: totalsStale ? "STALE" : "FRESH" },
       storySummary: {
         matchScript: { predictedScore: "2-1", shapeKey: "BALANCED" },
         editorialAlignment: { support: 1, contradict: 0 }
@@ -65,7 +65,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
     ? {
         mode: "VALUE_DETECT",
         value: [{
-          provider_id: "HKJC",
+          provider_id: "BET365",
           selection_key: "HOME",
           odds_decimal: 2.20,
           expected_roi_pct: 5.6,
@@ -89,7 +89,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
           nearArbitrage: {
             status: "NEAR_ARB_WATCH",
             distance_to_arb_pct: 1.4,
-            best_home_provider: "HKJC",
+            best_home_provider: "BET365",
             best_home_odds: 2.20,
             best_draw_provider: "BOOK_B",
             best_draw_odds: 3.35,
@@ -106,7 +106,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         };
   return {
     fixture: {
-      hkjc_event_id: "FBTEST1",
+      event_id: "FBTEST1",
       home_en: "Northbridge FC",
       away_en: "Riverside United",
       tournament: "Premier League",
@@ -138,7 +138,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         away_venue_games: 4,
         form_xg_home: 1.62,
         form_xg_away: 1.11,
-        model_source: "HKJC_TEAM_FORM"
+        model_source: "VERIFIED_RESULTS_TEAM_FORM"
       },
       internal: {
         training_matches: 240,
@@ -207,7 +207,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
       }],
       playerStatus: playerCase === "confirmed" ? [{
         id: 178,
-        hkjc_event_id: "FB5829",
+        event_id: "FB5829",
         team_side: "A",
         player_key: "APIF:108643",
         status_type: "MISSING FIXTURE",
@@ -224,7 +224,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         raw: { player_name: "G. Segal" }
       }] : playerCase === "unresolved" ? [{
         id: 586,
-        hkjc_event_id: "FB6115",
+        event_id: "FB6115",
         team_side: "A",
         player_key: "1300526",
         status_type: "INJURY",
@@ -241,7 +241,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         raw: { player_name: "Nico O'Reilly" }
       }] : playerCase === "ambiguous" ? [{
         id: 32,
-        hkjc_event_id: "FB5749",
+        event_id: "FB5749",
         team_side: "H",
         player_key: "Lukas Provod",
         status_type: "INJURY",
@@ -284,7 +284,7 @@ function analysisPayload(totalsCase = "partial") {
       weight: 0.9,
       sources: 1,
       method: "FORM_XG_POISSON",
-      provenanceGroup: "HKJC_RESULTS",
+      provenanceGroup: "VERIFIED_RESULTS",
       memberKeys: ["FORM"]
     }]
   };
@@ -341,7 +341,7 @@ function analysisPayload(totalsCase = "partial") {
     evidence: {
       phase1Health: {
         sourceMode: "CANONICAL",
-        evidenceKey: "hkjc_odds_current:FBTEST1",
+        evidenceKey: "market_odds_current:FBTEST1",
         sourceUrl: null,
         priceObservedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
         fetchedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString()
@@ -349,7 +349,7 @@ function analysisPayload(totalsCase = "partial") {
       goalsModelContext: {
         teamForm: {
           quality: "FORM_MODELED",
-          source: "martj42/international_results + HKJC recent · recency-weighted Team-Form Poisson",
+          source: "martj42/international_results + verified recent results · recency-weighted Team-Form Poisson",
           fetchedAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
           homeGames: 14,
           awayGames: 25,
@@ -357,7 +357,7 @@ function analysisPayload(totalsCase = "partial") {
           awayVenueGames: 9,
           expectedGoalsHome: 1.09304,
           expectedGoalsAway: 1.65055,
-          provenanceGroup: "HKJC_RESULTS",
+          provenanceGroup: "VERIFIED_RESULTS",
           evidenceKey: "form_predictions:FBTEST1",
           sourceUrl: null,
           method: "FORM_XG_POISSON"
@@ -365,7 +365,7 @@ function analysisPayload(totalsCase = "partial") {
       }
     },
     story: {
-      advice: "Northbridge FC is a value candidate at the current HKJC price.",
+      advice: "Northbridge FC is a value candidate at the current Bet365 price.",
       marketRead: "The HDA price implies a lower fair home probability than the independent model centre.",
       modelRead: "Forebet, Dixon-Coles/Pi and Team Form lean home, with moderate dispersion.",
       humanRead: "The lineup is predicted rather than confirmed.",
@@ -391,7 +391,7 @@ function storyPayload() {
       headline: "Northbridge vs Riverside: home value, but lineup confirmation still matters",
       executiveSummary: "The home case is supported by several independent model families, while the provisional lineup remains an important uncertainty.",
       thesis: "Northbridge FC is a value candidate at 2.20, not a certainty.",
-      marketInterpretation: "The current HKJC HDA price is the observed price used for this recommendation.",
+      marketInterpretation: "The current Bet365 HDA price is the observed price used for this recommendation.",
       modelConsensusInterpretation: "Independent model families lean home without eliminating away-side risk.",
       humanFactorsInterpretation: "The available XI is provisional and is not treated as confirmed.",
       counterCase: "A lineup downgrade or adverse price move would weaken the case."
@@ -460,7 +460,7 @@ for (const device of [
     await expect(page.getByRole("button", { name: "HDA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Goals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Corners" })).toBeVisible();
-    await expect(page.getByText("HKJC HDA").first()).toBeVisible();
+    await expect(page.getByText("Bet365 HDA").first()).toBeVisible();
     await page.getByRole("button", { name: "Goals" }).click();
     await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
     await page.screenshot({ path: `test-results/dashboard-${device.name}-home.png`, fullPage: true });
@@ -472,7 +472,7 @@ for (const device of [
     await expect(page).toHaveURL(/details.*FBTEST1/);
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
-    await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
+    await expect(page.getByText("Bet365")).toBeVisible();
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
     await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Predicted / provisional lineup", { exact: true })).toBeVisible();
     await expect(page.getByText("Unknown — not zero absences", { exact: true })).toBeVisible();
@@ -508,7 +508,7 @@ for (const device of [
     await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
     await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
     await expect(page.getByText("WATCH · Over 2.5", { exact: true })).toBeVisible();
-    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · HKJC_RESULTS)", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · VERIFIED_RESULTS)", { exact: true })).toBeVisible();
     await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
     await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
     await expect(page.getByText("Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.", { exact: true })).toBeVisible();
@@ -602,9 +602,9 @@ for (const totalsCase of ["populated", "partial", "empty"]) {
         await expect(details.getByText(/Market: Corners O\/U · Line 9.5/)).toBeVisible();
       } else {
         await expect(totals.locator(".totals-row-compact")).toHaveCount(2);
-        await expect(totals.getByText("No HKJC Goals line", { exact: true })).toBeVisible();
-        await expect(totals.getByText("No HKJC Corners line", { exact: true })).toBeVisible();
-        await expect(totals.getByText("HKJC line is unavailable; no same-line model comparison can be made.", { exact: true })).toHaveCount(2);
+        await expect(totals.getByText("No Bet365 Goals line", { exact: true })).toBeVisible();
+        await expect(totals.getByText("No Bet365 Corners line", { exact: true })).toBeVisible();
+        await expect(totals.getByText("Bet365 line is unavailable; no same-line model comparison can be made.", { exact: true })).toHaveCount(2);
         await expect(totals.getByText("Line —", { exact: true })).toHaveCount(2);
         await expect(totals.getByText(/Over — · —/)).toHaveCount(2);
         await expect(totals.getByText(/Under — · —/)).toHaveCount(2);
