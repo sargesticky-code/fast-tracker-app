@@ -386,8 +386,8 @@ function readCachedMatch(id) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const sourceTime = parsed.liveNow
-      ? (parsed.live?.fetchedAt || parsed.live?.score?.capturedAt || parsed.health?.hkjcFetchedAt)
-      : parsed.health?.hkjcFetchedAt;
+      ? (parsed.live?.fetchedAt || parsed.live?.score?.capturedAt || parsed.health?.authorityFetchedAt || parsed.updatedAt)
+      : parsed.health?.authorityFetchedAt || parsed.updatedAt;
     const ageMinutes = sourceTime ? (Date.now() - new Date(sourceTime).getTime()) / 60000 : Infinity;
     const maxAge = parsed.liveNow ? 2 : 10;
     return Number.isFinite(ageMinutes) && ageMinutes <= maxAge ? parsed : null;
@@ -457,10 +457,10 @@ function matchFromDetailPayload(payload, matchId) {
     },
     health: {
       status: fixtureFreshness === "FRESH" ? "DETAIL_FALLBACK" : "DETAIL_FALLBACK_STALE",
-      hkjcFreshness: fixtureFreshness,
-      hkjcFetchedAt: fixtureFetchedAt,
-      hkjcPriceChangedAt: priceObservedAt,
-      hkjcPriceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
+      authorityFreshness: fixtureFreshness,
+      authorityFetchedAt: fixtureFetchedAt,
+      priceChangedAt: priceObservedAt,
+      priceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
       evidenceChannelCount: 0,
       unifiedCoverageStatus: "FLASHSCORE_BET365",
     },
@@ -479,7 +479,7 @@ function mergeLiveMatch(base, payload, matchId) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "FLASHSCORE_BET365" },
+      health: { authorityFreshness: "LIVE", unifiedCoverageStatus: "FLASHSCORE_BET365" },
       updatedAt: live.live?.fetchedAt || payload.generatedAt || null,
     };
   }
@@ -852,17 +852,30 @@ export default function MatchDetailClient() {
   const liveControlLabel = controlSideLabel(match, liveControlSide);
   const liveSignalRows = liveStats ? [
     { key: "xg", label: "xG", pair: liveStats.xg, digits: 2 },
+    { key: "xgot", label: "xGOT", pair: liveStats.xgot, digits: 2 },
     { key: "sot", label: "Shots on target", pair: liveStats.shotsOnTarget, digits: 0 },
-    { key: "shots", label: "Shots", pair: liveStats.shots, digits: 0 },
+    { key: "shots", label: "Total shots", pair: liveStats.shots, digits: 0 },
+    { key: "inside", label: "Shots inside box", pair: liveStats.shotsInsideBox, digits: 0 },
+    { key: "big", label: "Big chances", pair: liveStats.bigChances, digits: 0 },
     { key: "box", label: "Box touches", pair: liveStats.boxTouches, digits: 0 },
     { key: "possession", label: "Possession", pair: liveStats.possession, digits: 0, suffix: "%" },
+    { key: "passes", label: "Accurate passes", pair: liveStats.accuratePasses, digits: 0 },
     { key: "corners", label: "Corners", pair: liveStats.corners, digits: 0 },
+    { key: "tackles", label: "Tackles", pair: liveStats.tackles, digits: 0 },
+    { key: "interceptions", label: "Interceptions", pair: liveStats.interceptions, digits: 0 },
+    { key: "clearances", label: "Clearances", pair: liveStats.clearances, digits: 0 },
+    { key: "saves", label: "Keeper saves", pair: liveStats.keeperSaves, digits: 0 },
+    { key: "duels", label: "Duels won", pair: liveStats.duelsWon, digits: 0 },
+    { key: "dribbles", label: "Successful dribbles", pair: liveStats.dribblesSucceeded, digits: 0 },
+    { key: "fouls", label: "Fouls", pair: liveStats.fouls, digits: 0 },
+    { key: "yc", label: "Yellow cards", pair: liveStats.yellowCards, digits: 0 },
+    { key: "rc", label: "Red cards", pair: liveStats.redCards, digits: 0 },
   ].map((row) => ({ ...row, share: pairShare(row.pair) })).filter((row) => row.share) : [];
   const liveLanes = match.live ? (() => {
     const statsLane = liveLaneStatus(liveStats?.capturedAt, 180, 600);
     const detailStatus = String(match.live?.detail?.detailStatus || liveStats?.detailStatus || "").toUpperCase();
     if (!Number.isFinite(statsLane.age)) {
-      if (detailStatus === "NOT_APPLICABLE" || (!detailStatus && liveScore.source === "HKJC_RUNNING_RESULT")) {
+      if (detailStatus === "NOT_APPLICABLE" || (!detailStatus && liveScore.source)) {
         Object.assign(statsLane, { state: "unavailable", label: "score-only" });
       }
       else if (detailStatus === "CAPTURED_NO_METRICS") Object.assign(statsLane, { state: "unavailable", label: "no metrics" });
