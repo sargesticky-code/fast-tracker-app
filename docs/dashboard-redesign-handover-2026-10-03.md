@@ -1075,3 +1075,7 @@ Accepted attribution/freshness head eb5952f9bd800556ddddb5eaccb1091968fd2642, CI
 ### Phase 1 goal-output wiring — iteration 6
 
 Executable 822a007c8e73783f85b9fe1637820d7f6aa95398, CI 37272765696 SUCCESS; 40-case flow/build/contracts pass, artifact 11328912124 desktop/mobile inspected. Existing Forebet structured score/average goals now display; valid FORM_MODELED expected-goals pairs recover average goals without inferring score. Fresh 06:30:45Z snapshot: 38 unique fixtures, 16 supported average-goals estimates, zero published scores. Remaining score-source gap honest. Next inspect detail/goal provenance consistency. No deployment/DB mutation.
+
+### Phase 1 detail goal consistency — iteration 7
+
+Executable 704eb25716d9a3bf7b446f35a7988c172f7b148e; CI 37274487219 SUCCESS, 40-case suite; artifact 11329444235 desktop/mobile detail hero inspected. Shared score/average-goals summary with source text now survives homepage-to-detail journey. Real FB6279 authoritative detail at 06:50:43Z retains FORM_MODELED expected goals 1.14563/1.06879. Next inspect deep-only model hydration and null movement coercion. No database change, release or merge.
