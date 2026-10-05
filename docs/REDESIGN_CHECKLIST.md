@@ -171,3 +171,7 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 
 - [x] Stable exact registry-key identities in both APIs; analysis emits canonical identity and groups confirmed claims by it.
 - [x] Actual annotation tests and stored same-name/historical XI verification; source 5738756 CI 37280350489 passed all checks and 43/43 browser regressions.
+
+- [x] Cached/fresh player-status reports refresh only from newer genuine capture, with durable IDs/dates and conditional update guard.
+- [x] Actual helper/writer tests and FB6316 stored dry run; source aa45d2d CI 37282613316 passed all contracts/build and 43/43 browser regressions.
+- [ ] Concurrent first inserts, coach timing and genuine recovery/expiry evidence remain separate work.
