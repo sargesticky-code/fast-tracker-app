@@ -68,9 +68,21 @@ for (const invalid of ['',null,false,0,NaN,[],{}]) {
  assert.equal(parse(input,'TEST','EXTERNAL',capture,{home:invalid,away:'A'}).rows.length,0,'missing/invalid mapped side cannot authorize partial official');
 }
 
-const counterBranch=source.slice(source.indexOf('if(parsed.partialOfficial)partialOfficialMatches++'),source.indexOf('if(parsed.partialOfficial)partialOfficialMatches++')+230);
+const counterBranch=source.slice(source.indexOf('if(parsed.partialOfficial)partialOfficialMatches++'),source.indexOf('if(parsed.partialOfficial)partialOfficialMatches++')+450);
 assert.ok(counterBranch.includes('else if(parsed.complete&&parsed.rows[0]?.confirmed)confirmedMatches++'));
-const countClass=new Function('parsed', 'let partialOfficialMatches=0,confirmedMatches=0,predictedMatches=0;'+counterBranch.slice(0,counterBranch.indexOf('predictedMatches++;')+'predictedMatches++;'.length)+';return {partialOfficialMatches,confirmedMatches,predictedMatches};');
-assert.deepEqual(countClass(partialResult),{partialOfficialMatches:1,confirmedMatches:0,predictedMatches:0});
-assert.deepEqual(countClass(parse(detail('confirmed'),'TEST','EXTERNAL',capture)),{partialOfficialMatches:0,confirmedMatches:1,predictedMatches:0});
-assert.deepEqual(countClass(first),{partialOfficialMatches:0,confirmedMatches:0,predictedMatches:1});
+const countClass=new Function('parsed', 'let partialOfficialMatches=0,confirmedMatches=0,predictedMatches=0,referenceMatches=0,unclassifiedMatches=0;'+counterBranch.slice(0,counterBranch.indexOf('unclassifiedMatches++;')+'unclassifiedMatches++;'.length)+';return {partialOfficialMatches,confirmedMatches,predictedMatches,referenceMatches,unclassifiedMatches};');
+assert.deepEqual(countClass(partialResult),{partialOfficialMatches:1,confirmedMatches:0,predictedMatches:0,referenceMatches:0,unclassifiedMatches:0});
+assert.deepEqual(countClass(parse(detail('confirmed'),'TEST','EXTERNAL',capture)),{partialOfficialMatches:0,confirmedMatches:1,predictedMatches:0,referenceMatches:0,unclassifiedMatches:0});
+assert.deepEqual(countClass(first),{partialOfficialMatches:0,confirmedMatches:0,predictedMatches:1,referenceMatches:0,unclassifiedMatches:0});
+
+for (const kind of ['standard','unconfirmed','not official','actually predicted','']) {
+ const result=parse(detail(kind),'TEST','EXTERNAL',capture);
+ assert.equal(result.rows.length,24,'complete source roster remains available');
+ assert.ok(result.rows.every(row=>row.raw.classification==='UNCONFIRMED' && row.confidence===null && row.confirmed===false),'unknown kind cannot become a confident prediction');
+ assert.ok(result.rows.every(row=>row.source_name==='FOTMOB_PREDICTED'),'storage source identity remains compatible');
+}
+assert.ok(first.rows.every(row=>row.raw.classification==='PREDICTED'));
+assert.ok(parse(detail('lastStarting11'),'TEST','EXTERNAL',capture).rows.every(row=>row.raw.classification==='PREVIOUS_XI'));
+console.log('Unknown lineup types retain source rosters with unknown confidence and explicit unconfirmed classification.');
+
+assert.deepEqual(countClass(parse(detail("standard"),"TEST","EXTERNAL",capture)),{partialOfficialMatches:0,confirmedMatches:0,predictedMatches:0,referenceMatches:0,unclassifiedMatches:1});

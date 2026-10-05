@@ -115,7 +115,11 @@ function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString
   const kind=String(l?.lineupType||"").trim().toLowerCase();
   const confirmed=["confirmed","official","actual"].includes(kind);
   const sourceName=confirmed?"FOTMOB_OFFICIAL":"FOTMOB_PREDICTED";
-  const confidence=confirmed?.96:.82;
+  // Preserve the existing source key for view/upsert compatibility. The raw
+  // classification carries the actual evidence type; unknown is not predicted.
+  const classification=confirmed?"CONFIRMED":kind==="predicted"?"PREDICTED":
+    ["laststarting11","laststartinglineups"].includes(kind)?"PREVIOUS_XI":"UNCONFIRMED";
+  const confidence=confirmed?.96:classification==="UNCONFIRMED"?null:.82;
   // Cache reprocessing is not a new upstream observation.
   const fetchedAt=new Date(capturedAt).toISOString();
   const rows=[],injuries=[],managers=[];
@@ -135,7 +139,7 @@ function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
         source_updated_at:null,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null},
+        raw:{classification,squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null},
         created_at:fetchedAt
       });
     }
@@ -150,7 +154,7 @@ function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
         source_updated_at:null,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null},
+        raw:{classification,squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null},
         created_at:fetchedAt
       });
     }
@@ -306,7 +310,7 @@ Deno.serve(async ()=>{
       return Math.abs(ak-now)-Math.abs(bk-now);
     });
     const picked=matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
-    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,partialOfficialMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
+    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,unclassifiedMatches=0,referenceMatches=0,confirmedMatches=0,partialOfficialMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
     await mapLimit(picked,DETAIL_CONCURRENCY,async(target)=>{
     const {h,best}=target;
     try{
@@ -329,7 +333,9 @@ Deno.serve(async ()=>{
         benchRows+=parsed.rows.filter(x=>!x.starter).length;
         if(parsed.partialOfficial)partialOfficialMatches++;
         else if(parsed.complete&&parsed.rows[0]?.confirmed)confirmedMatches++;
-        else if(parsed.complete)predictedMatches++;
+        else if(parsed.kind==="predicted")predictedMatches++;
+        else if(["laststarting11","laststartinglineups"].includes(parsed.kind))referenceMatches++;
+        else unclassifiedMatches++;
       }
 
       if(parsed.managers.length){
@@ -353,7 +359,7 @@ Deno.serve(async ()=>{
     }catch(e){detailFail++;console.warn("detail_fail",h.hkjc_event_id,String(e));}
 
     });
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,partialOfficialMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupCaptureSkips,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,unclassifiedMatches,referenceMatches,confirmedMatches,partialOfficialMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupCaptureSkips,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",
