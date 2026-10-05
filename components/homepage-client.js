@@ -229,7 +229,7 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
-      <small>{match?.liveNow ? "LIVE HKJC HDA" : "HKJC HDA"}</small>
+      <small>{match?.liveNow ? "LIVE BET365 HDA" : "BET365 HDA"}</small>
       <div>
         {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
