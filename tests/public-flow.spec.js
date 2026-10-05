@@ -472,7 +472,7 @@ for (const device of [
     await expect(page).toHaveURL(/details.*FBTEST1/);
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
-    await expect(page.getByText("Bet365")).toBeVisible();
+    await expect(page.getByText("Bet365", { exact: true }).first()).toBeVisible();
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
     await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Predicted / provisional lineup", { exact: true })).toBeVisible();
     await expect(page.getByText("Unknown — not zero absences", { exact: true })).toBeVisible();
