@@ -123,8 +123,8 @@ export default async function HealthPage(){
     <section className="health-strip"><div><b>🗓 {upcoming.length}</b><span>未開賽</span></div><div><b>● {live.length}</b><span>即場</span></div><div><b>✓ {stats.modeled}</b><span>有預測</span></div><div><b>{stats.missing>0?"🟡":"🟢"} {stats.missing}</b><span>需留意</span></div></section>
     <section className="panel"><div className="panel-title"><div><p>資料更新</p><h2>主要資料來源</h2></div><span>自動更新</span></div>
       <div className="health-list">
-        <div><span>Bet365 feed<small style={{display:"block"}}>Browser WebSocket collector heartbeat</small></span><b>{heartbeatAge("BET365_BROWSER")}</b></div>
-        <div><span>Bet365 live odds<small style={{display:"block"}}>Verified browser-feed quotes</small></span><b>{heartbeatAge("BET365_BROWSER")}</b></div>
+        <div><span>Bet365 feed<small style={{display:"block"}}>Cloud Flashscore/Bet365 ingest heartbeat</small></span><b>{heartbeatAge("FLASHSCORE_BET365")}</b></div>
+        <div><span>Bet365 live odds<small style={{display:"block"}}>Cloud Bet365 prematch/reference prices</small></span><b>{heartbeatAge("FLASHSCORE_BET365")}</b></div>
         <div><span>即場比分及數據<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
         <div><span>即場資料檢查<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{statusIcon(heartbeats.LIVE_LAYER_GUARD?.status)} {heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
         <div><span>即場資料服務<small style={{display:"block"}}>expected build vs production host</small></span><b>{statusIcon(heartbeats.LIVE_UPSTREAM_DEPLOY?.status)} {heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
