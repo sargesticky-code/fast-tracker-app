@@ -1,0 +1,17 @@
+[Unit]
+Description=Fast Tracker Bet365 to Supabase collector
+After=network-online.target bet365-scraper.service
+Wants=network-online.target bet365-scraper.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Development/github/fast-tracker-app
+EnvironmentFile=%h/.config/fast-tracker/bet365.env
+Environment=BET365_BROWSER_URL=http://127.0.0.1:8485/live?sport=1
+Environment=BET365_COLLECT_INTERVAL_SECONDS=15
+ExecStart=/usr/bin/bash %h/Development/github/fast-tracker-app/scripts/run-bet365-browser-collector.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
