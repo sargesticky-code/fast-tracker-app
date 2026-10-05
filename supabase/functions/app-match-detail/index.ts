@@ -218,29 +218,24 @@ Deno.serve(async(req:Request)=>{
   ]=await Promise.all([
     summaryFixture?Promise.resolve({data:null,error:null}):oneWith(optionalDb,"matches"),
     (async()=>{
-      const r=await optionalDb.from("bet365_browser_live_current")
-        .select("provider_event_id,canonical_match_id,captured_at,event_name,league,home,away,home_score,away_score,minute,period,identity_status,stats,markets")
-        .eq("canonical_match_id",id)
-        .eq("identity_status","VERIFIED")
-        .gte("captured_at",new Date(Date.now()-5*60*1000).toISOString())
-        .order("captured_at",{ascending:false})
-        .limit(1)
+      const r=await optionalDb.from("live_score_current")
+        .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,source_match_id")
+        .eq("hkjc_event_id",id)
+        .gte("updated_at_source",new Date(Date.now()-10*60*1000).toISOString())
         .maybeSingle();
       return {data:r.data?{
         hkjc_event_id:id,
-        fetched_at:r.data.captured_at,
-        status:r.data.period??"LIVE",
-        tournament:r.data.league,
-        home_en:r.data.home,
-        away_en:r.data.away,
+        fetched_at:r.data.updated_at_source??r.data.source_updated_at??null,
+        status:r.data.match_status??"LIVE",
         live_eligible:true,
-        source:"BET365_BROWSER",
-        provider_event_id:r.data.provider_event_id,
+        source:r.data.source??"LIVE_SCORE_CURRENT",
+        provider_event_id:r.data.source_match_id??null,
         home_score:r.data.home_score,
         away_score:r.data.away_score,
         minute:r.data.minute,
-        stats:r.data.stats,
-        markets:r.data.markets
+        stats:null,
+        markets:null,
+        market_semantics:"NO_VERIFIED_IN_PLAY_BOOKMAKER_MARKET"
       }:null,error:cleanError(r.error)};
     })(),
     oneWith(optionalDb,"forebet_predictions"),
@@ -262,7 +257,7 @@ Deno.serve(async(req:Request)=>{
   const fixtureUpcoming=summaryFixture?{data:summaryFixture,error:null}:fixtureUpcomingDb;
 
   const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
-  const fixtureSource = summaryFixture ? "AUTHORITY_SUMMARY" : fixtureUpcoming.data ? "CANONICAL" : fixtureLive.data ? "BET365_LIVE" : "MISSING";
+  const fixtureSource = summaryFixture ? "AUTHORITY_SUMMARY" : fixtureUpcoming.data ? "CANONICAL" : fixtureLive.data ? "LIVE_SCORE_CURRENT" : "MISSING";
   const errors:any={};
   for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
     if((v as any).error) errors[k]=(v as any).error;
