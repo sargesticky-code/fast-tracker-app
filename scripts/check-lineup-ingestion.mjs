@@ -62,3 +62,8 @@ const overfull=detail('confirmed');overfull.content.lineup.homeTeam.starters.pus
 assert.equal(parse(overfull,'TEST','EXTERNAL',capture,mappedTeams).rows.length,0,'overfull XI is not an admissible partial official roster');
 assert.ok(!source.includes('if(parsed.complete&&parsed.rows.length>=22)'), 'cached and fresh promotion admit only parser-approved rows');
 console.log('Partial official ingestion passed: exact event and mapped sides, distinct players, no prediction backfill and no invented completion.');
+
+for (const invalid of ['',null,false,0,NaN,[],{}]) {
+ const input=structuredClone(partial);input.content.lineup.homeTeam.id=invalid;
+ assert.equal(parse(input,'TEST','EXTERNAL',capture,{home:invalid,away:'A'}).rows.length,0,'missing/invalid mapped side cannot authorize partial official');
+}

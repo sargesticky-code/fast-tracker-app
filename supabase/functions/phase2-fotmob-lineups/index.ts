@@ -189,8 +189,11 @@ function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString
   const validRoster=keys.every(Boolean) && new Set(keys).size===keys.length
     && hStarters.length<=11 && aStarters.length<=11;
   const complete=validRoster && hStarters.length===11 && aStarters.length===11;
+  const mappedSides=expectedTeams && ["home","away"].every(side=>
+    ["string","number"].includes(typeof expectedTeams[side]) && String(expectedTeams[side]).trim()!==""
+    && (typeof expectedTeams[side]!=="number" || (Number.isFinite(expectedTeams[side]) && expectedTeams[side]>0)));
   const partialOfficial=validRoster && confirmed && !complete && hStarters.length+aStarters.length>0
-    && String(l.matchId)===String(externalId) && expectedTeams?.home!=null && expectedTeams?.away!=null;
+    && String(l.matchId)===String(externalId) && mappedSides;
   return {rows:complete||partialOfficial?rows:[],kind,injuries,managers,complete,partialOfficial};
 }
 
