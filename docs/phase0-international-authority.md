@@ -378,3 +378,28 @@ Regression checks cover staggered fresh selection updates, one stale selection,
 mixed fetches, mixed transports and legitimate older-to-newer price changes.
 These are synthetic verification cases. Credentials/entitlement and verified
 real mappings still block actual replacement coverage, storage and cutover.
+
+## Runnable private coverage comparison — 2026-10-05 continuation
+
+Prior remote head `16ed937cef7633c002382e788bb80ac76d7089e6` passed full
+CI run `37280025554`. No new provider access, DB writes or production release.
+
+Added `scripts/compare-authority-coverage.mjs`: baseline array + collected bundle
+-> private exclusive report file. Usage:
+`node scripts/compare-authority-coverage.mjs baseline.json bundle.json report.json [zoned-evaluation-time]`.
+Default evaluation is current time. An explicit archived evaluation timestamp is
+for reproducible offline analysis, not a claim of current freshness. Exit 0 means
+shadow coverage passed; exit 2 means coverage/baseline is blocked. Neither result
+authorizes production cutover. The command cannot overwrite existing evidence.
+
+Coverage now reports unknown kickoff records, stale fixture fetches and rejected
+reason counts. Invalid baseline kickoff/IDs cannot silently disappear from the
+comparison denominator and yield success. Synthetic checks cover malformed
+baselines and these diagnostics. Local contracts and build passed.
+
+Real persisted OpenFootball bundle: 2,916 unknown kickoffs, 0 verified coverage,
+0 fresh HDA. Running with an explicitly empty baseline produced
+NO_COMPARISON_BASELINE and exit 2. This verifies truthful diagnostics, not actual
+old/new production coverage. A current canonical baseline export and real
+verified replacement bundle remain required. Provider credentials/entitlement
+and mappings still block that acceptance. No fabricated baseline was inserted.

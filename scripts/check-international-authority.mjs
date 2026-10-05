@@ -231,3 +231,13 @@ assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtu
 const olderPrice = { ...staggered[0], observedAt: new Date(policy.now - 20000).toISOString(), decimalPrice: 2.9 };
 assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtures, quotes: [olderPrice, ...staggered] }, reportOptions).readiness, 'SHADOW_COVERAGE_PASSED');
 console.log('Individually fresh single-fetch HDA boards passed');
+
+const malformedBaseline = compareAuthorityCoverage([...baseline, { id: 'unknown-kickoff' }], coverageBundle, reportOptions);
+assert.equal(malformedBaseline.readiness, 'INVALID_COMPARISON_BASELINE');
+assert.deepEqual(malformedBaseline.invalidBaselineRecords, [{ index: 1, reason: 'UNKNOWN_BASELINE_KICKOFF' }]);
+assert.equal(compareAuthorityCoverage([{ kickoff }], coverageBundle, reportOptions).readiness, 'INVALID_COMPARISON_BASELINE');
+const unknownKickoffReport = compareAuthorityCoverage(baseline, { fixtures: [{ providerKey: 'COMMUNITY', providerEventId: 'date-only', kickoff: null }], quotes: [], rejected: [{ reason: 'UNRESOLVED' }] }, reportOptions);
+assert.deepEqual(unknownKickoffReport.unknownKickoffProviderIds, ['COMMUNITY:date-only']);
+assert.equal(unknownKickoffReport.rejectedReasonCounts.UNRESOLVED, 1);
+assert.equal(compareAuthorityCoverage(baseline, coverageBundle, { now: policy.now + 3600000 }).staleFixtureProviderIds.length, 1);
+console.log('Coverage gap diagnostics passed');
