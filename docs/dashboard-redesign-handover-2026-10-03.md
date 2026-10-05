@@ -1064,3 +1064,7 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 ### Phase 1 quote attribution — iteration 4
 
 Continues PR42 accepted parent a0d62b99a1417ef9d76fc2590f8564dd582b7d86. Homepage HDA labels now follow explicit quote metadata, preserve evidenced legacy prematch HKJC attribution and fail closed to Source unverified for unknown/live attribution. Read-only 04:39:48Z snapshot has 39 legacy rows, no explicit international quote metadata. Seven checks/build pass; desktop/mobile source-attribution CI pending. Full continuation in docs/phase1-checkpoint-2026-10-05.md. No DB write, provider release, merge or deployment.
+
+### Phase 1 mobile card meanings — iteration 5
+
+Accepted attribution/freshness head eb5952f9bd800556ddddb5eaccb1091968fd2642, CI 37264830851 SUCCESS. Current batch adds small English labels to mobile numeric card cells; desktop layout and real-data calculations preserved. Existing 390px flow asserts all five labels. Local checks/build pass; CI screenshot acceptance pending. No release or database mutation. Durable checkpoint remains docs/phase1-checkpoint-2026-10-05.md.

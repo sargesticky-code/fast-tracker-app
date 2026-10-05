@@ -142,3 +142,7 @@ Before stopping a redesign session, record:
 - [x] Unknown source and live quotes cannot inherit prematch bookmaker attribution.
 - [x] Preserve genuine legacy feed attribution (39/39 current rows); no claimed international coverage.
 - [ ] Record source-attribution desktop/mobile CI and screenshots.
+
+- [x] Final quote source/freshness CI 37264830851 passed; screenshots verified.
+- [x] Add mobile-only meanings for prediction, score, goals, EV and live-score cells.
+- [ ] Record final mobile-card label CI/screenshots.

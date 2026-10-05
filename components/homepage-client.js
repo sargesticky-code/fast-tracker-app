@@ -400,11 +400,11 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                 </div>
               </div>
               <div className="ft-probs"><ProbabilityStrip model={model} /></div>
-              <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
-              <div>{predictedScore}</div>
-              <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
-              <div className="ft-value-state" title={signal.reason}><span className={signal.eligible ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span>{edge && <small>{signal.label}</small>}</div>
-              <div className="ft-score-cell">
+              <div data-label="H/D/A pick"><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
+              <div data-label="Predicted score">{predictedScore}</div>
+              <div className="ft-goal-number" data-label="Average goals">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
+              <div className="ft-value-state" data-label="H/D/A model EV" title={signal.reason}><span className={signal.eligible ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span>{edge && <small>{signal.label}</small>}</div>
+              <div className="ft-score-cell" data-label="Live score">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
               </div>

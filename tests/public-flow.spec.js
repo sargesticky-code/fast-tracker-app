@@ -18,6 +18,13 @@ for (const width of [1440, 390]) {
     await expect(page.locator('.ft-match-row[href*="FBLEGACYSOURCE"] .ft-market-odds')).toContainText("HKJC HDA");
     await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] .ft-market-odds')).toContainText("Bet365 HDA");
     await expect(page.locator('.ft-match-row[href*="FBUNKNOWNSOURCE"] .ft-market-odds')).toContainText("Source unverified HDA");
+    if (width === 390) {
+      for (const label of ["H/D/A pick", "Predicted score", "Average goals", "H/D/A model EV", "Live score"]) {
+        const cell = page.locator(`.ft-match-row [data-label="${label}"]`).first();
+        await expect(cell).toBeVisible();
+        expect(await cell.evaluate(el => getComputedStyle(el, "::before").content)).toBe(`"${label}"`);
+      }
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     await page.screenshot({ path: `test-results/dashboard-quote-source-${width}.png`, fullPage: true });
   });
