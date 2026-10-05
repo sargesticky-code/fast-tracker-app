@@ -1,3 +1,4 @@
+import { planPlayerStatusRefresh } from "../_shared/player-status-refresh.ts";
 import { latestLineupRows, sourceLineupState, canPromoteLineupCapture } from "../_shared/lineup-snapshot.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
@@ -102,6 +103,32 @@ async function fetchDetail(id){
   let last="";
   for(const u of urls){try{return await getJson(u)}catch(e){last=String(e)}}
   throw new Error(last||"detail_failed");
+}
+async function refreshPlayerStatusEvidence(db,rows){
+  if(!rows.length)return {inserted:0,updated:0,skipped:0};
+  if(rows.some(row=>row.source_name!=="FOTMOB"))throw new Error("Unexpected player-status source");
+  const ids=[...new Set(rows.map(row=>row.hkjc_event_id))];
+  const ex=await db.from("phase2_player_status_evidence").select("id,hkjc_event_id,team_side,player_key,status_type,source_name,fetched_at,valid_from,valid_until")
+    .in("hkjc_event_id",ids).eq("source_name","FOTMOB");
+  if(ex.error)throw ex.error;
+  const plan=planPlayerStatusRefresh(rows,ex.data||[],Date.now());
+  let inserted=0,updated=0,skipped=plan.skipped;
+  if(plan.inserts.length){
+    const result=await db.from("phase2_player_status_evidence").insert(plan.inserts);
+    if(result.error)throw result.error;
+    inserted=plan.inserts.length;
+  }
+  for(const {previous,patch} of plan.updates){
+    // Compare the capture again in the write: concurrent newer evidence wins.
+    const result=await db.from("phase2_player_status_evidence").update(patch)
+      .eq("id",previous.id).eq("hkjc_event_id",previous.hkjc_event_id)
+      .eq("team_side",previous.team_side).eq("player_key",previous.player_key)
+      .eq("source_name",previous.source_name).eq("status_type",previous.status_type)
+      .eq("fetched_at",previous.fetched_at).select("id");
+    if(result.error)throw result.error;
+    if(result.data?.length===1)updated++;else skipped++;
+  }
+  return {inserted,updated,skipped};
 }
 function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString(),expectedTeams=null){
   const l=detail?.content?.lineup;
@@ -233,6 +260,7 @@ Deno.serve(async ()=>{
     const cachedLineups=[];
     const cachedManagers=[];
     const cachedInjuries=[];
+    let cachedInjuryUpdates=0,cachedInjurySkips=0;
     for(const s of shadow){
       if(!s.matched_hkjc_event_id||!s.detail_raw||!s.detail_fetched_at)continue;
       const ageMs=now-new Date(s.detail_fetched_at).getTime();
@@ -266,19 +294,10 @@ Deno.serve(async ()=>{
     }
 
     if(cachedInjuries.length){
-      const injuryIds=[...new Set(cachedInjuries.map(x=>x.hkjc_event_id))];
-      const ex=await db.from("phase2_player_status_evidence")
-        .select("hkjc_event_id,player_key,status_type")
-        .in("hkjc_event_id",injuryIds)
-        .eq("source_name","FOTMOB");
-      if(ex.error)throw ex.error;
-      const known=new Set((ex.data||[]).map(x=>String(x.hkjc_event_id)+"|"+String(x.player_key)+"|"+String(x.status_type)));
-      const missing=cachedInjuries.filter(x=>!known.has(String(x.hkjc_event_id)+"|"+String(x.player_key)+"|"+String(x.status_type)));
-      if(missing.length){
-        const ir=await db.from("phase2_player_status_evidence").insert(missing);
-        if(ir.error)throw ir.error;
-        cachedInjuryRows=missing.length;
-      }
+      const result=await refreshPlayerStatusEvidence(db,cachedInjuries);
+      cachedInjuryRows=result.inserted;
+      cachedInjuryUpdates=result.updated;
+      cachedInjurySkips=result.skipped;
     }
     const matched=[];
     const aliasLearns=[];
@@ -310,7 +329,7 @@ Deno.serve(async ()=>{
       return Math.abs(ak-now)-Math.abs(bk-now);
     });
     const picked=matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
-    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,unclassifiedMatches=0,referenceMatches=0,confirmedMatches=0,partialOfficialMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
+    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,unclassifiedMatches=0,referenceMatches=0,confirmedMatches=0,partialOfficialMatches=0,injuryRows=0,injuryUpdates=0,injurySkips=0,managerRows=0,managerMatches=0,identityWrites=0;
     await mapLimit(picked,DETAIL_CONCURRENCY,async(target)=>{
     const {h,best}=target;
     try{
@@ -348,18 +367,15 @@ Deno.serve(async ()=>{
         managerRows+=parsed.managers.length;managerMatches++;
       }
       if(parsed.injuries.length){
-        const ex=await db.from("phase2_player_status_evidence").select("player_key,status_type").eq("hkjc_event_id",h.hkjc_event_id).eq("source_name","FOTMOB");
-        const known=new Set((ex.data||[]).map(x=>String(x.player_key)+"|"+String(x.status_type)));
-        const missing=parsed.injuries.filter(x=>!known.has(String(x.player_key)+"|"+String(x.status_type)));
-        if(missing.length){
-          const ir=await db.from("phase2_player_status_evidence").insert(missing);
-          if(!ir.error)injuryRows+=missing.length;
-        }
+        const result=await refreshPlayerStatusEvidence(db,parsed.injuries);
+        injuryRows+=result.inserted;
+        injuryUpdates+=result.updated;
+        injurySkips+=result.skipped;
       }
     }catch(e){detailFail++;console.warn("detail_fail",h.hkjc_event_id,String(e));}
 
     });
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,unclassifiedMatches,referenceMatches,confirmedMatches,partialOfficialMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupCaptureSkips,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,unclassifiedMatches,referenceMatches,confirmedMatches,partialOfficialMatches,injuryRows,injuryUpdates,injurySkips,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupCaptureSkips,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows,cachedInjuryUpdates,cachedInjurySkips};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",

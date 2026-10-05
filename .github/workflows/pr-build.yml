@@ -60,6 +60,9 @@ jobs:
       - name: Check authoritative lineup display
         run: npm run check:lineup-authority
 
+      - name: Check player status refresh safety
+        run: npm run check:player-status-refresh
+
       - name: Check coherent lineup snapshots
         run: npm run check:lineup-snapshot
 
