@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 30148)
-Total output lines: 1093
+Warning: truncated output (original token count: 30316)
+Total output lines: 1097
 
 # Dashboard Redesign Handover — 2026-10-03
 
@@ -576,14 +576,7 @@ The behavior review was intentionally iterative rather than treating the first m
 #### Final behavior evidence
 
 Final rendered suite: **31/31 passed in 24.0s**. In addition to the prior desktop/mobile product-flow cases, the behavior suite now demonstrates:
-- delayed Phase-1 feed lane remains single-flight under …148 tokens truncated…
-- a conclusive `fixtureSource:MISSING` detail result cannot be resurrected by an older delayed Phase-1 feed;
-- authoritative stale/terminal detail remains ahead of an older prematch feed, including the visible source state;
-- homepage fixture identity + predicted score carry into the detail route, and when the English story endpoint is unavailable the English evidence fallback remains readable while legacy Chinese analysis prose is suppressed.
-
-All existing safety contracts remained green: English story cache/fallback, provider/market, real-evidence safety, evidence independence, player identity, static build/routes and rendered desktop/mobile product flow.
-
-CI artifact: `11280132390`, `dashboard-redesign-ab12c4bf97717219d1cd3266264f255d6eddbe16`, SHA256 `fd09c8802a336cf12d2664e3214e892afe7375bca6bf53cd554cd588a94eae2e`.
+- delayed Phase-1 feed lane remains single-flight under …316 tokens truncated…artifact: `11280132390`, `dashboard-redesign-ab12c4bf97717219d1cd3266264f255d6eddbe16`, SHA256 `fd09c8802a336cf12d2664e3214e892afe7375bca6bf53cd554cd588a94eae2e`.
 
 #### Combined review semantics
 
@@ -1089,3 +1082,7 @@ Executable b07ce190b4d8d23d238424df812d5760fe393be9; CI 37278145804 SUCCESS, 42-
 ### Phase 1 movement safety — iteration 10
 
 Executable 15f34a672be2cd02bbb254bf0fa3c686d3d7d700, CI 37280064573 SUCCESS (44-case flow/contracts/build). Artifact 11332240800 desktop/mobile reviewed. Null/blank/invalid move no longer becomes Stable/0%; genuine zero retained; implied-probability changes labelled pp. Fresh 07:51:11Z feed has 40 fixtures and zero movement objects, so next investigate existing producer/join/freshness rather than manufacture history. No database mutation or release.
+
+### Phase 1 movement importer — iteration 11
+
+Executable 75d8db13939fef715b6343d5eca35d05501826c8, CI 37282463703 SUCCESS: ingestion identity/freshness/unknown gates, build/routes and 44/44 browser cases (41.0s). Source-only restoration of missing optional movement CSV importer; core sync hashes include movement and failed importer is not marked applied. DB 147 rows last captured Sept22; producer 22 rows latest Oct5 13:56 HKT; only two recent strict rows accepted, no baselines. No production recovery claimed. Review Deno packaging/compile, concurrent-writer monotonicity and Edge release/natural-run acceptance before deployment. No write/trigger/merge/release.

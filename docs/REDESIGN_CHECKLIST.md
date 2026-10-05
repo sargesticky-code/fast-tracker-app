@@ -167,3 +167,7 @@ Before stopping a redesign session, record:
 - [x] Missing movement remains unavailable; true zero preserved; implied-probability change uses pp.
 - [x] CI 37280064573 SUCCESS; artifact 11332240800 desktop/mobile null/zero screenshots reviewed.
 - [ ] Repair genuine movement coverage: current 40-fixture feed has zero movement objects.
+
+- [x] Diagnose movement gap: current producer CSV, stale DB; deployed sync lacks importer.
+- [x] Implement strict optional movement importer and core hash tracking; CI 37282463703 ingestion/build/44-case suite passed.
+- [ ] Reviewed Edge compilation/release and natural movement acceptance; concurrent-writer monotonicity review remains open.
