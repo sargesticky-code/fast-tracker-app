@@ -101,88 +101,68 @@ Deno.serve(async (req: Request) => {
   const db = createReadClient(supabaseUrl, key);
 
   try {
-    const liveCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const liveCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     let marketRows:any[] = [];
-    const marketSource = "BET365_BROWSER";
+    const marketSource = "FLASHSCORE_BET365_REFERENCE";
 
-    const liveResult = await db
-      .from("bet365_browser_live_current")
-      .select("provider_event_id,fixture_id,canonical_match_id,captured_at,event_name,league,home,away,home_score,away_score,minute,second,period,stats,identity_status")
-      .eq("identity_status", "VERIFIED")
-      .not("canonical_match_id", "is", null)
-      .gte("captured_at", liveCutoff);
-    if (liveResult.error) throw liveResult.error;
+    const scoreSeedResult = await db
+      .from("live_score_current")
+      .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
+      .gte("updated_at_source", liveCutoff);
+    if (scoreSeedResult.error) throw scoreSeedResult.error;
 
-    const liveRows = liveResult.data ?? [];
-    const canonicalIds = [...new Set(liveRows.map((r:any)=>String(r.canonical_match_id||"")).filter(Boolean))];
-    const providerIds = [...new Set(liveRows.map((r:any)=>String(r.provider_event_id||"")).filter(Boolean))];
+    const liveScores = (scoreSeedResult.data ?? []).filter((r:any) => {
+      const status = String(r?.match_status ?? "").trim().toUpperCase();
+      return status && !["FINISHED","FT","FULLTIME","FULL_TIME","ENDED","POSTPONED","CANCELLED"].includes(status);
+    });
+    const canonicalIds = [...new Set(liveScores.map((r:any)=>String(r.hkjc_event_id||"")).filter(Boolean))];
 
-    const [matchResult, quoteResult] = await Promise.all([
+    const [matchResult, referenceOddsResult] = await Promise.all([
       canonicalIds.length
-        ? db.from("matches").select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en").in("hkjc_event_id", canonicalIds)
+        ? db.from("matches").select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status").in("hkjc_event_id", canonicalIds)
         : Promise.resolve({data:[],error:null} as any),
-      providerIds.length
-        ? db.from("bet365_browser_quote_current")
-            .select("provider_event_id,canonical_match_id,market_key,selection_key,line,decimal_price,suspended,captured_at,identity_status")
-            .in("provider_event_id", providerIds)
-            .eq("identity_status","VERIFIED")
+      canonicalIds.length
+        ? db.from("bet365_current")
+            .select("hkjc_event_id,fetched_at,bet365_home,bet365_draw,bet365_away,bet365_fixture_id,source")
+            .in("hkjc_event_id", canonicalIds)
         : Promise.resolve({data:[],error:null} as any),
     ]);
     if (matchResult.error) throw matchResult.error;
-    if (quoteResult.error) throw quoteResult.error;
+    if (referenceOddsResult.error) console.error("live_reference_odds_unavailable",referenceOddsResult.error);
 
     const matchById = new Map((matchResult.data ?? []).map((r:any)=>[String(r.hkjc_event_id),r]));
-    const quotesByEvent = new Map<string,any[]>();
-    for (const q of quoteResult.data ?? []) {
-      const id=String(q.provider_event_id||""); if(!id) continue;
-      const bucket=quotesByEvent.get(id)||[]; bucket.push(q); quotesByEvent.set(id,bucket);
-    }
-    const pairMarket=(quotes:any[],market:string)=>{
-      const candidates=quotes.filter((q:any)=>q.market_key===market && q.suspended!==true && num(q.decimal_price)!=null);
-      const byLine=new Map<string,any[]>();
-      for(const q of candidates){const key=String(q.line??"");const b=byLine.get(key)||[];b.push(q);byLine.set(key,b);}
-      for(const [line,rows] of byLine){
-        const over=rows.find((q:any)=>q.selection_key==="OVER"),under=rows.find((q:any)=>q.selection_key==="UNDER");
-        if(over&&under)return {line:line||null,over:num(over.decimal_price),under:num(under.decimal_price),capturedAt:over.captured_at??under.captured_at??null};
-      }
-      return {line:null,over:null,under:null,capturedAt:null};
-    };
+    const referenceById = new Map((referenceOddsResult.data ?? []).map((r:any)=>[String(r.hkjc_event_id),r]));
+    const scoreSeedById = new Map(liveScores.map((r:any)=>[String(r.hkjc_event_id),r]));
 
-    marketRows = liveRows.map((r:any)=>{
-      const canonical=matchById.get(String(r.canonical_match_id))||{};
-      const quotes=quotesByEvent.get(String(r.provider_event_id))||[];
-      const hda={
-        home:num(quotes.find((q:any)=>q.market_key==="HDA"&&q.selection_key==="H"&&!q.suspended)?.decimal_price),
-        draw:num(quotes.find((q:any)=>q.market_key==="HDA"&&q.selection_key==="D"&&!q.suspended)?.decimal_price),
-        away:num(quotes.find((q:any)=>q.market_key==="HDA"&&q.selection_key==="A"&&!q.suspended)?.decimal_price),
-      };
-      const goals=pairMarket(quotes,"GOALS"),corners=pairMarket(quotes,"CORNERS");
-      const activeQuotes=quotes.filter((q:any)=>q.suspended!==true&&num(q.decimal_price)!=null);
-      const latestQuote=activeQuotes.map((q:any)=>q.captured_at).filter(Boolean).sort().at(-1)??null;
-      const stats=r.stats&&typeof r.stats==="object"?r.stats:{};
+    marketRows = liveScores.map((s:any)=>{
+      const id=String(s.hkjc_event_id||"");
+      const canonical:any=matchById.get(id)||{};
+      const ref:any=referenceById.get(id)||null;
       return {
-        hkjc_event_id:r.canonical_match_id,
-        match_id:r.provider_event_id,
-        fetched_at:r.captured_at,
+        hkjc_event_id:id,
+        match_id:s.source_match_id??null,
+        fetched_at:s.updated_at_source??s.source_updated_at??null,
         kickoff_hkt:canonical.kickoff_hkt??null,
-        status:r.period??"LIVE",
-        tournament:canonical.tournament??r.league,
-        home_en:canonical.home_en??r.home,
-        away_en:canonical.away_en??r.away,
-        home_zh:canonical.home_en??r.home,
-        away_zh:canonical.away_en??r.away,
-        had_home:hda.home,had_draw:hda.draw,had_away:hda.away,
-        hil_line:goals.line,hil_over:goals.over,hil_under:goals.under,
-        chl_line:corners.line,chl_over:corners.over,chl_under:corners.under,
-        pool_status:activeQuotes.length?"SELLINGSTARTED":"UNKNOWN",
-        odds_updated_at:latestQuote,
-        running_home_score:r.home_score,
-        running_away_score:r.away_score,
-        running_home_corner:num(stats?.Corner?.home),
-        running_away_corner:num(stats?.Corner?.away),
-        running_corner:(num(stats?.Corner?.home)!=null&&num(stats?.Corner?.away)!=null)?num(stats?.Corner?.home)+num(stats?.Corner?.away):null,
-        match_updated_at:r.captured_at,
-        bet365_minute:r.minute,
+        status:s.match_status??canonical.status??"LIVE",
+        tournament:canonical.tournament??null,
+        home_en:canonical.home_en??null,
+        away_en:canonical.away_en??null,
+        home_zh:canonical.home_en??null,
+        away_zh:canonical.away_en??null,
+        had_home:num(ref?.bet365_home),had_draw:num(ref?.bet365_draw),had_away:num(ref?.bet365_away),
+        hil_line:null,hil_over:null,hil_under:null,
+        chl_line:null,chl_over:null,chl_under:null,
+        pool_status:ref?"REFERENCE_ONLY":"UNKNOWN",
+        odds_updated_at:ref?.fetched_at??null,
+        running_home_score:num(s.home_score),
+        running_away_score:num(s.away_score),
+        running_home_corner:num(s.home_corners),
+        running_away_corner:num(s.away_corners),
+        running_corner:num(s.total_corners),
+        match_updated_at:s.source_updated_at??s.updated_at_source??null,
+        bet365_minute:null,
+        reference_odds_source:ref?.source??null,
+        live_score_source:s.source??null,
       };
     });
 
@@ -200,7 +180,7 @@ Deno.serve(async (req: Request) => {
           away_score: away,
           minute: null,
           match_status: row.status ?? null,
-          source: "BET365_BROWSER",
+          source: row.live_score_source ?? "LIVE_SCORE_CURRENT",
           source_match_id: row.match_id ?? null,
           match_confidence: 1,
           updated_at_source: row.fetched_at ?? null,
@@ -218,8 +198,8 @@ Deno.serve(async (req: Request) => {
 
     const bet365HealthResult = await db.from("source_health")
       .select("source,status,value_text,observed_at,notes,raw")
-      .eq("source","BET365_BROWSER")
-      .eq("metric","heartbeat")
+      .eq("source","FLASHSCORE_BET365")
+      .eq("metric","cloud_ingest")
       .maybeSingle();
     const bet365Heartbeat = bet365HealthResult.data ?? null;
     const bet365HeartbeatAgeSeconds = bet365Heartbeat?.observed_at
@@ -228,12 +208,12 @@ Deno.serve(async (req: Request) => {
     const bet365MarketHealth = bet365HealthResult.error
       ? {status:"UNAVAILABLE",source:marketSource,reason:"heartbeat_read_failed"}
       : !bet365Heartbeat
-        ? {status:"UNAVAILABLE",source:marketSource,reason:"browser_heartbeat_missing"}
-        : !Number.isFinite(bet365HeartbeatAgeSeconds) || bet365HeartbeatAgeSeconds > 90
-          ? {status:"STALE",source:marketSource,reason:"browser_heartbeat_stale",ageSeconds:bet365HeartbeatAgeSeconds}
+        ? {status:"UNAVAILABLE",source:marketSource,reason:"cloud_bookmaker_health_missing"}
+        : !Number.isFinite(bet365HeartbeatAgeSeconds) || bet365HeartbeatAgeSeconds > 1200
+          ? {status:"STALE",source:marketSource,reason:"cloud_bookmaker_health_stale",ageSeconds:bet365HeartbeatAgeSeconds}
           : marketRows.length
-            ? {status:"OK",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds}
-            : {status:"OK_EMPTY",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds};
+            ? {status:"REFERENCE_AVAILABLE",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds,semantics:"prematch_reference_not_verified_in_play"}
+            : {status:"REFERENCE_EMPTY",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds,semantics:"live_fixture_state_independent_of_bookmaker_reference"};
 
     const readHealth: Record<string, any> = {
       market: bet365MarketHealth,
@@ -369,7 +349,16 @@ Deno.serve(async (req: Request) => {
           fetchedAt: r.fetched_at ?? null,
           poolStatus: r.pool_status ?? null,
           oddsUpdatedAt: r.odds_updated_at ?? null,
-          odds: { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) },
+          odds: { home: null, draw: null, away: null },
+          oddsSemantics: "NO_VERIFIED_IN_PLAY_BOOKMAKER_ODDS",
+          referenceOdds: {
+            home: num(r.had_home),
+            draw: num(r.had_draw),
+            away: num(r.had_away),
+            source: r.reference_odds_source ?? null,
+            capturedAt: r.odds_updated_at ?? null,
+            semantics: "PREMATCH_OR_NON_LIVE_REFERENCE_ONLY"
+          },
           goals: { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) },
           corners: { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) },
           score: {
@@ -397,8 +386,8 @@ Deno.serve(async (req: Request) => {
 
     if (!ids.length) {
       readHealth.heartbeats = bet365Heartbeat
-        ? { status: "OK", source: "BET365_BROWSER" }
-        : { status: "UNAVAILABLE", reason: "browser_heartbeat_missing" };
+        ? { status: "OK", source: "FLASHSCORE_BET365" }
+        : { status: "UNAVAILABLE", reason: "cloud_bookmaker_health_missing" };
     }
 
     return Response.json({
