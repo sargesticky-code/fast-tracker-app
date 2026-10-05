@@ -1198,8 +1198,14 @@ Deno.serve(async (req: Request) => {
     oneWith(optionalDb,"odds_movement_current"),
     oneWith(optionalDb,"live_score_current"),
     oneWith(optionalDb,"live_stats_current"),
-    oneWith(optionalDb,"hkjc_live_odds_current"),
-    oneWith(optionalDb,"hkjc_upcoming_current"),
+    (async()=>{
+      const x=await optionalDb.from("bet365_browser_live_current").select("*")
+        .eq("canonical_match_id",id).eq("identity_status","VERIFIED")
+        .gte("captured_at",new Date(Date.now()-5*60*1000).toISOString())
+        .order("captured_at",{ascending:false}).limit(1).maybeSingle();
+      return {data:x.data??null,error:oneError(x.error)};
+    })(),
+    oneWith(optionalDb,"bet365_current"),
     oneWith(optionalDb,"live_expected_actual_current"),
     manyWith(optionalDb,"match_scenario_current"),
   ]);
