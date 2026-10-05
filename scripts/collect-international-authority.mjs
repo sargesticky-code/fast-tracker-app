@@ -19,9 +19,14 @@ export async function collect(config, { fetchImpl = fetch, env = process.env, no
   if (premiumFixtureIds.length && !env.SPORTMONKS_API_TOKEN) throw new Error("PROVIDER_CREDENTIALS_REQUIRED");
   if (apiOddsFixtureIds.length && (fixtureProvider !== "API_FOOTBALL" || !env.API_FOOTBALL_KEY)) throw new Error("API_FOOTBALL_RETIRED_REQUIRES_EXPLICIT_OPT_IN");
   if (!Array.isArray(apiOddsFixtureIds) || apiOddsFixtureIds.length > 10 || !apiOddsFixtureIds.every((id) => /^\d+$/.test(id))) throw new Error("INVALID_ODDS_SCOPE");
-  if (config.maxRequests !== config.dates.length + config.sports.length + apiOddsFixtureIds.length + premiumFixtureIds.length) throw new Error("REQUEST_BUDGET_MISMATCH");
+  const maxSportmonksPages = config.maxSportmonksPages ?? 1;
+  if (!Number.isInteger(maxSportmonksPages) || maxSportmonksPages < 1 || maxSportmonksPages > 5) throw new Error("INVALID_PAGE_BUDGET");
+  const requestBudget = config.dates.length * (fixtureProvider === "SPORTMONKS" ? maxSportmonksPages : 1) +
+    config.sports.length + apiOddsFixtureIds.length + premiumFixtureIds.length * maxSportmonksPages;
+  if (config.maxRequests !== requestBudget) throw new Error("REQUEST_BUDGET_MISMATCH");
   const evidence = { mode: "SHADOW", generatedAt: now(), fixtures: [], quotes: [], rejected: [], requests: [] };
   async function request(provider, url, headers = {}) {
+    if (evidence.requests.length >= requestBudget) throw new Error("REQUEST_BUDGET_EXHAUSTED");
     let response;
     try { response = await fetchImpl(url, { headers, redirect: "error", signal: AbortSignal.timeout(15000) }); }
     catch { throw new Error(`${provider}_TRANSPORT_ERROR`); }
@@ -32,19 +37,38 @@ export async function collect(config, { fetchImpl = fetch, env = process.env, no
     evidence.requests.push({ provider, fetchedAt, remaining: response.headers.get("x-requests-remaining") ?? response.headers.get("x-ratelimit-requests-remaining"), cost: response.headers.get("x-requests-last") });
     return { payload, fetchedAt };
   }
+  async function sportmonksPages(url, headers) {
+    const pages = [];
+    for (let page = 1; page <= maxSportmonksPages; page++) {
+      // Construct the next request locally; never follow credential-bearing or
+      // untrusted next_page URLs supplied in provider payloads.
+      const target = new URL(url);
+      target.searchParams.set("page", String(page));
+      const batch = await request("SPORTMONKS", target.toString(), headers);
+      const pagination = batch.payload.pagination;
+      if (pagination !== undefined && (!pagination ||
+          pagination.current_page !== page || typeof pagination.has_more !== "boolean")) throw new Error("SPORTMONKS_INVALID_PAGINATION");
+      if (page > 1 && !pagination) throw new Error("SPORTMONKS_INVALID_PAGINATION");
+      pages.push(batch);
+      if (!pagination?.has_more) return pages;
+    }
+    throw new Error("SPORTMONKS_PAGE_BUDGET_EXHAUSTED");
+  }
   for (const date of config.dates) {
     const url = fixtureProvider === "SPORTMONKS"
       ? `https://api.sportmonks.com/v3/football/fixtures/date/${date}?include=participants;league;state&timezone=UTC`
       : `https://v3.football.api-sports.io/fixtures?date=${date}&timezone=UTC`;
     const headers = fixtureProvider === "SPORTMONKS" ? { Authorization: env.SPORTMONKS_API_TOKEN } : { "x-apisports-key": env.API_FOOTBALL_KEY };
-    const { payload, fetchedAt } = await request(fixtureProvider, url, headers);
-    if (payload.paging?.total > 1 || payload.pagination?.has_more === true) throw new Error("FIXTURE_PAGINATION_REQUIRES_REVIEW");
-    const batch = fixtureProvider === "SPORTMONKS" ? sportmonksFixtures(payload, fetchedAt) : apiFootballFixtures(payload, fetchedAt);
-    evidence.rejected.push(...batch.rejected);
-    for (const fixture of batch.fixtures) {
-      const identity = resolveFixture(fixture, config.bindings);
-      evidence.fixtures.push({ ...fixture, ...identity, identityStatus: identity.status });
-    }
+    const pages = fixtureProvider === "SPORTMONKS" ? await sportmonksPages(url, headers) : [await request(fixtureProvider, url, headers)];
+    for (const { payload, fetchedAt } of pages) {
+      if (payload.paging?.total > 1) throw new Error("FIXTURE_PAGINATION_REQUIRES_REVIEW");
+      const batch = fixtureProvider === "SPORTMONKS" ? sportmonksFixtures(payload, fetchedAt) : apiFootballFixtures(payload, fetchedAt);
+      evidence.rejected.push(...batch.rejected);
+      for (const fixture of batch.fixtures) {
+        const identity = resolveFixture(fixture, config.bindings);
+        evidence.fixtures.push({ ...fixture, ...identity, identityStatus: identity.status });
+      }
+  }
   }
   for (const sport of config.sports) {
     const url = new URL(`https://api.the-odds-api.com/v4/sports/${sport}/odds`);
@@ -62,12 +86,15 @@ export async function collect(config, { fetchImpl = fetch, env = process.env, no
   }
   for (const id of premiumFixtureIds) {
     if (!evidence.fixtures.some((f) => f.providerKey === "SPORTMONKS" && f.providerEventId === id && f.canonicalMatchId)) throw new Error("ODDS_FIXTURE_NOT_VERIFIED");
-    const { payload, fetchedAt } = await request("SPORTMONKS", `https://api.sportmonks.com/v3/football/odds/premium/fixtures/${id}?timezone=UTC`, { Authorization: env.SPORTMONKS_API_TOKEN });
-    if (payload.pagination?.has_more === true) throw new Error("PREMIUM_PAGINATION_REQUIRES_REVIEW");
-    const batch = sportmonksPremiumQuotes(payload, { fixtures: evidence.fixtures, fetchedAt, bookmakerRegistry: config.bookmakerRegistry,
-      marketCatalogue: config.marketCatalogue, sourceTimezone: config.sourceTimezone });
-    evidence.quotes.push(...batch.quotes); evidence.rejected.push(...batch.rejected);
+    const pages = await sportmonksPages(`https://api.sportmonks.com/v3/football/odds/premium/fixtures/${id}?timezone=UTC`, { Authorization: env.SPORTMONKS_API_TOKEN });
+    for (const { payload, fetchedAt } of pages) {
+      const batch = sportmonksPremiumQuotes(payload, { fixtures: evidence.fixtures, fetchedAt, bookmakerRegistry: config.bookmakerRegistry,
+        marketCatalogue: config.marketCatalogue, sourceTimezone: config.sourceTimezone });
+      evidence.quotes.push(...batch.quotes); evidence.rejected.push(...batch.rejected);
   }
+  }
+  evidence.requestBudget = requestBudget;
+  evidence.collectionStatus = "BOUNDED_COLLECTION_COMPLETE";
   return evidence;
 }
 

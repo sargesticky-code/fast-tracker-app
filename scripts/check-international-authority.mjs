@@ -95,6 +95,45 @@ assert.equal(compareAuthorityCoverage(baseline, { ...coverageBundle, quotes: [] 
 assert.equal(compareAuthorityCoverage(baseline, coverageBundle, { now: policy.now + 3600000 }).readiness, "BLOCKED");
 assert.equal(compareAuthorityCoverage([], coverageBundle, { now: policy.now }).readiness, "NO_COMPARISON_BASELINE");
 assert.equal(compareAuthorityCoverage(baseline, coverageBundle, { now: policy.now }).productionCutoverAuthorized, false);
+// Pagination tests use synthetic responses; no provider quota or live data.
+const pagedConfig = { dates: ['2026-10-04'], sports: [], maxSportmonksPages: 2, maxRequests: 4,
+  bindings: [smBinding], premiumFixtureIds: ['444'], bookmakerRegistry: smOptions.bookmakerRegistry,
+  marketCatalogue: smOptions.marketCatalogue };
+const pagedCalls = [];
+const pagedEvidence = await collect(pagedConfig, { env: { SPORTMONKS_API_TOKEN: 'test-only' }, now: () => fetchedAt,
+  fetchImpl: async (rawUrl) => {
+    const url = new URL(rawUrl), page = Number(url.searchParams.get('page'));
+    pagedCalls.push(url);
+    assert.equal(url.origin, 'https://api.sportmonks.com');
+    const premium = url.pathname.includes('/premium/');
+    return new Response(JSON.stringify({ data: page === 1 ? [premium ? smOdd : smRaw] : [],
+      pagination: { current_page: page, has_more: page === 1, next_page: 'https://untrusted.example/?api_token=secret' } }), { status: 200 });
+  } });
+assert.equal(pagedCalls.length, 4);
+assert.equal(pagedEvidence.fixtures.length, 1);
+assert.equal(pagedEvidence.quotes.length, 1);
+assert.equal(pagedEvidence.collectionStatus, 'BOUNDED_COLLECTION_COMPLETE');
+assert.equal(pagedEvidence.requestBudget, 4);
+for (const pagination of [
+  { current_page: 2, has_more: true },
+  { current_page: 1, has_more: 'true' },
+  null,
+]) {
+  await assert.rejects(collect(pagedConfig, { env: { SPORTMONKS_API_TOKEN: 'test-only' }, now: () => fetchedAt,
+    fetchImpl: async () => new Response(JSON.stringify({ data: [], pagination }), { status: 200 }) }), /SPORTMONKS_INVALID_PAGINATION/);
+}
+await assert.rejects(collect(pagedConfig, { env: { SPORTMONKS_API_TOKEN: 'test-only' }, now: () => fetchedAt,
+  fetchImpl: async (url) => new Response(JSON.stringify({ data: [], pagination: { current_page: Number(new URL(url).searchParams.get('page')), has_more: true } }), { status: 200 }) }), /SPORTMONKS_PAGE_BUDGET_EXHAUSTED/);
+await assert.rejects(collect({ ...pagedConfig, maxRequests: 3 }, { env: { SPORTMONKS_API_TOKEN: 'test-only' } }), /REQUEST_BUDGET_MISMATCH/);
+await assert.rejects(collect({ ...pagedConfig, maxSportmonksPages: 6 }, { env: { SPORTMONKS_API_TOKEN: 'test-only' } }), /INVALID_PAGE_BUDGET/);
+let failedPageCalls = 0;
+await assert.rejects(collect(pagedConfig, { env: { SPORTMONKS_API_TOKEN: 'test-only' }, now: () => fetchedAt,
+  fetchImpl: async () => {
+    failedPageCalls++;
+    if (failedPageCalls === 2) return new Response('rate limit', { status: 429 });
+    return new Response(JSON.stringify({ data: [smRaw], pagination: { current_page: 1, has_more: true } }), { status: 200 });
+  } }), /SPORTMONKS_HTTP_429/);
+assert.equal(failedPageCalls, 2);
 // Coverage must not hide contradictory current evidence behind set deduplication.
 const reportOptions = { now: policy.now };
 const hda = coverageBundle.quotes.find(q => q.market === 'HDA');

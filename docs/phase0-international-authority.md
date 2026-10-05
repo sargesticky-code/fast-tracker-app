@@ -120,7 +120,8 @@ API-Football remains retired; its key is only used for explicit compatibility te
 Config fields:
 
 - dates: explicit UTC dates (max 3); sports: vetted Odds API soccer keys (max 10).
-- maxRequests: exactly dates + sports + premiumFixtureIds + apiOddsFixtureIds.
+- maxSportmonksPages: integer 1–5, default 1, an explicit maximum per Sportmonks endpoint.
+- maxRequests: exactly dates × fixture-provider page budget + sports + premiumFixtureIds × maxSportmonksPages + apiOddsFixtureIds; unused reserved requests are not spent.
 - bindings: verified providerKey/eventId/competitionId/homeTeamId/awayTeamId/
   kickoff/canonicalMatchId records backed by actual canonical identity review.
 - competitionMap: sportKey -> providerKey + fixture provider competition ID, verified.
@@ -235,3 +236,33 @@ revision and its coverage limitations remain unchanged; provider credentials,
 verified canonical bindings and quote storage/consumer cutover remain blocked.
 Next useful independent task: a reviewed provider-neutral allocation contract;
 do not allocate records from date-only community schedules.
+
+
+## Bounded pagination recovery — 2026-10-05 continuation
+
+Verified prior remote head `9b0d51e09ba6120fc9d6a02792abed98edaeaa64`
+passed full CI run `37264538043`. No provider access, database-facing write or
+production release was completed between iterations.
+
+Replaced the collector's blanket rejection of multi-page Sportmonks fixture
+and premium-market responses with explicitly bounded pagination. Default is
+still one page; configuration may reserve up to five pages per endpoint, with
+an exact maximum request budget checked before any call. The collector stops
+on the final page, preserves each page's fetchedAt, and returns no partial
+evidence bundle if pagination metadata is inconsistent, a later request fails
+or the page budget ends while more pages remain. Requests are constructed on
+the official endpoint; provider next_page URLs are never followed. API-Football
+pagination and retired-provider gates remain unchanged.
+
+Official pagination reference inspected:
+https://docs.sportmonks.com/v3/tutorials-and-guides/tutorials/introduction/pagination
+It documents current_page, has_more, page query parameters and per-page rate
+limit accounting. The request budget is requests, not Odds API credits.
+
+Tests cover two-page fixtures and markets, invalid metadata, untrusted next-page
+URLs, exhausted budgets, early rate limiting and default compatibility. These
+are synthetic transport tests; authenticated real coverage remains blocked by
+missing provider credentials/entitlement. No new odds or kickoff claims are made.
+Local authority, community-schedule and market contracts passed. Next: run this
+bounded collector against real accessible provider scope, then review identity
+bindings and additive quote storage; existing production feeds remain intact.
