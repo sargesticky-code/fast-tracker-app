@@ -1175,6 +1175,7 @@ for (const width of [1280,390]) {
     await expect(tool.locator(':scope > summary')).toContainText('PREVIOUS XI REFERENCE');
     await tool.locator(':scope > summary').click();
     await expect(tool.locator('.lineup-prediction-notice')).toContainText('The match-specific lineup is unavailable');
+    await expect(tool.getByText('previous XI evidence',{exact:true})).toBeVisible();
     await expect(tool.getByText('Prediction H 1',{exact:true})).toBeVisible();
     await expect(tool.locator('.lineup-strength-grid')).toContainText('previous XI reference');
     await expect(tool.locator('.lineup-prediction-notice')).not.toContainText('source-reported predictions');

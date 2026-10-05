@@ -588,7 +588,7 @@ export default function LineupPanel() {
                 value={awayCount.replace(" reported", "")}
                 detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedAway ? `${view.unresolvedAway} source-confirmed row(s) await identity` : (view.awayFormation || "formation pending")}
               />
-              <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : "prediction evidence"} />
+              <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : reference.kind === "REFERENCE" ? "previous XI evidence" : reference.kind === "MIXED" ? "mixed XI evidence" : "prediction evidence"} />
             </div>
           </div>
 
