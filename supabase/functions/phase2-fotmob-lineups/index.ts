@@ -102,14 +102,15 @@ async function fetchDetail(id){
   for(const u of urls){try{return await getJson(u)}catch(e){last=String(e)}}
   throw new Error(last||"detail_failed");
 }
-function parseLineup(detail,eventId,externalId){
+function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString()){
   const l=detail?.content?.lineup;
-  if(!l)return {rows:[],kind:null,injuries:[],managers:[],complete:false};
-  const kind=String(l?.lineupType||"").toLowerCase();
-  const confirmed=["confirmed","official","actual"].some(x=>kind.includes(x));
+  if(!l || typeof capturedAt!=="string" || !capturedAt.trim() || !Number.isFinite(Date.parse(capturedAt)))return {rows:[],kind:null,injuries:[],managers:[],complete:false};
+  const kind=String(l?.lineupType||"").trim().toLowerCase();
+  const confirmed=["confirmed","official","actual"].includes(kind);
   const sourceName=confirmed?"FOTMOB_OFFICIAL":"FOTMOB_PREDICTED";
   const confidence=confirmed?.96:.82;
-  const fetchedAt=new Date().toISOString();
+  // Cache reprocessing is not a new upstream observation.
+  const fetchedAt=new Date(capturedAt).toISOString();
   const rows=[],injuries=[],managers=[];
 
   for(const [teamSide,team] of [["H",l?.homeTeam],["A",l?.awayTeam]]){
@@ -126,7 +127,7 @@ function parseLineup(detail,eventId,externalId){
         role:roleFromPlayer(player),starter:true,formation_slot:slotFromLayout(player),
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
-        source_updated_at:fetchedAt,fetched_at:fetchedAt,
+        source_updated_at:null,fetched_at:fetchedAt,
         raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null},
         created_at:fetchedAt
       });
@@ -141,7 +142,7 @@ function parseLineup(detail,eventId,externalId){
         role:roleFromPlayer(player),starter:false,formation_slot:null,
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
-        source_updated_at:fetchedAt,fetched_at:fetchedAt,
+        source_updated_at:null,fetched_at:fetchedAt,
         raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null},
         created_at:fetchedAt
       });
@@ -230,7 +231,7 @@ Deno.serve(async ()=>{
       if(!s.matched_hkjc_event_id||!s.detail_raw||!s.detail_fetched_at)continue;
       const ageMs=now-new Date(s.detail_fetched_at).getTime();
       if(!Number.isFinite(ageMs)||ageMs<0||ageMs>12*3600000)continue;
-      const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id);
+      const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id,s.detail_fetched_at);
       if(parsed.complete&&parsed.rows.length>=22){
         cachedLineups.push(...parsed.rows);
         cachedLineupMatches++;
@@ -305,11 +306,12 @@ Deno.serve(async ()=>{
     const {h,best}=target;
     try{
       const d=await fetchDetail(best.row.external_event_id);
-      const parsed=parseLineup(d,h.hkjc_event_id,best.row.external_event_id);
+      const capturedAt=new Date().toISOString();
+      const parsed=parseLineup(d,h.hkjc_event_id,best.row.external_event_id,capturedAt);
       const upd=await db.from("phase15_source_shadow_current").update({
         matched_hkjc_event_id:h.hkjc_event_id,match_confidence:best.conf,identity_status:best.identity,
         detail_available:true,lineup_available:parsed.complete,
-        detail_fetched_at:new Date().toISOString(),detail_raw:d,updated_at:new Date().toISOString()
+        detail_fetched_at:capturedAt,detail_raw:d,updated_at:new Date().toISOString()
       }).eq("source_key",SOURCE).eq("external_event_id",best.row.external_event_id);
       if(upd.error)throw upd.error;identityWrites++;
       detailOk++;
