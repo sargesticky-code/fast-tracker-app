@@ -156,3 +156,7 @@ Before stopping a redesign session, record:
 - [x] Match detail hero uses shared goal summary; source text and unknown dash preserved.
 - [x] Iteration 7 CI 37274487219 SUCCESS; artifact 11329444235 desktop/mobile hero inspected.
 - [ ] Verify authoritative detail-only model hydration for goal summary; repair null movement normalization.
+
+- [x] Strictly matched authoritative detail-only goal summary fallback; conflicting fixture/model IDs rejected.
+- [x] CI 37276307386: 42/42 passed; artifact 11330576031 desktop/mobile inspected.
+- [ ] Correct detail-only model availability banner/counts while preserving price/actionability gates.

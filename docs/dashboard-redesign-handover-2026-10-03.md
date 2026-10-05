@@ -1079,3 +1079,7 @@ Executable 822a007c8e73783f85b9fe1637820d7f6aa95398, CI 37272765696 SUCCESS; 40-
 ### Phase 1 detail goal consistency — iteration 7
 
 Executable 704eb25716d9a3bf7b446f35a7988c172f7b148e; CI 37274487219 SUCCESS, 40-case suite; artifact 11329444235 desktop/mobile detail hero inspected. Shared score/average-goals summary with source text now survives homepage-to-detail journey. Real FB6279 authoritative detail at 06:50:43Z retains FORM_MODELED expected goals 1.14563/1.06879. Next inspect deep-only model hydration and null movement coercion. No database change, release or merge.
+
+### Phase 1 detail-only goals — iteration 8
+
+Executable 435e09b7de362c7a2605bd9fc3da86544fac7b64, CI 37276307386 SUCCESS (42/42, 32.2s); artifact 11330576031 desktop/mobile inspected. Goal summary recovers strictly matched canonical authoritative models during empty feed, without creating a predicted score or bet recommendation. Saved real FB6279 produces 2.21442 goals. Next detail-only availability banner/count remains NO MODEL/0 inputs despite valid Form probabilities; repair shared hydration/counting with existing identity/market gates. No release or DB mutation.
