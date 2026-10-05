@@ -406,7 +406,11 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                 <div className="ft-team-names">
                   <strong>{match.home || match.homeZh || "Home"}</strong>
                   <span>{match.away || match.awayZh || "Away"}</span>
-                  <small>{shortTime(match.kickoff)} · {dateKey(match.kickoff)}</small>
+                  <small>
+                    {shortTime(match.kickoff)} · {dateKey(match.kickoff)}
+                    {match?.sourceContext?.lineupCoverage?.starters === 22 ? " · XI 22/22" : ""}
+                    {Number(match?.sourceContext?.lineupCoverage?.profileCount) > 0 ? " · " + match.sourceContext.lineupCoverage.profileCount + " player profiles" : ""}
+                  </small>
                 </div>
               </div>
               <div className="ft-probs"><ProbabilityStrip model={model} /></div>
