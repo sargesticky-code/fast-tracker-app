@@ -157,4 +157,6 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 - [x] Previous-XI reference and mixed evidence copy implemented consistently across Team News/article/tool/Sources.
 - [x] Final source 73dc5ee4 CI 37271713716: 41/41; artifact 11328895365 reference screenshots reviewed after confidence-caption correction.
 
-- [ ] Audit genuine partial official XI producer retention and snapshot membership without prediction backfill.
+- [x] Retain identity-verified partial official XI producer rows without prediction backfill; duplicate/overfull/event/side guards tested.
+- [ ] Audit producer scheduling state across captures and newer-evidence protection.
+- [x] Final source 6de5b267 CI 37273561943 passed: parser/identity/partial counters, build and 41/41 browser regressions; full stored reference coverage preserved. No current explicit partial official sample.
