@@ -59,11 +59,15 @@ async def collect_fixture_rows(page, target_date):
             await page.wait_for_timeout(600)
 
     try:
-        await page.wait_for_selector("div.event__match", timeout=20000)
+        await page.wait_for_selector(".event__match", timeout=20000)
     except Exception:
         return []
 
-    return await page.locator("div.event__match").evaluate_all(
+    rows = await page.locator(".event__match").count()
+    headers = await page.locator('[data-testid="wcl-headerLeague"]').count()
+    print(f"[flashscore-odds] discovery date={target_date.isoformat()} url={page.url} rows={rows} headers={headers}", flush=True)
+
+    return await page.locator(".event__match").evaluate_all(
         """(rows) => rows.map((row) => {
           const txt = (el) => el ? (el.textContent || '').trim() : '';
           let h = row.previousElementSibling;
