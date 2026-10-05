@@ -102,9 +102,15 @@ async function fetchDetail(id){
   for(const u of urls){try{return await getJson(u)}catch(e){last=String(e)}}
   throw new Error(last||"detail_failed");
 }
-function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString()){
+function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString(),expectedTeams=null){
   const l=detail?.content?.lineup;
   if(!l || typeof capturedAt!=="string" || !capturedAt.trim() || !Number.isFinite(Date.parse(capturedAt)))return {rows:[],kind:null,injuries:[],managers:[],complete:false};
+  // A supplied source event or team identity must agree before any evidence is emitted.
+  if(!eventId || !externalId || (l.matchId!=null && String(l.matchId)!==String(externalId))
+    || (detail?.general?.matchId!=null && String(detail.general.matchId)!==String(externalId))
+    || (expectedTeams?.home!=null && String(l.homeTeam?.id)!==String(expectedTeams.home))
+    || (expectedTeams?.away!=null && String(l.awayTeam?.id)!==String(expectedTeams.away)))
+    return {rows:[],kind:null,injuries:[],managers:[],complete:false};
   const kind=String(l?.lineupType||"").trim().toLowerCase();
   const confirmed=["confirmed","official","actual"].includes(kind);
   const sourceName=confirmed?"FOTMOB_OFFICIAL":"FOTMOB_PREDICTED";
@@ -179,8 +185,13 @@ function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString
 
   const hStarters=rows.filter(x=>x.team_side==="H"&&x.starter);
   const aStarters=rows.filter(x=>x.team_side==="A"&&x.starter);
-  const complete=hStarters.length===11&&aStarters.length===11;
-  return {rows:complete?rows:[],kind,injuries,managers,complete};
+  const keys=rows.map(row=>row.player_key);
+  const validRoster=keys.every(Boolean) && new Set(keys).size===keys.length
+    && hStarters.length<=11 && aStarters.length<=11;
+  const complete=validRoster && hStarters.length===11 && aStarters.length===11;
+  const partialOfficial=validRoster && confirmed && !complete && hStarters.length+aStarters.length>0
+    && String(l.matchId)===String(externalId) && expectedTeams?.home!=null && expectedTeams?.away!=null;
+  return {rows:complete||partialOfficial?rows:[],kind,injuries,managers,complete,partialOfficial};
 }
 
 Deno.serve(async ()=>{
@@ -231,8 +242,8 @@ Deno.serve(async ()=>{
       if(!s.matched_hkjc_event_id||!s.detail_raw||!s.detail_fetched_at)continue;
       const ageMs=now-new Date(s.detail_fetched_at).getTime();
       if(!Number.isFinite(ageMs)||ageMs<0||ageMs>12*3600000)continue;
-      const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id,s.detail_fetched_at);
-      if(parsed.complete&&parsed.rows.length>=22){
+      const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id,s.detail_fetched_at,{home:s.home_external_id,away:s.away_external_id});
+      if(parsed.rows.length){
         cachedLineups.push(...parsed.rows);
         cachedLineupMatches++;
         cachedLineupRows+=parsed.rows.length;
@@ -307,7 +318,7 @@ Deno.serve(async ()=>{
     try{
       const d=await fetchDetail(best.row.external_event_id);
       const capturedAt=new Date().toISOString();
-      const parsed=parseLineup(d,h.hkjc_event_id,best.row.external_event_id,capturedAt);
+      const parsed=parseLineup(d,h.hkjc_event_id,best.row.external_event_id,capturedAt,{home:best.row.home_external_id,away:best.row.away_external_id});
       const upd=await db.from("phase15_source_shadow_current").update({
         matched_hkjc_event_id:h.hkjc_event_id,match_confidence:best.conf,identity_status:best.identity,
         detail_available:true,lineup_available:parsed.complete,
@@ -315,7 +326,7 @@ Deno.serve(async ()=>{
       }).eq("source_key",SOURCE).eq("external_event_id",best.row.external_event_id);
       if(upd.error)throw upd.error;identityWrites++;
       detailOk++;
-      if(parsed.complete&&parsed.rows.length>=22){
+      if(parsed.rows.length){
         lineupFound++;
         const wr=await db.from("phase2_match_lineup_evidence").upsert(parsed.rows,{onConflict:"hkjc_event_id,team_side,source_name,player_key"});
         if(wr.error)throw wr.error;
