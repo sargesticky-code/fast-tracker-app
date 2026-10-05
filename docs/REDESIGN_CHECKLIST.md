@@ -146,3 +146,6 @@ Before stopping a redesign session, record:
 - [x] Final quote source/freshness CI 37264830851 passed; screenshots verified.
 - [x] Add mobile-only meanings for prediction, score, goals, EV and live-score cells.
 - [ ] Record final mobile-card label CI/screenshots.
+
+- [x] Mobile-card label CI 37271080985: 40/40 passed; artifact 11327534116 desktop/mobile reviewed.
+- [ ] Recover genuinely supported predicted-score/average-goals output: real 39-row feed currently has neither, despite 24 valid probability triplets.

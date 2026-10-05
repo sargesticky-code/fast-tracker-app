@@ -1068,3 +1068,6 @@ Continues PR42 accepted parent a0d62b99a1417ef9d76fc2590f8564dd582b7d86. Homepag
 ### Phase 1 mobile card meanings — iteration 5
 
 Accepted attribution/freshness head eb5952f9bd800556ddddb5eaccb1091968fd2642, CI 37264830851 SUCCESS. Current batch adds small English labels to mobile numeric card cells; desktop layout and real-data calculations preserved. Existing 390px flow asserts all five labels. Local checks/build pass; CI screenshot acceptance pending. No release or database mutation. Durable checkpoint remains docs/phase1-checkpoint-2026-10-05.md.
+
+- Iteration 5 accepted executable ab2aa3ed46cbe93d4f8cd7e77486774959a5134c: CI 37271080985 SUCCESS, 40/40 tests, artifact 11327534116; 1440px/390px screenshots inspected. Mobile value meanings are clear; desktop unchanged.
+- Real 06:10:42Z full feed: 39 unique fixtures / 24 valid probability triplets / zero score predictions / all average goals unknown. Next inspect existing internal/form goal-model output and joins for honest coverage, preserving probability and fixture gates. No production change.
