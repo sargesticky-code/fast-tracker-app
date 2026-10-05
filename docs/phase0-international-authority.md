@@ -403,3 +403,35 @@ NO_COMPARISON_BASELINE and exit 2. This verifies truthful diagnostics, not actua
 old/new production coverage. A current canonical baseline export and real
 verified replacement bundle remain required. Provider credentials/entitlement
 and mappings still block that acceptance. No fabricated baseline was inserted.
+
+
+## Bet365 browser-feed cutover direction — 2026-10-05
+
+Product direction is now **no new HKJC authority dependency**. HKJC may remain only as
+historical provenance until old tables/jobs are retired safely; it is no longer the
+target bookmaker/feed for new dashboard work.
+
+The selected free experimental live source is `joe-bring/bet365-scraper`, consumed
+as an external browser-side service rather than vendored into this repository. The
+public repository currently presents a Chrome-extension + Flask local service
+architecture and does not expose a repository LICENSE file in its root listing.
+Accordingly, this project does not copy its source. It consumes only the documented
+HTTP boundary once the scraper is run by an operator-controlled browser host.
+
+Added `lib/bet365-browser-feed.js` and
+`scripts/check-bet365-browser-feed.mjs`. The adapter currently admits live fixture
+state only (provider event id, English event/league text, score, period and clock)
+and returns **zero odds** until a real current scraper payload demonstrates a stable
+market schema. Unknown score/clock values remain null, never zero. Canonical match
+identity remains unresolved until the existing strict competition/team/kickoff
+binding contract verifies a match.
+
+This means the architectural HKJC abandonment is underway, but production cutover
+is not yet truthful to claim. The external scraper requires a persistent Chrome
+session with the Bet365 in-play page open and its extension posting WebSocket data
+to the Flask service. A serverless Supabase function alone cannot replace that
+browser host. Before destructive HKJC shutdown, require: (1) a live browser host,
+(2) current Bet365 payload capture, (3) verified odds/market mapping, (4) canonical
+fixture matching, (5) fresh quote persistence, and (6) Phase 1/3 consumer switch.
+After those pass, disable active HKJC jobs/views/fallbacks; historical rows can stay
+for provenance and model backtesting but must not be read as current authority.
