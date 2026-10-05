@@ -149,3 +149,6 @@ Before stopping a redesign session, record:
 
 - [x] Mobile-card label CI 37271080985: 40/40 passed; artifact 11327534116 desktop/mobile reviewed.
 - [ ] Recover genuinely supported predicted-score/average-goals output: real 39-row feed currently has neither, despite 24 valid probability triplets.
+
+- [x] Structured published score/goal fields wired to homepage; valid Team Form per-team expected goals summed with model gates.
+- [x] Iteration 6 CI 37272765696 SUCCESS; artifact 11328912124 desktop/mobile inspected. Fresh real coverage 16/38 average goals, zero published scores.

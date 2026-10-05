@@ -1071,3 +1071,7 @@ Accepted attribution/freshness head eb5952f9bd800556ddddb5eaccb1091968fd2642, CI
 
 - Iteration 5 accepted executable ab2aa3ed46cbe93d4f8cd7e77486774959a5134c: CI 37271080985 SUCCESS, 40/40 tests, artifact 11327534116; 1440px/390px screenshots inspected. Mobile value meanings are clear; desktop unchanged.
 - Real 06:10:42Z full feed: 39 unique fixtures / 24 valid probability triplets / zero score predictions / all average goals unknown. Next inspect existing internal/form goal-model output and joins for honest coverage, preserving probability and fixture gates. No production change.
+
+### Phase 1 goal-output wiring — iteration 6
+
+Executable 822a007c8e73783f85b9fe1637820d7f6aa95398, CI 37272765696 SUCCESS; 40-case flow/build/contracts pass, artifact 11328912124 desktop/mobile inspected. Existing Forebet structured score/average goals now display; valid FORM_MODELED expected-goals pairs recover average goals without inferring score. Fresh 06:30:45Z snapshot: 38 unique fixtures, 16 supported average-goals estimates, zero published scores. Remaining score-source gap honest. Next inspect detail/goal provenance consistency. No deployment/DB mutation.
