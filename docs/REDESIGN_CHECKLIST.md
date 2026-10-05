@@ -158,5 +158,8 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 - [x] Final source 73dc5ee4 CI 37271713716: 41/41; artifact 11328895365 reference screenshots reviewed after confidence-caption correction.
 
 - [x] Retain identity-verified partial official XI producer rows without prediction backfill; duplicate/overfull/event/side guards tested.
-- [ ] Audit producer scheduling state across captures and newer-evidence protection.
+- [x] Coherent latest-source scheduling, distinct confirmed starters and official-over-predicted priority implemented/tested.
+- [x] Lineup cache skips older known captures; read-preflight scope and concurrency limit documented.
+- [x] Source 8700a248 CI 37275077600: snapshot/cache tests, build and 41/41 browser regressions; stored historical FB6045 verified.
+- [ ] Atomic temporal protection and coach/status paths remain separate scope.
 - [x] Final source 6de5b267 CI 37273561943 passed: parser/identity/partial counters, build and 41/41 browser regressions; full stored reference coverage preserved. No current explicit partial official sample.
