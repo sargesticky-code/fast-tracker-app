@@ -247,7 +247,7 @@ Deno.serve(async (req: Request) => {
           .in("hkjc_event_id", ids),
         db.from("source_health")
           .select("source,status,observed_at")
-          .in("source", ["LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
+          .in("source", ["BET365_BROWSER", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
           .eq("metric", "heartbeat"),
       ]);
 
