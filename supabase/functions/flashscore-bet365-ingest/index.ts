@@ -196,6 +196,7 @@ Deno.serve(async () => {
     stage.push({
       provider_event_id: providerEventId,
       captured_at: capturedAt,
+    movement_refresh: movementRefreshError ? { status:"ERROR", message:movementRefreshError.message } : movementRefresh,
       fixture_date: row?.fixture_date ?? null,
       kickoff_utc: ko,
       league: row?.competition ?? null,
@@ -280,6 +281,11 @@ Deno.serve(async () => {
       ignoreDuplicates: true,
     });
     if (snapshotError) return Response.json({ error: "snapshot_write_failed", detail: snapshotError.message }, { status: 500 });
+  }
+
+  const { data: movementRefresh, error: movementRefreshError } = await db.rpc("ft_refresh_cloud_odds_movement");
+  if (movementRefreshError) {
+    console.error("cloud_odds_movement_refresh_failed", movementRefreshError);
   }
 
   const healthRaw = {
