@@ -163,3 +163,8 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 - [x] Source 8700a248 CI 37275077600: snapshot/cache tests, build and 41/41 browser regressions; stored historical FB6045 verified.
 - [ ] Atomic temporal protection and coach/status paths remain separate scope.
 - [x] Final source 6de5b267 CI 37273561943 passed: parser/identity/partial counters, build and 41/41 browser regressions; full stored reference coverage preserved. No current explicit partial official sample.
+
+- [x] Unknown source lineup types retain real rows with UNCONFIRMED classification and unknown confidence; fresh health separates reference/unknown counts.
+- [x] Public unknown-type copy implemented with neutral source language and unknown confidence; source 10697ea3 CI/rendered acceptance pending. Storage source key deliberately unchanged.
+
+- [x] Source 10697ea3 CI 37278228130: 43/43 browser cases; unknown-type 1280/390 screenshots reviewed, confidence unknown and true coverage preserved.

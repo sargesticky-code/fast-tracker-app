@@ -1144,3 +1144,26 @@ Accepted executable `8700a248bd291a9fa1ec14639a49cfa6b041ff21`, CI `37275077600`
 Fresh read-only deployed function still v7 without latestLineupRows scheduling. PR43 remains draft/unmerged; no DB write, deployment, migration, manual producer invocation, schedule or provider change. Cache protection applies to known lineup captures at read time, not concurrent transactions or coach/status writes. Current upcoming mixed-snapshot census is zero; do not claim a new live/upcoming coverage recovery or production fix.
 
 Resume same branch/PR. Next bounded human-layer gap is truthful handling of standard/unclassified source lineup types, followed by sourced player/team mapping coverage; temporal DB protection needs a separately reviewed path. Source XI scheduler flags must never be repurposed as public canonical confirmation or strength percentages.
+
+
+### Iteration 8 — honest source classification
+
+Source 45535f3b7158534c794d8c3ca977d3aead329adb distinguishes explicit predicted, previous-XI and unclassified kinds in parser raw classification. Unknown types (including standard) retain complete genuine rosters, confirmed=false and confidence=null. Existing FOTMOB_PREDICTED storage key is deliberately preserved for upsert/view compatibility; it is not evidence that the unknown roster is a prediction. Fresh ingestion health now separates referenceMatches and unclassifiedMatches from predictedMatches. Official precedence, partial official identity guards, timestamps and snapshot safeguards remain unchanged.
+
+Read-only stored FB6279 / external 6369013, capture 2026-10-05 06:27:07.768 UTC, standard type: actual parser retains 48 rows / 22 starters, all UNCONFIRMED with null confidence and original capture. No official upgrade inferred from the upstream integration name. Local actual-parser, snapshot, public and authority contracts and static build passed. CI pending. No UI edits in this batch; public helper still defaults unknown kinds to prediction wording, an explicit remaining gap to fix next with desktop/mobile rendered evidence. This is producer preparation, not an end-to-end public classification repair. No deployed change, DB write, migration, manual producer run, schedule change or source expansion.
+
+
+### Iteration 9 — public unclassified source XI semantics
+
+Producer source 45535f3b passed CI 37276786198: all contracts/build/routes and 41/41 mocked browser regressions (36.6s); artifact 11330079222, digest sha256:906b345a43855e5326715ace021b7a9c0a1611e6f1563979720fc97d29b73b3e.
+
+Public source 10697ea3e6f8b5449c0fb5f41245b35ccd3323d7 uses shared UNVERIFIED classification for explicit unknown raw types or UNCONFIRMED raw classification. Team News, article safety strip, tool badge/notice, coverage and confidence captions say source-reported XI / confirmation unavailable. Legacy .82 confidence is suppressed for unknown-type display rows. Mixed unknown evidence uses neutral source language; official rows never enter provisional classification. Historical reference and explicit prediction handling remain intact, including legacy rows with no type metadata. This compatibility path is not an inference that a new missing-type capture is predicted: the updated parser explicitly marks those UNCONFIRMED.
+
+Actual stored FB6279 capture passed through the real parser and shared public summary returns UNVERIFIED / UNCONFIRMED SOURCE XI with 48 rows retained. That is a stored payload/helper verification, not a deployed API or real public fixture rendering. Local public/authority/story/real-evidence contracts, build and whitespace checks pass. Added 1280px/390px mocked browser cases; CI 37278228130 pending, screenshots not yet reviewed. Deployed producer fresh read remains v7 without classification fix. No deployment/merge/DB change.
+
+
+### Iteration 9 final acceptance
+
+Accepted executable 10697ea3e6f8b5449c0fb5f41245b35ccd3323d7, CI 37278228130 SUCCESS: all contracts/build/routes and 43/43 mocked browser cases (40.0s). Artifact 11330764804, dashboard-redesign-156c591f91d3438b19d03258bfd3b42d0bb2aee0, digest sha256:54b0225a6c7f3d25815c5969751eb46180a00e17cdf9fdab32621225355d4200; source head verified in artifact metadata. Reviewed both new unverified 1280px/390px full-page screenshots: article/Team News neutral labels, UNCONFIRMED SOURCE XI badge, null confidence, honest 10/11 versus 11/11 coverage, unknown strength and readable wrapping. Names are deterministic synthetic tests, not actual confirmed players. No production deployment or public real-data rendered claim.
+
+Resume same branch/PR. Source roster classification gap is now addressed in review code (producer and public UI); production remains older. Next highest-value Phase 2 dependency is genuine canonical player/team mapping coverage, using sourced IDs and existing registry constraints, never name-only speculative linkage. Importance/baseline still unavailable; keep strength percentage unknown. Atomic temporal protection and coach/status timing remain separate work.
