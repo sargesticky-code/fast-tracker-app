@@ -216,8 +216,27 @@ Deno.serve(async (req: Request) => {
     const shadowMap = new Map<string, any>();
     const shadowDetailMap = new Map<string, any>();
 
+    const bet365HealthResult = await db.from("source_health")
+      .select("source,status,value_text,observed_at,notes,raw")
+      .eq("source","BET365_BROWSER")
+      .eq("metric","heartbeat")
+      .maybeSingle();
+    const bet365Heartbeat = bet365HealthResult.data ?? null;
+    const bet365HeartbeatAgeSeconds = bet365Heartbeat?.observed_at
+      ? Math.max(0,(Date.now()-new Date(bet365Heartbeat.observed_at).getTime())/1000)
+      : null;
+    const bet365MarketHealth = bet365HealthResult.error
+      ? {status:"UNAVAILABLE",source:marketSource,reason:"heartbeat_read_failed"}
+      : !bet365Heartbeat
+        ? {status:"UNAVAILABLE",source:marketSource,reason:"browser_heartbeat_missing"}
+        : !Number.isFinite(bet365HeartbeatAgeSeconds) || bet365HeartbeatAgeSeconds > 90
+          ? {status:"STALE",source:marketSource,reason:"browser_heartbeat_stale",ageSeconds:bet365HeartbeatAgeSeconds}
+          : marketRows.length
+            ? {status:"OK",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds}
+            : {status:"OK_EMPTY",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds};
+
     const readHealth: Record<string, any> = {
-      market: { status: "OK", source: marketSource },
+      market: bet365MarketHealth,
       score: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       stats: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       detail: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
@@ -225,7 +244,7 @@ Deno.serve(async (req: Request) => {
       shadowDetail: { status: ids.length ? "PENDING" : "NOT_REQUIRED" },
       heartbeats: { status: "PENDING" },
     };
-    let heartbeats: any[] = [];
+    let heartbeats: any[] = bet365Heartbeat ? [bet365Heartbeat] : [];
 
     if (ids.length) {
       const [scoreResult, statsResult, detailResult, shadowResult, shadowDetailResult, heartbeatResult] = await Promise.all([
@@ -247,7 +266,7 @@ Deno.serve(async (req: Request) => {
           .in("hkjc_event_id", ids),
         db.from("source_health")
           .select("source,status,observed_at")
-          .in("source", ["BET365_BROWSER", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
+          .in("source", ["LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
           .eq("metric", "heartbeat"),
       ]);
 
@@ -271,7 +290,7 @@ Deno.serve(async (req: Request) => {
       const details = detailResult.data ?? [];
       const shadows = shadowResult.data ?? [];
       const shadowDetails = shadowDetailResult.data ?? [];
-      heartbeats = heartbeatResult.data ?? [];
+      heartbeats = [...(bet365Heartbeat ? [bet365Heartbeat] : []), ...(heartbeatResult.data ?? [])];
 
       for (const row of scores ?? []) scoreMap.set(row.hkjc_event_id, row);
       for (const row of details ?? []) {
@@ -377,7 +396,9 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!ids.length) {
-      readHealth.heartbeats = { status: "NOT_REQUIRED" };
+      readHealth.heartbeats = bet365Heartbeat
+        ? { status: "OK", source: "BET365_BROWSER" }
+        : { status: "UNAVAILABLE", reason: "browser_heartbeat_missing" };
     }
 
     return Response.json({
