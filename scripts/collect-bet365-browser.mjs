@@ -147,9 +147,8 @@ for(const f of bundle.fixtures){
     if(!sourceKey||!canonicalKey)continue;
     const verifiedTargets=aliasTargets.get(sourceKey);
     const crossSourceSafe=verifiedTargets&&verifiedTargets.size===1;
-    const exactCanonical=sourceKey===canonicalKey;
-    if(!crossSourceSafe&&!exactCanonical)continue;
-    const teamKey=crossSourceSafe?[...verifiedTargets.keys()][0]:`HKJC:${canonicalKey}`;
+    if(!crossSourceSafe)continue;
+    const teamKey=[...verifiedTargets.keys()][0];
     learnedAliases.push({
       source:"BET365_BROWSER",
       source_name:observed,
@@ -158,11 +157,11 @@ for(const f of bundle.fixtures){
       hkjc_name_en:canonicalName,
       hkjc_name_zh:null,
       status:"VERIFIED",
-      confidence:crossSourceSafe?0.99:1,
+      confidence:0.99,
       event_count:1,
       first_seen_at:fetchedAt,
       last_seen_at:fetchedAt,
-      evidence_sources:["BET365_BROWSER","VERIFIED_FIXTURE_IDENTITY",crossSourceSafe?"CROSS_SOURCE_VERIFIED_ALIAS":"EXACT_CANONICAL"],
+      evidence_sources:["BET365_BROWSER","VERIFIED_FIXTURE_IDENTITY","CROSS_SOURCE_VERIFIED_ALIAS"],
       updated_at:fetchedAt
     });
   }
