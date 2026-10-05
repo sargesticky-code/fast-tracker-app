@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 // Load the actual public calculation module without changing the app's module mode.
 const source = fs.readFileSync("lib/fast-tracker.js", "utf8");
-const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel, prematchGoalSummary, authoritativeFormModel } = await import(
+const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel, prematchGoalSummary, authoritativeFormModel, movementNumber } = await import(
   `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
 );
 for (const missing of [null, undefined, "", "  ", false, true, [], {}, NaN, Infinity, -0.2, 101]) {
@@ -80,3 +80,7 @@ assert.deepEqual(authoritativeFormModel({id:"CANONICAL"},deepGoal),{home:.5,draw
 assert.equal(authoritativeFormModel({id:"OTHER"},deepGoal),null);
 assert.equal(authoritativeFormModel({id:"CANONICAL"},{...deepGoal,models:{form:{...deepGoal.models.form,quality:"REJECTED"}}}),null);
 assert.equal(authoritativeFormModel({id:"CANONICAL"},{...deepGoal,models:{form:{...deepGoal.models.form,form_prob_draw:null}}}),null);
+
+for (const value of [null, undefined, "", "  ", false, true, [], {}, NaN, Infinity]) assert.equal(movementNumber(value),null);
+assert.equal(movementNumber(0),0); assert.equal(movementNumber("-4.5"),-4.5);
+console.log("Movement normalization passed: unavailable differs from genuine zero.");

@@ -18,6 +18,7 @@ import {
   modelAgreement,
   modelCoverageCount,
   modelLabel,
+  movementNumber,
   prematchGoalSummary,
   reviewPriority,
   sanitizeFallbackMatch,
@@ -815,8 +816,8 @@ export default function MatchDetailClient() {
   const goalSummary = prematchGoalSummary(match, deep);
   const predictedScore = goalSummary.score;
   const movement = match.oddsMovement || null;
-  const movementPct = Number(movement?.rawOddsChangePct);
-  const hasMovement = movement && Number.isFinite(movementPct);
+  const movementPct = movementNumber(movement?.rawOddsChangePct);
+  const hasMovement = movement && movementPct !== null;
   const movementMagnitude = hasMovement ? Math.min(100, Math.max(6, Math.abs(movementPct) * 5)) : 0;
   const movementDirection = !hasMovement ? "FLAT" : movementPct < 0 ? "SHORTENING" : movementPct > 0 ? "DRIFTING" : "FLAT";
   const movementDirectionZh = movementDirection === "SHORTENING" ? "Shortening" : movementDirection === "DRIFTING" ? "Drifting" : "Stable";
@@ -2283,14 +2284,14 @@ export default function MatchDetailClient() {
         </div>
       </details>
 
-      {hasMovement && (
+      {movement && (
         <section className="panel odds-signal-panel">
           <div className="panel-title">
-            <div><p>ODDS MOVEMENT</p><h2>HKJC price signal</h2></div>
+            <div><p>ODDS MOVEMENT</p><h2>Price history</h2></div>
             <span>{movement.signal || "COLLECTING"}</span>
           </div>
 
-          <div className={"odds-signal-hero " + (movementPct < 0 ? "is-shortening" : movementPct > 0 ? "is-drifting" : "is-flat")}>
+          {hasMovement ? <><div className={"odds-signal-hero " + (movementPct < 0 ? "is-shortening" : movementPct > 0 ? "is-drifting" : "is-flat")}>
             <div className="odds-signal-side">
               <span>Market side</span>
               <strong>{sideName(match, movement.side)}</strong>
@@ -2314,10 +2315,11 @@ export default function MatchDetailClient() {
           </div>
 
           <div className="odds-context-strip">
-            <div><span>Implied probability</span><b>{movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "%"}</b></div>
+            <div><span>Implied probability</span><b>{movementNumber(movement.move24hPp) === null ? "—" : movementNumber(movement.move24hPp).toFixed(1) + " pp"}</b></div>
             <div><span>Model alignment</span><b>{movement.modelAlignment || "—"}</b></div>
             <div><span>Baseline</span><b>{movement.baselineWindow || "Base"}</b></div>
           </div>
+          </> : <p className="odds-movement-unavailable">Price movement unavailable — comparable baseline observation missing.</p>}
         </section>
       )}
 

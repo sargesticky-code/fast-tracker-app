@@ -3,6 +3,26 @@ const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
 for (const width of [1440, 390]) {
+  test(`unknown movement differs from stable observed prices at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({width,height:900});
+    await mockApis(page);
+    const feed = fixtureFeed();
+    feed.matches[0].oddsMovement = { rawOddsChangePct:null, baselineOdds:null, nowOdds:2.2, move24hPp:"", side:"H" };
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({json:feed}));
+    await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
+    await expect(page.locator(".odds-movement-unavailable")).toBeVisible();
+    await expect(page.locator(".odds-signal-hero")).toHaveCount(0);
+    await page.screenshot({path:`test-results/dashboard-movement-unknown-${width}.png`,fullPage:true});
+    feed.matches[0].oddsMovement = { rawOddsChangePct:0, baselineOdds:2.2, nowOdds:2.2, move24hPp:0, side:"H",baselineWindow:"24h" };
+    await page.reload();
+    await expect(page.locator(".odds-signal-change strong")).toHaveText("0.0%");
+    await expect(page.locator(".odds-signal-side small")).toHaveText("Stable");
+    await expect(page.locator(".odds-context-strip")).toContainText("0.0 pp");
+    await page.screenshot({path:`test-results/dashboard-movement-zero-${width}.png`,fullPage:true});
+  });
+}
+
+for (const width of [1440, 390]) {
   test(`detail-only goal models remain available at ${width}px`, async ({ page }) => {
     await page.setViewportSize({width,height:900});
     const payload = detailPayload();
