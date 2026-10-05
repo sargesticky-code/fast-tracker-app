@@ -435,3 +435,18 @@ browser host. Before destructive HKJC shutdown, require: (1) a live browser host
 fixture matching, (5) fresh quote persistence, and (6) Phase 1/3 consumer switch.
 After those pass, disable active HKJC jobs/views/fallbacks; historical rows can stay
 for provenance and model backtesting but must not be read as current authority.
+
+
+## Cutover checkpoint — 2026-10-05 late pass
+
+Production cutover advanced beyond the initial browser-adapter scaffold:
+
+- Bet365 browser ingestion schema is applied as migration `20261005111312_bet365_browser_live_ingest`.
+- HKJC cron retirement is persisted as migration `20261005114903_retire_hkjc_cron_after_bet365_cutover`.
+- `app-phase1-feed` v70, `app-live-feed` v14, `app-match-detail` v23 and `app-match-analysis` v39 no longer use the HKJC direct/current authority paths.
+- `hkjc-live-direct` v12 and `hkjc-upcoming-direct` v12 are tombstones that return HTTP 410 with replacement `BET365_BROWSER`; their cron jobs are inactive.
+- Public homepage/card/article/detail/health wording was switched from HKJC to Bet365/current-market terminology. Remaining `hkjc_*` names in application code are compatibility fields/source identifiers, not active public authority claims.
+- The local collector now emits a `BET365_BROWSER` heartbeat and resolves team-name variants only through unique VERIFIED master aliases plus a unique canonical fixture. Learned Bet365 aliases require that same grounded identity evidence.
+- Production feeds distinguish a healthy empty live slate from a missing/stale browser host instead of treating both as zero matches.
+
+Current blocker remains physical rather than architectural: the private Linux Chrome session and upstream extension must be running before genuine Bet365 rows can populate the new tables. Until then, the correct state is unknown/missing, never synthetic odds.
