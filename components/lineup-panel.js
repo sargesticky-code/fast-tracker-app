@@ -140,6 +140,38 @@ function roleBadge(row) {
   return row?.starter === false ? "SUB" : "XI";
 }
 
+function firstStat(stats, keys) {
+  for (const key of keys) {
+    const value = stats?.[key];
+    if (value === null || value === undefined || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function playerStatSummary(row) {
+  const stats = row?.raw?.statistics || row?.statistics || null;
+  const ratingRaw = row?.raw?.rating ?? row?.rating ?? stats?.rating ?? null;
+  const rating = Number(ratingRaw);
+  const minutes = firstStat(stats, ["minutesPlayed", "minutes", "minsPlayed"]);
+  const goals = firstStat(stats, ["goals", "goal"]);
+  const assists = firstStat(stats, ["assists", "goalAssist"]);
+  const shots = firstStat(stats, ["totalShots", "shots", "shotAttempts"]);
+  const keyPasses = firstStat(stats, ["keyPass", "keyPasses", "chancesCreated"]);
+  const tackles = firstStat(stats, ["tackles", "totalTackle"]);
+  const passes = firstStat(stats, ["accuratePasses", "successfulPasses", "passesAccurate"]);
+  const out = [];
+  if (Number.isFinite(rating) && rating > 0) out.push("Rating " + rating.toFixed(1));
+  if (Number.isFinite(minutes)) out.push(minutes + " min");
+  if (Number.isFinite(goals) || Number.isFinite(assists)) out.push((goals || 0) + "G " + (assists || 0) + "A");
+  if (Number.isFinite(shots)) out.push(shots + " shots");
+  if (Number.isFinite(keyPasses)) out.push(keyPasses + " key passes");
+  if (Number.isFinite(tackles)) out.push(tackles + " tackles");
+  if (Number.isFinite(passes)) out.push(passes + " accurate passes");
+  return out;
+}
+
 function sourceUpdated(rows) {
   const times = rows
     .map((r) => r?.source_updated_at || r?.fetched_at || r?.created_at)
@@ -324,14 +356,17 @@ function TeamPitch({ teamName, rows, accent, status }) {
             const flags = playerFlags(row);
             const country = playerCountry(row);
             const role = playerRole(row);
+            const statSummary = playerStatSummary(row);
+            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.club || null;
             return (
               <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e3ebe6",borderRadius:11,background:"#fafcfb"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:11,fontWeight:950,boxShadow:"inset 0 0 0 1px rgba(255,255,255,.22)"}}>{row?.shirt_number ?? "•"}</span>
                 <div style={{minWidth:0}}>
                   <b style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
                   <small style={{display:"block",marginTop:2,fontSize:9,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[country, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
+                    {[country, currentClub, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
                   </small>
+                  {statSummary.length ? <small style={{display:"block",marginTop:3,fontSize:8.5,fontWeight:800,color:"#4d6d5b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statSummary.slice(0,4).join(" · ")}</small> : null}
                 </div>
                 <span style={{fontSize:8.5,fontWeight:900,padding:"4px 6px",borderRadius:999,background:role==="GK"?"#eaf1ff":"#eef5f0",color:role==="GK"?"#315d9a":"#4f6b5d",whiteSpace:"nowrap"}}>
                   {roleBadge(row)}
@@ -357,14 +392,17 @@ function SquadList({ title, rows, accent, empty }) {
           {rows.map((row, i) => {
             const country = playerCountry(row);
             const captain = playerFlags(row).includes("C");
+            const statSummary = playerStatSummary(row);
+            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.club || null;
             return (
               <div key={row?.id || row?.player_key || i} style={{display:"grid",gridTemplateColumns:"36px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e8eeea",borderRadius:11,background:"#f8faf8"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:10,fontWeight:950}}>#{row?.shirt_number ?? "—"}</span>
                 <div style={{minWidth:0}}>
                   <span style={{display:"block",fontSize:11.5,fontWeight:850,color:"#2f4036",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row?.player_name || "Unknown"}</span>
                   <small style={{display:"block",marginTop:2,fontSize:8.8,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[country, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
+                    {[country, currentClub, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
                   </small>
+                  {statSummary.length ? <small style={{display:"block",marginTop:3,fontSize:8.4,fontWeight:800,color:"#4d6d5b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statSummary.slice(0,4).join(" · ")}</small> : null}
                 </div>
                 <small style={{fontSize:8.5,fontWeight:900,color:"#52675b",padding:"4px 6px",borderRadius:999,background:"#eef4f0",whiteSpace:"nowrap"}}>{roleBadge(row)}</small>
               </div>
