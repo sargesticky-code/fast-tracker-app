@@ -14,7 +14,9 @@
     "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
     "check:evidence-independence": "node scripts/check-evidence-independence.mjs",
     "check:player-evidence": "node scripts/check-player-evidence-identity.mjs",
-    "check:bet365-browser": "node scripts/check-bet365-browser-feed.mjs"
+    "check:bet365-browser": "node scripts/check-bet365-browser-feed.mjs",
+    "collect:bet365-browser": "node scripts/collect-bet365-browser.mjs",
+    "check:bet365-collector": "node --check scripts/collect-bet365-browser.mjs"
   },
   "dependencies": {
     "@withqwerty/campos-stadia": "0.1.0-beta.6",
