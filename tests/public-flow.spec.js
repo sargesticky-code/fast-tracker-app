@@ -2,6 +2,39 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
+for (const width of [1440, 390]) {
+  test(`prematch Value requires current quote and independent evidence at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const feed = fixtureFeed();
+    const base = feed.matches[0];
+    const quotedAt = new Date(Date.now() - 60000).toISOString();
+    const fresh = { ...base, home: "Supported Value FC", id: "FBVALUE", forebet: { home: .6, draw: .2, away: .2 }, form: { home: .59, draw: .21, away: .2 }, formDetail: { source: "HKJC_RESULTS" }, dc: null, pi: null, multi: null, health: { hkjcFreshness: "FRESH", hkjcPriceChangedAt: quotedAt } };
+    feed.matches = [
+      fresh,
+      { ...fresh, id: "FBWATCH", home: "Single Source FC", forebet: null },
+      { ...fresh, id: "FBREFERENCE", home: "Old Quote FC", updatedAt: new Date().toISOString(), health: { hkjcFreshness: "FRESH", hkjcFetchedAt: new Date().toISOString(), hkjcPriceChangedAt: new Date(Date.now() - 15 * 3600000).toISOString() } },
+      { ...fresh, id: "FBUNKNOWNQUOTE", home: "Unknown Quote FC", health: { hkjcFreshness: "FRESH", hkjcFetchedAt: new Date().toISOString() } }
+    ];
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+    await page.goto("http://127.0.0.1:4173/");
+    await expect(page.locator(".ft-match-row")).toHaveCount(4);
+    await expect(page.locator(".ft-match-row.is-value")).toHaveCount(1);
+    const watch = page.locator('.ft-match-row[href*="FBWATCH"]');
+    const reference = page.locator('.ft-match-row[href*="FBREFERENCE"]');
+    await expect(watch.locator(".ft-value-state")).toContainText("Watch");
+    await expect(reference.locator(".ft-value-state")).toContainText("Reference");
+    await expect(reference.locator(".ft-market-odds")).toContainText("HKJC HDA · Reference");
+    await expect(reference.locator(".ft-edge")).not.toHaveText("—");
+    if (width === 1440) await expect(page.locator(".ft-value-rail a")).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/dashboard-value-gates-${width}.png`, fullPage: true });
+    await page.locator(".ft-sports").getByRole("button", { name: "Value", exact: true }).click();
+    await expect(page.locator(".ft-match-row")).toHaveCount(1);
+    await expect(page.locator(".ft-match-row")).toContainText("Supported Value FC");
+  });
+}
+
 test.describe("prematch fixture navigation", () => {
   test.use({ timezoneId: "America/Los_Angeles" });
   for (const width of [1440, 390]) {
@@ -132,7 +165,7 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       goals: totals.goals,
       corners: totals.corners,
       updatedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 60 * 60 * 1000).toISOString(),
-      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH" },
+      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH", hkjcPriceChangedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 3600000).toISOString() },
       storySummary: {
         matchScript: { predictedScore: "2-1", shapeKey: "BALANCED" },
         editorialAlignment: { support: 1, contradict: 0 }

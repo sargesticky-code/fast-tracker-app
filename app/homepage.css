@@ -543,3 +543,7 @@ button,input{font:inherit}
   .ft-search input{min-width:0;font-size:16px}
   .ft-filterbar{top:100px}
 }
+
+.ft-value-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.ft-value-state>small{font-size:9px;color:var(--ft-muted);line-height:1.1}
+.ft-featured-meta small{display:block;color:var(--ft-muted);font-size:10px;margin-top:3px}

@@ -100,3 +100,11 @@ family/confidence gates and actual quote freshness. The current homepage filters
 nominal EV directly rather than using the existing candidate band; inspect stale,
 correlated and single-family cases before changing behavior. Broader bookmaker
 coverage and full +2-day window remain Phase 0/provider dependencies.
+
+## Continuation: evidence and freshness gates for homepage Value
+
+Implemented a shared `prematchValueSignal` used by table labels, Value filter/count, featured match and Value rail. Nominal HDA EV remains visible as Reference when source quote freshness cannot be established; only existing VALUE/STRONG_VALUE evidence bands with a complete HDA market, source observation within six hours, FRESH market health and a future prematch fixture qualify. Single independent families remain Watch. Feed fetch timestamps cannot refresh an old quote. Generic odds observation/freshness fields take precedence over legacy HKJC fields for Phase 0 compatibility. The legacy full-feed `inPlay` flag is deliberately not treated as actual live status, because it can indicate future market eligibility.
+
+Read-only genuine full-feed snapshot generated 2026-10-05T04:19:35.522Z: 39 fixtures; shared signal returned 16 Reference, 22 Unavailable, 1 Watch, zero eligible Value. Twelve rows had nominal HDA EV >=4%, illustrating why raw EV alone must not drive the Value filter. No odds, probabilities or fixture identities were written. Contracts (prematch, UI, story, market, real evidence, evidence independence, player identity) and static production build passed locally. Desktop/mobile browser regressions added for supported Value, correlated/single-family Watch, stale source quotes and unknown quote timestamps. Browser CI acceptance is pending publication of this batch; prior 36-case acceptance applies only to the fixture-navigation batch above.
+
+Next: inspect CI screenshots and finish this batch acceptance. Remaining upstream dependency: current source quote observations do not support a fresh public Value candidate; Phase 0 must supply genuinely fresh international quotes with provenance. No migration, feed publication, merge or deployment performed.

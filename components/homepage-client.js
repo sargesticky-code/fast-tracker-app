@@ -23,7 +23,7 @@ import {
   matchDetailHref,
   normalizedTriplet,
   preferredModel,
-  valueEdge,
+  prematchValueSignal,
 } from "@/lib/fast-tracker";
 
 const FEED_URL =
@@ -186,7 +186,7 @@ function oddsTriplet(match) {
   ];
 }
 
-function MarketOdds({ match, marketKey = "HDA" }) {
+function MarketOdds({ match, marketKey = "HDA", signal = null }) {
   const currentGoals = match?.liveNow && match?.live?.goals ? match.live.goals : match?.goals;
   const currentCorners = match?.liveNow && match?.live?.corners ? match.live.corners : match?.corners;
   const currentOdds = match?.liveNow && match?.live?.odds ? match.live.odds : match?.odds;
@@ -215,7 +215,7 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
-      <small>{match?.liveNow ? "LIVE HKJC HDA" : "HKJC HDA"}</small>
+      <small>{match?.liveNow ? "LIVE HKJC HDA" : "HKJC HDA"}{signal?.status === "REFERENCE" ? " · Reference" : ""}</small>
       <div>
         {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
@@ -352,7 +352,7 @@ function ProbabilityStrip({ model }) {
   );
 }
 
-function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState = null }) {
+function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState = null, nowMs }) {
   return (
     <section className="ft-table-section">
       {title && <div className="ft-league-section-title">
@@ -366,7 +366,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
         <div>Pred</div>
         <div>Correct<br />score</div>
         <div>Avg.<br />goals</div>
-        <div>Edge</div>
+        <div>HDA<br />model EV</div>
         <div>Live<br />score</div>
         <div>Market odds</div>
       </div>
@@ -374,7 +374,8 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
       <div className="ft-table-body">
         {matches.length ? matches.map((match) => {
           const model = normalizedTriplet(preferredModel(match));
-          const edge = match.liveNow ? null : valueEdge(match);
+          const signal = prematchValueSignal(match, nowMs, feedState?.status === "ready");
+          const edge = signal.edge;
           const market = match.market || fairMarket(match.odds);
           const avgGoalsRaw = match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals;
           const avgGoals = avgGoalsRaw == null || typeof avgGoalsRaw === "boolean" || String(avgGoalsRaw).trim() === ""
@@ -385,7 +386,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           const rowClasses = [
             "ft-match-row",
             match.liveNow ? "is-live" : "",
-            Number(edge?.expectedValue) >= 0.04 ? "is-value" : "",
+            signal.eligible ? "is-value" : "",
           ].filter(Boolean).join(" ");
           return (
             <a className={rowClasses} href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
@@ -401,12 +402,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
-              <div><span className={edge?.expectedValue > 0.04 ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span></div>
+              <div className="ft-value-state" title={signal.reason}><span className={signal.eligible ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span>{edge && <small>{signal.label}</small>}</div>
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
               </div>
-              <MarketOdds match={match} marketKey={activeMarket} />
+              <MarketOdds match={match} marketKey={activeMarket} signal={signal} />
             </a>
           );
         }) : feedState?.status === "error" ? (
@@ -445,10 +446,11 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
   );
 }
 
-function FeaturedMatch({ match }) {
+function FeaturedMatch({ match, nowMs, feedAvailable }) {
   if (!match) return null;
   const model = normalizedTriplet(preferredModel(match));
-  const edge = match.liveNow ? null : valueEdge(match);
+  const signal = prematchValueSignal(match, nowMs, feedAvailable);
+  const edge = signal.edge;
   return (
     <section className="ft-right-card">
       <div className="ft-right-head">Featured match</div>
@@ -460,7 +462,7 @@ function FeaturedMatch({ match }) {
           <ProbabilityStrip model={model} />
           <div className="ft-featured-meta">
             <span>Pick <b>{sideFromTriplet(model)}</b></span>
-            <span>Edge <b>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</b></span>
+            <span title={signal.reason}>HDA model EV <b>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</b>{edge && <small>{signal.label}</small>}</span>
           </div>
         </div>
       </a>
@@ -468,11 +470,12 @@ function FeaturedMatch({ match }) {
   );
 }
 
-function ValuePicks({ matches }) {
+function ValuePicks({ matches, nowMs, feedAvailable }) {
   const picks = matches
     .filter((match) => !match.liveNow)
-    .map((match) => ({ match, edge: valueEdge(match) }))
-    .filter(({ edge }) => Number.isFinite(edge?.expectedValue) && edge.expectedValue > 0)
+    .map((match) => ({ match, signal: prematchValueSignal(match, nowMs, feedAvailable) }))
+    .filter(({ signal }) => signal.eligible)
+    .map(({ match, signal }) => ({ match, edge: signal.edge }))
     .sort((a, b) => b.edge.expectedValue - a.edge.expectedValue)
     .slice(0, 4);
 
@@ -490,24 +493,24 @@ function ValuePicks({ matches }) {
             <b>{edge.key}</b>
             <em>{(edge.expectedValue * 100).toFixed(1)}%</em>
           </a>
-        )) : <div className="ft-rail-empty">No positive value signal right now</div>}
+        )) : <div className="ft-rail-empty">No fresh, evidence-supported value candidates</div>}
       </div>
     </section>
   );
 }
 
-function RightRail({ matches, selectedDate, onSelectDate }) {
-  const featured = matches.find((m) => !m.liveNow && valueEdge(m)?.expectedValue > 0.04) || matches[0];
+function RightRail({ matches, selectedDate, onSelectDate, nowMs, feedAvailable }) {
+  const featured = matches.find((m) => prematchValueSignal(m, nowMs, feedAvailable).eligible) || matches[0];
   return (
     <aside className="ft-rightbar">
       <CalendarPanel selectedDate={selectedDate} onSelectDate={onSelectDate} />
-      <FeaturedMatch match={featured} />
-      <ValuePicks matches={matches} />
+      <FeaturedMatch match={featured} nowMs={nowMs} feedAvailable={feedAvailable} />
+      <ValuePicks matches={matches} nowMs={nowMs} feedAvailable={feedAvailable} />
       <section className="ft-right-card">
         <div className="ft-right-head">Reading the board</div>
         <div className="ft-board-guide">
           <div><b>H / D / A</b><span>Combined probability strip</span></div>
-          <div><b>EDGE</b><span>Model value versus current market</span></div>
+          <div><b>HDA EV</b><span>Model return versus quoted price; Watch and Reference are not Value</span></div>
           <div><b>LIVE</b><span>Score and clock only when observed</span></div>
           <div><b>—</b><span>Unknown or unavailable, never assumed zero</span></div>
         </div>
@@ -645,8 +648,8 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     tomorrow: matches.filter(m => !m.liveNow && dateKey(m.kickoff) === tomorrowKey).length,
     weekend: matches.filter(m => !m.liveNow && hkWeekend(m.kickoff)).length,
     all: matches.length,
-    value: matches.filter(m => !m.liveNow && Number(valueEdge(m)?.expectedValue) >= 0.04).length,
-  }), [matches, todayKey, tomorrowKey]);
+    value: matches.filter(m => prematchValueSignal(m, now.getTime(), feedState.status === "ready").eligible).length,
+  }), [matches, todayKey, tomorrowKey, now, feedState.status]);
 
   const calendarKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
   const targetKey = activeMode === "tomorrow" ? tomorrowKey : activeMode === "plus2" ? plusTwoKey : activeMode === "date" ? calendarKey : todayKey;
@@ -669,13 +672,13 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       if (activeMode === "live") return Boolean(m.liveNow);
       if (activeMode === "weekend") return !m.liveNow && hkWeekend(m.kickoff);
       if (activeMode === "all") return true;
-      if (activeMode === "value") return !m.liveNow && Number(valueEdge(m)?.expectedValue) >= 0.04;
+      if (activeMode === "value") return prematchValueSignal(m, now.getTime(), feedState.status === "ready").eligible;
       return !m.liveNow && dateKey(m.kickoff) === targetKey;
     });
 
     rows = rows.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
     return rows;
-  }, [matches, activeLeague, activeMode, query, targetKey]);
+  }, [matches, activeLeague, activeMode, query, targetKey, now, feedState.status]);
 
   const groupedVisible = useMemo(() => {
     const groups = new Map();
@@ -768,10 +771,10 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <div className="ft-grouped-board">
             {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
               <div key={league}>
-                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} />
+                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} nowMs={now.getTime()} />
                 {index === 0 && <AdvertSlot variant="wide" />}
               </div>
-            )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
+            )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} nowMs={now.getTime()} />}
           </div>
 
           {showForm && (
@@ -782,7 +785,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           )}
         </section>
 
-        <RightRail matches={visible} selectedDate={dateMode && activeMode !== "date" ? new Date(`${targetKey}T12:00:00`) : selectedDate} onSelectDate={(date) => { setSelectedDate(date); setActiveMode("date"); }} />
+        <RightRail matches={visible} nowMs={now.getTime()} feedAvailable={feedState.status === "ready"} selectedDate={dateMode && activeMode !== "date" ? new Date(`${targetKey}T12:00:00`) : selectedDate} onSelectDate={(date) => { setSelectedDate(date); setActiveMode("date"); }} />
       </div>
 
       <footer className="ft-footer-banner">
