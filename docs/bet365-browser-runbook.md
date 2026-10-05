@@ -63,11 +63,16 @@ All three are RLS-enabled and service-only.
 
 ## Production cutover completed in Supabase
 
-- `app-phase1-feed` summary: canonical fixtures + Bet365 browser/current data
-- `app-live-feed`: Bet365 browser live authority
+- `app-phase1-feed` v70 summary: canonical fixtures + Bet365 browser/current data + browser-heartbeat health
+- `app-live-feed` v14: Bet365 browser live authority with OK / OK_EMPTY / STALE / MISSING host-state separation
 - `app-match-detail`: Bet365 browser live fallback
 - `app-match-analysis`: Bet365 browser + `bet365_current`
-- pg_cron job 4 (`hkjc-live-direct`) disabled
-- pg_cron job 7 (`hkjc-upcoming-direct`) disabled
+- pg_cron job 4 (`hkjc-live-direct`) disabled and the Edge Function itself returns 410 Retired
+- pg_cron job 7 (`hkjc-upcoming-direct`) disabled and the Edge Function itself returns 410 Retired
 
 Historical HKJC tables and old ID-shaped schemas are retained for provenance/backward compatibility; they are not a target data source for new work.
+
+
+## Identity bootstrap
+
+The collector resolves observed Bet365 team names through the existing `team_name_master` only when a normalized source key has exactly one VERIFIED canonical team target. The fixture must still resolve uniquely in the live kickoff window. A `BET365_BROWSER` alias is learned only after both conditions pass; no new canonical team key is invented.
