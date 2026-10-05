@@ -135,3 +135,10 @@ Before stopping a redesign session, record:
 - [x] Separate live from upcoming date/value/weekend filters.
 - [x] Label partial date-window coverage; preserve unknown metadata.
 - [x] Navigation CI 37245034168: 36/36 passed; 1440px/390px screenshots reviewed. Mobile search now accessible.
+
+## Phase 1 quote attribution — iteration 4
+
+- [x] Remove unconditional HKJC HDA label; explicit quote metadata wins.
+- [x] Unknown source and live quotes cannot inherit prematch bookmaker attribution.
+- [x] Preserve genuine legacy feed attribution (39/39 current rows); no claimed international coverage.
+- [ ] Record source-attribution desktop/mobile CI and screenshots.

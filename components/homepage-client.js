@@ -21,6 +21,7 @@ import {
   formatOdds,
   leagueDisplayName,
   matchDetailHref,
+  marketSourceLabel,
   normalizedTriplet,
   preferredModel,
   prematchValueSignal,
@@ -215,7 +216,7 @@ function MarketOdds({ match, marketKey = "HDA", signal = null }) {
   const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
-      <small>{match?.liveNow ? "LIVE HKJC HDA" : "HKJC HDA"}{signal?.status === "REFERENCE" ? " · Reference" : ""}</small>
+      <small>{match?.liveNow ? "LIVE " : ""}{marketSourceLabel(match, currentOdds, Boolean(match?.liveNow))} HDA{signal?.status === "REFERENCE" ? " · Reference" : ""}</small>
       <div>
         {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>

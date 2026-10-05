@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 // Load the actual public calculation module without changing the app's module mode.
 const source = fs.readFileSync("lib/fast-tracker.js", "utf8");
-const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal } = await import(
+const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel } = await import(
   `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
 );
 for (const missing of [null, undefined, "", "  ", false, true, [], {}, NaN, Infinity, -0.2, 101]) {
@@ -45,3 +45,11 @@ assert.equal(prematchValueSignal({ ...valueMatch, kickoff: new Date(now).toISOSt
 assert.equal(prematchValueSignal({ ...valueMatch, liveNow: true }, now).edge, null);
 assert.equal(prematchValueSignal({ ...valueMatch, odds: { ...valueMatch.odds, draw: null } }, now).edge, null);
 console.log("Prematch Value gates passed: source-time freshness, kickoff, market completeness and independent evidence.");
+
+assert.equal(marketSourceLabel(valueMatch, valueMatch.odds), "HKJC");
+assert.equal(marketSourceLabel(valueMatch, { ...valueMatch.odds, providerKey: "BET365" }), "Bet365");
+assert.equal(marketSourceLabel(valueMatch, { providerKey: "UNKNOWN" }), "Source unverified");
+assert.equal(marketSourceLabel(valueMatch, { providerLabel: "International Bookmaker" }), "International Bookmaker");
+assert.equal(marketSourceLabel(valueMatch, valueMatch.odds, true), "Source unverified");
+assert.equal(marketSourceLabel({}, {}), "Source unverified");
+console.log("Quote attribution passed: explicit source wins; unknown/live never inherits prematch bookmaker.");

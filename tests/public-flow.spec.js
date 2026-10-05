@@ -3,6 +3,27 @@ const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
 for (const width of [1440, 390]) {
+  test(`homepage attributes displayed bookmaker quotes at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const feed = fixtureFeed();
+    const base = feed.matches[0];
+    feed.matches = [
+      { ...base, id: "FBLEGACYSOURCE", home: "Legacy Source FC" },
+      { ...base, id: "FBINTSOURCE", home: "International Source FC", odds: { ...base.odds, providerKey: "BET365" } },
+      { ...base, id: "FBUNKNOWNSOURCE", home: "Unknown Source FC", health: {}, odds: { ...base.odds, providerKey: "UNRESOLVED" } },
+    ];
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+    await page.goto("http://127.0.0.1:4173/");
+    await expect(page.locator('.ft-match-row[href*="FBLEGACYSOURCE"] .ft-market-odds')).toContainText("HKJC HDA");
+    await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] .ft-market-odds')).toContainText("Bet365 HDA");
+    await expect(page.locator('.ft-match-row[href*="FBUNKNOWNSOURCE"] .ft-market-odds')).toContainText("Source unverified HDA");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/dashboard-quote-source-${width}.png`, fullPage: true });
+  });
+}
+
+for (const width of [1440, 390]) {
   test(`prematch Value requires current quote and independent evidence at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const feed = fixtureFeed();

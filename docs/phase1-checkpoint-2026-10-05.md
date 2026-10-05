@@ -112,3 +112,9 @@ Next: inspect CI screenshots and finish this batch acceptance. Remaining upstrea
 ### Value batch acceptance
 
 Executable remote head `db5f1629e0d4eee32c6c6c1da02c4628f0436892`, draft PR #42. CI run `37263275591` completed SUCCESS: all contracts, static build/routes and **38/38 rendered desktop/mobile cases (35.9s)**. Artifact `11325810118`, `dashboard-redesign-9bf8ac132c3c9a3c7da698554f5daa41c68215e8`. Inspected `dashboard-value-gates-1440.png` and `dashboard-value-gates-390.png`: distinct Value/Watch/Reference states, only one supported candidate in Value navigation/rail, and no page overflow. No release or public production verification claimed. Next independent Phase 1 issue: audit homepage/detail consistency for market-specific EV and odds movement while Phase 0 repairs quote authority/coverage.
+
+## Iteration 4: displayed HDA quote source
+
+Homepage no longer stamps HKJC onto every HDA quote. Shared `marketSourceLabel` consumes explicit quote-level `bookmakerLabel`/`providerLabel`, or known `providerKey` (existing HKJC/BET365/ODDSMATH contract). Unknown explicit keys fail to Source unverified instead of borrowing legacy health. Existing prematch rows without quote metadata retain HKJC only when legacy HKJC health is present. Live quotes without their own attribution never inherit prematch health. No provider ingestion or identity change.
+
+Real full-feed snapshot 2026-10-05T04:39:48.667Z: 39 rows, all legacy HKJC health attribution, zero quote-level provider metadata; existing attribution remains HKJC. International test quotes are deterministic mocked contract tests, not a claim of real Bet365 coverage. All seven contracts and static build pass locally. Two desktop/mobile source-attribution cases added; browser CI pending. Phase 0 dependency: producers must populate quote-level provider identity when replacing legacy prices. This batch does not synthesize that identity.

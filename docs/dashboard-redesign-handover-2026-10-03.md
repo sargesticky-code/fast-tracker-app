@@ -1060,3 +1060,7 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - Iteration 2 accepted executable `3cebf6ee2c0268aa65afdd7b825eb3abbde31fc0`: CI `37245034168` SUCCESS, 36/36 cases. Artifact `11318463911`, desktop/mobile navigation screenshots reviewed.
 - Responsive regression exposed hidden mobile search; field/layout repaired. Prematch EV is suppressed in live right rail. Real 48h request added four canonical fixtures versus 24h (30 -> 34).
 - No merge/deployment. Next: audit homepage nominal value classification against candidate bands and quote timestamps. Wider +2-day provider window remains unavailable.
+
+### Phase 1 quote attribution — iteration 4
+
+Continues PR42 accepted parent a0d62b99a1417ef9d76fc2590f8564dd582b7d86. Homepage HDA labels now follow explicit quote metadata, preserve evidenced legacy prematch HKJC attribution and fail closed to Source unverified for unknown/live attribution. Read-only 04:39:48Z snapshot has 39 legacy rows, no explicit international quote metadata. Seven checks/build pass; desktop/mobile source-attribution CI pending. Full continuation in docs/phase1-checkpoint-2026-10-05.md. No DB write, provider release, merge or deployment.
