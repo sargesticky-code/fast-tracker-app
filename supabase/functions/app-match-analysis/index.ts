@@ -597,9 +597,9 @@ function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalNa
   const side=normalizedSide(row?.team_side);
   const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
   const canonical=Boolean(canonicalPlayer);
-  const canonicalIdentity=canonicalPlayer
-    ? compactToken(canonicalPlayer.teamKey) + ":" + compactToken(canonicalPlayer.canonicalName)
-    : null;
+  // The exact registry key is stable and unique. Names/team membership are
+  // descriptive metadata and may collide or change after a transfer.
+  const canonicalIdentity=canonicalPlayer ? `phase2_players:${playerKey}` : null;
   const sourceConfirmed=row?.confirmed===true;
   const factStatus=sourceConfirmed&&canonical
     ?"CONFIRMED"
@@ -612,8 +612,9 @@ function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalNa
     evidence_key:evidenceKey(table,row,idFallback),
     source_link:row?.source_url||null,
     identity_status:canonical?"CANONICAL":"UNRESOLVED",
+    canonical_player_identity:canonicalIdentity,
     fact_status:factStatus,
-    record_group:playerClaimFingerprint(row),
+    record_group:playerClaimFingerprint(row,canonicalIdentity),
   };
 }
 function uniqueConfirmedClaims(rows:any[]){

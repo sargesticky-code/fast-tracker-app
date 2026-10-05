@@ -65,9 +65,9 @@ function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalNa
   const side=normalizedSide(row?.team_side);
   const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
   const canonical=Boolean(canonicalPlayer);
-  const canonicalIdentity=canonicalPlayer
-    ? compactToken(canonicalPlayer.teamKey) + ":" + compactToken(canonicalPlayer.canonicalName)
-    : null;
+  // The exact registry key is stable and unique. Names/team membership are
+  // descriptive metadata and may collide or change after a transfer.
+  const canonicalIdentity=canonicalPlayer ? `phase2_players:${playerKey}` : null;
   const sourceConfirmed=row?.confirmed===true;
   const identityStatus=canonical?"CANONICAL":"UNRESOLVED";
   const factStatus=sourceConfirmed&&canonical
