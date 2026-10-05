@@ -13,7 +13,7 @@ ODDS_URL = os.getenv("ODDS_URL", "https://global.ds.lsapp.eu/odds/pq_graphql")
 BOOKMAKER_ID = int(os.getenv("BOOKMAKER_ID", "16"))
 REFRESH_SECONDS = max(300, int(os.getenv("REFRESH_SECONDS", "900")))
 DAYS_AHEAD = max(0, min(3, int(os.getenv("DAYS_AHEAD", "2"))))
-MAX_FIXTURES = max(10, min(300, int(os.getenv("MAX_FIXTURES", "180"))))
+MAX_FIXTURES = max(10, min(600, int(os.getenv("MAX_FIXTURES", "360"))))
 ODDS_CONCURRENCY = max(1, min(16, int(os.getenv("ODDS_CONCURRENCY", "6"))))
 
 app = Flask(__name__)
@@ -26,6 +26,7 @@ _state = {
     "fixtures_seen": 0,
     "complete_hda": 0,
     "snapshot": [],
+    "discovered": [],
 }
 
 def utcnow():
@@ -210,11 +211,23 @@ def run_refresh():
         _state["last_error"] = None
     try:
         fixtures, snapshot = asyncio.run(refresh_once())
+        completed_at = utcnow()
+        discovered = [{
+            "source": "FLASHSCORE",
+            "provider_event_id": fixture["event_id"],
+            "competition": fixture.get("league") or None,
+            "home": fixture["home"],
+            "away": fixture["away"],
+            "fixture_date": fixture["date"],
+            "time_text": fixture.get("time_text") or None,
+            "captured_at": completed_at,
+        } for fixture in fixtures]
         with _lock:
             _state["fixtures_seen"] = len(fixtures)
             _state["complete_hda"] = len(snapshot)
             _state["snapshot"] = snapshot
-            _state["last_completed_at"] = utcnow()
+            _state["discovered"] = discovered
+            _state["last_completed_at"] = completed_at
         print(f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} complete_hda={len(snapshot)}", flush=True)
     except Exception as e:
         message = f"{type(e).__name__}: {e}"
@@ -242,6 +255,7 @@ def health():
             "last_error": _state["last_error"],
             "fixtures_seen": _state["fixtures_seen"],
             "complete_hda": _state["complete_hda"],
+            "discovered_count": len(_state["discovered"]),
         })
 
 @app.get("/snapshot")
@@ -252,6 +266,8 @@ def snapshot():
             "captured_at": _state["last_completed_at"],
             "count": len(_state["snapshot"]),
             "fixtures": list(_state["snapshot"]),
+            "discovered_count": len(_state["discovered"]),
+            "discovered": list(_state["discovered"]),
         })
 
 @app.post("/refresh")
