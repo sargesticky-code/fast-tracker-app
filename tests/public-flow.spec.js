@@ -9,7 +9,7 @@ for (const width of [1440, 390]) {
     const base = feed.matches[0];
     feed.matches = [
       { ...base, id: "FBLEGACYSOURCE", home: "Legacy Source FC" },
-      { ...base, id: "FBINTSOURCE", home: "International Source FC", odds: { ...base.odds, providerKey: "BET365" } },
+      { ...base, id: "FBINTSOURCE", home: "International Source FC", odds: { ...base.odds, providerKey: "BET365", observedAt: new Date(Date.now() - 60000).toISOString(), freshness: "FRESH" } },
       { ...base, id: "FBUNKNOWNSOURCE", home: "Unknown Source FC", health: {}, odds: { ...base.odds, providerKey: "UNRESOLVED" } },
     ];
     await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));

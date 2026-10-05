@@ -53,3 +53,10 @@ assert.equal(marketSourceLabel(valueMatch, { providerLabel: "International Bookm
 assert.equal(marketSourceLabel(valueMatch, valueMatch.odds, true), "Source unverified");
 assert.equal(marketSourceLabel({}, {}), "Source unverified");
 console.log("Quote attribution passed: explicit source wins; unknown/live never inherits prematch bookmaker.");
+
+const international = { ...valueMatch, odds: { ...valueMatch.odds, providerKey: "BET365" } };
+assert.equal(prematchValueSignal(international, now).status, "REFERENCE");
+assert.equal(prematchValueSignal({ ...international, odds: { ...international.odds, observedAt: "2026-10-04T23:30:00Z" } }, now).status, "REFERENCE");
+assert.equal(prematchValueSignal({ ...international, odds: { ...international.odds, observedAt: "2026-10-04T23:30:00Z", freshness: "FRESH" } }, now).eligible, true);
+assert.equal(prematchValueSignal({ ...international, odds: { ...international.odds, providerKey: "UNKNOWN", observedAt: "2026-10-04T23:30:00Z", freshness: "FRESH" } }, now).eligible, false);
+console.log("Cross-provider freshness cannot borrow legacy quote evidence.");
