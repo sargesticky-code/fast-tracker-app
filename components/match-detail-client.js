@@ -7,6 +7,7 @@ import EvidenceArticle from "@/components/evidence-article";
 import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import {
   divergence,
+  authoritativeFormModel,
   fairMarket,
   formatKickoff,
   formatOdds,
@@ -17,6 +18,8 @@ import {
   modelAgreement,
   modelCoverageCount,
   modelLabel,
+  movementNumber,
+  prematchGoalSummary,
   reviewPriority,
   sanitizeFallbackMatch,
   sideName,
@@ -802,6 +805,7 @@ export default function MatchDetailClient() {
   const gap = divergence(match);
   const zhTitle = match.homeZh && match.awayZh ? `${match.homeZh} vs ${match.awayZh}` : null;
   const fresh = freshness(match);
+  const detailFormModel = authoritativeFormModel(match, deep);
   const evidenceCount = match.health?.evidenceChannelCount ?? modelCoverageCount(match);
   const detailAgreement = modelAgreement(match);
   const detailPriority = reviewPriority(match);
@@ -809,10 +813,11 @@ export default function MatchDetailClient() {
   const sourceContext = match.sourceContext || null;
   const sourceContextConfidence = Number(sourceContext?.matchConfidence);
   const sourceContextVerified = sourceContext && Number.isFinite(sourceContextConfidence) && sourceContextConfidence >= 0.94;
-  const predictedScore = match.forebetDetail?.predictedScore || match.forebet?.predictedScore || null;
+  const goalSummary = prematchGoalSummary(match, deep);
+  const predictedScore = goalSummary.score;
   const movement = match.oddsMovement || null;
-  const movementPct = Number(movement?.rawOddsChangePct);
-  const hasMovement = movement && Number.isFinite(movementPct);
+  const movementPct = movementNumber(movement?.rawOddsChangePct);
+  const hasMovement = movement && movementPct !== null;
   const movementMagnitude = hasMovement ? Math.min(100, Math.max(6, Math.abs(movementPct) * 5)) : 0;
   const movementDirection = !hasMovement ? "FLAT" : movementPct < 0 ? "SHORTENING" : movementPct > 0 ? "DRIFTING" : "FLAT";
   const movementDirectionZh = movementDirection === "SHORTENING" ? "Shortening" : movementDirection === "DRIFTING" ? "Drifting" : "Stable";
@@ -963,7 +968,7 @@ export default function MatchDetailClient() {
 
 
   const coreModelRows = CORE_MODEL_DEFS.map((model) => {
-    const values = coreModelValues(match, model.key, market);
+    const values = coreModelValues(match, model.key, market) || (model.key === "FORM" ? detailFormModel : null);
     return { ...model, values, hasData: probabilityAvailable(values) };
   });
   const coreModelDataCount = coreModelRows.filter((row) => row.hasData).length;
@@ -1321,18 +1326,19 @@ export default function MatchDetailClient() {
           <div className="detail-board-team away">
             <strong>{match.awayEn || match.away || match.awayZh}</strong>
           </div>
-          {predictedScore ? <div className="detail-board-score"><span>FOREBET</span><b>{predictedScore}</b></div> : null}
+          {predictedScore ? <div className="detail-board-score"><span>Predicted score</span><b>{predictedScore}</b></div> : null}
         </div>
 
         <div className="detail-board-status">
+          <span className="detail-status-chip detail-goal-summary" title={goalSummary.source}>Average goals <b>{goalSummary.avgGoals === null ? "—" : goalSummary.avgGoals.toFixed(2)}</b><small>{goalSummary.source}</small></span>
           {detailAgreement.key !== "limited" ? <span className={"detail-status-chip detail-status-" + detailAgreement.key}>{detailAgreement.label}</span> : null}
           <span className={"detail-status-chip detail-review-" + detailPriority.band}>R {detailPriority.score}</span>
-          <span className="detail-status-chip">{evidenceCount} inputs</span>
+          <span className="detail-status-chip">{evidenceCount === 0 && detailFormModel ? "Team Form model available" : `${evidenceCount} inputs`}</span>
           <span className="detail-status-source">{source}</span>
         </div>
       </section>
 
-      {(sourceContextVerified || evidenceCount === 0) ? (
+      {(sourceContextVerified || (evidenceCount === 0 && !detailFormModel)) ? (
         <section
           className="panel"
           style={{
@@ -2278,14 +2284,14 @@ export default function MatchDetailClient() {
         </div>
       </details>
 
-      {hasMovement && (
+      {movement && (
         <section className="panel odds-signal-panel">
           <div className="panel-title">
-            <div><p>ODDS MOVEMENT</p><h2>HKJC price signal</h2></div>
+            <div><p>ODDS MOVEMENT</p><h2>Price history</h2></div>
             <span>{movement.signal || "COLLECTING"}</span>
           </div>
 
-          <div className={"odds-signal-hero " + (movementPct < 0 ? "is-shortening" : movementPct > 0 ? "is-drifting" : "is-flat")}>
+          {hasMovement ? <><div className={"odds-signal-hero " + (movementPct < 0 ? "is-shortening" : movementPct > 0 ? "is-drifting" : "is-flat")}>
             <div className="odds-signal-side">
               <span>Market side</span>
               <strong>{sideName(match, movement.side)}</strong>
@@ -2309,10 +2315,11 @@ export default function MatchDetailClient() {
           </div>
 
           <div className="odds-context-strip">
-            <div><span>Implied probability</span><b>{movement.move24hPp == null ? "—" : Number(movement.move24hPp).toFixed(1) + "%"}</b></div>
+            <div><span>Implied probability</span><b>{movementNumber(movement.move24hPp) === null ? "—" : movementNumber(movement.move24hPp).toFixed(1) + " pp"}</b></div>
             <div><span>Model alignment</span><b>{movement.modelAlignment || "—"}</b></div>
             <div><span>Baseline</span><b>{movement.baselineWindow || "Base"}</b></div>
           </div>
+          </> : <p className="odds-movement-unavailable">Price movement unavailable — comparable baseline observation missing.</p>}
         </section>
       )}
 

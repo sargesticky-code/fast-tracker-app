@@ -1,3 +1,4 @@
+import { movementRowsForFixtures } from "../_shared/prematch-movement.js";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { parse } from "npm:csv-parse@7.0.2/sync";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.9.6";
@@ -5,7 +6,7 @@ const GH="https://raw.githubusercontent.com/sargesticky-code/football-fast-track
 const ISSUER="https://token.actions.githubusercontent.com", AUD="fast-tracker-supabase", REPO="sargesticky-code/football-fast-tracker";
 const CORE_SYNC_FILES=[
   "hkjc_current.csv","forebet_current.csv","model_current.csv","team_alias_registry.csv",
-  "form_current.csv","prediction_fallback_current.csv","forebet_availability.csv","h2h_summary.csv"
+  "form_current.csv","prediction_fallback_current.csv","forebet_availability.csv","h2h_summary.csv","odds_movement.csv"
 ];
 const REFS=new Set(["refs/heads/main","refs/heads/supabase-ingest-v2"]), JWKS=createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks`));
 const url=Deno.env.get("SUPABASE_URL")!, modern=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}"), key=modern.default||Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); if(!key)throw new Error("No Supabase admin key available");
@@ -15,14 +16,14 @@ function ts(v:unknown){if(blank(v))return null;const s=String(v).trim(),serial=N
 async function csv(u:string){const r=await fetch(u+(u.includes("?")?"&":"?")+"nocache="+Date.now(),{headers:{"cache-control":"no-cache"}});if(!r.ok)throw new Error(`fetch ${u} failed ${r.status}`);return parse((await r.text()).replace(/^\uFEFF/,""),{columns:true,skip_empty_lines:true,relax_column_count:true}) as Record<string,string>[]}
 async function asset(f:string){try{return await storageAsset(f)}catch(e){console.warn("storage_asset_fallback",f,e instanceof Error?e.message:String(e))}return await csv(`${GH}/${f}`)}
 async function optionalAsset(f:string){try{return await storageAsset(f)}catch{}try{return await csv(`${GH}/${f}`)}catch{}return []} async function storageAsset(f:string){const {data,error}=await db.storage.from(BUCKET).download(f);if(error||!data)throw new Error(`storage ${f} failed ${error?.message||"missing"}`);return parse((await data.text()).replace(/^\uFEFF/,""),{columns:true,skip_empty_lines:true,relax_column_count:true}) as Record<string,string>[]} async function optionalStorageAsset(f:string){try{return await storageAsset(f)}catch{return []}}
-async function markAppliedHashes(){
+async function markAppliedHashes(excluded:string[]=[]){
   const {data,error}=await db.from("source_health")
     .select("metric,value_text")
     .eq("source","GITHUB_OIDC_INGEST")
     .in("metric",CORE_SYNC_FILES);
   if(error)throw new Error(`applied_hash_read: ${error.message}`);
   const now=new Date().toISOString();
-  const rows=(data??[]).filter((x:any)=>x.metric&&x.value_text).map((x:any)=>({
+  const rows=(data??[]).filter((x:any)=>x.metric&&x.value_text&&!excluded.includes(x.metric)).map((x:any)=>({
     source:"SUPABASE_SYNC_APPLIED",
     metric:String(x.metric),
     value_text:String(x.value_text),
@@ -110,6 +111,16 @@ async function telemetryAssets(){const specs=[
 ["ACC","acc_current.csv","hkjc_event_id","league","home_team","away_team"],["BCL","bcl_current.csv","hkjc_event_id","league","home_team","away_team"],["FRB","frb_current.csv","hkjc_event_id","league","home_team","away_team"],["FST","fst_current.csv","hkjc_event_id","league","home_team","away_team"],["PRE","pre_current.csv","hkjc_event_id","league","home_team","away_team"],["STA","sta_current.csv","hkjc_event_id","league","home_team","away_team"]] as const;
 const out:Record<string,unknown>={};for(const [source,file,event,competition,home,away] of specs){const rows=await optionalAsset(file);if(rows.length)out[source]={rows:rows.length,paths:await identityTelemetry(source,rows.filter(r=>r[event]),{event,competition,home,away})};else out[source]={rows:0,paths:null,asset:file,status:"NOT_PRESENT"}}return out}
 async function current(){const out:Record<string,unknown>={};const h=await asset("hkjc_current.csv");out.matches=await upsert("matches",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),hkjc_match_id:text(r.match_id),kickoff_hkt:ts(r.kickoff_hkt),status:text(r.status),tournament:text(r.tournament),home_en:text(r.home_en),away_en:text(r.away_en),home_zh:text(r.home_zh),away_zh:text(r.away_zh),pools:text(r.pools),pool_status:text(r.pool_status),in_play:bool(r.in_play),selling:bool(r.selling),fetched_at:ts(r.fetched_at_hkt),source_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id");out.hkjc_odds=await upsert("hkjc_odds_current",h.filter(r=>r.hkjc_event_id).map(r=>({hkjc_event_id:text(r.hkjc_event_id),had_home:num(r.had_home),had_draw:num(r.had_draw),had_away:num(r.had_away),hil_line:text(r.hil_line),hil_over:num(r.hil_over),hil_under:num(r.hil_under),chl_line:text(r.chl_line),chl_over:num(r.chl_over),chl_under:num(r.chl_under),fetched_at:ts(r.fetched_at_hkt),odds_updated_at:ts(r.odds_updated_at),raw:r})),"hkjc_event_id",false,50);out.market_quotes=await syncMarketQuotes(h);
+try {
+  const candidates=movementRowsForFixtures(await optionalAsset("odds_movement.csv"),h);
+  if(candidates.length){
+    const {data:existing,error}=await db.from("odds_movement_current").select("hkjc_event_id,captured_at").in("hkjc_event_id",candidates.map(r=>r.hkjc_event_id));
+    if(error)throw error;
+    const previous=new Map((existing??[]).map(r=>[r.hkjc_event_id,Date.parse(r.captured_at)]));
+    const newer=candidates.filter(r=>!previous.has(r.hkjc_event_id)||Date.parse(r.captured_at)>Number(previous.get(r.hkjc_event_id)));
+    out.odds_movement=await upsert("odds_movement_current",newer,"hkjc_event_id",false,50);
+  }else out.odds_movement=0;
+}catch(error){out.odds_movement_error=error instanceof Error?error.message:String(error);}
 try{
 const h2h=await optionalAsset("h2h_summary.csv");
 out.h2h=await upsert("match_h2h_current",h2h.filter(r=>r.hkjc_event_id).map(r=>({
@@ -168,7 +179,7 @@ Deno.serve(async req=>{try{
   if(mode!=="current")return Response.json({ok:false,error:"mode temporarily unavailable during Phase 1 safe restore",mode},{status:503});
   const started=new Date().toISOString();
   const result=await current();
-  (result as any).applied_hashes=await markAppliedHashes();
+  (result as any).applied_hashes=await markAppliedHashes(out.odds_movement_error?["odds_movement.csv"]:[]);
   await db.from("source_health").upsert({
     source:"SUPABASE_SYNC",metric:"current",value_text:JSON.stringify(result),
     status:Number((result as any).canonical_upcoming_gap||0)>0||String((result as any).phase1_coverage_guard?.status||"").toUpperCase()==="FAIL"?"FAIL":String((result as any).phase1_coverage_guard?.status||"").toUpperCase()==="WARN"?"WARN":"PASS",

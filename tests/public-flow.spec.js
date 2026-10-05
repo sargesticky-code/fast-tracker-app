@@ -2,6 +2,194 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results", { recursive: true });
 
+for (const width of [1440, 390]) {
+  test(`unknown movement differs from stable observed prices at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({width,height:900});
+    await mockApis(page);
+    const feed = fixtureFeed();
+    feed.matches[0].oddsMovement = { rawOddsChangePct:null, baselineOdds:null, nowOdds:2.2, move24hPp:"", side:"H" };
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({json:feed}));
+    await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
+    await expect(page.locator(".odds-movement-unavailable")).toBeVisible();
+    await expect(page.locator(".odds-signal-hero")).toHaveCount(0);
+    await page.screenshot({path:`test-results/dashboard-movement-unknown-${width}.png`,fullPage:true});
+    feed.matches[0].oddsMovement = { rawOddsChangePct:0, baselineOdds:2.2, nowOdds:2.2, move24hPp:0, side:"H",baselineWindow:"24h" };
+    await page.reload();
+    await expect(page.locator(".odds-signal-change strong")).toHaveText("0.0%");
+    await expect(page.locator(".odds-signal-side small")).toHaveText("Stable");
+    await expect(page.locator(".odds-context-strip")).toContainText("0.0 pp");
+    await page.screenshot({path:`test-results/dashboard-movement-zero-${width}.png`,fullPage:true});
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`detail-only goal models remain available at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({width,height:900});
+    const payload = detailPayload();
+    payload.id = "FBTEST1";
+    payload.models.forebet = {};
+    payload.models.form = { ...payload.models.form, hkjc_event_id:"FBTEST1", quality:"FORM_MODELED", form_prob_home:.5, form_prob_draw:.3, form_prob_away:.2 };
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({json:{matches:[]}}));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({json:{matches:[]}}));
+    await page.route("**/functions/v1/app-match-detail?**", route => route.fulfill({json:payload}));
+    await page.route("**/functions/v1/app-match-analysis?**", route => route.fulfill({status:503,json:{error:"unavailable"}}));
+    await page.route("**/functions/v1/app-match-story?**", route => route.fulfill({status:503,json:{error:"unavailable"}}));
+    await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
+    await expect(page.locator(".detail-goal-summary")).toContainText("2.73");
+    await expect(page.locator(".detail-goal-summary")).toContainText("Team Form expected goals");
+    await expect(page.locator(".detail-board-status")).toContainText("Team Form model available");
+    await expect(page.getByText("Fixture link is valid, but usable model evidence is not currently available", {exact:true})).toHaveCount(0);
+    await expect(page.locator(".detail-board-score")).toHaveCount(0);
+    await page.screenshot({path:`test-results/dashboard-detail-only-goals-${width}.png`,fullPage:true});
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`homepage attributes displayed bookmaker quotes at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const feed = fixtureFeed();
+    const base = feed.matches[0];
+    feed.matches = [
+      { ...base, id: "FBLEGACYSOURCE", home: "Legacy Source FC" },
+      { ...base, id: "FBINTSOURCE", home: "International Source FC", forebetDetail: { predictedScore: "3-1", ou25: { avgGoals: 3.4 } }, odds: { ...base.odds, providerKey: "BET365", observedAt: new Date(Date.now() - 60000).toISOString(), freshness: "FRESH" } },
+      { ...base, id: "FBUNKNOWNSOURCE", home: "Unknown Source FC", health: {}, odds: { ...base.odds, providerKey: "UNRESOLVED" } },
+    ];
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+    await page.goto("http://127.0.0.1:4173/");
+    await expect(page.locator('.ft-match-row[href*="FBLEGACYSOURCE"] .ft-market-odds')).toContainText("HKJC HDA");
+    await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] .ft-market-odds')).toContainText("Bet365 HDA");
+    await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] [data-label="Predicted score"]')).toHaveText("3-1");
+    await expect(page.locator('.ft-match-row[href*="FBINTSOURCE"] .ft-goal-number')).toHaveText("3.40");
+    await expect(page.locator('.ft-match-row[href*="FBUNKNOWNSOURCE"] .ft-market-odds')).toContainText("Source unverified HDA");
+    if (width === 390) {
+      for (const label of ["H/D/A pick", "Predicted score", "Average goals", "H/D/A model EV", "Live score"]) {
+        const cell = page.locator(`.ft-match-row [data-label="${label}"]`).first();
+        await expect(cell).toBeVisible();
+        expect(await cell.evaluate(el => getComputedStyle(el, "::before").content)).toBe(`"${label}"`);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/dashboard-quote-source-${width}.png`, fullPage: true });
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`prematch Value requires current quote and independent evidence at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const feed = fixtureFeed();
+    const base = feed.matches[0];
+    const quotedAt = new Date(Date.now() - 60000).toISOString();
+    const fresh = { ...base, home: "Supported Value FC", id: "FBVALUE", forebet: { home: .6, draw: .2, away: .2 }, form: { home: .59, draw: .21, away: .2 }, formDetail: { source: "HKJC_RESULTS" }, dc: null, pi: null, multi: null, health: { hkjcFreshness: "FRESH", hkjcPriceChangedAt: quotedAt } };
+    feed.matches = [
+      fresh,
+      { ...fresh, id: "FBWATCH", home: "Single Source FC", forebet: null },
+      { ...fresh, id: "FBREFERENCE", home: "Old Quote FC", updatedAt: new Date().toISOString(), health: { hkjcFreshness: "FRESH", hkjcFetchedAt: new Date().toISOString(), hkjcPriceChangedAt: new Date(Date.now() - 15 * 3600000).toISOString() } },
+      { ...fresh, id: "FBUNKNOWNQUOTE", home: "Unknown Quote FC", health: { hkjcFreshness: "FRESH", hkjcFetchedAt: new Date().toISOString() } }
+    ];
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+    await page.goto("http://127.0.0.1:4173/");
+    await expect(page.locator(".ft-match-row")).toHaveCount(4);
+    await expect(page.locator(".ft-match-row.is-value")).toHaveCount(1);
+    const watch = page.locator('.ft-match-row[href*="FBWATCH"]');
+    const reference = page.locator('.ft-match-row[href*="FBREFERENCE"]');
+    await expect(watch.locator(".ft-value-state")).toContainText("Watch");
+    await expect(reference.locator(".ft-value-state")).toContainText("Reference");
+    await expect(reference.locator(".ft-market-odds")).toContainText("HKJC HDA · Reference");
+    await expect(reference.locator(".ft-edge")).not.toHaveText("—");
+    if (width === 1440) await expect(page.locator(".ft-value-rail a")).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/dashboard-value-gates-${width}.png`, fullPage: true });
+    await page.locator(".ft-sports").getByRole("button", { name: "Value", exact: true }).click();
+    await expect(page.locator(".ft-match-row")).toHaveCount(1);
+    await expect(page.locator(".ft-match-row")).toContainText("Supported Value FC");
+  });
+}
+
+test.describe("prematch fixture navigation", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+  for (const width of [1440, 390]) {
+    test(`complete coverage and Hong Kong dates at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.clock.setFixedTime(new Date("2026-10-04T23:00:00Z"));
+      const feed = fixtureFeed();
+      const base = feed.matches[0];
+      feed.generatedAt = "2026-10-04T23:00:00Z";
+      feed.windowHours = 48;
+      feed.matches = Array.from({ length: 35 }, (_, i) => ({ ...base, id: `FBNAV${i}`, home: `Upcoming Club ${i}`, kickoff: "2026-10-05T10:00:00+08:00" }));
+      feed.matches.push(
+        { ...base, id: "FBNAVLIVE", home: "Live Club", liveNow: true, kickoff: "2026-10-05T06:00:00+08:00" },
+        { ...base, id: "FBNAVTOMORROW", home: "Tomorrow Club", kickoff: "2026-10-06T20:00:00+08:00" },
+        { ...base, id: "FBNAVPLUS2", home: "Plus Two Club", kickoff: "2026-10-07T06:00:00+08:00" }
+      );
+      await page.route("**/functions/v1/app-phase1-feed?**", route => {
+        expect(new URL(route.request().url()).searchParams.get("hours")).toBe("48");
+        return route.fulfill({ json: feed });
+      });
+      await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+      await page.goto("http://127.0.0.1:4173/");
+      await expect(page.locator(".ft-match-row")).toHaveCount(35);
+      await expect(page.locator('.ft-match-row[href*="FBNAV34"]')).toHaveCount(1);
+      await expect(page.locator('.ft-match-row[href*="FBNAVLIVE"]')).toHaveCount(0);
+      await page.screenshot({ path: `test-results/dashboard-navigation-today-${width}.png` });
+      await page.locator(".ft-sports").getByRole("button", { name: "Live", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(1);
+      await expect(page.locator(".ft-match-row")).toContainText("Live Club");
+      if (width === 1440) {
+        await expect(page.locator(".ft-value-rail a")).toHaveCount(0);
+        await expect(page.locator(".ft-featured-meta").getByText("—", { exact: true })).toBeVisible();
+      }
+      await page.locator(".ft-daybar").getByRole("button", { name: "Tomorrow", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(1);
+      await expect(page.locator(".ft-match-row")).toContainText("Tomorrow Club");
+      await page.locator(".ft-daybar").getByRole("button", { name: "+2 days", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toContainText("Plus Two Club");
+      await expect(page.getByText(/Partial date coverage:/)).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+      await page.screenshot({ path: `test-results/dashboard-navigation-plus2-${width}.png`, fullPage: true });
+      if (width === 1440) {
+        await page.locator('.ft-calendar [data-day="2026-10-06"] button').click();
+        await expect(page.locator(".ft-match-row")).toContainText("Tomorrow Club");
+      }
+      await page.locator(".ft-sports").getByRole("button", { name: "Today", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(35);
+      await page.locator(".ft-sports").getByRole("button", { name: "All matches", exact: true }).click();
+      await expect(page.locator(".ft-match-row")).toHaveCount(38);
+      await page.getByPlaceholder("Search team, league or match...").fill("Upcoming Club 34");
+      await expect(page.locator(".ft-match-row")).toHaveCount(1);
+    });
+  }
+});
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  test(`prematch missing probabilities and fallback at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const feed = fixtureFeed();
+    const first = feed.matches[0];
+    first.multi = { home: null, draw: 0.3, away: 0.2 };
+    first.forebet = null;
+    first.dc = null;
+    first.pi = null;
+    first.expectedGoals = null;
+    first.form = { home: 0.5, draw: 0.3, away: 0.2 };
+    feed.matches.push({ ...first, id: "FBTEST2", home: "Unknown Model FC", form: null });
+    await page.route("**/functions/v1/app-phase1-feed?**", route => route.fulfill({ json: feed }));
+    await page.route("**/functions/v1/app-live-feed**", route => route.fulfill({ json: { matches: [] } }));
+    await page.goto("http://127.0.0.1:4173/");
+    const valid = page.locator(".ft-match-row").filter({ hasText: "Northbridge FC" });
+    const unknown = page.locator(".ft-match-row").filter({ hasText: "Unknown Model FC" });
+    await expect(valid.locator(".ft-prob-numbers")).toHaveText("H 50%D 30%A 20%");
+    await expect(unknown.locator(".ft-prob-numbers")).toHaveText("H —%D —%A —%");
+    await expect(unknown.locator(".ft-pred-pill")).toHaveText("—");
+    await expect(unknown.locator(".ft-edge")).toHaveText("—");
+    await expect(valid.locator(".ft-goal-number")).toHaveText("—");
+    await expect(unknown).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/dashboard-prematch-unknown-${viewport.width}.png`, fullPage: true });
+  });
+}
+
 function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = false) {
   const kickoff = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const richSide = (side) => ({
@@ -49,7 +237,7 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       goals: totals.goals,
       corners: totals.corners,
       updatedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 60 * 60 * 1000).toISOString(),
-      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH" },
+      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH", hkjcPriceChangedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 3600000).toISOString() },
       storySummary: {
         matchScript: { predictedScore: "2-1", shapeKey: "BALANCED" },
         editorialAlignment: { support: 1, contradict: 0 }
@@ -470,6 +658,9 @@ for (const device of [
     await matchLink.click();
 
     await expect(page).toHaveURL(/details.*FBTEST1/);
+    await expect(page.locator(".detail-board-score")).toContainText("2-1");
+    await expect(page.locator(".detail-goal-summary")).toContainText("Average goals 2.70");
+    await expect(page.locator(".detail-goal-summary")).toContainText("Published goal model");
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
