@@ -163,3 +163,7 @@ Before stopping a redesign session, record:
 
 - [x] Detail-only authoritative Form availability: identity/quality/probability gates, truthful hero and core table.
 - [x] CI 37278145804 SUCCESS; artifact 11331381537 desktop/mobile inspected.
+
+- [x] Missing movement remains unavailable; true zero preserved; implied-probability change uses pp.
+- [x] CI 37280064573 SUCCESS; artifact 11332240800 desktop/mobile null/zero screenshots reviewed.
+- [ ] Repair genuine movement coverage: current 40-fixture feed has zero movement objects.
