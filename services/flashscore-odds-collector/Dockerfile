@@ -10,4 +10,4 @@ COPY app.py .
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
-CMD ["python", "app.py"]
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 4 --timeout 120 app:app"]
