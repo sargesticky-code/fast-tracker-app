@@ -450,3 +450,45 @@ Production cutover advanced beyond the initial browser-adapter scaffold:
 - Production feeds distinguish a healthy empty live slate from a missing/stale browser host instead of treating both as zero matches.
 
 Current blocker remains physical rather than architectural: the private Linux Chrome session and upstream extension must be running before genuine Bet365 rows can populate the new tables. Until then, the correct state is unknown/missing, never synthetic odds.
+
+
+## Cloud-only replacement checkpoint — 2026-10-05
+
+The notebook/Chrome-extension Bet365 browser host is no longer the operational
+target. The user explicitly approved replacing it with a fully cloud-run source
+that does not require their GemiBook, a visible browser, a Chrome extension, or a
+locally stored Supabase secret.
+
+New default source path:
+
+`Flashscore web discovery -> Flashscore/LSApp bookmaker odds -> Railway cloud
+collector -> Supabase ingestion -> Phase 1/3 consumers`.
+
+Implementation added under `services/flashscore-odds-collector/`. It is a
+Playwright-based headless Python service and uses Bet365 bookmaker id 16 from the
+public `realine0/flashscore-football-odds-scraper` implementation as a reviewed
+reference. The reviewed upstream revision is
+`253b29f72b2836beffb8d6b0ec7eadd99cd396a7`. Upstream source is not vendored.
+
+The cloud collector:
+- discovers today through +2 day Flashscore fixtures;
+- excludes eSoccer/virtual/simulated fixtures before bookmaker lookup;
+- accepts only complete Bet365 full-time HOME/DRAW/AWAY boards;
+- keeps missing odds missing rather than synthesizing zeros;
+- exposes `/health`, `/snapshot` and asynchronous `/refresh`;
+- carries no Supabase service-role key and currently does not write the database.
+
+Railway's free-plan service limit prevented provisioning a new service. The old
+failed `fast-tracker-dashboard` service in the active Railway project is being
+repurposed instead. Its previous deployment was already FAILED and it had no
+service variables. Source is now `sargesticky-code/fast-tracker-app` branch
+`phase0/international-authority`, root
+`/services/flashscore-odds-collector`, Dockerfile `Dockerfile`, with
+`/health` as deployment health check. Railway domain:
+`fast-tracker-dashboard-production.up.railway.app`.
+
+Do not restore the notebook browser host as the default. The old
+`BET365_BROWSER` tables/functions remain compatibility scaffolding until the
+cloud collector has genuine current coverage and the Supabase ingestion bridge
+is verified. Do not claim current bookmaker coverage until the Railway snapshot
+contains real complete HDA rows and those rows are identity-verified in Supabase.
