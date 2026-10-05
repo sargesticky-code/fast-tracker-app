@@ -472,7 +472,7 @@ Deno.serve(async (req: Request) => {
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
 
-      const [fixtureResult, bet365Result, liveResult] = await Promise.all([
+      const [fixtureResult, bet365Result, liveResult, bet365HealthResult] = await Promise.all([
         db.from("matches")
           .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,home_en,away_en,updated_at")
           .gte("kickoff_hkt", now.toISOString())
@@ -485,10 +485,27 @@ Deno.serve(async (req: Request) => {
           .eq("identity_status","VERIFIED")
           .not("canonical_match_id","is",null)
           .gte("captured_at",liveCutoff),
+        db.from("source_health")
+          .select("source,status,value_text,observed_at,notes,raw")
+          .eq("source","BET365_BROWSER")
+          .eq("metric","heartbeat")
+          .maybeSingle(),
       ]);
       if (fixtureResult.error) throw fixtureResult.error;
       if (bet365Result.error) console.error("summary_bet365_current_unavailable",bet365Result.error);
       if (liveResult.error) console.error("summary_bet365_live_unavailable",liveResult.error);
+
+      const bet365Heartbeat=bet365HealthResult.data??null;
+      const bet365HeartbeatAgeSeconds=bet365Heartbeat?.observed_at
+        ? Math.max(0,(Date.now()-new Date(bet365Heartbeat.observed_at).getTime())/1000)
+        : null;
+      const bet365HeartbeatStatus=bet365HealthResult.error
+        ? "UNAVAILABLE"
+        : !bet365Heartbeat
+          ? "MISSING"
+          : !Number.isFinite(bet365HeartbeatAgeSeconds)||bet365HeartbeatAgeSeconds>90
+            ? "STALE"
+            : String(bet365Heartbeat.status||"OK").toUpperCase();
 
       const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.hkjc_event_id),r]));
       const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
@@ -529,11 +546,18 @@ Deno.serve(async (req: Request) => {
         count:directMatches.length,
         systemHealth:{
           authorityMode:{
-            status:"OK",
+            status:bet365HeartbeatStatus==="OK"||bet365HeartbeatStatus==="EMPTY" ? "OK" : "ATTENTION",
             value:"CANONICAL_FIXTURES_BET365_BROWSER",
             notes:"Fixture identity is served from the canonical registry; current bookmaker prices and live admission come only from Bet365 browser evidence. Missing Bet365 data stays unknown.",
             observedAt:new Date().toISOString(),
-            raw:{fixtures:directMatches.length,bet365Rows:(bet365Result.data??[]).length,liveRows:(liveResult.data??[]).length}
+            raw:{fixtures:directMatches.length,bet365Rows:(bet365Result.data??[]).length,liveRows:(liveResult.data??[]).length,bet365HeartbeatStatus,bet365HeartbeatAgeSeconds}
+          },
+          BET365_BROWSER:{
+            status:bet365HeartbeatStatus,
+            value:bet365Heartbeat?.value_text??null,
+            notes:bet365Heartbeat?.notes??"No Bet365 browser collector heartbeat has been observed yet.",
+            observedAt:bet365Heartbeat?.observed_at??null,
+            raw:bet365Heartbeat?.raw??{}
           }
         },
         matches:directMatches,
