@@ -168,3 +168,6 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 - [x] Public unknown-type copy implemented with neutral source language and unknown confidence; source 10697ea3 CI/rendered acceptance pending. Storage source key deliberately unchanged.
 
 - [x] Source 10697ea3 CI 37278228130: 43/43 browser cases; unknown-type 1280/390 screenshots reviewed, confidence unknown and true coverage preserved.
+
+- [x] Stable exact registry-key identities in both APIs; analysis emits canonical identity and groups confirmed claims by it.
+- [x] Actual annotation tests and stored same-name/historical XI verification; source 5738756 CI 37280350489 passed all checks and 43/43 browser regressions.
