@@ -318,3 +318,25 @@ missing mappings, missing canonical matches, ambiguous canonical matches,
 competing provider events and identical duplicate collapse. Provider credentials
 and reviewed real mappings remain required for genuine coverage validation.
 This bridge removes manual record assembly work without weakening identity.
+
+## Binding freshness and review evidence — 2026-10-05 continuation
+
+Prior remote head `5b7aea16ee600ace2f19897055763b8fe0f2c69c` passed full
+CI run `37274485359`. No database writes, deployments or new real odds coverage
+occurred between iterations.
+
+The proposal bridge now requires an explicitly zoned, non-future fetchedAt
+within a default 300-second age window. It rejects unknown/stale fetches rather
+than proposing a mapping from an old provider snapshot. Review evidence keeps
+the fetch timestamp, evaluation timestamp, canonical candidate kickoff values
+and exact kickoff differences. Neither timestamp means the football fact was
+observed at fetch time; verified remains false. Options now/maxAgeSeconds allow
+reproducible offline review but must not be used to present archived evidence
+as currently fresh. CLI inputs carry these options under mappings.
+
+Tests cover missing/unzoned/future/stale fetch times, invalid evaluation time and
+review evidence. Genuine persisted OpenFootball inventory was exercised through
+the bridge: all 2,916 records remain unresolved for incomplete provider identity
+(date-only schedules have no verified UTC kickoff/provider team IDs). Zero
+proposals were invented. Real Sportmonks credentials and explicit entity mappings
+remain the blocking dependencies for useful authenticated fixture bindings.

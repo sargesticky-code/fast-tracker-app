@@ -177,7 +177,7 @@ assert.equal(quarantinedCoverage.readiness, 'BLOCKED');
 assert.equal(quarantinedCoverage.freshHdaFixtures, 0);
 
 const { proposeAuthorityBindings } = await import('../lib/authority-binding-proposals.js');
-const bindingEntities = { competitions: [{ providerKey: fixture.providerKey, providerCompetitionId: fixture.providerCompetitionId, canonicalCompetitionId: 'competition', verified: true }],
+const bindingEntities = { now: policy.now, competitions: [{ providerKey: fixture.providerKey, providerCompetitionId: fixture.providerCompetitionId, canonicalCompetitionId: 'competition', verified: true }],
   teams: [fixture.homeTeamId, fixture.awayTeamId].map((id, i) => ({ providerKey: fixture.providerKey, providerCompetitionId: fixture.providerCompetitionId, providerTeamId: id, canonicalTeamId: i ? 'away' : 'home', verified: true })) };
 const canonicalRows = [{ canonicalMatchId: 'existing-fixture', canonicalCompetitionId: 'competition', homeTeamId: 'home', awayTeamId: 'away', kickoff: fixture.kickoff }];
 const proposal = proposeAuthorityBindings([fixture], canonicalRows, bindingEntities);
@@ -191,3 +191,14 @@ assert.equal(proposeAuthorityBindings([fixture], canonicalRows, { ...bindingEnti
 assert.equal(proposeAuthorityBindings([fixture, { ...fixture, providerEventId: 'second-event' }], canonicalRows, bindingEntities).proposals.length, 0);
 assert.equal(proposeAuthorityBindings([fixture, fixture], canonicalRows, bindingEntities).proposals.length, 1);
 console.log('Review-only canonical binding proposals passed');
+
+for (const fetched of [null, '2026-10-04 10:00:00', new Date(policy.now + 1000).toISOString(), new Date(policy.now - 301000).toISOString()]) {
+  const blockedProposal = proposeAuthorityBindings([{ ...fixture, fetchedAt: fetched }], canonicalRows, bindingEntities);
+  assert.equal(blockedProposal.proposals.length, 0);
+  assert.equal(blockedProposal.unresolved[0].reason, 'STALE_OR_UNKNOWN_PROVIDER_FETCH');
+}
+assert.equal(proposal.proposals[0].fetchedAt, timestamp(fixture.fetchedAt));
+assert.deepEqual(proposal.proposals[0].evidence.kickoffDifferencesSeconds, [0]);
+assert.equal(proposal.generatedAt, new Date(policy.now).toISOString());
+assert.throws(() => proposeAuthorityBindings([], [], { now: NaN }), /INVALID_BINDING_INPUT/);
+console.log('Binding proposal freshness and review evidence passed');
