@@ -147,3 +147,14 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 
 - [x] Phase 2 iteration 3: Team News shares authoritative prediction selector; mobile names wrap, per-side counts remain honest. Tested source `3872cdb2`; artifact `11325129181`.
 - [ ] Canonical player reconciliation and importance-weighted football-strength baseline remain genuine upstream dependencies.
+
+## Phase 2 iteration 4 — original capture provenance
+
+- [x] FotMob cached parser preserves acquisition time and absence validity; provider update stays unknown.
+- [x] Explicit official classification prevents negative substring confirmation; actual-parser tests pass.
+- [x] Stored FB6292 cache parsed twice identically; real counts and timestamp preserved.
+- [x] CI 37264706113 passed for source a312d404: all checks/build and 39/39 browser regressions.
+- [x] Previous-XI reference and mixed evidence copy implemented consistently across Team News/article/tool/Sources.
+- [x] Final source 73dc5ee4 CI 37271713716: 41/41; artifact 11328895365 reference screenshots reviewed after confidence-caption correction.
+
+- [ ] Audit genuine partial official XI producer retention and snapshot membership without prediction backfill.
