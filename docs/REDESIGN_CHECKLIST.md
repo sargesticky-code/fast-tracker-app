@@ -160,3 +160,6 @@ Before stopping a redesign session, record:
 - [x] Strictly matched authoritative detail-only goal summary fallback; conflicting fixture/model IDs rejected.
 - [x] CI 37276307386: 42/42 passed; artifact 11330576031 desktop/mobile inspected.
 - [ ] Correct detail-only model availability banner/counts while preserving price/actionability gates.
+
+- [x] Detail-only authoritative Form availability: identity/quality/probability gates, truthful hero and core table.
+- [x] CI 37278145804 SUCCESS; artifact 11331381537 desktop/mobile inspected.

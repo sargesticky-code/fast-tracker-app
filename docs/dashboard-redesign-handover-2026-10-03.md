@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 30023)
+Total output lines: 1089
+
 # Dashboard Redesign Handover — 2026-10-03
 
 ## Scope completed in this batch
@@ -573,8 +576,7 @@ The behavior review was intentionally iterative rather than treating the first m
 #### Final behavior evidence
 
 Final rendered suite: **31/31 passed in 24.0s**. In addition to the prior desktop/mobile product-flow cases, the behavior suite now demonstrates:
-- delayed Phase-1 feed lane remains single-flight under repeated refresh triggers;
-- delayed detail endpoint remains page-level single-flight across both `MatchDetailClient` and `LineupPanel`;
+- delayed Phase-1 feed lane remains single-flight under …23 tokens truncated…oss both `MatchDetailClient` and `LineupPanel`;
 - delayed live lane remains single-flight while pending;
 - delayed analysis and story lanes remain single-flight across accelerated repeated timer ticks;
 - test-only forced AbortSignal expiry reaches `finally`, clears the gate, permits a later retry and does not allow the old aborted response to overwrite the later result;
@@ -1083,3 +1085,7 @@ Executable 704eb25716d9a3bf7b446f35a7988c172f7b148e; CI 37274487219 SUCCESS, 40-
 ### Phase 1 detail-only goals — iteration 8
 
 Executable 435e09b7de362c7a2605bd9fc3da86544fac7b64, CI 37276307386 SUCCESS (42/42, 32.2s); artifact 11330576031 desktop/mobile inspected. Goal summary recovers strictly matched canonical authoritative models during empty feed, without creating a predicted score or bet recommendation. Saved real FB6279 produces 2.21442 goals. Next detail-only availability banner/count remains NO MODEL/0 inputs despite valid Form probabilities; repair shared hydration/counting with existing identity/market gates. No release or DB mutation.
+
+### Phase 1 Form availability — iteration 9
+
+Executable b07ce190b4d8d23d238424df812d5760fe393be9; CI 37278145804 SUCCESS, 42-case flow/contracts/build. Artifact 11331381537 desktop/mobile inspected. Strictly matched FORM_MODELED probabilities appear in detail core table; false NO MODEL banner removed, independent recommendation/price gates unchanged. Saved FB6279 real detail validates 37.433/28.990/33.577%. Next null movement normalization. No merge/deployment/DB mutation.
