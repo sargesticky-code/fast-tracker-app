@@ -37,4 +37,26 @@ const unknown=bet365BrowserLive([{id:"x",event:"A v B",league:"L",time:"bad",sco
 if(unknown.fixtures[0].minute!==null||unknown.fixtures[0].homeScore!==null)throw new Error("unknown-not-zero failed");
 if(unknown.quotes[0].decimalPrice!==null)throw new Error("encoded odds must remain unknown");
 
+const realShape=bet365BrowserLive([{
+  id:"139513116",fixtureId:"202327812",sportId:"1",event:"NK Primorac Biograd v NK Neretva",league:"Croatia 3.NL",
+  time:"00:00",score:"0-0",period:"ToStart",
+  markets:[{id:"1777",ma:"1777",name:"Money Line 3-way",su:"0",odds:[
+    {id:"138467171",na:"",od:"3/1",or:"0",su:"0"},
+    {id:"138467178",na:"",od:"14/5",or:"1",su:"0"},
+    {id:"138467181",na:"",od:"4/6",or:"2",su:"0"}
+  ]}]
+},{
+  id:"139573795",fixtureId:"202407380",sportId:"1",event:"Liverpool (AMBUSH) v Barcelona (MJ)",league:"Esoccer H2H GG League - 8 mins play",
+  time:"00:00",score:"0-0",period:"ToStart",
+  markets:[{id:"1777",ma:"1777",name:"Money Line 3-way",su:"0",odds:[
+    {id:"1",na:"",od:"23/10",or:"0",su:"0"},
+    {id:"2",na:"",od:"13/5",or:"1",su:"0"},
+    {id:"3",na:"",od:"9/10",or:"2",su:"0"}
+  ]}]
+}],"2026-10-05T12:00:00Z");
+if(realShape.fixtures.length!==1||realShape.fixtures[0].providerEventId!=="139513116")throw new Error("virtual/esoccer exclusion failed");
+const realHda=completeHdaBoard(realShape.quotes);
+if(!realHda||realHda.H.decimalPrice!==4||realHda.D.decimalPrice!==3.8||Math.abs(realHda.A.decimalPrice-1.666667)>0.000001)throw new Error("Money Line 3-way normalization failed");
+if(!realShape.rejected.some(r=>r.reason==="VIRTUAL_OR_ESOCCER_EXCLUDED"))throw new Error("virtual rejection reason missing");
+
 console.log("bet365 browser-feed contract ok");
