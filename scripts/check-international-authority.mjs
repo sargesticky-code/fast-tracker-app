@@ -202,3 +202,17 @@ assert.deepEqual(proposal.proposals[0].evidence.kickoffDifferencesSeconds, [0]);
 assert.equal(proposal.generatedAt, new Date(policy.now).toISOString());
 assert.throws(() => proposeAuthorityBindings([], [], { now: NaN }), /INVALID_BINDING_INPUT/);
 console.log('Binding proposal freshness and review evidence passed');
+
+assert.equal(oddsApiQuotes([event], { ...options, fixtures: [{ ...binding, verified: false }] }).quotes.length, 0);
+assert.equal(oddsApiQuotes([event], { ...options, fixtures: [{ ...binding, identityStatus: 'UNRESOLVED' }] }).quotes.length, 0);
+assert.equal(oddsApiQuotes([event], { ...options, fixtures: [{ ...binding, verified: false, identityStatus: 'VERIFIED' }] }).quotes.length, 10);
+const conflictingAlias = { verified: true, providerKey: 'THE_ODDS_API', teamProviderKey: binding.providerKey,
+  providerCompetitionId: binding.providerCompetitionId, teamId: binding.awayTeamId, alias: event.home_team };
+assert.equal(oddsApiQuotes([event], { ...options, aliases: [conflictingAlias] }).quotes.length, 0);
+const uniqueAlias = { ...conflictingAlias, teamId: binding.homeTeamId, alias: 'Reviewed Home Alias' };
+const aliasEvent = { ...event, home_team: uniqueAlias.alias, bookmakers: event.bookmakers.map(b => ({ ...b, markets: b.markets.map(m => ({ ...m, outcomes: m.outcomes.map(o => ({ ...o, name: o.name === event.home_team ? uniqueAlias.alias : o.name })) })) })) };
+assert.equal(oddsApiQuotes([aliasEvent], { ...options, aliases: [uniqueAlias] }).quotes.length, 10);
+assert.equal(oddsApiQuotes([{ ...event, home_team: uniqueAlias.alias }], { ...options, aliases: [uniqueAlias, { ...uniqueAlias, teamId: binding.awayTeamId }] }).quotes.length, 0);
+assert.equal(oddsApiQuotes([{ ...event, home_team: '' }], options).quotes.length, 0);
+assert.equal(sportmonksPremiumQuotes({ data: [smOdd] }, { ...smOptions, fixtures: [{ ...smBinding, verified: false }] }).quotes.length, 0);
+console.log('Verified fixture and conflicting alias admission checks passed');

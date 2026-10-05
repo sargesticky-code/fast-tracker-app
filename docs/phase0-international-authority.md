@@ -340,3 +340,21 @@ the bridge: all 2,916 records remain unresolved for incomplete provider identity
 (date-only schedules have no verified UTC kickoff/provider team IDs). Zero
 proposals were invented. Real Sportmonks credentials and explicit entity mappings
 remain the blocking dependencies for useful authenticated fixture bindings.
+
+## Verified odds admission and alias conflicts — 2026-10-05 continuation
+
+Prior remote head `25b4041d2933c5f6d91407d3c3dd254b79f06a61` passed full
+CI run `37276244534`. No new authenticated coverage or production changes.
+
+Sportmonks premium and The Odds API joins now require a verified fixture binding,
+not merely an attached canonical ID. Explicit unresolved identity status overrides
+a legacy verified flag. This prevents review-only proposal IDs from admitting
+prices. Odds API team aliases must resolve to one reviewed team within the fixture
+provider and competition; conflicting targets, including conflicts with a direct
+team name, fail closed. Blank names cannot match missing names/aliases.
+
+Tests cover unverified/provisional fixtures, explicit unresolved status, valid
+verified collector fixtures, legitimate reviewed aliases, conflicting aliases,
+blank names and Sportmonks rejection. Tests use synthetic observations, not real
+coverage. Credential access and genuine provider mappings remain blocked;
+production infrastructure and database schemas are unchanged.
