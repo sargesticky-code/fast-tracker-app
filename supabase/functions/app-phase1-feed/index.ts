@@ -289,7 +289,7 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       evidenceChannelCount: 0,
       multisourceMemberCount: 0,
       missingCanonical1x2: !pricesFresh || had.home == null || had.draw == null || had.away == null,
-      unifiedCoverageStatus: "BET365_BROWSER",
+      unifiedCoverageStatus: "FLASHSCORE_BET365",
       coverageExplanation: pricesFresh
         ? "Canonical fixture identity and fresh Bet365 prices are available; model enrichment is temporarily unavailable."
         : "Canonical fixture identity is available, but Bet365 prices are stale or missing; odds and model actionability are suppressed.",
@@ -412,7 +412,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       health:{
         ...(m?.health||{}),
         evidenceChannelCount:evidenceCount,
-        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"BET365_BROWSER"),
+        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"FLASHSCORE_BET365"),
         recoveryMode:"LIGHTWEIGHT_CANONICAL_EVIDENCE",
         enrichmentErrors:{
           predictionEvidence:evidenceResult.error?String(evidenceResult.error.message||evidenceResult.error):null,
@@ -480,15 +480,11 @@ Deno.serve(async (req: Request) => {
           .order("kickoff_hkt", { ascending:true }),
         db.from("bet365_current")
           .select("hkjc_event_id,fetched_at,kickoff_hkt,league,home,away,bet365_home,bet365_draw,bet365_away,bet365_fixture_id,source,updated_at"),
-        db.from("bet365_browser_live_current")
-          .select("provider_event_id,canonical_match_id,captured_at,period,identity_status")
-          .eq("identity_status","VERIFIED")
-          .not("canonical_match_id","is",null)
-          .gte("captured_at",liveCutoff),
+        Promise.resolve({ data: [], error: null }),
         db.from("source_health")
           .select("source,status,value_text,observed_at,notes,raw")
-          .eq("source","BET365_BROWSER")
-          .eq("metric","heartbeat")
+          .eq("source","FLASHSCORE_BET365")
+          .eq("metric","cloud_ingest")
           .maybeSingle(),
       ]);
       if (fixtureResult.error) throw fixtureResult.error;
@@ -503,7 +499,7 @@ Deno.serve(async (req: Request) => {
         ? "UNAVAILABLE"
         : !bet365Heartbeat
           ? "MISSING"
-          : !Number.isFinite(bet365HeartbeatAgeSeconds)||bet365HeartbeatAgeSeconds>90
+          : !Number.isFinite(bet365HeartbeatAgeSeconds)||bet365HeartbeatAgeSeconds>1200
             ? "STALE"
             : String(bet365Heartbeat.status||"OK").toUpperCase();
 
@@ -540,22 +536,22 @@ Deno.serve(async (req: Request) => {
         .sort((a:any,b:any)=>String(a.kickoff??"").localeCompare(String(b.kickoff??"")));
       return Response.json({
         generatedAt:new Date().toISOString(),
-        source:"canonical-fixtures-bet365-browser",
+        source:"canonical-fixtures-flashscore-bet365",
         view:"summary",
         windowHours:hours,
         count:directMatches.length,
         systemHealth:{
           authorityMode:{
             status:bet365HeartbeatStatus==="OK"||bet365HeartbeatStatus==="EMPTY" ? "OK" : "ATTENTION",
-            value:"CANONICAL_FIXTURES_BET365_BROWSER",
-            notes:"Fixture identity is served from the canonical registry; current bookmaker prices and live admission come only from Bet365 browser evidence. Missing Bet365 data stays unknown.",
+            value:"CANONICAL_FIXTURES_FLASHSCORE_BET365",
+            notes:"Fixture identity is served from the canonical registry; current bookmaker prices come from the cloud Flashscore/Bet365 collector. Missing bookmaker data stays unknown.",
             observedAt:new Date().toISOString(),
             raw:{fixtures:directMatches.length,bet365Rows:(bet365Result.data??[]).length,liveRows:(liveResult.data??[]).length,bet365HeartbeatStatus,bet365HeartbeatAgeSeconds}
           },
-          BET365_BROWSER:{
+          FLASHSCORE_BET365:{
             status:bet365HeartbeatStatus,
             value:bet365Heartbeat?.value_text??null,
-            notes:bet365Heartbeat?.notes??"No Bet365 browser collector heartbeat has been observed yet.",
+            notes:bet365Heartbeat?.notes??"No cloud Flashscore/Bet365 ingest has been observed yet.",
             observedAt:bet365Heartbeat?.observed_at??null,
             raw:bet365Heartbeat?.raw??{}
           }
@@ -602,10 +598,7 @@ Deno.serve(async (req: Request) => {
         db.from("bet365_current")
           .select("hkjc_event_id,league,fetched_at")
           .in("hkjc_event_id", eventIds),
-        db.from("bet365_browser_live_current")
-          .select("canonical_match_id,league,captured_at,identity_status")
-          .in("canonical_match_id", eventIds)
-          .eq("identity_status","VERIFIED"),
+        Promise.resolve({ data: [], error: null }),
       ]);
       const identityPromise = currentNameKeys.length
         ? db.from("team_name_master")
