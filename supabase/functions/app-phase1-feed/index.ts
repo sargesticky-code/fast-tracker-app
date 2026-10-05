@@ -214,110 +214,6 @@ function noVig(home: unknown, draw: unknown, away: unknown) {
 }
 
 
-const LEGACY_HKJC_AUTHORITY_URL =
-  "https://raw.githubusercontent.com/sargesticky-code/football-fast-tracker/main/data/hkjc_current.csv";
-
-function parseCsvRecords(text: string) {
-  const src = String(text ?? "").replace(/^\uFEFF/, "");
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (quoted) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else {
-          quoted = false;
-        }
-      } else {
-        cell += ch;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      quoted = true;
-    } else if (ch === ",") {
-      row.push(cell);
-      cell = "";
-    } else if (ch === "\n") {
-      row.push(cell.replace(/\r$/, ""));
-      if (row.some((value) => value !== "")) rows.push(row);
-      row = [];
-      cell = "";
-    } else {
-      cell += ch;
-    }
-  }
-  if (cell.length || row.length) {
-    row.push(cell.replace(/\r$/, ""));
-    if (row.some((value) => value !== "")) rows.push(row);
-  }
-  if (rows.length < 2) return [];
-  const header = rows[0].map((value) => value.trim());
-  return rows.slice(1).map((values) =>
-    Object.fromEntries(header.map((key, i) => [key, values[i] ?? ""]))
-  );
-}
-
-function csvBool(value: unknown) {
-  return ["1", "true", "yes", "y"].includes(String(value ?? "").trim().toLowerCase());
-}
-
-async function legacyGithubAuthorityFallback(hours: number) {
-  const res = await fetch(LEGACY_HKJC_AUTHORITY_URL, {
-    headers: { Accept: "text/csv" },
-    signal: AbortSignal.timeout(6_000),
-  });
-  if (!res.ok) throw new Error(`github_authority_http_${res.status}`);
-  const parsed = parseCsvRecords(await res.text());
-  const nowMs = Date.now();
-  const endMs = nowMs + hours * 60 * 60 * 1000;
-  const rows: any[] = [];
-  let newestFetchedAt: string | null = null;
-
-  for (const raw of parsed) {
-    const eventId = String(raw.hkjc_event_id ?? "").trim();
-    const kickoff = String(raw.kickoff_hkt ?? "").trim();
-    const kickoffMs = Date.parse(kickoff);
-    if (!eventId || !Number.isFinite(kickoffMs)) continue;
-    if (kickoffMs < nowMs || kickoffMs >= endMs) continue;
-    const ended = ["MATCHENDED", "INPLAYMATCHENDED"].includes(String(raw.status ?? "").toUpperCase());
-    const selling = csvBool(raw.selling) || String(raw.pool_status ?? "").toUpperCase() === "SELLINGSTARTED";
-    if (ended || !selling) continue;
-
-    const fetchedAt = String(raw.fetched_at_hkt ?? "").trim() || null;
-    if (fetchedAt && (!newestFetchedAt || Date.parse(fetchedAt) > Date.parse(newestFetchedAt))) {
-      newestFetchedAt = fetchedAt;
-    }
-    rows.push({
-      ...raw,
-      fetched_at: fetchedAt,
-      live_eligible: false,
-      hdc_line: raw.hdc_line || null,
-      hdc_home: raw.hdc_home || null,
-      hdc_away: raw.hdc_away || null,
-      updated_at: fetchedAt,
-    });
-  }
-
-  if (!rows.length) throw new Error("github_authority_empty");
-  return {
-    source: "github-hkjc-authority-fallback",
-    rows: rows.map((row) => ({ row, liveNow: false })),
-    diagnostics: {
-      upstream: "UNAVAILABLE",
-      snapshot: "UNAVAILABLE",
-      github: "OK",
-      fetchedAt: newestFetchedAt,
-      rowCount: rows.length,
-    },
-  };
-}
-
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
   const pricesFresh = freshness.status === "FRESH";
@@ -367,7 +263,7 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       line: handicap.line,
       reason: pricesFresh
         ? "Model enrichment unavailable in summary recovery mode"
-        : "HKJC price snapshot is stale; fixture identity only"
+        : "Bet365 price snapshot is stale or unavailable; fixture identity only"
     },
     goals,
     corners,
@@ -384,7 +280,7 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     health: {
       status: freshness.status === "FRESH" ? "OK" : "ATTENTION",
       primaryMissingReason: "SUMMARY_AUTHORITY_ONLY",
-      diagnostics: freshness.status === "FRESH" ? [] : ["HKJC_AUTHORITY_" + freshness.status],
+      diagnostics: freshness.status === "FRESH" ? [] : ["BET365_AUTHORITY_" + freshness.status],
       hkjcFetchedAt: r.fetched_at ?? null,
       hkjcPriceChangedAt: r.odds_updated_at ?? null,
       hkjcMarketCapturedAt: r.fetched_at ?? null,
@@ -393,10 +289,10 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       evidenceChannelCount: 0,
       multisourceMemberCount: 0,
       missingCanonical1x2: !pricesFresh || had.home == null || had.draw == null || had.away == null,
-      unifiedCoverageStatus: "HKJC_ONLY",
+      unifiedCoverageStatus: "BET365_BROWSER",
       coverageExplanation: pricesFresh
-        ? "HKJC fixture authority is available; model enrichment is temporarily unavailable."
-        : "HKJC fixture identity is available, but the price snapshot is stale; odds and model actionability are suppressed.",
+        ? "Canonical fixture identity and fresh Bet365 prices are available; model enrichment is temporarily unavailable."
+        : "Canonical fixture identity is available, but Bet365 prices are stale or missing; odds and model actionability are suppressed.",
     },
     decision: null,
     decisionMarket: null,
@@ -516,7 +412,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       health:{
         ...(m?.health||{}),
         evidenceChannelCount:evidenceCount,
-        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"HKJC_ONLY"),
+        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"BET365_BROWSER"),
         recoveryMode:"LIGHTWEIGHT_CANONICAL_EVIDENCE",
         enrichmentErrors:{
           predictionEvidence:evidenceResult.error?String(evidenceResult.error.message||evidenceResult.error):null,
@@ -576,128 +472,72 @@ Deno.serve(async (req: Request) => {
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
 
-      const upstreamPromise = (async () => {
-        const headers = { Authorization: `Bearer ${serverKey}`, apikey: serverKey };
-        const [upcomingFetch, liveFetch] = await Promise.allSettled([
-          fetch(`${supabaseUrl}/functions/v1/hkjc-upcoming-direct?mode=summary&hours=${hours}`, {
-            headers,
-            signal: AbortSignal.timeout(10_000),
-          }),
-          fetch(`${supabaseUrl}/functions/v1/hkjc-live-direct?mode=summary`, {
-            headers,
-            signal: AbortSignal.timeout(10_000),
-          }),
-        ]);
+      const [fixtureResult, bet365Result, liveResult] = await Promise.all([
+        db.from("matches")
+          .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,home_en,away_en,updated_at")
+          .gte("kickoff_hkt", now.toISOString())
+          .lt("kickoff_hkt", end.toISOString())
+          .order("kickoff_hkt", { ascending:true }),
+        db.from("bet365_current")
+          .select("hkjc_event_id,fetched_at,kickoff_hkt,league,home,away,bet365_home,bet365_draw,bet365_away,bet365_fixture_id,source,updated_at"),
+        db.from("bet365_browser_live_current")
+          .select("provider_event_id,canonical_match_id,captured_at,period,identity_status")
+          .eq("identity_status","VERIFIED")
+          .not("canonical_match_id","is",null)
+          .gte("captured_at",liveCutoff),
+      ]);
+      if (fixtureResult.error) throw fixtureResult.error;
+      if (bet365Result.error) console.error("summary_bet365_current_unavailable",bet365Result.error);
+      if (liveResult.error) console.error("summary_bet365_live_unavailable",liveResult.error);
 
-        const rows:any[] = [];
-        const diagnostics:any = { upcoming:null, live:null };
-        if (upcomingFetch.status === "fulfilled") {
-          diagnostics.upcoming = upcomingFetch.value.status;
-          if (upcomingFetch.value.ok) {
-            const body = await upcomingFetch.value.json();
-            for (const row of body?.data ?? []) rows.push({ row, liveNow:false });
-          }
-        } else {
-          diagnostics.upcoming = "FETCH_FAILED";
-        }
-        if (liveFetch.status === "fulfilled") {
-          diagnostics.live = liveFetch.value.status;
-          if (liveFetch.value.ok) {
-            const body = await liveFetch.value.json();
-            for (const row of body?.data ?? []) rows.push({ row, liveNow:true });
-          }
-        } else {
-          diagnostics.live = "FETCH_FAILED";
-        }
-        if (!rows.length) throw new Error("direct_hkjc_upstream_empty");
-        return { source:"hkjc-official-direct", rows, diagnostics };
-      })();
-
-      const snapshotPromise = (async () => {
-        const [upcomingResult, liveResult] = await Promise.all([
-          db.from("hkjc_upcoming_current")
-            .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,live_eligible,selling,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
-            .eq("selling", true)
-            .gte("kickoff_hkt", now.toISOString())
-            .lt("kickoff_hkt", end.toISOString())
-            .order("kickoff_hkt", { ascending: true }),
-          db.from("hkjc_live_odds_current")
-            .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
-            .gte("fetched_at", liveCutoff)
-            .eq("pool_status", "SELLINGSTARTED"),
-        ]);
-        if (upcomingResult.error && liveResult.error) throw new Error("authority_snapshot_unavailable");
-        const rows:any[] = [];
-        for (const row of upcomingResult.data ?? []) rows.push({ row, liveNow:false });
-        for (const row of liveResult.data ?? []) rows.push({ row, liveNow:true });
-        if (!rows.length) throw new Error("authority_snapshot_empty");
-        return {
-          source:"hkjc-authority-snapshot",
-          rows,
-          diagnostics:{
-            upcoming: upcomingResult.error ? "ERROR" : "OK",
-            live: liveResult.error ? "ERROR" : "OK",
-          },
+      const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.hkjc_event_id),r]));
+      const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
+      const rows:any[]=[];
+      for(const fixture of fixtureResult.data??[]){
+        const id=String(fixture.hkjc_event_id||""); if(!id) continue;
+        const b:any=bet365ById.get(id)||null;
+        const l:any=liveById.get(id)||null;
+        const row={
+          hkjc_event_id:id,
+          fetched_at:b?.fetched_at??null,
+          kickoff_hkt:fixture.kickoff_hkt,
+          status:l?.period??fixture.status??null,
+          tournament:fixture.tournament??b?.league??null,
+          home_en:fixture.home_en??b?.home??null,
+          away_en:fixture.away_en??b?.away??null,
+          had_home:b?.bet365_home??null,
+          had_draw:b?.bet365_draw??null,
+          had_away:b?.bet365_away??null,
+          hdc_line:null,hdc_home:null,hdc_away:null,
+          hil_line:null,hil_over:null,hil_under:null,
+          chl_line:null,chl_over:null,chl_under:null,
+          pool_status:l?"SELLINGSTARTED":"UNKNOWN",
+          odds_updated_at:b?.fetched_at??null,
+          updated_at:b?.updated_at??fixture.updated_at??null,
+          live_eligible:Boolean(l),
         };
-      })();
-
-      try {
-        let winner:any;
-        try {
-          winner = await upstreamPromise;
-        } catch (upstreamError) {
-          console.error("summary_direct_hkjc_failed_using_snapshot", upstreamError);
-          try {
-            winner = await snapshotPromise;
-          } catch (snapshotError) {
-            console.error("summary_snapshot_failed_using_github_authority", snapshotError);
-            winner = await legacyGithubAuthorityFallback(hours);
-          }
-        }
-        const byId = new Map<string, any>();
-        for (const item of winner.rows ?? []) {
-          const row=item?.row;
-          if (!row?.hkjc_event_id) continue;
-          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, Boolean(item.liveNow)));
-        }
-        const directMatches = [...byId.values()].sort((a, b) => String(a.kickoff ?? "").localeCompare(String(b.kickoff ?? "")));
-        if (!directMatches.length) throw new Error("authority_summary_empty");
-        return Response.json({
-          generatedAt: new Date().toISOString(),
-          source: winner.source,
-          view: "summary",
-          windowHours: hours,
-          count: directMatches.length,
-          systemHealth: {
-            authorityMode: {
-              status: "OK",
-              value: winner.source === "hkjc-official-direct"
-                ? "HKJC_DIRECT_UPSTREAM"
-                : winner.source === "hkjc-authority-snapshot"
-                  ? "LAST_GOOD_AUTHORITY_SNAPSHOT"
-                  : "LEGACY_GITHUB_AUTHORITY_FALLBACK",
-              notes: winner.source === "github-hkjc-authority-fallback"
-                ? "Homepage fixture identity is using the read-only legacy HKJC artifact because direct and DB authority lanes are unavailable; stale prices remain suppressed."
-                : "Homepage fixtures are served independently of model/story enrichment.",
-              observedAt: new Date().toISOString(),
-              raw: winner.diagnostics,
-            },
-          },
-          matches: directMatches,
-        }, {
-          headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
-        });
-      } catch (summaryError) {
-        console.error("summary_authority_unavailable", summaryError);
-        return Response.json({
-          error: "feed_unavailable",
-          semantics: "read_failure_not_fixture_absence",
-          view: "summary",
-        }, {
-          status: 503,
-          headers: { ...corsHeaders, "Cache-Control": "no-store" },
-        });
+        rows.push({row,liveNow:Boolean(l)});
       }
+
+      const directMatches=rows.map((item:any)=>directAuthoritySummaryRow(item.row,item.liveNow))
+        .sort((a:any,b:any)=>String(a.kickoff??"").localeCompare(String(b.kickoff??"")));
+      return Response.json({
+        generatedAt:new Date().toISOString(),
+        source:"canonical-fixtures-bet365-browser",
+        view:"summary",
+        windowHours:hours,
+        count:directMatches.length,
+        systemHealth:{
+          authorityMode:{
+            status:"OK",
+            value:"CANONICAL_FIXTURES_BET365_BROWSER",
+            notes:"Fixture identity is served from the canonical registry; current bookmaker prices and live admission come only from Bet365 browser evidence. Missing Bet365 data stays unknown.",
+            observedAt:new Date().toISOString(),
+            raw:{fixtures:directMatches.length,bet365Rows:(bet365Result.data??[]).length,liveRows:(liveResult.data??[]).length}
+          }
+        },
+        matches:directMatches,
+      },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
     }
 
     const { data, error } = await fullRpcDb.rpc("ft_internal_app_phase1_feed", {
@@ -735,12 +575,13 @@ Deno.serve(async (req: Request) => {
       // These enrichment reads are independent. Start them together so network
       // round trips do not accumulate before the homepage can render.
       const authorityPromise = Promise.all([
-        db.from("hkjc_upcoming_current")
-          .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
+        db.from("bet365_current")
+          .select("hkjc_event_id,league,fetched_at")
           .in("hkjc_event_id", eventIds),
-        db.from("hkjc_live_odds_current")
-          .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
-          .in("hkjc_event_id", eventIds),
+        db.from("bet365_browser_live_current")
+          .select("canonical_match_id,league,captured_at,identity_status")
+          .in("canonical_match_id", eventIds)
+          .eq("identity_status","VERIFIED"),
       ]);
       const identityPromise = currentNameKeys.length
         ? db.from("team_name_master")
@@ -774,14 +615,19 @@ Deno.serve(async (req: Request) => {
 
       const [{ data: upcomingAuthorityRows, error: upcomingAuthorityError }, { data: liveAuthorityRows, error: liveAuthorityError }] = await authorityPromise;
       if (upcomingAuthorityError) {
-        console.error("upcoming_display_authority_query_failed", upcomingAuthorityError);
+        console.error("bet365_display_authority_query_failed", upcomingAuthorityError);
       } else {
-        for (const row of upcomingAuthorityRows ?? []) upcomingAuthorityMap.set(row.hkjc_event_id, row);
+        for (const row of upcomingAuthorityRows ?? []) {
+          upcomingAuthorityMap.set(row.hkjc_event_id, { tournament:row.league, hdc_line:null, hdc_home:null, hdc_away:null });
+        }
       }
       if (liveAuthorityError) {
-        console.error("live_display_authority_query_failed", liveAuthorityError);
+        console.error("bet365_live_display_authority_query_failed", liveAuthorityError);
       } else {
-        for (const row of liveAuthorityRows ?? []) liveAuthorityMap.set(row.hkjc_event_id, row);
+        for (const row of liveAuthorityRows ?? []) {
+          if (!row.canonical_match_id) continue;
+          liveAuthorityMap.set(row.canonical_match_id, { tournament:row.league, hdc_line:null, hdc_home:null, hdc_away:null });
+        }
       }
 
       if (currentNameKeys.length) {
@@ -1064,7 +910,7 @@ Deno.serve(async (req: Request) => {
       : await db
           .from("source_health")
           .select("source,status,value_text,notes,observed_at,raw")
-          .in("source", ["HKJC_UPCOMING_EDGE", "HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
+          .in("source", ["LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
           .eq("metric", "heartbeat");
 
     if (heartbeatError) console.error("heartbeat_query_failed", heartbeatError);
