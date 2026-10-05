@@ -462,7 +462,7 @@ function matchFromDetailPayload(payload, matchId) {
       hkjcPriceChangedAt: priceObservedAt,
       hkjcPriceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
       evidenceChannelCount: 0,
-      unifiedCoverageStatus: "BET365_BROWSER",
+      unifiedCoverageStatus: "FLASHSCORE_BET365",
     },
     updatedAt: fixtureFetchedAt,
   };
@@ -479,7 +479,7 @@ function mergeLiveMatch(base, payload, matchId) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "BET365_BROWSER" },
+      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "FLASHSCORE_BET365" },
       updatedAt: live.live?.fetchedAt || payload.generatedAt || null,
     };
   }
