@@ -483,6 +483,65 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
   );
 }
 
+function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
+  if (!rows.length) {
+    return (
+      <div style={{padding:18,border:"1px dashed #cfdad3",borderRadius:14,background:"#fbfcfb"}}>
+        <b style={{display:"block",fontSize:13,color:palette.ink}}>Player-form profiles are still being populated</b>
+        <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted}}>Only provider-backed recent appearances are shown; missing ratings or events stay unknown.</small>
+      </div>
+    );
+  }
+  return (
+    <div style={{display:"grid",gap:12}}>
+      {["H","A"].map((s) => {
+        const teamRows = rows.filter((r) => side(r) === s).slice(0,18);
+        return (
+          <div key={s} style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+              <b style={{fontSize:13,color:palette.ink}}>{s === "H" ? homeTeam : awayTeam}</b>
+              <small style={{fontSize:9,color:palette.muted}}>{teamRows.length} profiled players</small>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:7,marginTop:9}}>
+              {teamRows.map((row, i) => {
+                const profile = row?.profile || {};
+                const recent = profile?.recent || {};
+                const matches = Array.isArray(recent?.matches) ? recent.matches.slice(0,5) : [];
+                const apps = matches.filter((m) => Number(m?.minutes) > 0).length;
+                const minutes = matches.reduce((sum, m) => sum + (Number(m?.minutes) || 0), 0);
+                const goals = matches.reduce((sum, m) => sum + (Number(m?.goals) || 0), 0);
+                const assists = matches.reduce((sum, m) => sum + (Number(m?.assists) || 0), 0);
+                const avgRating = Number(recent?.averageRating);
+                const club = profile?.primaryTeam?.teamName || null;
+                return (
+                  <div key={row?.player_key || i} style={{padding:"9px 10px",border:"1px solid #e5ece8",borderRadius:11,background:"#fafcfb"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
+                      <div style={{minWidth:0}}>
+                        <b style={{display:"block",fontSize:11.5,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
+                        <small style={{display:"block",marginTop:2,fontSize:8.7,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {[row?.role, row?.nationality, club].filter(Boolean).join(" · ") || "Profile"}
+                        </small>
+                      </div>
+                      {Number.isFinite(avgRating) && avgRating > 0 ? <strong style={{fontSize:15,color:"#245f43"}}>{avgRating.toFixed(2)}</strong> : null}
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7,fontSize:8.7,fontWeight:850,color:"#587064"}}>
+                      <span>{apps}/{matches.length || 0} apps</span>
+                      <span>{minutes} min</span>
+                      <span>{goals}G</span>
+                      <span>{assists}A</span>
+                    </div>
+                    <small style={{display:"block",marginTop:5,fontSize:8.2,color:"#87958d"}}>{row?.source_name || "FOTMOB"} · profile {formatHkt(row?.profile_updated_at)}</small>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StrengthBar({ team, data }) {
   const pct = Number.isFinite(Number(data?.lineup_strength_pct)) ? Number(data.lineup_strength_pct) : null;
   const conf = Number.isFinite(Number(data?.lineup_confidence_pct)) ? Number(data.lineup_confidence_pct) : null;
@@ -573,6 +632,7 @@ export default function LineupPanel() {
       ? playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")
       : playerStatusRaw;
     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
+    const playerProfiles = Array.isArray(hf?.playerProfiles) ? hf.playerProfiles : [];
     const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
       : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
     const homeStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "HOME") || null;
@@ -589,7 +649,7 @@ export default function LineupPanel() {
       unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
       home, away, homeStarters, awayStarters, homeBench, awayBench,
       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
-      playerStatus, playerStatusRaw, managers, conflicts, homeStrength, awayStrength,
+      playerStatus, playerStatusRaw, playerProfiles, managers, conflicts, homeStrength, awayStrength,
       homeFormation: normalizeFormation(formation(homeStarters)),
       awayFormation: normalizeFormation(formation(awayStarters)),
       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
@@ -615,6 +675,7 @@ export default function LineupPanel() {
   const tabs = [
     ["formation","Formation"],
     ["squad","Squad"],
+    ["form","Player form"],
     ["availability","Availability"],
     ["source","Sources"],
   ];
@@ -710,6 +771,12 @@ export default function LineupPanel() {
               <SquadList title={view.homeTeam + " · Bench"} rows={view.homeBench} accent={palette.home} empty="Bench/substitutes not captured from current source" />
               <SquadList title={view.awayTeam + " · Bench"} rows={view.awayBench} accent={palette.away} empty="Bench/substitutes not captured from current source" />
             </div>
+          </div>
+        ) : null}
+
+        {tab === "form" ? (
+          <div style={{padding:14}}>
+            <PlayerFormPanel rows={view.playerProfiles} homeTeam={view.homeTeam} awayTeam={view.awayTeam} />
           </div>
         ) : null}
 
