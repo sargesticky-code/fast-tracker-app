@@ -57,6 +57,9 @@ jobs:
       - name: Check prematch probability gates
         run: npm run check:prematch
 
+      - name: Check movement ingestion gates
+        run: npm run check:movement-ingest
+
       - name: Check player evidence identity
         run: npm run check:player-evidence
 

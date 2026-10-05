@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "check:movement-ingest": "node scripts/check-movement-ingest.mjs",
     "check:prematch": "node scripts/check-prematch-probabilities.mjs",
     "dev": "next dev",
     "build": "npm run check:ui && next build",
