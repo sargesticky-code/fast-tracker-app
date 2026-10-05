@@ -237,7 +237,7 @@ Deno.serve(async ()=>{
 
     // Reuse fresh cached FotMob details before spending any upstream requests.
     // This lets already-captured bench, coach and injury data flow into Phase 2 every run.
-    let cachedLineupMatches=0,cachedLineupRows=0,cachedBenchRows=0,cachedManagerRows=0,cachedInjuryRows=0;
+    let cachedLineupMatches=0,cachedPartialOfficialMatches=0,cachedLineupRows=0,cachedBenchRows=0,cachedManagerRows=0,cachedInjuryRows=0;
     const cachedLineups=[];
     const cachedManagers=[];
     const cachedInjuries=[];
@@ -249,6 +249,7 @@ Deno.serve(async ()=>{
       if(parsed.rows.length){
         cachedLineups.push(...parsed.rows);
         cachedLineupMatches++;
+        if(parsed.partialOfficial)cachedPartialOfficialMatches++;
         cachedLineupRows+=parsed.rows.length;
         cachedBenchRows+=parsed.rows.filter(x=>!x.starter).length;
       }
@@ -315,7 +316,7 @@ Deno.serve(async ()=>{
       return Math.abs(ak-now)-Math.abs(bk-now);
     });
     const picked=matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
-    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
+    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,partialOfficialMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
     await mapLimit(picked,DETAIL_CONCURRENCY,async(target)=>{
     const {h,best}=target;
     try{
@@ -336,7 +337,9 @@ Deno.serve(async ()=>{
         promotedMatches++;
         promotedRows+=parsed.rows.length;
         benchRows+=parsed.rows.filter(x=>!x.starter).length;
-        if(parsed.rows[0]?.confirmed)confirmedMatches++;else predictedMatches++;
+        if(parsed.partialOfficial)partialOfficialMatches++;
+        else if(parsed.complete&&parsed.rows[0]?.confirmed)confirmedMatches++;
+        else if(parsed.complete)predictedMatches++;
       }
 
       if(parsed.managers.length){
@@ -360,7 +363,7 @@ Deno.serve(async ()=>{
     }catch(e){detailFail++;console.warn("detail_fail",h.hkjc_event_id,String(e));}
 
     });
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,partialOfficialMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",
