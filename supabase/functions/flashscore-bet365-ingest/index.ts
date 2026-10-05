@@ -89,28 +89,65 @@ Deno.serve(async () => {
 
   if (matchError) return Response.json({ error: "canonical_read_failed", detail: matchError.message }, { status: 500 });
 
-  const { data: aliasRows, error: aliasError } = await db
-    .from("team_name_master")
-    .select("source_name,team_key,hkjc_name_en,status")
-    .eq("source", "FLASHSCORE")
-    .eq("status", "VERIFIED");
+  const observedNames = [...new Set(
+    fixtures.flatMap((row:any) => [String(row?.home ?? "").trim(), String(row?.away ?? "").trim()]).filter(Boolean)
+  )];
 
-  if (aliasError) return Response.json({ error: "alias_read_failed", detail: aliasError.message }, { status: 500 });
+  const [flashAliasResult, consensusAliasResult] = await Promise.all([
+    observedNames.length
+      ? db.from("team_name_master")
+          .select("source,source_name,team_key,hkjc_name_en,status")
+          .eq("source", "FLASHSCORE")
+          .eq("status", "VERIFIED")
+          .in("source_name", observedNames)
+      : Promise.resolve({ data:[], error:null } as any),
+    observedNames.length
+      ? db.from("team_name_master")
+          .select("source,source_name,team_key,hkjc_name_en,status")
+          .eq("status", "VERIFIED")
+          .in("source_name", observedNames)
+      : Promise.resolve({ data:[], error:null } as any),
+  ]);
 
-  const aliasTargets = new Map<string, Map<string, string>>();
-  for (const a of aliasRows ?? []) {
+  if (flashAliasResult.error) return Response.json({ error: "flash_alias_read_failed", detail: flashAliasResult.error.message }, { status: 500 });
+  if (consensusAliasResult.error) return Response.json({ error: "consensus_alias_read_failed", detail: consensusAliasResult.error.message }, { status: 500 });
+
+  const flashTargets = new Map<string, Map<string, string>>();
+  for (const a of flashAliasResult.data ?? []) {
     const keyName = norm(a?.source_name);
     const teamKey = String(a?.team_key ?? "").trim();
     const canonicalName = String(a?.hkjc_name_en ?? "").trim();
     if (!keyName || !teamKey || !canonicalName) continue;
-    const targets = aliasTargets.get(keyName) ?? new Map<string, string>();
+    const targets = flashTargets.get(keyName) ?? new Map<string,string>();
     targets.set(teamKey, canonicalName);
-    aliasTargets.set(keyName, targets);
+    flashTargets.set(keyName, targets);
   }
+
+  const consensusTargets = new Map<string, Map<string, { canonicalName:string; sources:Set<string> }>>();
+  for (const a of consensusAliasResult.data ?? []) {
+    const keyName = norm(a?.source_name);
+    const teamKey = String(a?.team_key ?? "").trim();
+    const canonicalName = String(a?.hkjc_name_en ?? "").trim();
+    const source = String(a?.source ?? "").trim();
+    if (!keyName || !teamKey || !canonicalName || !source) continue;
+    const allTargets = consensusTargets.get(keyName) ?? new Map<string, { canonicalName:string; sources:Set<string> }>();
+    const target = allTargets.get(teamKey) ?? { canonicalName, sources:new Set<string>() };
+    target.sources.add(source);
+    allTargets.set(teamKey, target);
+    consensusTargets.set(keyName, allTargets);
+  }
+
   const resolveAlias = (name: string) => {
-    const targets = aliasTargets.get(norm(name));
-    if (!targets || targets.size !== 1) return null;
-    return [...targets.values()][0] ?? null;
+    const keyName = norm(name);
+    const flash = flashTargets.get(keyName);
+    if (flash?.size === 1) {
+      return { canonicalName:[...flash.values()][0] ?? null, method:"VERIFIED_FLASHSCORE_ALIAS", sourceCount:1 };
+    }
+    const consensus = consensusTargets.get(keyName);
+    if (!consensus || consensus.size !== 1) return { canonicalName:null, method:null, sourceCount:0 };
+    const target = [...consensus.values()][0];
+    if (!target || target.sources.size < 2) return { canonicalName:null, method:null, sourceCount:target?.sources.size ?? 0 };
+    return { canonicalName:target.canonicalName, method:"VERIFIED_CROSS_SOURCE_CONSENSUS", sourceCount:target.sources.size };
   };
 
   const stage: any[] = [];
@@ -118,6 +155,7 @@ Deno.serve(async () => {
   let ambiguous = 0;
   let unresolved = 0;
   let aliasResolved = 0;
+  let consensusResolved = 0;
 
   for (const row of fixtures) {
     const providerEventId = String(row?.provider_event_id ?? "").trim();
@@ -129,9 +167,12 @@ Deno.serve(async () => {
 
     const ko = kickoffUtc(row);
     const koMs = ko ? Date.parse(ko) : NaN;
-    const resolvedHome = resolveAlias(home) ?? home;
-    const resolvedAway = resolveAlias(away) ?? away;
+    const homeAlias = resolveAlias(home);
+    const awayAlias = resolveAlias(away);
+    const resolvedHome = homeAlias.canonicalName ?? home;
+    const resolvedAway = awayAlias.canonicalName ?? away;
     const usedAlias = norm(resolvedHome) !== norm(home) || norm(resolvedAway) !== norm(away);
+    const usedConsensus = homeAlias.method === "VERIFIED_CROSS_SOURCE_CONSENSUS" || awayAlias.method === "VERIFIED_CROSS_SOURCE_CONSENSUS";
     const candidates = (matches ?? []).filter((m: any) => {
       if (norm(m.home_en) !== norm(resolvedHome) || norm(m.away_en) !== norm(resolvedAway)) return false;
       const mk = Date.parse(m.kickoff_hkt ?? "");
@@ -144,6 +185,7 @@ Deno.serve(async () => {
       identity = "VERIFIED";
       canonical = String(candidates[0].hkjc_event_id);
       if (usedAlias) aliasResolved++;
+      if (usedConsensus) consensusResolved++;
     } else if (candidates.length > 1) {
       identity = "AMBIGUOUS";
       ambiguous++;
@@ -164,7 +206,16 @@ Deno.serve(async () => {
       opening_away: Number(hda?.opening_away) > 1 ? Number(hda.opening_away) : null,
       canonical_match_id: canonical,
       identity_status: identity,
-      raw: { ...row, identity_resolution: { resolved_home: resolvedHome, resolved_away: resolvedAway, used_verified_flashscore_alias: usedAlias } },
+      raw: { ...row, identity_resolution: {
+        resolved_home: resolvedHome,
+        resolved_away: resolvedAway,
+        used_verified_alias: usedAlias,
+        used_cross_source_consensus: usedConsensus,
+        home_method: homeAlias.method,
+        away_method: awayAlias.method,
+        home_source_count: homeAlias.sourceCount,
+        away_source_count: awayAlias.sourceCount
+      } },
       updated_at: new Date().toISOString(),
     });
 
@@ -238,6 +289,7 @@ Deno.serve(async () => {
     unresolved,
     ambiguous,
     alias_resolved: aliasResolved,
+    consensus_resolved: consensusResolved,
     captured_at: capturedAt,
   };
   await db.from("source_health").upsert({
