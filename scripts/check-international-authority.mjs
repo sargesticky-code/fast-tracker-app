@@ -95,4 +95,27 @@ assert.equal(compareAuthorityCoverage(baseline, { ...coverageBundle, quotes: [] 
 assert.equal(compareAuthorityCoverage(baseline, coverageBundle, { now: policy.now + 3600000 }).readiness, "BLOCKED");
 assert.equal(compareAuthorityCoverage([], coverageBundle, { now: policy.now }).readiness, "NO_COMPARISON_BASELINE");
 assert.equal(compareAuthorityCoverage(baseline, coverageBundle, { now: policy.now }).productionCutoverAuthorized, false);
+// Coverage must not hide contradictory current evidence behind set deduplication.
+const reportOptions = { now: policy.now };
+const hda = coverageBundle.quotes.find(q => q.market === 'HDA');
+const contradictory = { ...hda, decimalPrice: hda.decimalPrice + 0.1 };
+const conflictReport = compareAuthorityCoverage(baseline, { ...coverageBundle, quotes: [...coverageBundle.quotes, contradictory] }, reportOptions);
+assert.equal(conflictReport.readiness, 'BLOCKED');
+assert.deepEqual(conflictReport.conflictingHdaFixtureIds, [binding.canonicalMatchId]);
+assert.equal(conflictReport.freshHdaFixtures, 0);
+assert.equal(compareAuthorityCoverage(baseline, { ...coverageBundle, quotes: [...coverageBundle.quotes, hda] }, reportOptions).readiness, 'SHADOW_COVERAGE_PASSED');
+for (const changed of [
+  { providerEventId: 'different-event' },
+  { homeTeamId: binding.awayTeamId, awayTeamId: binding.homeTeamId },
+  { kickoff: new Date(Date.parse(kickoff) + 60000).toISOString() },
+]) {
+  const report = compareAuthorityCoverage(baseline, { ...coverageBundle, fixtures: [...coverageBundle.fixtures, { ...coverageBundle.fixtures[0], ...changed }] }, reportOptions);
+  assert.equal(report.readiness, 'BLOCKED');
+  assert.deepEqual(report.conflictingFixtureIds, [binding.canonicalMatchId]);
+  assert.equal(report.verifiedUpcoming, 0);
+}
+const reused = compareAuthorityCoverage(baseline, { ...coverageBundle, fixtures: [...coverageBundle.fixtures, { ...coverageBundle.fixtures[0], canonicalMatchId: 'second-canonical-id' }] }, reportOptions);
+assert.equal(reused.readiness, 'BLOCKED');
+assert.equal(reused.conflictingFixtureIds.length, 2);
+assert.equal(reused.verifiedUpcoming, 0);
 console.log("International authority contracts passed (deterministic fixtures; no live coverage claim)");

@@ -210,3 +210,28 @@ is verified fixture bindings/canonical allocation using a source with genuine
 competition/team/kickoff evidence. Current bookmaker coverage still needs a
 working authorized odds route; installing an open-source client does not supply
 an API subscription or odds. Existing production producers remain intact.
+
+## Coverage conflict quarantine — 2026-10-05 continuation
+
+Confirmed remote PR44 head `80bcf45e451102013801c11665399d7bf7211eba`
+passed full CI run `37263246675`, including rendered desktop/mobile checks.
+Local equivalent commit is `450f25b`; their trees are identical. No new database
+changes, deployment or provider coverage occurred since that revision.
+
+Fixed a remaining coverage-report defect: duplicate selection rows previously
+collapsed into a Set even when their prices contradicted each other. Such a
+board could pass the migration gate. Conflicting current prices now quarantine
+the canonical fixture's HDA coverage; identical repeated rows still count once.
+Coverage also rejects one canonical ID with conflicting provider event/team/
+competition/kickoff identity, or one provider event mapped to multiple canonical
+IDs. Conflict IDs are reported explicitly; they cannot produce a passing gate,
+even when another clean board appears in the same bundle.
+
+Regression tests reproduce price conflicts, identical duplicates, reversed team
+orientation, different event IDs/kickoffs and reused provider events. Authority,
+OpenFootball and market contracts passed. This is deterministic safety validation,
+not authenticated replacement odds validation. The September 22 OpenFootball
+revision and its coverage limitations remain unchanged; provider credentials,
+verified canonical bindings and quote storage/consumer cutover remain blocked.
+Next useful independent task: a reviewed provider-neutral allocation contract;
+do not allocate records from date-only community schedules.
