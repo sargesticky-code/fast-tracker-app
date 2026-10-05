@@ -105,18 +105,27 @@ function playerFlags(row) {
 }
 
 function playerRole(row) {
-  const raw = String(row?.role || row?.raw?.flash_record?.LS || "").trim();
+  const raw = String(
+    row?.canonical_position
+      || row?.position
+      || row?.role
+      || row?.raw?.flash_record?.LS
+      || ""
+  ).trim();
   if (!raw) return null;
-  if (/goalkeeper/i.test(raw) || raw === "GK") return "GK";
-  if (/def/i.test(raw) || raw === "DEF") return "DEF";
-  if (/mid/i.test(raw) || raw === "MID") return "MID";
-  if (/att|forward|striker/i.test(raw) || raw === "ATT") return "ATT";
+  const upper = raw.toUpperCase();
+  if (/goalkeeper/i.test(raw) || upper === "GK" || upper === "G") return "GK";
+  if (/def/i.test(raw) || upper === "DEF" || upper === "D") return "DEF";
+  if (/mid/i.test(raw) || upper === "MID" || upper === "M") return "MID";
+  if (/att|forward|striker/i.test(raw) || upper === "ATT" || upper === "F") return "ATT";
   if (/captain/i.test(raw)) return null;
-  return raw.toUpperCase();
+  return upper;
 }
 
 function playerCountry(row) {
-  return row?.country
+  return row?.canonical_nationality
+    || row?.nationality
+    || row?.country
     || row?.country_name
     || row?.raw?.country
     || row?.raw?.country_name
@@ -669,7 +678,7 @@ export default function LineupPanel() {
             <div style={{marginTop:10,padding:12,border:"1px solid "+palette.line,borderRadius:13,background:"#fff"}}>
               <b style={{display:"block",fontSize:12,color:palette.ink}}>Data provenance</b>
               <p style={{margin:"6px 0 0",fontSize:10,lineHeight:1.55,color:palette.muted}}>
-                HKJC fixture identity is the master key. External lineup evidence is matched through the one-for-all alias layer, stored in Supabase, then canonicalized so confirmed XI outranks predicted XI.
+                Canonical fixture identity is resolved independently from the public source label. External lineup evidence is matched through the identity layer, stored in Supabase, and canonicalized so confirmed XI always outranks predicted XI.
               </p>
               {view.sourceUrl ? <a href={view.sourceUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,fontWeight:900,color:"#1976d2"}}>Open source evidence ↗</a> : null}
             </div>
