@@ -11,8 +11,8 @@ Deno.serve((req: Request) => {
   return Response.json({
     error: "source_retired",
     source: "hkjc-live-direct",
-    replacement: "BET365_BROWSER",
-    message: "HKJC authority collection was retired on 2026-10-05. Use the Bet365 browser-feed pipeline.",
+    replacement: "FLASHSCORE_BET365",
+    message: "HKJC authority collection was retired on 2026-10-05. Use the cloud Flashscore/Bet365 pipeline.",
   }, {
     status: 410,
     headers: { ...cors, "Cache-Control": "no-store" },
