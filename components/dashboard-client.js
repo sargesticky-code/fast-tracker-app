@@ -52,7 +52,7 @@ function hasHardCoverageAlert(match) {
   if (status === "IDENTITY_BLOCK") return true;
 
   if (coverage === 0) {
-    return ["PIPELINE_COVERAGE_GAP", "SOURCE_COVERAGE_GAP", "BET365_BROWSER", ""].includes(status);
+    return ["PIPELINE_COVERAGE_GAP", "SOURCE_COVERAGE_GAP", "FLASHSCORE_BET365", ""].includes(status);
   }
 
   return false;
@@ -822,7 +822,7 @@ function mergeLivePayload(feed, payload) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "FRESH", unifiedCoverageStatus: "BET365_BROWSER" },
+      health: { hkjcFreshness: "FRESH", unifiedCoverageStatus: "FLASHSCORE_BET365" },
     });
   }
 
@@ -1320,7 +1320,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const dataAlerts = prematchAll.filter((m) => hasActionableDataAlert(m, clockMs)).length;
   const booting = currentFeed.source === "boot-empty";
   const isLive = currentFeed.source === "supabase-canonical-live";
-  const liveOddsAge = heartbeatAgeMinutes(currentFeed, "BET365_BROWSER", clockMs);
+  const liveOddsAge = heartbeatAgeMinutes(currentFeed, "FLASHSCORE_BET365", clockMs);
   const liveScoreAge = heartbeatAgeMinutes(currentFeed, "LIVE_SCORE_EDGE", clockMs);
   const liveAge = Math.max(liveOddsAge, liveScoreAge);
   const frontendGuardAge = heartbeatAgeMinutes(currentFeed, "FRONTEND_ROUTE_GUARD", clockMs);
@@ -1330,7 +1330,7 @@ export default function DashboardClient({ feed, nowMs }) {
   const nativeLiveShadow = currentFeed?.systemHealth?.LIVE_SOURCE_SHADOW;
   const liveShadowCompare = currentFeed?.systemHealth?.LIVE_SHADOW_COMPARE;
   const pipelineWarnings = booting ? [] : [
-    heartbeatAgeMinutes(currentFeed, "BET365_BROWSER", clockMs) > 30 ? "Bet365 feed" : null,
+    heartbeatAgeMinutes(currentFeed, "FLASHSCORE_BET365", clockMs) > 30 ? "Bet365 cloud feed" : null,
     liveOddsAge > 3 ? "Live odds" : null,
     liveScoreAge > 3 ? "Live score" : null,
     liveLayerGuard?.status === "FAIL" ? "Live core" : null,
