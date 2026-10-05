@@ -1158,3 +1158,26 @@ test('cached lineup after refresh failure exposes unknown freshness', async ({pa
   await tool.locator(':scope > summary').click();
   await expect(tool.getByText('Showing the last captured lineup; refresh unavailable, freshness unknown.',{exact:true})).toBeVisible({timeout:15000});
 });
+
+for (const width of [1280,390]) {
+  test(`previous starting XI is context rather than a match prediction on ${width}px`, async ({page}) => {
+    await page.setViewportSize({width,height:844});
+    await mockApis(page);
+    await page.route('**/functions/v1/app-match-detail?**', route => {
+      const payload=authoritativePredictionPayload();
+      payload.humanFactors.lineup=payload.humanFactors.lineup.map(row=>({...row,raw:{lineupType:'lastStarting11'}}));
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+    });
+    await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+    await expect(page.locator('.lineup-signal')).toContainText('Previous XI reference · awaiting match lineup');
+    await expect(page.locator('#analysis .ft-article-safety-strip')).toContainText('Previous XI reference · awaiting match lineup');
+    const tool=page.locator('details.lineup-tool-disclosure');
+    await expect(tool.locator(':scope > summary')).toContainText('PREVIOUS XI REFERENCE');
+    await tool.locator(':scope > summary').click();
+    await expect(tool.locator('.lineup-prediction-notice')).toContainText('The match-specific lineup is unavailable');
+    await expect(tool.getByText('Prediction H 1',{exact:true})).toBeVisible();
+    await expect(tool.locator('.lineup-strength-grid')).toContainText('previous XI reference');
+    await expect(tool.locator('.lineup-prediction-notice')).not.toContainText('source-reported predictions');
+    await page.screenshot({path:`test-results/dashboard-phase2-reference-${width}.png`,fullPage:true});
+  });
+}

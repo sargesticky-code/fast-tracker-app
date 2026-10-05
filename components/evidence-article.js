@@ -1,5 +1,6 @@
 "use client";
 
+import { lineupReferenceSummary } from "@/lib/lineup-display-contract";
 import { normalizeMarketQuote, PROVIDERS } from "@/lib/market-provider-contract";
 
 function n(value) {
@@ -106,7 +107,8 @@ function lineupState(deep) {
   if (rows.length) {
     if (sourceConfirmedUnresolved > 0) return ["PARTIAL", "Source-confirmed lineup rows · player identity unresolved"];
     if (resolvedConfirmed > 0 && provisional === 0) return ["PARTIAL", "Official source · starting XI incomplete"];
-    return ["PREDICTED", "Predicted / provisional lineup"];
+    const reference = lineupReferenceSummary(rows);
+    return reference.kind === "PREDICTED" ? ["PREDICTED", "Predicted / provisional lineup"] : [reference.kind, reference.label];
   }
   if (eventMap) return ["PENDING", "Lineup pending"];
   return ["UNKNOWN", "Lineup evidence unavailable"];

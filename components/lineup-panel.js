@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import { Pitch } from "@withqwerty/campos-stadia";
-import { lineupDisplayRows, completeConfirmedLineup, lineupNumber, lineupStrengthSummary } from "@/lib/lineup-display-contract";
+import { lineupDisplayRows, completeConfirmedLineup, lineupNumber, lineupStrengthSummary, lineupReferenceSummary } from "@/lib/lineup-display-contract";
 
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 
@@ -310,7 +310,7 @@ function TeamPitch({ teamName, rows, accent, status }) {
       <div style={{padding:"7px 12px",display:"flex",gap:8,flexWrap:"wrap",borderTop:"1px solid #183b2d",background:"#102f22"}}>
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>🧤 GK</small>
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>C Captain</small>
-        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>{predicted ? "● yellow = predicted" : "✓ confirmed XI"}</small>
+        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>{predicted ? (lineupReferenceSummary(rows).kind === "REFERENCE" ? "● yellow = previous XI reference" : "● yellow = provisional") : "✓ confirmed XI"}</small>
       </div>
       <div style={{padding:"10px 12px"}}>
         <div className="lineup-player-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
@@ -431,7 +431,7 @@ function StrengthSummary({ team, summary }) {
       <strong style={{display:"block",marginTop:5,fontSize:12,color:palette.ink}}>Lineup strength: unavailable</strong>
       <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted,lineHeight:1.5}}>{summary.reason}</small>
       <span style={{display:"block",marginTop:6,fontSize:10,fontWeight:800,color:palette.muted}}>
-        {summary.reportedStarters === null ? "Reported XI: unknown" : `Reported XI: ${summary.reportedStarters}/11 · ${summary.predicted ? "predicted" : "source-confirmed"}`}
+        {summary.reportedStarters === null ? "Reported XI: unknown" : `Reported XI: ${summary.reportedStarters}/11 · ${summary.previousXI ? "previous XI reference" : summary.predicted ? "predicted" : "source-confirmed"}`}
       </span>
     </div>
   );
@@ -532,7 +532,8 @@ export default function LineupPanel() {
 
   if (!id) return null;
 
-  const tone = statusTone(view.status);
+  const reference = lineupReferenceSummary(view.predictedRows);
+  const tone = { ...statusTone(view.status), ...(view.predictedRows.length && reference.badge ? {text:reference.badge} : {}) };
   const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
   const lineupPending = view.sourceRows.length === 0;
   const countsUnknown = identityBlocked || lineupPending;
@@ -607,8 +608,7 @@ export default function LineupPanel() {
 
         {view.predictedRows.length > 0 ? (
           <div className="lineup-prediction-notice" style={{padding:"10px 14px",background:"#fff8dc",fontSize:11,color:"#845b0a"}}>
-            Predicted lineup · awaiting official confirmation.
-            {view.unresolvedPredictedRows.length > 0 ? " Player identities remain unresolved; these names are source-reported predictions." : ""}
+            {reference.notice}
           </div>
         ) : null}
         {error && payload ? <div role="status" style={{padding:"10px 14px",background:"#fff8dc",fontSize:11,color:"#845b0a"}}>Showing the last captured lineup; refresh unavailable, freshness unknown.</div> : null}

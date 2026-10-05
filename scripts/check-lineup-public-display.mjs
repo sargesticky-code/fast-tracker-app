@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const code=fs.readFileSync('lib/lineup-display-contract.js','utf8');
-const {lineupDisplayRows, completeConfirmedLineup, lineupNumber, lineupStrengthSummary} = await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const {lineupDisplayRows, completeConfirmedLineup, lineupNumber, lineupStrengthSummary, lineupReferenceSummary} = await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const payload={id:'TEST',fixture:{hkjc_event_id:'TEST'},fixtureSource:'UPCOMING',humanFactors:{lineupAuthority:{source:'phase2_lineup_display_current',rawFallback:false,status:'AVAILABLE'}}};
 const prediction=(side,i,fields={})=>({hkjc_event_id:'TEST',team_side:side,player_key:`EXTERNAL-${side}-${i}`,player_name:`Prediction ${side} ${i}`,starter:true,confirmed:false,display_eligible:true,fact_status:'UNCONFIRMED',identity_status:'UNRESOLVED',...fields});
 const rows=['H','A'].flatMap(side=>Array.from({length:11},(_,i)=>prediction(side,i)));
@@ -26,8 +26,14 @@ assert.equal(lineupStrengthSummary(rows,'H').strengthPct,null,'eleven names are 
 assert.equal(lineupStrengthSummary([],'H').reportedStarters,null,'no coverage is unknown, not zero');
 const component=fs.readFileSync('components/lineup-panel.js','utf8');
 assert.ok(!component.includes('Number(data?.lineup_strength_pct)'));
-assert.ok(component.includes('Predicted lineup · awaiting official confirmation.'));
+assert.ok(code.includes('Predicted lineup · awaiting official confirmation.'));
 assert.ok(component.includes('Showing the last captured lineup; refresh unavailable, freshness unknown.'));
 assert.ok(component.includes('sourceTimestamp(rows, "source_updated_at")'));
 assert.ok(component.includes('sourceTimestamp(rows, "fetched_at")'));
 console.log('Public lineup tests passed: authoritative predictions, official precedence, exact fixture, conflict/duplicate rejection, unknown strength and separate timestamps.');
+
+const history=rows.map(row=>({...row,raw:{lineupType:'lastStarting11'}}));
+assert.equal(lineupReferenceSummary(history).kind,'REFERENCE');
+assert.equal(lineupReferenceSummary([...history,rows[0]]).kind,'MIXED');
+assert.equal(lineupReferenceSummary(rows).kind,'PREDICTED');
+assert.equal(lineupReferenceSummary(history.map(row=>({...row,confirmed:true}))).kind,'PREDICTED');

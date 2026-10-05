@@ -28,7 +28,8 @@ console.log('Lineup authority passed: current display eligibility, fixture isola
 
 const article = fs.readFileSync('components/evidence-article.js','utf8');
 const articleFunction = article.slice(article.indexOf('function lineupState(deep)'), article.indexOf('function sampleRows(deep)'));
-const articleState = new Function(articleFunction + '; return lineupState;')();
+const {lineupReferenceSummary} = await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync('lib/lineup-display-contract.js','utf8')).toString('base64'));
+const articleState = new Function('lineupReferenceSummary', articleFunction + '; return lineupState;')(lineupReferenceSummary);
 const deep = (rows, authority) => ({humanFactors:{lineup:rows,lineupAuthority:authority,eventMap:{lineup_confirmed_at:'2026-01-01'}}});
 assert.equal(articleState(deep(xi))[0], 'CONFIRMED');
 assert.equal(articleState(deep(xi.slice(1)))[0], 'PARTIAL');
@@ -36,3 +37,7 @@ assert.equal(articleState(deep(xi,{confirmed:false}))[0], 'PARTIAL');
 assert.notEqual(articleState(deep(xi.slice(1),{confirmed:true}))[0], 'CONFIRMED');
 assert.equal(articleState({humanFactors:{lineup:xi,eventMap:null}})[0], 'CONFIRMED');
 console.log('Actual article confirmation function passed: full/partial XI, authoritative rejection and timestamp independence.');
+
+const previous=xi.map(row=>({...row,confirmed:false,fact_status:'UNCONFIRMED',raw:{lineupType:'lastStarting11'}}));
+assert.equal(articleState(deep(previous,{confirmed:false}))[0],'REFERENCE');
+assert.equal(articleState(deep([...previous,{...previous[0],raw:{lineupType:'predicted'}}],{confirmed:false}))[0],'MIXED');

@@ -5,7 +5,7 @@ import ModelEdgeChart from "@/components/model-edge-chart";
 import ModelScoreboard from "@/components/model-scoreboard";
 import EvidenceArticle from "@/components/evidence-article";
 import { singleFlightFetch } from "@/lib/single-flight-fetch";
-import { lineupDisplayRows } from "@/lib/lineup-display-contract";
+import { lineupDisplayRows, lineupReferenceSummary } from "@/lib/lineup-display-contract";
 import {
   divergence,
   fairMarket,
@@ -1033,6 +1033,7 @@ export default function MatchDetailClient() {
   const playerStatusEvidence = Array.isArray(deep?.humanFactors?.playerStatus) ? deep.humanFactors.playerStatus : [];
   const lineupEvidence = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
   const reportedPrediction = lineupDisplayRows(lineupEvidence, deep, match.id).filter((row) => row.confirmed === false && row.starter === true);
+  const lineupReference = lineupReferenceSummary(reportedPrediction);
   const predictedHome = reportedPrediction.filter((row) => normalizedSide(row.team_side) === "H").length;
   const predictedAway = reportedPrediction.filter((row) => normalizedSide(row.team_side) === "A").length;
   const managerEvidence = Array.isArray(deep?.humanFactors?.managers) ? deep.humanFactors.managers : [];
@@ -1043,7 +1044,7 @@ export default function MatchDetailClient() {
   const unresolvedLineupIdentity = lineupEvidence.filter((r) => r.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
   const homeStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "H" && r.starter).map((r) => r.player_name).filter(Boolean);
   const awayStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "A" && r.starter).map((r) => r.player_name).filter(Boolean);
-  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : reportedPrediction.length ? "Predicted lineup" : "NO DATA");
+  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : reportedPrediction.length ? (lineupReference.kind === "REFERENCE" ? "Previous XI reference" : lineupReference.kind === "MIXED" ? "Mixed XI evidence" : "Predicted lineup") : "NO DATA");
   const injuriesHome = confirmedPlayerStatusEvidence.length
     ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "H").length
     : null;
@@ -2343,15 +2344,15 @@ export default function MatchDetailClient() {
           </div>
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
-            <span>{lineupState === "PREDICTED" ? "Predicted XI" : "Official XI"}</span>
-            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PARTIAL" ? "Official source · starting XI incomplete" : lineupState === "PREDICTED" ? "Predicted XI · awaiting confirmation" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
-            <small>{lineupState === "PREDICTED" ? `${predictedHome || "—"}/11 home · ${predictedAway || "—"}/11 away · source-reported prediction` : lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved` : "No confirmed lineup rows"}</small>
+            <span>{lineupState === "PREDICTED" ? (lineupReference.kind === "REFERENCE" ? "Previous XI" : lineupReference.kind === "MIXED" ? "Provisional XI" : "Predicted XI") : "Official XI"}</span>
+            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PARTIAL" ? "Official source · starting XI incomplete" : lineupState === "PREDICTED" ? lineupReference.label : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
+            <small>{lineupState === "PREDICTED" ? `${predictedHome || "—"}/11 home · ${predictedAway || "—"}/11 away · ${lineupReference.kind === "REFERENCE" ? "previous match reference" : "provisional source evidence"}` : lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved` : "No confirmed lineup rows"}</small>
           </div>
 
           <div className="human-signal-card">
             <span>Evidence quality</span>
             <strong>{humanQuality}</strong>
-            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : reportedPrediction.length ? "Prediction mapped to this fixture" : "fixture not matched"}</small>
+            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : reportedPrediction.length ? (lineupReference.kind === "REFERENCE" ? "Previous XI linked as context for this fixture" : "Provisional evidence mapped to this fixture") : "fixture not matched"}</small>
           </div>
         </div>
 
@@ -2379,7 +2380,7 @@ export default function MatchDetailClient() {
             </div>
           </details>
         ) : (
-          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source is confirmed, but player identity reconciliation is incomplete; these rows are not treated as confirmed player facts." : reportedPrediction.length ? "The source-reported prediction is available in the full lineup tool. Official confirmation and player identity reconciliation remain pending." : "Official lineup is not yet available; only identity-resolved confirmed evidence is shown, and projected XI rows are never presented as confirmed starters."}</div>
+          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source is confirmed, but player identity reconciliation is incomplete; these rows are not treated as confirmed player facts." : reportedPrediction.length ? `${lineupReference.label}. The full lineup tool shows source-reported names and identity coverage.` : "Official lineup is not yet available; only identity-resolved confirmed evidence is shown, and projected XI rows are never presented as confirmed starters."}</div>
         )}
 
         {(managerEvidence.length || playerStatusEvidence.length) ? (
