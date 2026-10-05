@@ -54,6 +54,9 @@ jobs:
       - name: Check Bet365 browser-feed fail-closed contract
         run: npm run check:bet365-browser
 
+      - name: Check Bet365 browser collector syntax
+        run: npm run check:bet365-collector
+
       - name: Check provider and bookmaker contract
         run: npm run check:market-contract
 
