@@ -357,28 +357,40 @@ Deno.serve(async (_req:Request)=>{
     const from=new Date(now.getTime()-15*60000).toISOString();
     const to=new Date(now.getTime()+90*60000).toISOString();
 
-    const [{data:liveRows,error:liveErr},{data:upRows,error:upErr}]=await Promise.all([
-      db.from("hkjc_live_odds_current")
-        .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status,pool_status,fetched_at")
-        .eq("pool_status","SELLINGSTARTED")
-        .gte("fetched_at",liveCutoff),
-      db.from("hkjc_upcoming_current")
-        .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status,selling,fetched_at")
-        .eq("selling",true)
-        .gte("kickoff_hkt",from)
+    const canonicalFrom=new Date(now.getTime()-4*60*60000).toISOString();
+    const [{data:liveRows,error:liveErr},{data:canonicalRows,error:canonicalErr}]=await Promise.all([
+      db.from("live_score_current")
+        .select("hkjc_event_id,match_status,updated_at_source,source_updated_at,source,source_match_id,match_confidence")
+        .gte("updated_at_source",liveCutoff),
+      db.from("matches")
+        .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status")
+        .gte("kickoff_hkt",canonicalFrom)
         .lte("kickoff_hkt",to)
     ]);
     if(liveErr) throw liveErr;
-    if(upErr) throw upErr;
+    if(canonicalErr) throw canonicalErr;
+
+    const liveById=new Map<string,any>();
+    for(const r of liveRows||[]){
+      const id=String(r?.hkjc_event_id||"");
+      if(!id||isTerminal(r?.match_status)) continue;
+      liveById.set(id,r);
+    }
 
     const targets=new Map<string,any>();
-    for(const r of upRows||[]){
-      if(!r.hkjc_event_id||isTerminal(r.status)) continue;
-      targets.set(String(r.hkjc_event_id),{...r,target_state:"PREWARM"});
-    }
-    for(const r of liveRows||[]){
-      if(!r.hkjc_event_id||isTerminal(r.status)) continue;
-      targets.set(String(r.hkjc_event_id),{...r,target_state:"LIVE"});
+    for(const r of canonicalRows||[]){
+      const id=String(r?.hkjc_event_id||"");
+      if(!id||isTerminal(r?.status)) continue;
+      const liveRow=liveById.get(id);
+      if(liveRow){
+        targets.set(id,{...r,status:liveRow.match_status??r.status,target_state:"LIVE",
+          live_score_source:liveRow.source??null,live_score_updated_at:liveRow.updated_at_source??liveRow.source_updated_at??null});
+        continue;
+      }
+      const ko=Date.parse(String(r?.kickoff_hkt||""));
+      if(Number.isFinite(ko)&&ko>=Date.parse(from)){
+        targets.set(id,{...r,target_state:"PREWARM"});
+      }
     }
 
     const canonicalNames=[...new Set([...targets.values()].flatMap((t:any)=>[txt(t.home_en),txt(t.away_en)]).filter(Boolean))];
