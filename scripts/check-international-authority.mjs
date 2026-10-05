@@ -175,3 +175,19 @@ const quarantinedCoverage = compareAuthorityCoverage(baseline, { ...coverageBund
   rejected: [{ canonicalMatchId: binding.canonicalMatchId, market: 'HDA', reason: 'CROSS_PAGE_CONFLICTING_OBSERVATION' }] }, reportOptions);
 assert.equal(quarantinedCoverage.readiness, 'BLOCKED');
 assert.equal(quarantinedCoverage.freshHdaFixtures, 0);
+
+const { proposeAuthorityBindings } = await import('../lib/authority-binding-proposals.js');
+const bindingEntities = { competitions: [{ providerKey: fixture.providerKey, providerCompetitionId: fixture.providerCompetitionId, canonicalCompetitionId: 'competition', verified: true }],
+  teams: [fixture.homeTeamId, fixture.awayTeamId].map((id, i) => ({ providerKey: fixture.providerKey, providerCompetitionId: fixture.providerCompetitionId, providerTeamId: id, canonicalTeamId: i ? 'away' : 'home', verified: true })) };
+const canonicalRows = [{ canonicalMatchId: 'existing-fixture', canonicalCompetitionId: 'competition', homeTeamId: 'home', awayTeamId: 'away', kickoff: fixture.kickoff }];
+const proposal = proposeAuthorityBindings([fixture], canonicalRows, bindingEntities);
+assert.equal(proposal.proposals.length, 1);
+assert.equal(proposal.proposals[0].verified, false);
+assert.equal(resolveFixture(fixture, proposal.proposals).status, 'UNRESOLVED');
+assert.equal(proposeAuthorityBindings([fixture], [], bindingEntities).unresolved[0].reason, 'NO_CANONICAL_FIXTURE');
+assert.equal(proposeAuthorityBindings([fixture], [...canonicalRows, { ...canonicalRows[0], canonicalMatchId: 'another' }], bindingEntities).proposals.length, 0);
+assert.equal(proposeAuthorityBindings([{ ...fixture, homeTeamId: fixture.awayTeamId, awayTeamId: fixture.homeTeamId }], canonicalRows, bindingEntities).proposals.length, 0);
+assert.equal(proposeAuthorityBindings([fixture], canonicalRows, { ...bindingEntities, teams: [] }).proposals.length, 0);
+assert.equal(proposeAuthorityBindings([fixture, { ...fixture, providerEventId: 'second-event' }], canonicalRows, bindingEntities).proposals.length, 0);
+assert.equal(proposeAuthorityBindings([fixture, fixture], canonicalRows, bindingEntities).proposals.length, 1);
+console.log('Review-only canonical binding proposals passed');

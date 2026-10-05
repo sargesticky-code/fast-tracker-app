@@ -288,3 +288,33 @@ Authority and market contracts pass; no real new-provider prices are claimed.
 Current provider access, verified bindings and storage/consumer cutover remain
 external dependencies. This improves correctness of the newly paginated path;
 existing production producers, schedules and schemas remain unchanged.
+
+## Canonical binding proposal bridge — 2026-10-05 continuation
+
+Prior head `f01bf3efce04910dc72cfd929d183f8df4e5cb9c` passed full CI run
+`37272731856`. No new database writes, provider data or deployment occurred.
+
+Added `lib/authority-binding-proposals.js` and the local review CLI
+`scripts/propose-authority-bindings.mjs`. This creates candidate bindings into
+**existing** canonical IDs from replacement fixtures, explicit verified
+competition mappings and provider/competition-scoped oriented team mappings.
+Kickoff agreement defaults to 60 seconds (maximum allowed 300). No fuzzy name
+matching, ID allocation, verified promotion or database write occurs. Multiple
+canonical candidates or competing provider events remain unresolved. Repeated
+identical proposals collapse. Proposals carry `verified: false`, so the current
+collector's resolver cannot consume them as authoritative bindings before review.
+
+Usage: `node scripts/propose-authority-bindings.mjs input.json output.json`.
+Input keys: fixtures (adapter output), canonicalFixtures (existing normalized
+canonicalMatchId/canonicalCompetitionId/homeTeamId/awayTeamId/kickoff records),
+mappings ({competitions, teams, optional toleranceSeconds}). Competition rows
+require providerKey/providerCompetitionId/canonicalCompetitionId/verified; team
+rows require providerKey/providerCompetitionId/providerTeamId/canonicalTeamId/
+verified. Output is private review evidence, written exclusively without overwrite.
+Do not manufacture mappings from similar team names or from date-only schedules.
+
+Tests verify unique proposals, no automatic verification, reversed orientation,
+missing mappings, missing canonical matches, ambiguous canonical matches,
+competing provider events and identical duplicate collapse. Provider credentials
+and reviewed real mappings remain required for genuine coverage validation.
+This bridge removes manual record assembly work without weakening identity.
