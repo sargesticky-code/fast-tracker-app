@@ -216,3 +216,18 @@ assert.equal(oddsApiQuotes([{ ...event, home_team: uniqueAlias.alias }], { ...op
 assert.equal(oddsApiQuotes([{ ...event, home_team: '' }], options).quotes.length, 0);
 assert.equal(sportmonksPremiumQuotes({ data: [smOdd] }, { ...smOptions, fixtures: [{ ...smBinding, verified: false }] }).quotes.length, 0);
 console.log('Verified fixture and conflicting alias admission checks passed');
+
+// Legitimate per-selection update times are not a mixed-fetch board.
+const oneBoard = coverageBundle.quotes.filter(q => q.market === 'HDA' && q.bookmakerKey === 'pinnacle');
+assert.equal(oneBoard.length, 3);
+const staggered = oneBoard.map((q, i) => ({ ...q, observedAt: new Date(policy.now - i * 10000).toISOString() }));
+assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtures, quotes: staggered }, reportOptions).readiness, 'SHADOW_COVERAGE_PASSED');
+assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtures,
+  quotes: staggered.map((q, i) => i === 2 ? { ...q, observedAt: new Date(policy.now - 301000).toISOString() } : q) }, reportOptions).readiness, 'BLOCKED');
+assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtures,
+  quotes: staggered.map((q, i) => i === 2 ? { ...q, fetchedAt: new Date(policy.now - 2000).toISOString() } : q) }, reportOptions).readiness, 'BLOCKED');
+assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtures,
+  quotes: staggered.map((q, i) => i === 2 ? { ...q, providerKey: 'OTHER_TRANSPORT' } : q) }, reportOptions).readiness, 'BLOCKED');
+const olderPrice = { ...staggered[0], observedAt: new Date(policy.now - 20000).toISOString(), decimalPrice: 2.9 };
+assert.equal(compareAuthorityCoverage(baseline, { fixtures: coverageBundle.fixtures, quotes: [olderPrice, ...staggered] }, reportOptions).readiness, 'SHADOW_COVERAGE_PASSED');
+console.log('Individually fresh single-fetch HDA boards passed');

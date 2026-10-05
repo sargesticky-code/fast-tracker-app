@@ -358,3 +358,23 @@ verified collector fixtures, legitimate reviewed aliases, conflicting aliases,
 blank names and Sportmonks rejection. Tests use synthetic observations, not real
 coverage. Credential access and genuine provider mappings remain blocked;
 production infrastructure and database schemas are unchanged.
+
+## Per-selection HDA freshness — 2026-10-05 continuation
+
+Prior head `8cf05a808dfdfcfdb25548ccbd56fa154e5bb9da` passed full CI
+run `37278138679`. No new real provider coverage or database/deployment changes.
+
+Corrected a coverage false negative for feeds with individual selection update
+times. Complete HDA coverage now requires one canonical fixture, transport,
+bookmaker and normalized fetch timestamp; each H/D/A selection independently
+passes observedAt and fetchedAt freshness checks. Identical bookmaker update
+times across all three selections are no longer required. This fits the
+Sportmonks per-odd timestamp contract already documented in this checkpoint.
+Latest observed selection values are retained within a fetch; equal-time price
+contradictions still poison the board. Cross-page conflict rejections continue
+to block coverage. Different fetches/transports cannot be stitched into a board.
+
+Regression checks cover staggered fresh selection updates, one stale selection,
+mixed fetches, mixed transports and legitimate older-to-newer price changes.
+These are synthetic verification cases. Credentials/entitlement and verified
+real mappings still block actual replacement coverage, storage and cutover.
