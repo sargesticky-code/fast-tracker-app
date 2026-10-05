@@ -1182,3 +1182,26 @@ for (const width of [1280,390]) {
     await page.screenshot({path:`test-results/dashboard-phase2-reference-${width}.png`,fullPage:true});
   });
 }
+
+for (const width of [1280,390]) {
+ test(`unclassified source XI is not a prediction on ${width}px`, async ({page}) => {
+  await page.setViewportSize({width,height:844});
+  await mockApis(page);
+  await page.route('**/functions/v1/app-match-detail?**', route => {
+   const payload=authoritativePredictionPayload();
+   payload.humanFactors.lineup=payload.humanFactors.lineup.map(row=>({...row,raw:{lineupType:'standard'},confidence:.82}));
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+  });
+  await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+  await expect(page.locator('.lineup-signal')).toContainText('Source-reported XI · confirmation unavailable');
+  await expect(page.locator('#analysis .ft-article-safety-strip')).toContainText('Source-reported XI · confirmation unavailable');
+  const tool=page.locator('details.lineup-tool-disclosure');
+  await expect(tool.locator(':scope > summary')).toContainText('UNCONFIRMED SOURCE XI');
+  await tool.locator(':scope > summary').click();
+  await expect(tool.locator('.lineup-prediction-notice')).toContainText('does not establish a match prediction or official confirmation');
+  await expect(tool.getByText('source type unverified',{exact:true})).toBeVisible();
+  await expect(tool.locator('.lineup-strength-grid')).toContainText('unconfirmed source XI');
+  await expect(tool.getByText('Prediction H 1',{exact:true})).toBeVisible();
+  await page.screenshot({path:`test-results/dashboard-phase2-unverified-${width}.png`,fullPage:true});
+ });
+}

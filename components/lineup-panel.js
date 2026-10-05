@@ -431,7 +431,7 @@ function StrengthSummary({ team, summary }) {
       <strong style={{display:"block",marginTop:5,fontSize:12,color:palette.ink}}>Lineup strength: unavailable</strong>
       <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted,lineHeight:1.5}}>{summary.reason}</small>
       <span style={{display:"block",marginTop:6,fontSize:10,fontWeight:800,color:palette.muted}}>
-        {summary.reportedStarters === null ? "Reported XI: unknown" : `Reported XI: ${summary.reportedStarters}/11 · ${summary.previousXI ? "previous XI reference" : summary.predicted ? "predicted" : "source-confirmed"}`}
+        {summary.reportedStarters === null ? "Reported XI: unknown" : `Reported XI: ${summary.reportedStarters}/11 · ${summary.unverifiedXI ? "unconfirmed source XI" : summary.previousXI ? "previous XI reference" : summary.predicted ? "predicted" : "source-confirmed"}`}
       </span>
     </div>
   );
@@ -496,7 +496,7 @@ export default function LineupPanel() {
           : homeStarters.length === 11 && awayStarters.length === 11 && predictedRows.length
             ? "PREDICTED_FULL"
             : predictedRows.length ? "PREDICTED_PARTIAL" : rows.length ? "PARTIAL" : "MISSING";
-    const confidence = avgConfidence(rows);
+    const confidence = lineupReferenceSummary(predictedRows).kind === "UNVERIFIED" ? null : avgConfidence(rows);
     const source = meta?.source || sourceRows[0]?.source_name || null;
     const sourceUrl = sourceRows.find((r) => r?.source_url)?.source_url || null;
     const evidenceSources = meta?.evidenceSources || [...new Set(sourceRows.map((r) => r?.source_name).filter(Boolean))];
@@ -588,7 +588,7 @@ export default function LineupPanel() {
                 value={awayCount.replace(" reported", "")}
                 detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedAway ? `${view.unresolvedAway} source-confirmed row(s) await identity` : (view.awayFormation || "formation pending")}
               />
-              <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : reference.kind === "REFERENCE" ? "previous XI evidence" : reference.kind === "MIXED" ? "mixed XI evidence" : "prediction evidence"} />
+              <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : reference.kind === "REFERENCE" ? "previous XI evidence" : reference.kind === "MIXED" ? "mixed XI evidence" : reference.kind === "UNVERIFIED" ? "source type unverified" : "prediction evidence"} />
             </div>
           </div>
 
@@ -671,7 +671,7 @@ export default function LineupPanel() {
             <div style={{marginTop:10,padding:12,border:"1px solid "+palette.line,borderRadius:13,background:"#fff"}}>
               <b style={{display:"block",fontSize:12,color:palette.ink}}>Data provenance</b>
               <p style={{margin:"6px 0 0",fontSize:10,lineHeight:1.55,color:palette.muted}}>
-                Lineups are matched to the canonical fixture and selected by source authority. Predicted names remain provisional; source confirmation and resolved player identities are required for a confirmed XI.
+                Lineups are matched to the canonical fixture and selected by source authority. Source-reported names remain provisional; source confirmation and resolved player identities are required for a confirmed XI.
               </p>
               {view.sourceUrl ? <a href={view.sourceUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,fontWeight:900,color:"#1976d2"}}>Open source evidence ↗</a> : null}
             </div>
@@ -680,7 +680,7 @@ export default function LineupPanel() {
 
         <div style={{padding:"10px 14px",borderTop:"1px solid "+palette.line,background:"#fff",display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
           <small style={{fontSize:9.5,color:palette.muted}}>Match {id} · refresh 60s · lineup evidence</small>
-          <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? (view.status === "CONFIRMED" ? "Confirmed 11v11 available" : "Complete reported prediction · unconfirmed") : "Waiting for complete 11v11"}</small>
+          <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? (view.status === "CONFIRMED" ? "Confirmed 11v11 available" : "Complete reported XI · unconfirmed") : "Waiting for complete 11v11"}</small>
         </div>
       </div>
       </details>

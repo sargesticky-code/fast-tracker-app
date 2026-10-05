@@ -37,3 +37,10 @@ assert.equal(lineupReferenceSummary(history).kind,'REFERENCE');
 assert.equal(lineupReferenceSummary([...history,rows[0]]).kind,'MIXED');
 assert.equal(lineupReferenceSummary(rows).kind,'PREDICTED');
 assert.equal(lineupReferenceSummary(history.map(row=>({...row,confirmed:true}))).kind,'PREDICTED');
+
+const unknown=rows.map(row=>({...row,raw:{lineupType:'standard'},confidence:.82}));
+assert.equal(lineupReferenceSummary(unknown).kind,'UNVERIFIED');
+assert.equal(lineupReferenceSummary([...unknown,history[0],rows[0]]).kind,'UNVERIFIED','mixed unknown evidence must not imply everything is predicted');
+assert.equal(lineupStrengthSummary(unknown,'H').unverifiedXI,true);
+assert.equal(lineupReferenceSummary(rows.map(row=>({...row,raw:{classification:'UNCONFIRMED',lineupType:null}}))).kind,'UNVERIFIED');
+assert.equal(lineupReferenceSummary(unknown.map(row=>({...row,confirmed:true}))).kind,'PREDICTED','official rows are outside provisional classification');

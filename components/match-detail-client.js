@@ -1044,7 +1044,7 @@ export default function MatchDetailClient() {
   const unresolvedLineupIdentity = lineupEvidence.filter((r) => r.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
   const homeStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "H" && r.starter).map((r) => r.player_name).filter(Boolean);
   const awayStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "A" && r.starter).map((r) => r.player_name).filter(Boolean);
-  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : reportedPrediction.length ? (lineupReference.kind === "REFERENCE" ? "Previous XI reference" : lineupReference.kind === "MIXED" ? "Mixed XI evidence" : "Predicted lineup") : "NO DATA");
+  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : reportedPrediction.length ? (lineupReference.kind === "REFERENCE" ? "Previous XI reference" : lineupReference.kind === "MIXED" ? "Mixed XI evidence" : lineupReference.kind === "UNVERIFIED" ? "Unconfirmed source XI" : "Predicted lineup") : "NO DATA");
   const injuriesHome = confirmedPlayerStatusEvidence.length
     ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "H").length
     : null;
@@ -2344,7 +2344,7 @@ export default function MatchDetailClient() {
           </div>
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
-            <span>{lineupState === "PREDICTED" ? (lineupReference.kind === "REFERENCE" ? "Previous XI" : lineupReference.kind === "MIXED" ? "Provisional XI" : "Predicted XI") : "Official XI"}</span>
+            <span>{lineupState === "PREDICTED" ? (lineupReference.kind === "REFERENCE" ? "Previous XI" : lineupReference.kind === "MIXED" ? "Provisional XI" : lineupReference.kind === "UNVERIFIED" ? "Source-reported XI" : "Predicted XI") : "Official XI"}</span>
             <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PARTIAL" ? "Official source · starting XI incomplete" : lineupState === "PREDICTED" ? lineupReference.label : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
             <small>{lineupState === "PREDICTED" ? `${predictedHome || "—"}/11 home · ${predictedAway || "—"}/11 away · ${lineupReference.kind === "REFERENCE" ? "previous match reference" : "provisional source evidence"}` : lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved` : "No confirmed lineup rows"}</small>
           </div>
