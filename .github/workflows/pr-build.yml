@@ -51,6 +51,9 @@ jobs:
       - name: Check international authority identity and provenance
         run: npm run check:international-authority
 
+      - name: Check Bet365 browser-feed fail-closed contract
+        run: npm run check:bet365-browser
+
       - name: Check provider and bookmaker contract
         run: npm run check:market-contract
 
