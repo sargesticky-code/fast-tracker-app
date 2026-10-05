@@ -910,7 +910,7 @@ Deno.serve(async (req: Request) => {
       : await db
           .from("source_health")
           .select("source,status,value_text,notes,observed_at,raw")
-          .in("source", ["LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
+          .in("source", ["BET365_BROWSER", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
           .eq("metric", "heartbeat");
 
     if (heartbeatError) console.error("heartbeat_query_failed", heartbeatError);
