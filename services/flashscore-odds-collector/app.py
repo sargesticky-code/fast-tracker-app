@@ -81,8 +81,8 @@ async def collect_fixture_rows(page, target_date):
             h = h.previousElementSibling;
           }
           const leagueNode = h ? (h.querySelector('[data-testid="wcl-headerLeague"]') || h) : null;
-          const homeNode = row.querySelector('.event__participant--home, [data-testid="wcl-participantHome"]');
-          const awayNode = row.querySelector('.event__participant--away, [data-testid="wcl-participantAway"]');
+          const homeNode = row.querySelector('.event__homeParticipant, .event__participant--home, [data-testid="wcl-participantHome"]');
+          const awayNode = row.querySelector('.event__awayParticipant, .event__participant--away, [data-testid="wcl-participantAway"]');
           const timeNode = row.querySelector('.event__time, [data-testid="wcl-eventTime"]');
           return {
             event_id: (row.id || '').split('_').pop() || null,
