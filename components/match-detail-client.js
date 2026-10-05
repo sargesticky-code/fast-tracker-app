@@ -422,7 +422,7 @@ function matchFromDetailPayload(payload, matchId) {
           : "STALE";
   const allowCurrentPrice = fixtureFreshness === "FRESH";
   return {
-    id: String(fixture.hkjc_event_id || matchId),
+    id: String(fixture.event_id || fixture.fixture_id || matchId),
     kickoff: fixture.kickoff_hkt || null,
     status: fixture.status || null,
     oddsUpdatedAt: priceObservedAt,
@@ -561,7 +561,7 @@ export default function MatchDetailClient() {
           setMatch((previous) => {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
-            const previousAuthoritativeStale = previous?.health?.hkjcFreshness === "STALE";
+            const previousAuthoritativeStale = previous?.health?.authorityFreshness === "STALE";
             if (previousAuthoritativeStale || previousStarted) return previous;
             if (liveApplied && previous?.live) {
               return {
@@ -608,7 +608,7 @@ export default function MatchDetailClient() {
         }
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
-          const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
+          const fallbackStale = fixtureFallback?.health?.authorityFreshness === "STALE";
           if (fallbackStale) authoritativeDetailBlocksFeed = true;
           setMatch((previous) => {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
@@ -943,8 +943,8 @@ export default function MatchDetailClient() {
     return Array.isArray(advice?.models) && advice.models.some((row) => row?.over != null && row?.under != null);
   };
   const totalMarketHasPrice = (marketRow) => marketRow?.over != null || marketRow?.under != null;
-  const totalQuoteObservedAt = match.oddsUpdatedAt || match.health?.hkjcPriceChangedAt || match.health?.hkjcFetchedAt || match.updatedAt || null;
-  const totalQuoteState = String(match.health?.hkjcFreshness || "").toUpperCase() === "STALE"
+  const totalQuoteObservedAt = match.oddsUpdatedAt || match.health?.priceChangedAt || match.health?.authorityFetchedAt || match.updatedAt || null;
+  const totalQuoteState = String(match.health?.authorityFreshness || "").toUpperCase() === "STALE"
     ? "STALE / REFERENCE ONLY"
     : totalQuoteObservedAt
       ? "CURRENT OBSERVATION"
@@ -1825,7 +1825,7 @@ export default function MatchDetailClient() {
             </div>
           ) : (
             <div className="live-score-only-state">
-              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "Score feed connected" : "Market / score layer only"}</strong>
+              <strong>{liveScore.source ? "Score feed connected" : "Market / score layer only"}</strong>
               <p>When reliable xG, shooting or possession detail is unavailable, missing values remain blank rather than creating false signals. The pressure board appears only when stats exist.</p>
             </div>
           )}
@@ -2145,7 +2145,7 @@ export default function MatchDetailClient() {
 
                 <div className="h2h-list">
                   {h2hMeetings.map((row, index) => (
-                    <div className="h2h-row" key={(row.match_id || row.hkjc_event_id || "h2h") + "-" + index}>
+                    <div className="h2h-row" key={(row.match_id || row.event_id || "h2h") + "-" + index}>
                       <span className={"h2h-result h2h-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
                       <span className="h2h-date">{formatFormDate(row.kickoff_hkt)}</span>
                       <b>{row.home || "—"} <strong>{row.home_goals ?? "—"}-{row.away_goals ?? "—"}</strong> {row.away || "—"}</b>
