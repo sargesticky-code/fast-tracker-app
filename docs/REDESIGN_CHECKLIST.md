@@ -143,4 +143,7 @@ Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
 - [x] Legacy completeness scores no longer appear as football-strength percentages; missing/confidence stays unknown.
 - [x] Observation vs capture timestamps separated; retained failed-refresh evidence labelled freshness unknown.
 - [x] Actual stored FB6292 snapshot yields 10/11 vs 11/11 reported starters; excluded player remains excluded.
-- [ ] New desktop/mobile prediction and cached-outage browser cases and screenshot review in PR43 CI.
+- [x] New desktop/mobile prediction and cached-outage cases: CI 37263049954, 39/39; screenshot review accepted after mobile-name/Team News fixes.
+
+- [x] Phase 2 iteration 3: Team News shares authoritative prediction selector; mobile names wrap, per-side counts remain honest. Tested source `3872cdb2`; artifact `11325129181`.
+- [ ] Canonical player reconciliation and importance-weighted football-strength baseline remain genuine upstream dependencies.
