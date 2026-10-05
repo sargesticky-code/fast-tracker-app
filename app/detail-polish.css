@@ -3666,3 +3666,6 @@
   }
   .detail-shell .totals-state-details{grid-column:1}
 }
+
+.detail-goal-summary{gap:5px;flex-wrap:wrap}
+.detail-goal-summary small{font-size:10px;font-weight:400;color:#526c83}

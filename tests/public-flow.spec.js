@@ -616,6 +616,9 @@ for (const device of [
     await matchLink.click();
 
     await expect(page).toHaveURL(/details.*FBTEST1/);
+    await expect(page.locator(".detail-board-score")).toContainText("2-1");
+    await expect(page.locator(".detail-goal-summary")).toContainText("Average goals 2.70");
+    await expect(page.locator(".detail-goal-summary")).toContainText("Published goal model");
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();

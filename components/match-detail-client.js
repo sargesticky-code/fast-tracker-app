@@ -17,6 +17,7 @@ import {
   modelAgreement,
   modelCoverageCount,
   modelLabel,
+  prematchGoalSummary,
   reviewPriority,
   sanitizeFallbackMatch,
   sideName,
@@ -809,7 +810,8 @@ export default function MatchDetailClient() {
   const sourceContext = match.sourceContext || null;
   const sourceContextConfidence = Number(sourceContext?.matchConfidence);
   const sourceContextVerified = sourceContext && Number.isFinite(sourceContextConfidence) && sourceContextConfidence >= 0.94;
-  const predictedScore = match.forebetDetail?.predictedScore || match.forebet?.predictedScore || null;
+  const goalSummary = prematchGoalSummary(match);
+  const predictedScore = goalSummary.score;
   const movement = match.oddsMovement || null;
   const movementPct = Number(movement?.rawOddsChangePct);
   const hasMovement = movement && Number.isFinite(movementPct);
@@ -1321,10 +1323,11 @@ export default function MatchDetailClient() {
           <div className="detail-board-team away">
             <strong>{match.awayEn || match.away || match.awayZh}</strong>
           </div>
-          {predictedScore ? <div className="detail-board-score"><span>FOREBET</span><b>{predictedScore}</b></div> : null}
+          {predictedScore ? <div className="detail-board-score"><span>Predicted score</span><b>{predictedScore}</b></div> : null}
         </div>
 
         <div className="detail-board-status">
+          <span className="detail-status-chip detail-goal-summary" title={goalSummary.source}>Average goals <b>{goalSummary.avgGoals === null ? "—" : goalSummary.avgGoals.toFixed(2)}</b><small>{goalSummary.source}</small></span>
           {detailAgreement.key !== "limited" ? <span className={"detail-status-chip detail-status-" + detailAgreement.key}>{detailAgreement.label}</span> : null}
           <span className={"detail-status-chip detail-review-" + detailPriority.band}>R {detailPriority.score}</span>
           <span className="detail-status-chip">{evidenceCount} inputs</span>

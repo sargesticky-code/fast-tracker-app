@@ -137,3 +137,7 @@ Found structured Forebet predictedScore/ou25.avgGoals ignored by homepage, plus 
 
 
 Iteration 6 acceptance: executable 822a007c8e73783f85b9fe1637820d7f6aa95398, CI 37272765696 SUCCESS, 40-case desktop/mobile suite and build/contracts pass. Artifact 11328912124, dashboard-redesign-468e5c9db33ad38db8e3a8f885e472ae70a7084c; 1440px/390px structured-score screenshots inspected. Fresh real snapshot generated 2026-10-05T06:30:45.814Z: 38 unique fixtures, average-goals coverage 16/38, score coverage zero. Earlier saved snapshot coverage is 17/39, not the 24 valid probability-triplet count. Next inspect detail-page consistency and existing goal-model provenance/freshness, then recover published score source coverage without inventing scores. No release or DB write.
+
+## Iteration 7: homepage/detail goal summary consistency
+
+Detail hero now consumes the same prematchGoalSummary as homepage, including published Forebet score variants and gated average-goals estimates. Its Average goals chip shows source text and an explicit dash when unavailable; predicted-score heading no longer labels every generic supplied score as Forebet. Existing desktop/mobile homepage-to-detail cases assert score 2-1, average goals 2.70 and published-model source. Calculations/provider joins unchanged. Local checks/build pass; CI/rendered acceptance pending. No DB mutation or deployment.
