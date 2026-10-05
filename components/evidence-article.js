@@ -75,7 +75,7 @@ function currentQuote(match, analysis, story) {
     stale,
     quote: normalizeMarketQuote({
       canonicalMatchId: match?.id,
-      providerKey: "HKJC",
+      providerKey: "BET365",
       market: decision.market || "HDA",
       selection: side,
       line: decision.line ?? null,
@@ -229,7 +229,7 @@ export default function EvidenceArticle({ match, deep, analysis, story }) {
       </div>
 
       <section className="ft-article-grid">
-        <div><span>Bookmaker</span><strong>{quote.providerLabel || PROVIDERS.HKJC.label}</strong><small>{quote.providerKind || "BOOKMAKER"}</small></div>
+        <div><span>Bookmaker</span><strong>{quote.providerLabel || PROVIDERS.BET365.label}</strong><small>{quote.providerKind || "BOOKMAKER"}</small></div>
         <div><span>Market / selection</span><strong>{safe(quote.market)} · {safe(quote.selection)}</strong><small>{quote.line === null ? "Line not applicable / unknown" : "Line " + quote.line}</small></div>
         <div><span>Observed price</span><strong>{quoteState.stale ? "Not current" : price(quote.decimalPrice)}</strong><small>As of {dateTime(quote.observedAt)}</small><small>
             Evidence: {safe(analysis?.evidence?.phase1Health?.evidenceKey, "Unavailable")}
