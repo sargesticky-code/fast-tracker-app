@@ -169,6 +169,21 @@ function playerStatSummary(row) {
   if (Number.isFinite(keyPasses)) out.push(keyPasses + " key passes");
   if (Number.isFinite(tackles)) out.push(tackles + " tackles");
   if (Number.isFinite(passes)) out.push(passes + " accurate passes");
+
+  const recent = row?.canonical_profile?.recent || null;
+  const recentMatches = Array.isArray(recent?.matches) ? recent.matches.slice(0, 5) : [];
+  if (!out.length && recentMatches.length) {
+    const played = recentMatches.filter((m) => Number(m?.minutes) > 0);
+    const recentGoals = recentMatches.reduce((sum, m) => sum + (Number(m?.goals) || 0), 0);
+    const recentAssists = recentMatches.reduce((sum, m) => sum + (Number(m?.assists) || 0), 0);
+    const recentMinutes = recentMatches.reduce((sum, m) => sum + (Number(m?.minutes) || 0), 0);
+    if (played.length) out.push(played.length + "/" + recentMatches.length + " recent apps");
+    if (recentGoals || recentAssists) out.push(recentGoals + "G " + recentAssists + "A");
+    if (recentMinutes) out.push(recentMinutes + " min");
+    if (Number.isFinite(Number(recent?.averageRating)) && Number(recent.averageRating) > 0) {
+      out.unshift("Avg rating " + Number(recent.averageRating).toFixed(2));
+    }
+  }
   return out;
 }
 
