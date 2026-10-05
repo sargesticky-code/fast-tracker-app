@@ -212,9 +212,12 @@ def run_refresh():
             _state["complete_hda"] = len(snapshot)
             _state["snapshot"] = snapshot
             _state["last_completed_at"] = utcnow()
+        print(f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} complete_hda={len(snapshot)}", flush=True)
     except Exception as e:
+        message = f"{type(e).__name__}: {e}"
         with _lock:
-            _state["last_error"] = f"{type(e).__name__}: {e}"
+            _state["last_error"] = message
+        print(f"[flashscore-odds] refresh failed {message}", flush=True)
     finally:
         with _lock:
             _state["refreshing"] = False
