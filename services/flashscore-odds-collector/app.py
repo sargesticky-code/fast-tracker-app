@@ -66,6 +66,12 @@ async def collect_fixture_rows(page, target_date):
     rows = await page.locator(".event__match").count()
     headers = await page.locator('[data-testid="wcl-headerLeague"]').count()
     print(f"[flashscore-odds] discovery date={target_date.isoformat()} url={page.url} rows={rows} headers={headers}", flush=True)
+    if rows:
+        sample = await page.locator(".event__match").first.evaluate("""(row) => ({
+          text: (row.innerText || '').slice(0, 500),
+          html: (row.innerHTML || '').slice(0, 1800)
+        })""")
+        print(f"[flashscore-odds] row sample={sample}", flush=True)
 
     return await page.locator(".event__match").evaluate_all(
         """(rows) => rows.map((row) => {
