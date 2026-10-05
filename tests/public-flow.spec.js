@@ -716,7 +716,7 @@ test("stale market data disables an actionable article price", async ({ page }) 
   await expect(page.getByText("WATCH / SKIP")).toBeVisible();
 });
 
-test("confirmed lineup evidence is honored without event-map timestamp", async ({ page }) => {
+test("partial confirmed player rows do not confirm a whole lineup", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 820 });
   await mockApis(page, { confirmedLineup: true });
 
@@ -724,7 +724,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await page.locator('a[href*="FBTEST1"]').first().click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
-  await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
+  await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Official source · starting XI incomplete", { exact: true })).toBeVisible();
   await page.locator("#analysis details.ft-article-deep > summary").click();
   await expect(page.getByText("1 confirmed starters · 1 confirmed substitutes/bench")).toBeVisible();
 });
@@ -1044,3 +1044,164 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+// Deliberately partial source-confirmed evidence: the existing mock has one
+// home starter and one away substitute, not a complete confirmed 11v11.
+for (const width of [1280, 390]) {
+  test(`partial official XI stays incomplete on ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockApis(page, { confirmedLineup: true });
+    await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1");
+    const card = page.locator(".lineup-signal");
+    await expect(card).toContainText("Official source · starting XI incomplete");
+    await expect(card).not.toContainText("Confirmed · identities resolved");
+    await page.screenshot({ path: `test-results/dashboard-phase2-partial-${width}.png`, fullPage: true });
+  });
+}
+
+// A genuinely complete canonical official snapshot does not require the
+// unrelated API-Football event-map confirmation timestamp.
+test("complete canonical official XI confirms without event-map timestamp", async ({ page }) => {
+  await mockApis(page);
+  await page.route("**/functions/v1/app-match-detail?**", async route => {
+    const payload = detailPayload();
+    payload.humanFactors.eventMap = null;
+    payload.humanFactors.lineup = ["H", "A"].flatMap(side => Array.from({length:11}, (_,i) => ({
+      team_side:side, player_key:`CANONICAL-${side}-${i}`, canonical_player_identity:`${side}:${i}`,
+      player_name:`Test ${side} ${i}`, starter:true, confirmed:true, fact_status:"CONFIRMED", identity_status:"CANONICAL"
+    })));
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(payload)});
+  });
+  await page.goto("http://127.0.0.1:4173/details/?id=FBTEST1");
+  await expect(page.locator(".lineup-signal")).toContainText("Confirmed · identities resolved");
+  await expect(page.locator("#analysis .ft-article-safety-strip")).toContainText("Confirmed lineup with resolved player identities");
+});
+
+function authoritativePredictionPayload() {
+  const payload = detailPayload();
+  payload.id = 'FBTEST1';
+  payload.fixtureSource = 'UPCOMING';
+  payload.humanFactors.eventMap = null;
+  payload.humanFactors.lineupAuthority = { source:'phase2_lineup_display_current', rawFallback:false, status:'AVAILABLE', confirmed:false };
+  payload.humanFactors.lineup = ['H','A'].flatMap(side => Array.from({length:11}, (_,i) => ({
+    hkjc_event_id:'FBTEST1', team_side:side, player_key:`SOURCE-${side}-${i}`, player_name:`Prediction ${side} ${i}`,
+    starter:true, confirmed:false, display_eligible: !(side === 'H' && i === 0), identity_status:'UNRESOLVED', fact_status:'UNCONFIRMED',
+    confidence:null, source_name:'TEST_PREDICTED', source_updated_at:null, fetched_at:new Date().toISOString()
+  })));
+  // Completeness index must not leak into football strength, even at 100.
+  payload.humanFactors.lineupStrength = [
+    {team_side:'HOME',lineup_strength_pct:100,lineup_confidence_pct:72,strength_method:'V1_COMPLETENESS_INDEX',lineup_strength_label:'預計完整'},
+    {team_side:'AWAY',lineup_strength_pct:null,lineup_confidence_pct:null,strength_method:'V1_COMPLETENESS_INDEX'}
+  ];
+  return payload;
+}
+
+for (const width of [1280,390]) {
+  test(`authoritative predicted names and honest strength on ${width}px`, async ({page}) => {
+    await page.setViewportSize({width,height:844});
+    await mockApis(page);
+    await page.route('**/functions/v1/app-match-detail?**', route => route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(authoritativePredictionPayload())}));
+    await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+    const tool=page.locator('details.lineup-tool-disclosure');
+    await expect(tool.locator(':scope > summary')).toContainText('PARTIAL PREDICTION');
+    await expect(tool.locator(':scope > summary')).toContainText('10/11 reported home');
+    await expect(tool.locator(':scope > summary')).toContainText('11/11 reported away');
+    await tool.locator(':scope > summary').click();
+    await expect(tool.locator('.lineup-prediction-notice')).toContainText('Player identities remain unresolved');
+    await expect(tool.getByText('Prediction H 1',{exact:true})).toBeVisible();
+    await expect(tool.getByText('Prediction H 0',{exact:true})).toHaveCount(0);
+    await expect(tool.getByText('Lineup strength: unavailable',{exact:true})).toHaveCount(2);
+    await expect(tool.locator('.lineup-strength-grid')).not.toContainText('100%');
+    await expect(tool.locator('.lineup-strength-grid')).not.toContainText('0%');
+    await expect(tool.locator('.lineup-strength-grid')).toContainText('Reported XI: 10/11 · predicted');
+    await expect(page.locator('.lineup-signal')).not.toContainText('Confirmed · identities resolved');
+    await expect(page.locator('.lineup-signal')).toContainText('Predicted XI · awaiting confirmation');
+    if (width === 390) {
+      await expect(tool.getByText('Prediction H 1',{exact:true})).toHaveCSS('white-space','normal');
+    }
+    await page.screenshot({path:`test-results/dashboard-phase2-predicted-${width}.png`,fullPage:true});
+    await tool.getByRole('button',{name:'Sources',exact:true}).click();
+    await expect(tool.getByText('Provider timestamp · Hong Kong time')).toBeVisible();
+    await expect(tool.getByText('Capture time · not a provider update')).toBeVisible();
+  });
+}
+
+test('raw predicted history cannot enter the public lineup tool', async ({page}) => {
+  await mockApis(page);
+  await page.route('**/functions/v1/app-match-detail?**', route => {
+    const payload=authoritativePredictionPayload();
+    delete payload.humanFactors.lineupAuthority;
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+  });
+  await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+  const tool=page.locator('details.lineup-tool-disclosure');
+  await expect(tool.locator(':scope > summary')).toContainText('WAITING');
+  await tool.locator(':scope > summary').click();
+  await expect(tool.getByText('Prediction H 1',{exact:true})).toHaveCount(0);
+  await expect(tool.locator('.lineup-strength-grid')).toContainText('Reported XI: unknown');
+});
+
+test('cached lineup after refresh failure exposes unknown freshness', async ({page}) => {
+  await page.addInitScript(() => {
+    const nativeSetInterval=window.setInterval.bind(window);
+    window.setInterval=(fn,delay,...args)=>nativeSetInterval(fn,delay===60000?200:delay,...args);
+  });
+  await mockApis(page);
+  let calls=0;
+  await page.route('**/functions/v1/app-match-detail?**', route => {
+    calls += 1;
+    return route.fulfill({status:calls<=2?200:503,contentType:'application/json',body:JSON.stringify(calls<=2?authoritativePredictionPayload():{error:'test_refresh_unavailable'})});
+  });
+  await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+  const tool=page.locator('details.lineup-tool-disclosure');
+  await expect(tool.locator(':scope > summary')).toContainText('PARTIAL PREDICTION');
+  await tool.locator(':scope > summary').click();
+  await expect(tool.getByText('Showing the last captured lineup; refresh unavailable, freshness unknown.',{exact:true})).toBeVisible({timeout:15000});
+});
+
+for (const width of [1280,390]) {
+  test(`previous starting XI is context rather than a match prediction on ${width}px`, async ({page}) => {
+    await page.setViewportSize({width,height:844});
+    await mockApis(page);
+    await page.route('**/functions/v1/app-match-detail?**', route => {
+      const payload=authoritativePredictionPayload();
+      payload.humanFactors.lineup=payload.humanFactors.lineup.map(row=>({...row,raw:{lineupType:'lastStarting11'}}));
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+    });
+    await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+    await expect(page.locator('.lineup-signal')).toContainText('Previous XI reference · awaiting match lineup');
+    await expect(page.locator('#analysis .ft-article-safety-strip')).toContainText('Previous XI reference · awaiting match lineup');
+    const tool=page.locator('details.lineup-tool-disclosure');
+    await expect(tool.locator(':scope > summary')).toContainText('PREVIOUS XI REFERENCE');
+    await tool.locator(':scope > summary').click();
+    await expect(tool.locator('.lineup-prediction-notice')).toContainText('The match-specific lineup is unavailable');
+    await expect(tool.getByText('previous XI evidence',{exact:true})).toBeVisible();
+    await expect(tool.getByText('Prediction H 1',{exact:true})).toBeVisible();
+    await expect(tool.locator('.lineup-strength-grid')).toContainText('previous XI reference');
+    await expect(tool.locator('.lineup-prediction-notice')).not.toContainText('source-reported predictions');
+    await page.screenshot({path:`test-results/dashboard-phase2-reference-${width}.png`,fullPage:true});
+  });
+}
+
+for (const width of [1280,390]) {
+ test(`unclassified source XI is not a prediction on ${width}px`, async ({page}) => {
+  await page.setViewportSize({width,height:844});
+  await mockApis(page);
+  await page.route('**/functions/v1/app-match-detail?**', route => {
+   const payload=authoritativePredictionPayload();
+   payload.humanFactors.lineup=payload.humanFactors.lineup.map(row=>({...row,raw:{lineupType:'standard'},confidence:.82}));
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+  });
+  await page.goto('http://127.0.0.1:4173/details/?id=FBTEST1');
+  await expect(page.locator('.lineup-signal')).toContainText('Source-reported XI · confirmation unavailable');
+  await expect(page.locator('#analysis .ft-article-safety-strip')).toContainText('Source-reported XI · confirmation unavailable');
+  const tool=page.locator('details.lineup-tool-disclosure');
+  await expect(tool.locator(':scope > summary')).toContainText('UNCONFIRMED SOURCE XI');
+  await tool.locator(':scope > summary').click();
+  await expect(tool.locator('.lineup-prediction-notice')).toContainText('does not establish a match prediction or official confirmation');
+  await expect(tool.getByText('source type unverified',{exact:true})).toBeVisible();
+  await expect(tool.locator('.lineup-strength-grid')).toContainText('unconfirmed source XI');
+  await expect(tool.getByText('Prediction H 1',{exact:true})).toBeVisible();
+  await page.screenshot({path:`test-results/dashboard-phase2-unverified-${width}.png`,fullPage:true});
+ });
+}

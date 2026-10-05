@@ -5,6 +5,7 @@ import ModelEdgeChart from "@/components/model-edge-chart";
 import ModelScoreboard from "@/components/model-scoreboard";
 import EvidenceArticle from "@/components/evidence-article";
 import { singleFlightFetch } from "@/lib/single-flight-fetch";
+import { lineupDisplayRows, lineupReferenceSummary } from "@/lib/lineup-display-contract";
 import {
   divergence,
   fairMarket,
@@ -1031,6 +1032,10 @@ export default function MatchDetailClient() {
   const eventMap = deep?.humanFactors?.eventMap || null;
   const playerStatusEvidence = Array.isArray(deep?.humanFactors?.playerStatus) ? deep.humanFactors.playerStatus : [];
   const lineupEvidence = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
+  const reportedPrediction = lineupDisplayRows(lineupEvidence, deep, match.id).filter((row) => row.confirmed === false && row.starter === true);
+  const lineupReference = lineupReferenceSummary(reportedPrediction);
+  const predictedHome = reportedPrediction.filter((row) => normalizedSide(row.team_side) === "H").length;
+  const predictedAway = reportedPrediction.filter((row) => normalizedSide(row.team_side) === "A").length;
   const managerEvidence = Array.isArray(deep?.humanFactors?.managers) ? deep.humanFactors.managers : [];
   const scenarioRows = Array.isArray(deep?.scenario) ? deep.scenario : [];
   const confirmedPlayerStatusEvidence = playerStatusEvidence.filter((r) => r.fact_status === "CONFIRMED");
@@ -1039,18 +1044,18 @@ export default function MatchDetailClient() {
   const unresolvedLineupIdentity = lineupEvidence.filter((r) => r.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
   const homeStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "H" && r.starter).map((r) => r.player_name).filter(Boolean);
   const awayStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "A" && r.starter).map((r) => r.player_name).filter(Boolean);
-  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : "NO DATA");
+  const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : reportedPrediction.length ? (lineupReference.kind === "REFERENCE" ? "Previous XI reference" : lineupReference.kind === "MIXED" ? "Mixed XI evidence" : lineupReference.kind === "UNVERIFIED" ? "Unconfirmed source XI" : "Predicted lineup") : "NO DATA");
   const injuriesHome = confirmedPlayerStatusEvidence.length
     ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "H").length
     : null;
   const injuriesAway = confirmedPlayerStatusEvidence.length
     ? confirmedPlayerStatusEvidence.filter((r) => normalizedSide(r.team_side) === "A").length
     : null;
-  const sourceLineupConfirmed = Boolean(eventMap?.lineup_confirmed_at);
-  const lineupConfirmed = sourceLineupConfirmed && confirmedLineupEvidence.length > 0 && unresolvedLineupIdentity.length === 0;
+  const sourceLineupConfirmed = lineupEvidence.some((row) => row.confirmed === true);
+  const lineupConfirmed = deep?.humanFactors?.lineupAuthority?.confirmed ?? (sourceLineupConfirmed && homeStarters.length === 11 && awayStarters.length === 11 && new Set(homeStarters).size === 11 && new Set(awayStarters).size === 11 && unresolvedLineupIdentity.length === 0);
   const lineupState = lineupConfirmed ? "CONFIRMED"
-    : sourceLineupConfirmed ? "IDENTITY_PARTIAL"
-      : eventMap ? "PENDING" : "UNMAPPED";
+    : sourceLineupConfirmed ? (unresolvedLineupIdentity.length ? "IDENTITY_PARTIAL" : "PARTIAL")
+      : reportedPrediction.length ? "PREDICTED" : eventMap ? "PENDING" : "UNMAPPED";
   const injuryMax = Math.max(Number(injuriesHome) || 0, Number(injuriesAway) || 0, 1);
   const injuryGap = (Number(injuriesHome) || 0) - (Number(injuriesAway) || 0);
   const injurySignal = injuriesHome == null && injuriesAway == null
@@ -2339,20 +2344,20 @@ export default function MatchDetailClient() {
           </div>
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
-            <span>Official XI</span>
-            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
-            <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved`  : "No confirmed lineup rows"}</small>
+            <span>{lineupState === "PREDICTED" ? (lineupReference.kind === "REFERENCE" ? "Previous XI" : lineupReference.kind === "MIXED" ? "Provisional XI" : lineupReference.kind === "UNVERIFIED" ? "Source-reported XI" : "Predicted XI") : "Official XI"}</span>
+            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PARTIAL" ? "Official source · starting XI incomplete" : lineupState === "PREDICTED" ? lineupReference.label : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
+            <small>{lineupState === "PREDICTED" ? `${predictedHome || "—"}/11 home · ${predictedAway || "—"}/11 away · ${lineupReference.kind === "REFERENCE" ? "previous match reference" : "provisional source evidence"}` : lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved` : "No confirmed lineup rows"}</small>
           </div>
 
           <div className="human-signal-card">
             <span>Evidence quality</span>
             <strong>{humanQuality}</strong>
-            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : "fixture not matched"}</small>
+            <small>{eventMap ? `fixture match ${numText(eventMap.match_quality, 3)}` : reportedPrediction.length ? (lineupReference.kind === "REFERENCE" ? "Previous XI linked as context for this fixture" : "Provisional evidence mapped to this fixture") : "fixture not matched"}</small>
           </div>
         </div>
 
         <div className="human-summary-grid compact-human-grid">
-          <div><span>Referee</span><b>{humanSummary?.referee || "—"}</b><small>{humanSummary?.source || "API_FOOTBALL"}</small></div>
+          <div><span>Referee</span><b>{humanSummary?.referee || "—"}</b><small>{humanSummary?.source || "Source unavailable"}</small></div>
           <div><span>Coach rotation</span><b>{humanSummary?.coach_rotation || "—"}</b><small>reported context</small></div>
           <div><span>Player evidence</span><b>{confirmedPlayerStatusEvidence.length}</b><small>{unresolvedPlayerStatusEvidence.length} unresolved / provisional rows excluded</small></div>
           <div><span>Manager evidence</span><b>{managerEvidence.length}</b><small>coach rows</small></div>
@@ -2375,7 +2380,7 @@ export default function MatchDetailClient() {
             </div>
           </details>
         ) : (
-          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source is confirmed, but player identity reconciliation is incomplete; these rows are not treated as confirmed player facts." : "Official lineup is not yet available; only identity-resolved confirmed evidence is shown, and projected XI rows are never presented as confirmed starters."}</div>
+          <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source is confirmed, but player identity reconciliation is incomplete; these rows are not treated as confirmed player facts." : reportedPrediction.length ? `${lineupReference.label}. The full lineup tool shows source-reported names and identity coverage.` : "Official lineup is not yet available; only identity-resolved confirmed evidence is shown, and projected XI rows are never presented as confirmed starters."}</div>
         )}
 
         {(managerEvidence.length || playerStatusEvidence.length) ? (
