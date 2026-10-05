@@ -492,3 +492,50 @@ Do not restore the notebook browser host as the default. The old
 cloud collector has genuine current coverage and the Supabase ingestion bridge
 is verified. Do not claim current bookmaker coverage until the Railway snapshot
 contains real complete HDA rows and those rows are identity-verified in Supabase.
+
+
+## Cloud bookmaker acceptance — 2026-10-05
+
+The cloud-only replacement is now operational with genuine current data.
+
+Railway production service `fast-tracker-dashboard` was repurposed from its
+previous failed deployment and now runs the headless Flashscore odds collector.
+The accepted implementation parses current Flashscore match rows using
+`.event__match`, `.event__homeParticipant` and
+`.event__awayParticipant`. The first corrected production refresh observed
+66 match rows for 2026-10-05 and 131 for 2026-10-06 before reaching its configured
+180-fixture cap. It produced **71 complete Bet365 full-time H/D/A boards**.
+Temporary row-HTML diagnostics were then removed and the service was moved from
+Flask's development server to **Gunicorn 23.0.0**, one worker with threaded
+request handling so only one collector loop runs. Railway deployment
+`8b9f83ba-71fc-4663-8397-9ae8ad26b442` reached SUCCESS.
+
+Supabase migration `flashscore_bet365_cloud_ingest` created the service-only,
+RLS-enabled `flashscore_bet365_current` staging table. Edge Function
+`flashscore-bet365-ingest` v1 fetches only the fixed Railway snapshot URL,
+rejects stale snapshots, throttles invocations to five minutes, and resolves
+canonical identity by normalized exact home/away orientation plus a two-hour
+kickoff tolerance. Exactly one candidate is required. Unresolved/ambiguous rows
+remain staging-only; no fuzzy identity is promoted.
+
+First real ingest acceptance:
+- complete cloud HDA boards: **71**
+- staging rows: **71**
+- VERIFIED canonical rows: **23**
+- UNRESOLVED rows: **48**
+- AMBIGUOUS rows: **0**
+- promoted `bet365_current` rows with source `FLASHSCORE_BET365`: **23**
+
+A verified example is canonical `FB6298`, France v Belgium at
+2026-10-05 18:45 UTC, Flashscore event `EmmmJQ3L`, with Bet365 H/D/A
+**1.48 / 4.50 / 6.00** at capture
+2026-10-05T12:50:24.705254Z.
+
+pg_cron job **38**, `flashscore-bet365-cloud-ingest`, is active on
+`*/15 * * * *` and invokes the fixed Supabase ingestion function. The user's
+notebook, Chrome extension and local Supabase secret are no longer part of the
+production path.
+
+Do not weaken the identity rule merely to increase coverage. The next coverage
+work should resolve the 48 staging rows through reviewed aliases/fixture identity
+evidence, then extend markets beyond HDA where the upstream data is stable.
