@@ -662,7 +662,7 @@ export default function LineupPanel() {
         {view.rows.length > 0 && tab === "source" ? (
           <div style={{padding:14}}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}}>
-              <Metric label="LINEUP STATUS" value={view.status} detail={view.status === "CONFIRMED" ? "official XI overrides predictions" : "will upgrade automatically when official XI arrives"} />
+              <Metric label="LINEUP STATUS" value={reference.badge || view.status} detail={view.status === "CONFIRMED" ? "official XI overrides predictions" : "will upgrade automatically when official XI arrives"} />
               <Metric label="PRIMARY SOURCE" value={view.source || "—"} detail={(view.evidenceSources || []).join(", ") || "no evidence source"} />
               <Metric label="AVG CONFIDENCE" value={view.confidence == null ? "—" : (view.confidence * 100).toFixed(0) + "%"} detail={view.rows.length + " player evidence rows"} />
               <Metric label="SOURCE OBSERVED" value={formatHkt(view.updatedAt)} detail="Provider timestamp · Hong Kong time" />
