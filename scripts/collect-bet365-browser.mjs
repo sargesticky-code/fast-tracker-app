@@ -32,10 +32,48 @@ const bundle=bet365BrowserLive(payload,fetchedAt);
 const start=new Date(Date.now()-6*3600e3).toISOString(),end=new Date(Date.now()+2*3600e3).toISOString();
 const canonical=await jsonFetch(`${sb}/rest/v1/matches?select=hkjc_event_id,kickoff_hkt,tournament,home_en,away_en&kickoff_hkt=gte.${encodeURIComponent(start)}&kickoff_hkt=lte.${encodeURIComponent(end)}&order=kickoff_hkt.asc&limit=500`);
 
+const compactTeamKey=(v)=>String(v??"").normalize("NFKC").trim().toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu,"");
+const observedTeamNames=[...new Set(bundle.fixtures.flatMap(f=>[f.home,f.away]).filter(Boolean))];
+const observedKeys=[...new Set(observedTeamNames.map(compactTeamKey).filter(Boolean))];
+let aliasRows=[];
+if(observedKeys.length){
+  const inList="("+observedKeys.map(v=>`"${String(v).replaceAll('"','')}"`).join(",")+")";
+  aliasRows=await jsonFetch(`${sb}/rest/v1/team_name_master?select=source_key,team_key,hkjc_name_en,status,confidence&status=eq.VERIFIED&source_key=in.${encodeURIComponent(inList)}&limit=5000`);
+}
+const aliasTargets=new Map();
+for(const row of aliasRows||[]){
+  const key=String(row.source_key||""); if(!key) continue;
+  const bucket=aliasTargets.get(key)||new Map();
+  const canonicalName=String(row.hkjc_name_en||"").trim();
+  const teamKey=String(row.team_key||"").trim();
+  if(canonicalName&&teamKey) bucket.set(teamKey,canonicalName);
+  aliasTargets.set(key,bucket);
+}
+const uniqueAliasName=(name)=>{
+  const bucket=aliasTargets.get(compactTeamKey(name));
+  if(!bucket||bucket.size!==1)return null;
+  return [...bucket.values()][0]||null;
+};
+
 const fixtureByEvent=new Map();
 for(const f of bundle.fixtures){
-  const id=resolveBet365Fixture(f,canonical,fetchedAt);
-  f.canonicalMatchId=id.canonicalMatchId;f.identityStatus=id.status;fixtureByEvent.set(f.providerEventId,f);
+  const canonicalHome=uniqueAliasName(f.home);
+  const canonicalAway=uniqueAliasName(f.away);
+  const identityFixture={
+    ...f,
+    home:canonicalHome||f.home,
+    away:canonicalAway||f.away
+  };
+  const id=resolveBet365Fixture(identityFixture,canonical,fetchedAt);
+  f.canonicalMatchId=id.canonicalMatchId;
+  f.identityStatus=id.status;
+  f.identityResolution={
+    home:canonicalHome?"VERIFIED_ALIAS":"EXACT_ONLY",
+    away:canonicalAway?"VERIFIED_ALIAS":"EXACT_ONLY",
+    canonicalHome:canonicalHome||null,
+    canonicalAway:canonicalAway||null
+  };
+  fixtureByEvent.set(f.providerEventId,f);
 }
 for(const q of bundle.quotes){
   const f=fixtureByEvent.get(q.providerEventId);
@@ -97,6 +135,40 @@ for(const f of bundle.fixtures){
 await upsert("bet365_current",currentRows,"hkjc_event_id");
 await insert("odds_snapshots",snapshots);
 
+const learnedAliases=[];
+for(const f of bundle.fixtures){
+  if(f.identityStatus!=="VERIFIED"||!f.canonicalMatchId)continue;
+  const canonicalRow=canonById.get(f.canonicalMatchId); if(!canonicalRow)continue;
+  for(const [observed,canonicalName,side] of [
+    [f.home,canonicalRow.home_en,"HOME"],
+    [f.away,canonicalRow.away_en,"AWAY"]
+  ]){
+    const sourceKey=compactTeamKey(observed), canonicalKey=compactTeamKey(canonicalName);
+    if(!sourceKey||!canonicalKey)continue;
+    const verifiedTargets=aliasTargets.get(sourceKey);
+    const crossSourceSafe=verifiedTargets&&verifiedTargets.size===1;
+    const exactCanonical=sourceKey===canonicalKey;
+    if(!crossSourceSafe&&!exactCanonical)continue;
+    const teamKey=crossSourceSafe?[...verifiedTargets.keys()][0]:`HKJC:${canonicalKey}`;
+    learnedAliases.push({
+      source:"BET365_BROWSER",
+      source_name:observed,
+      source_key:sourceKey,
+      team_key:teamKey,
+      hkjc_name_en:canonicalName,
+      hkjc_name_zh:null,
+      status:"VERIFIED",
+      confidence:crossSourceSafe?0.99:1,
+      event_count:1,
+      first_seen_at:fetchedAt,
+      last_seen_at:fetchedAt,
+      evidence_sources:["BET365_BROWSER","VERIFIED_FIXTURE_IDENTITY",crossSourceSafe?"CROSS_SOURCE_VERIFIED_ALIAS":"EXACT_CANONICAL"],
+      updated_at:fetchedAt
+    });
+  }
+}
+await upsert("team_name_master",learnedAliases,"source,source_key,team_key");
+
 await upsert("source_health",[{
   source:"BET365_BROWSER",
   metric:"heartbeat",
@@ -114,12 +186,15 @@ await upsert("source_health",[{
     quotes:bundle.quotes.length,
     normalizedQuotes:bundle.quotes.filter(q=>q.decimalPrice>1&&!q.suspended).length,
     hdaBoards:currentRows.length,
-    rejections:bundle.rejected.length
+    rejections:bundle.rejected.length,
+    aliasCandidates:aliasRows.length,
+    learnedAliases:learnedAliases.length
   }
 }],"source,metric");
 
 console.log(JSON.stringify({
   fetchedAt,upstreamRows:Array.isArray(payload)?payload.length:null,fixtures:bundle.fixtures.length,verifiedFixtures:bundle.fixtures.filter(f=>f.identityStatus==="VERIFIED").length,
   ambiguousFixtures:bundle.fixtures.filter(f=>f.identityStatus==="AMBIGUOUS").length,quotes:bundle.quotes.length,changedQuotes:changed.length,
-  normalizedQuotes:bundle.quotes.filter(q=>q.decimalPrice>1&&!q.suspended).length,hdaBoards:currentRows.length,rejections:bundle.rejected.length
+  normalizedQuotes:bundle.quotes.filter(q=>q.decimalPrice>1&&!q.suspended).length,hdaBoards:currentRows.length,
+  aliasCandidates:aliasRows.length,learnedAliases:learnedAliases.length,rejections:bundle.rejected.length
 }));
