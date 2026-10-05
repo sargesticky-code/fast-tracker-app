@@ -931,7 +931,7 @@ function summaryMatchToAnalysisRow(m:any,id:string){
     hkjc_price_changed_at:m?.health?.hkjcPriceChangedAt ?? m?.live?.oddsUpdatedAt ?? null,
     hkjc_fetched_at:m?.health?.hkjcFetchedAt ?? m?.live?.fetchedAt ?? null,
     evidence_channel_count:0,
-    unified_coverage_status:m?.health?.unifiedCoverageStatus ?? "HKJC_ONLY",
+    unified_coverage_status:m?.health?.unifiedCoverageStatus ?? "FLASHSCORE_BET365",
     diagnostic_codes:["SUMMARY_AUTHORITY_FIRST"],
     decision:null,
     decision_engine_version:"summary_authority_first_v1",
@@ -949,6 +949,21 @@ function evidenceRow(rows:any[],source:string,market:string){
 function englishPublicText(input: string) {
   let out = String(input);
   const replacements: Array<[string,string]> = [
+    ["亞洲讓球：現時未有完整 HKJC 讓球盤或可用模型分布。", "Asian handicap: no verified current line or usable model distribution."],
+    ["亞洲讓球：市場價格 freshness 未通過，暫不以舊價計 Value。", "Asian handicap: market freshness failed; stale prices are not used for value."],
+    ["HKJC 現價未齊", "current bookmaker price is incomplete"],
+    ["HKJC 盤口線未齊", "current bookmaker line is incomplete"],
+    ["HKJC 現價已超過 freshness 門檻", "current bookmaker price exceeded the freshness threshold"],
+    ["HKJC live 價格超過 4 分鐘，避免用舊價製造假 Edge", "verified live price is stale; stale prices are not used to manufacture edge"],
+    ["HKJC live 市場價格超過 4 分鐘 freshness 門檻", "verified live market price exceeded the freshness threshold"],
+    ["HKJC 即場市場未齊，無法計 fair probability", "verified live market is incomplete; fair probability cannot be calculated"],
+    ["HKJC live fair", "verified live market fair"],
+    ["HKJC live 現價", "verified live price"],
+    ["HKJC live", "verified live market"],
+    ["HKJC no-vig fair", "bookmaker no-vig fair"],
+    ["HKJC no-vig", "bookmaker no-vig"],
+    ["HKJC current price", "current bookmaker price"],
+    ["HKJC 市場不新鮮", "current bookmaker market is stale"],
     ["只有 1 個獨立模型 family，方向只列觀望", "Only 1 independent model family; direction remains WATCH"],
     ["EV 雖高但機率差不足 3pp，高賠率放大效應：只列觀望", "EV is positive but the probability gap is below 3pp; long-odds amplification keeps this at WATCH"],
     ["高賠率尾部風險：Phase 5 calibration 未完成，Strong Value 上限降為 Value", "Long-odds tail risk: Phase 5 calibration is incomplete, so Strong Value is capped at Value"],
@@ -1198,13 +1213,7 @@ Deno.serve(async (req: Request) => {
     oneWith(optionalDb,"odds_movement_current"),
     oneWith(optionalDb,"live_score_current"),
     oneWith(optionalDb,"live_stats_current"),
-    (async()=>{
-      const x=await optionalDb.from("bet365_browser_live_current").select("*")
-        .eq("canonical_match_id",id).eq("identity_status","VERIFIED")
-        .gte("captured_at",new Date(Date.now()-5*60*1000).toISOString())
-        .order("captured_at",{ascending:false}).limit(1).maybeSingle();
-      return {data:x.data??null,error:oneError(x.error)};
-    })(),
+    Promise.resolve({data:null,error:null}),
     oneWith(optionalDb,"bet365_current"),
     oneWith(optionalDb,"live_expected_actual_current"),
     manyWith(optionalDb,"match_scenario_current"),
@@ -1370,9 +1379,9 @@ Deno.serve(async (req: Request) => {
     : null;
 
   const liveMarketInput = {
-    hkjc_home_odds: liveOddsRow?.had_home ?? r.live_had_home,
-    hkjc_draw_odds: liveOddsRow?.had_draw ?? r.live_had_draw,
-    hkjc_away_odds: liveOddsRow?.had_away ?? r.live_had_away,
+    hkjc_home_odds: null,
+    hkjc_draw_odds: null,
+    hkjc_away_odds: null,
   };
   const liveMarket = live ? fairMarket(liveMarketInput) : null;
   const liveOddsAgeSeconds = live ? candidateLiveOddsAgeSeconds : null;
@@ -1537,7 +1546,7 @@ Deno.serve(async (req: Request) => {
     : candidate === "NO_EDGE" ? "PASS"
     : candidate;
 
-  const hdcAuthority:any = live ? (liveOddsRow ?? null) : (upcomingOdds.data ?? null);
+  const hdcAuthority:any = live ? null : (upcomingOdds.data ?? null);
   const currentHdcLine = hdcAuthority?.hdc_line ?? null;
   const currentHdcHome = hdcAuthority?.hdc_home ?? null;
   const currentHdcAway = hdcAuthority?.hdc_away ?? null;
@@ -1558,12 +1567,12 @@ Deno.serve(async (req: Request) => {
     fallbackMode,
   });
 
-  const currentGoalsLine = live ? (liveOddsRow?.hil_line ?? r.live_hil_line) : r.hkjc_goals_line;
-  const currentGoalsOver = live ? (liveOddsRow?.hil_over ?? r.live_hil_over) : r.hkjc_goals_over;
-  const currentGoalsUnder = live ? (liveOddsRow?.hil_under ?? r.live_hil_under) : r.hkjc_goals_under;
-  const currentCornersLine = live ? (liveOddsRow?.chl_line ?? r.live_chl_line) : r.hkjc_corners_line;
-  const currentCornersOver = live ? (liveOddsRow?.chl_over ?? r.live_chl_over) : r.hkjc_corners_over;
-  const currentCornersUnder = live ? (liveOddsRow?.chl_under ?? r.live_chl_under) : r.hkjc_corners_under;
+  const currentGoalsLine = live ? null : r.hkjc_goals_line;
+  const currentGoalsOver = live ? null : r.hkjc_goals_over;
+  const currentGoalsUnder = live ? null : r.hkjc_goals_under;
+  const currentCornersLine = live ? null : r.hkjc_corners_line;
+  const currentCornersOver = live ? null : r.hkjc_corners_over;
+  const currentCornersUnder = live ? null : r.hkjc_corners_under;
 
   const goalsModels: BinaryModel[] = [];
   const goalsLine = n(currentGoalsLine);
