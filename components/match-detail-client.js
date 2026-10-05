@@ -7,6 +7,7 @@ import EvidenceArticle from "@/components/evidence-article";
 import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import {
   divergence,
+  authoritativeFormModel,
   fairMarket,
   formatKickoff,
   formatOdds,
@@ -803,6 +804,7 @@ export default function MatchDetailClient() {
   const gap = divergence(match);
   const zhTitle = match.homeZh && match.awayZh ? `${match.homeZh} vs ${match.awayZh}` : null;
   const fresh = freshness(match);
+  const detailFormModel = authoritativeFormModel(match, deep);
   const evidenceCount = match.health?.evidenceChannelCount ?? modelCoverageCount(match);
   const detailAgreement = modelAgreement(match);
   const detailPriority = reviewPriority(match);
@@ -965,7 +967,7 @@ export default function MatchDetailClient() {
 
 
   const coreModelRows = CORE_MODEL_DEFS.map((model) => {
-    const values = coreModelValues(match, model.key, market);
+    const values = coreModelValues(match, model.key, market) || (model.key === "FORM" ? detailFormModel : null);
     return { ...model, values, hasData: probabilityAvailable(values) };
   });
   const coreModelDataCount = coreModelRows.filter((row) => row.hasData).length;
@@ -1330,12 +1332,12 @@ export default function MatchDetailClient() {
           <span className="detail-status-chip detail-goal-summary" title={goalSummary.source}>Average goals <b>{goalSummary.avgGoals === null ? "—" : goalSummary.avgGoals.toFixed(2)}</b><small>{goalSummary.source}</small></span>
           {detailAgreement.key !== "limited" ? <span className={"detail-status-chip detail-status-" + detailAgreement.key}>{detailAgreement.label}</span> : null}
           <span className={"detail-status-chip detail-review-" + detailPriority.band}>R {detailPriority.score}</span>
-          <span className="detail-status-chip">{evidenceCount} inputs</span>
+          <span className="detail-status-chip">{evidenceCount === 0 && detailFormModel ? "Team Form model available" : `${evidenceCount} inputs`}</span>
           <span className="detail-status-source">{source}</span>
         </div>
       </section>
 
-      {(sourceContextVerified || evidenceCount === 0) ? (
+      {(sourceContextVerified || (evidenceCount === 0 && !detailFormModel)) ? (
         <section
           className="panel"
           style={{

@@ -17,6 +17,8 @@ for (const width of [1440, 390]) {
     await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
     await expect(page.locator(".detail-goal-summary")).toContainText("2.73");
     await expect(page.locator(".detail-goal-summary")).toContainText("Team Form expected goals");
+    await expect(page.locator(".detail-board-status")).toContainText("Team Form model available");
+    await expect(page.getByText("Fixture link is valid, but usable model evidence is not currently available", {exact:true})).toHaveCount(0);
     await expect(page.locator(".detail-board-score")).toHaveCount(0);
     await page.screenshot({path:`test-results/dashboard-detail-only-goals-${width}.png`,fullPage:true});
   });

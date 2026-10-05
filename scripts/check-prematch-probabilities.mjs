@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 // Load the actual public calculation module without changing the app's module mode.
 const source = fs.readFileSync("lib/fast-tracker.js", "utf8");
-const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel, prematchGoalSummary } = await import(
+const { normalizedTriplet, preferredModel, valueEdge, prematchValueSignal, marketSourceLabel, prematchGoalSummary, authoritativeFormModel } = await import(
   `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
 );
 for (const missing of [null, undefined, "", "  ", false, true, [], {}, NaN, Infinity, -0.2, 101]) {
@@ -75,3 +75,8 @@ assert.equal(prematchGoalSummary({id:"OTHER"},deepGoal).avgGoals,null);
 assert.equal(prematchGoalSummary({id:"CANONICAL"},{...deepGoal,fixture:null}).avgGoals,null);
 assert.equal(prematchGoalSummary({id:"CANONICAL"},{...deepGoal,models:{form:{...deepGoal.models.form,hkjc_event_id:"OTHER"}}}).avgGoals,null);
 console.log("Authoritative goal fallback passed strict payload/fixture/model identity gates.");
+
+assert.deepEqual(authoritativeFormModel({id:"CANONICAL"},deepGoal),{home:.5,draw:.3,away:.2});
+assert.equal(authoritativeFormModel({id:"OTHER"},deepGoal),null);
+assert.equal(authoritativeFormModel({id:"CANONICAL"},{...deepGoal,models:{form:{...deepGoal.models.form,quality:"REJECTED"}}}),null);
+assert.equal(authoritativeFormModel({id:"CANONICAL"},{...deepGoal,models:{form:{...deepGoal.models.form,form_prob_draw:null}}}),null);
