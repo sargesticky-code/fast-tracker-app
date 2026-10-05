@@ -822,7 +822,7 @@ function mergeLivePayload(feed, payload) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "FRESH", unifiedCoverageStatus: "FLASHSCORE_BET365" },
+      health: { authorityFreshness: "FRESH", unifiedCoverageStatus: "FLASHSCORE_BET365" },
     });
   }
 
