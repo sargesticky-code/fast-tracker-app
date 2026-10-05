@@ -31,7 +31,7 @@ const ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1
 const STORY_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-story";
 
 const CORE_MODEL_DEFS = [
-  { key: "HKJC", label: "HKJC no-vig" },
+  { key: "BET365", label: "Bet365 no-vig" },
   { key: "FOREBET", label: "Forebet" },
   { key: "DC", label: "Dixon-Coles" },
   { key: "PI", label: "Pi Rating" },
@@ -58,7 +58,7 @@ function probabilityAvailable(values) {
 }
 
 function coreModelValues(match, key, market) {
-  if (key === "HKJC") return market;
+  if (key === "BET365") return market;
   if (key === "FOREBET") return match.forebet;
   if (key === "DC") return match.dc;
   if (key === "PI") return match.pi;
@@ -462,7 +462,7 @@ function matchFromDetailPayload(payload, matchId) {
       hkjcPriceChangedAt: priceObservedAt,
       hkjcPriceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
       evidenceChannelCount: 0,
-      unifiedCoverageStatus: "HKJC_ONLY",
+      unifiedCoverageStatus: "BET365_BROWSER",
     },
     updatedAt: fixtureFetchedAt,
   };
@@ -479,7 +479,7 @@ function mergeLiveMatch(base, payload, matchId) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "HKJC_ONLY" },
+      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "BET365_BROWSER" },
       updatedAt: live.live?.fetchedAt || payload.generatedAt || null,
     };
   }
@@ -782,7 +782,7 @@ export default function MatchDetailClient() {
           {canonicalFixtureMissing ? (
             <>
               <p className="fineprint">
-                Supporting records exist for this event ID, but no current canonical HKJC fixture was resolved.
+                Supporting records exist for this event ID, but no current canonical fixture was resolved.
                 Those records are not promoted into a match card, current prices, recommendation or confirmed lineup claim.
               </p>
               <p className="fineprint">
@@ -948,12 +948,12 @@ export default function MatchDetailClient() {
     : "Observed time unavailable";
   const totalMissingReason = (marketName, compare, advice, marketRow) => {
     const candidate = String(advice?.candidateClass || "").toUpperCase();
-    if (!marketRow?.line) return "HKJC line is unavailable; no same-line model comparison can be made.";
-    if (!totalMarketHasPrice(marketRow)) return "HKJC Over/Under prices are unavailable for this line.";
+    if (!marketRow?.line) return "Bet365 line is unavailable; no same-line model comparison can be made.";
+    if (!totalMarketHasPrice(marketRow)) return "Bet365 Over/Under prices are unavailable for this line.";
     if (candidate === "NO_MODEL") return marketName + " model gate: NO_MODEL — no supported probability evidence is available.";
-    if (compare?.key === "mismatch") return "Model line does not match the current HKJC line; probabilities are not transferred across lines.";
-    if (compare?.key === "unmodelled-line") return "HKJC line is priced, but no same-line model probability is stored.";
-    if (compare?.key === "no-market") return "HKJC line is unavailable; model comparison is disabled.";
+    if (compare?.key === "mismatch") return "Model line does not match the current Bet365 line; probabilities are not transferred across lines.";
+    if (compare?.key === "unmodelled-line") return "Bet365 line is priced, but no same-line model probability is stored.";
+    if (compare?.key === "no-market") return "Bet365 line is unavailable; model comparison is disabled.";
     return (compare?.label && compare.label !== "NO DATA")
       ? String(compare.label).replace("未有同線模型", "no same-line model")
       : marketName + " model gate: probability evidence unavailable.";
@@ -1366,7 +1366,7 @@ export default function MatchDetailClient() {
           ) : null}
           <p className="fineprint" style={{ margin:"7px 0 0" }}>
             {sourceContextVerified
-              ? "This layer confirms fixture, lineup and context coverage only; it does not alter model probabilities, HKJC fair probability or edge."
+              ? "This layer confirms fixture, lineup and context coverage only; it does not alter model probabilities, Bet365 fair probability or edge."
                : "The route is healthy but data coverage is incomplete; missing model evidence is not filled with invented values."}
           </p>
         </section>
@@ -1397,7 +1397,7 @@ export default function MatchDetailClient() {
                 : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}</strong>
             <small style={{ display:"block", marginTop:4, color:"#6f8177", fontSize:8, fontWeight:850 }}>
               {Number.isFinite(primaryModelProbability) && Number.isFinite(primaryMarketProbability)
-                ? `Model ${(primaryModelProbability * 100).toFixed(1)}% · HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · Probability gap " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
+                ? `Model ${(primaryModelProbability * 100).toFixed(1)}% · Bet365 fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · Probability gap " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
                 : "Comparable probabilities unavailable"}
             </small>
           </div>
@@ -1696,7 +1696,7 @@ export default function MatchDetailClient() {
             <div className="live-score-centre">
               <small>{liveMinute}</small>
               <b>{liveScoreText}</b>
-              <em>{liveStats ? "FULL LIVE DATA" : liveScore.source ? "SCORE FEED" : "HKJC LIVE"}</em>
+              <em>{liveStats ? "FULL LIVE DATA" : liveScore.source ? "SCORE FEED" : "BET365 LIVE"}</em>
             </div>
             <div className="live-team-block away">
               <span>AWAY</span>
@@ -1775,7 +1775,7 @@ export default function MatchDetailClient() {
               </strong>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6,fontSize:10,fontWeight:850,color:"#53685c"}}>
                 <span>Model {Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</span>
-                <span>HKJC fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
+                <span>Bet365 fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
                 <span>Edge {Number.isFinite(primaryEdgePp) ? (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : "—"}</span>
                 {analysisDecision.confidenceLabel ? <span>Confidence {analysisDecision.confidenceLabel} · {analysisDecision.confidenceScore ?? "—"}/100</span> : null}
                 <span>{analysisDecision.liveScore || liveScoreText} · {analysisDecision.liveMinute ?? liveMinute}</span>
@@ -1812,14 +1812,14 @@ export default function MatchDetailClient() {
             </div>
           ) : (
             <div className="live-score-only-state">
-              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "HKJC running result connected" : "Market / score layer only"}</strong>
+              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "Score feed connected" : "Market / score layer only"}</strong>
               <p>When reliable xG, shooting or possession detail is unavailable, missing values remain blank rather than creating false signals. The pressure board appears only when stats exist.</p>
             </div>
           )}
 
           <div className="live-market-board">
             <div className="live-1x2-market">
-              <span>HKJC LIVE 1X2</span>
+              <span>BET365 LIVE 1X2</span>
               <div>
                 <b>H <strong>{formatOdds(match.live.odds?.home)}</strong></b>
                 <b>D <strong>{formatOdds(match.live.odds?.draw)}</strong></b>
@@ -1856,7 +1856,7 @@ export default function MatchDetailClient() {
           ) : null}
 
           <p className="fineprint">
-            Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
+            Live market: Bet365 freshness gate · Score source：{liveScore.source || "—"}
             {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
             {liveStats?.source ? ` · Stats source：${liveStats.source}` : ""}
           </p>
@@ -1864,7 +1864,7 @@ export default function MatchDetailClient() {
       )}
 
       <section className="panel totals-board-panel" id="market-totals">
-        <div className="panel-title"><div><p>HKJC MARKETS</p><h2>Goals and corners</h2></div></div>
+        <div className="panel-title"><div><p>BET365 MARKETS</p><h2>Goals and corners</h2></div></div>
         <div className="totals-board">
           <div className={"totals-row " + (!goalsModelSupported ? "totals-row-compact" : "")}>
             <div className="totals-name"><span>Goals O/U</span><b>Line {match.goals?.line || "—"}</b></div>
@@ -1888,7 +1888,7 @@ export default function MatchDetailClient() {
               <div className="totals-compact-state">
                 <div>
                   <span>MODEL GATE</span>
-                  <strong>{match.goals?.line ? "No supported Goals probability" : "No HKJC Goals line"}</strong>
+                  <strong>{match.goals?.line ? "No supported Goals probability" : "No Bet365 Goals line"}</strong>
                   <small>{totalMissingReason("Goals", goalsCompare, goalsAdvice, match.goals)}</small>
                 </div>
                 <div className="totals-quote-state">
@@ -1925,7 +1925,7 @@ export default function MatchDetailClient() {
               <div className="totals-compact-state">
                 <div>
                   <span>MODEL GATE</span>
-                  <strong>{match.corners?.line ? "No supported Corners probability" : "No HKJC Corners line"}</strong>
+                  <strong>{match.corners?.line ? "No supported Corners probability" : "No Bet365 Corners line"}</strong>
                   <small>{totalMissingReason("Corners", cornersCompare, cornersAdvice, match.corners)}</small>
                 </div>
                 <div className="totals-quote-state">
@@ -2085,7 +2085,7 @@ export default function MatchDetailClient() {
               />
             </div>
             <p className="fineprint">
-              Recent results use confirmed HKJC match results only. W = win, D = draw, L = loss. Missing side history remains unknown rather than zero.
+              Recent results use confirmed match results only. W = win, D = draw, L = loss. Missing side history remains unknown rather than zero.
               {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
             </p>
           </>
@@ -2147,9 +2147,9 @@ export default function MatchDetailClient() {
           <div className="h2h-empty">
             <strong>
               {h2hQuality === "HISTORY_PARTIAL"
-                ? "HKJC history coverage is still partial"
+                ? "Historical result coverage is still partial"
                 : h2hQuality === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY"
-                  ? "No direct meeting found in the available HKJC history"
+                  ? "No direct meeting found in the available verified history"
                    : "H2H data is pending"}
             </strong>
             <span>
@@ -2161,7 +2161,7 @@ export default function MatchDetailClient() {
         )}
 
         <p className="fineprint">
-          Only confirmed results joined through stable HKJC team IDs are used. H / D / A is expressed from the current home team perspective. Up to five recent direct meetings are shown.
+          Only confirmed results joined through stable canonical team IDs are used. H / D / A is expressed from the current home team perspective. Up to five recent direct meetings are shown.
           {h2h?.source ? " · Source: " + h2h.source : ""}
         </p>
       </section>
@@ -2281,7 +2281,7 @@ export default function MatchDetailClient() {
       {hasMovement && (
         <section className="panel odds-signal-panel">
           <div className="panel-title">
-            <div><p>ODDS MOVEMENT</p><h2>HKJC price signal</h2></div>
+            <div><p>ODDS MOVEMENT</p><h2>Bet365 price signal</h2></div>
             <span>{movement.signal || "COLLECTING"}</span>
           </div>
 
