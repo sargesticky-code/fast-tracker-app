@@ -103,26 +103,88 @@ Deno.serve(async (req: Request) => {
   try {
     const liveCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
     let marketRows:any[] = [];
-    let marketSource = "HKJC_DIRECT_UPSTREAM";
+    const marketSource = "BET365_BROWSER";
 
-    try {
-      const direct = await fetch(`${supabaseUrl}/functions/v1/hkjc-live-direct?mode=summary`, {
-        headers: { Authorization: `Bearer ${key}`, apikey: key },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!direct.ok) throw new Error(`live_direct_http_${direct.status}`);
-      const body = await direct.json();
-      marketRows = Array.isArray(body?.data) ? body.data : [];
-    } catch (directError) {
-      console.error("live_direct_upstream_failed", directError);
-      const { data, error } = await db
-        .from("hkjc_live_odds_current")
-        .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,home_en,away_en,home_zh,away_zh,had_home,had_draw,had_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,pool_status,odds_updated_at")
-        .gte("fetched_at", liveCutoff);
-      if (error) throw error;
-      marketRows = data ?? [];
-      marketSource = "DATABASE_SNAPSHOT";
+    const liveResult = await db
+      .from("bet365_browser_live_current")
+      .select("provider_event_id,fixture_id,canonical_match_id,captured_at,event_name,league,home,away,home_score,away_score,minute,second,period,stats,identity_status")
+      .eq("identity_status", "VERIFIED")
+      .not("canonical_match_id", "is", null)
+      .gte("captured_at", liveCutoff);
+    if (liveResult.error) throw liveResult.error;
+
+    const liveRows = liveResult.data ?? [];
+    const canonicalIds = [...new Set(liveRows.map((r:any)=>String(r.canonical_match_id||"")).filter(Boolean))];
+    const providerIds = [...new Set(liveRows.map((r:any)=>String(r.provider_event_id||"")).filter(Boolean))];
+
+    const [matchResult, quoteResult] = await Promise.all([
+      canonicalIds.length
+        ? db.from("matches").select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en").in("hkjc_event_id", canonicalIds)
+        : Promise.resolve({data:[],error:null} as any),
+      providerIds.length
+        ? db.from("bet365_browser_quote_current")
+            .select("provider_event_id,canonical_match_id,market_key,selection_key,line,decimal_price,suspended,captured_at,identity_status")
+            .in("provider_event_id", providerIds)
+            .eq("identity_status","VERIFIED")
+        : Promise.resolve({data:[],error:null} as any),
+    ]);
+    if (matchResult.error) throw matchResult.error;
+    if (quoteResult.error) throw quoteResult.error;
+
+    const matchById = new Map((matchResult.data ?? []).map((r:any)=>[String(r.hkjc_event_id),r]));
+    const quotesByEvent = new Map<string,any[]>();
+    for (const q of quoteResult.data ?? []) {
+      const id=String(q.provider_event_id||""); if(!id) continue;
+      const bucket=quotesByEvent.get(id)||[]; bucket.push(q); quotesByEvent.set(id,bucket);
     }
+    const pairMarket=(quotes:any[],market:string)=>{
+      const candidates=quotes.filter((q:any)=>q.market_key===market && q.suspended!==true && num(q.decimal_price)!=null);
+      const byLine=new Map<string,any[]>();
+      for(const q of candidates){const key=String(q.line??"");const b=byLine.get(key)||[];b.push(q);byLine.set(key,b);}
+      for(const [line,rows] of byLine){
+        const over=rows.find((q:any)=>q.selection_key==="OVER"),under=rows.find((q:any)=>q.selection_key==="UNDER");
+        if(over&&under)return {line:line||null,over:num(over.decimal_price),under:num(under.decimal_price),capturedAt:over.captured_at??under.captured_at??null};
+      }
+      return {line:null,over:null,under:null,capturedAt:null};
+    };
+
+    marketRows = liveRows.map((r:any)=>{
+      const canonical=matchById.get(String(r.canonical_match_id))||{};
+      const quotes=quotesByEvent.get(String(r.provider_event_id))||[];
+      const hda={
+        home:num(quotes.find((q:any)=>q.market_key==="HDA"&&q.selection_key==="H"&&!q.suspended)?.decimal_price),
+        draw:num(quotes.find((q:any)=>q.market_key==="HDA"&&q.selection_key==="D"&&!q.suspended)?.decimal_price),
+        away:num(quotes.find((q:any)=>q.market_key==="HDA"&&q.selection_key==="A"&&!q.suspended)?.decimal_price),
+      };
+      const goals=pairMarket(quotes,"GOALS"),corners=pairMarket(quotes,"CORNERS");
+      const activeQuotes=quotes.filter((q:any)=>q.suspended!==true&&num(q.decimal_price)!=null);
+      const latestQuote=activeQuotes.map((q:any)=>q.captured_at).filter(Boolean).sort().at(-1)??null;
+      const stats=r.stats&&typeof r.stats==="object"?r.stats:{};
+      return {
+        hkjc_event_id:r.canonical_match_id,
+        match_id:r.provider_event_id,
+        fetched_at:r.captured_at,
+        kickoff_hkt:canonical.kickoff_hkt??null,
+        status:r.period??"LIVE",
+        tournament:canonical.tournament??r.league,
+        home_en:canonical.home_en??r.home,
+        away_en:canonical.away_en??r.away,
+        home_zh:canonical.home_en??r.home,
+        away_zh:canonical.away_en??r.away,
+        had_home:hda.home,had_draw:hda.draw,had_away:hda.away,
+        hil_line:goals.line,hil_over:goals.over,hil_under:goals.under,
+        chl_line:corners.line,chl_over:corners.over,chl_under:corners.under,
+        pool_status:activeQuotes.length?"SELLINGSTARTED":"UNKNOWN",
+        odds_updated_at:latestQuote,
+        running_home_score:r.home_score,
+        running_away_score:r.away_score,
+        running_home_corner:num(stats?.Corner?.home),
+        running_away_corner:num(stats?.Corner?.away),
+        running_corner:(num(stats?.Corner?.home)!=null&&num(stats?.Corner?.away)!=null)?num(stats?.Corner?.home)+num(stats?.Corner?.away):null,
+        match_updated_at:r.captured_at,
+        bet365_minute:r.minute,
+      };
+    });
 
     const ids = (marketRows ?? []).map((r: any) => r.hkjc_event_id).filter(Boolean);
     const scoreMap = new Map<string, any>();
@@ -138,7 +200,7 @@ Deno.serve(async (req: Request) => {
           away_score: away,
           minute: null,
           match_status: row.status ?? null,
-          source: "HKJC_RUNNING_RESULT",
+          source: "BET365_BROWSER",
           source_match_id: row.match_id ?? null,
           match_confidence: 1,
           updated_at_source: row.fetched_at ?? null,
@@ -185,7 +247,7 @@ Deno.serve(async (req: Request) => {
           .in("hkjc_event_id", ids),
         db.from("source_health")
           .select("source,status,observed_at")
-          .in("source", ["HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
+          .in("source", ["LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
           .eq("metric", "heartbeat"),
       ]);
 
