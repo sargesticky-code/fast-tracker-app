@@ -927,7 +927,7 @@ Deno.serve(async (req: Request) => {
       : await db
           .from("source_health")
           .select("source,status,value_text,notes,observed_at,raw")
-          .in("source", ["BET365_BROWSER", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
+          .in("source", ["FLASHSCORE_BET365", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
           .eq("metric", "heartbeat");
 
     if (heartbeatError) console.error("heartbeat_query_failed", heartbeatError);
@@ -971,10 +971,11 @@ Deno.serve(async (req: Request) => {
         poolStatus: r.live_pool_status ?? null,
         oddsUpdatedAt: r.live_odds_updated_at ?? null,
         odds: {
-          home: num(r.live_had_home),
-          draw: num(r.live_had_draw),
-          away: num(r.live_had_away),
+          home: null,
+          draw: null,
+          away: null,
         },
+        oddsSemantics: "NO_VERIFIED_IN_PLAY_BOOKMAKER_ODDS",
         handicap: {
           line: displayAuthority?.hdc_line ?? null,
           home: num(displayAuthority?.hdc_home),
