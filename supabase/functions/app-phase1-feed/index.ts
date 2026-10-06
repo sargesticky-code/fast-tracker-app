@@ -199,8 +199,7 @@ function authorityFreshness(fetchedAt: unknown) {
   if (!fetchedAt) return { status: "MISSING", ageMinutes: null };
   const ageMinutes = Math.max(0, (Date.now() - new Date(String(fetchedAt)).getTime()) / 60000);
   if (!Number.isFinite(ageMinutes)) return { status: "UNKNOWN", ageMinutes: null };
-  if (ageMinutes > 60) return { status: "STALE", ageMinutes };
-  if (ageMinutes > 30) return { status: "AGING", ageMinutes };
+  if (ageMinutes > 20) return { status: "STALE", ageMinutes };
   return { status: "FRESH", ageMinutes };
 }
 
@@ -591,12 +590,13 @@ Deno.serve(async (req: Request) => {
             ? "STALE"
             : String(bet365Heartbeat.status||"OK").toUpperCase();
 
+      const bookmakerHealthy=bet365HeartbeatStatus==="OK";
       const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.match_id),r]));
       const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
       const rows:any[]=[];
       for(const fixture of fixtureResult.data??[]){
         const id=String(fixture.match_id||""); if(!id) continue;
-        const b:any=bet365ById.get(id)||null;
+        const b:any=bookmakerHealthy ? (bet365ById.get(id)||null) : null;
         const l:any=liveById.get(id)||null;
         const row={
           match_id:id,
