@@ -77,12 +77,27 @@ function compactStats(row: any) {
     confidence: num(row.match_confidence),
     xg: statPair(row.team_stats, ["expected_goals"]),
     xgot: statPair(row.team_stats, ["expected_goals_on_target"]),
+    xgOpenPlay: statPair(row.team_stats, ["expected_goals_open_play"]),
+    xgSetPlay: statPair(row.team_stats, ["expected_goals_set_play"]),
     shots: statPair(row.team_stats, ["total_shots", "shots"]),
     shotsOnTarget: statPair(row.team_stats, ["shotsontarget"]),
+    shotsOffTarget: statPair(row.team_stats, ["shotsofftarget"]),
+    shotsInsideBox: statPair(row.team_stats, ["shots_inside_box"]),
     possession: statPair(row.team_stats, ["ballpossesion"]),
     bigChances: statPair(row.team_stats, ["big_chance"]),
+    bigChancesMissed: statPair(row.team_stats, ["big_chance_missed_title"]),
     boxTouches: statPair(row.team_stats, ["touches_opp_box"]),
     corners: statPair(row.team_stats, ["corners"]),
+    accuratePasses: statPair(row.team_stats, ["accurate_passes"]),
+    tackles: statPair(row.team_stats, ["matchstats_headers_tackles"]),
+    interceptions: statPair(row.team_stats, ["interceptions"]),
+    clearances: statPair(row.team_stats, ["clearances"]),
+    keeperSaves: statPair(row.team_stats, ["keeper_saves"]),
+    duelsWon: statPair(row.team_stats, ["duel_won"]),
+    dribblesSucceeded: statPair(row.team_stats, ["dribbles_succeeded"]),
+    fouls: statPair(row.team_stats, ["fouls"]),
+    yellowCards: statPair(row.team_stats, ["yellow_cards"]),
+    redCards: statPair(row.team_stats, ["red_cards"]),
   };
 }
 
@@ -106,8 +121,8 @@ Deno.serve(async (req: Request) => {
     const marketSource = "FLASHSCORE_BET365_REFERENCE";
 
     const scoreSeedResult = await db
-      .from("live_score_current")
-      .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
+      .from("live_score_feed_current")
+      .select("match_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
       .gte("updated_at_source", liveCutoff);
     if (scoreSeedResult.error) throw scoreSeedResult.error;
 
@@ -115,32 +130,32 @@ Deno.serve(async (req: Request) => {
       const status = String(r?.match_status ?? "").trim().toUpperCase();
       return status && !["FINISHED","FT","FULLTIME","FULL_TIME","ENDED","POSTPONED","CANCELLED"].includes(status);
     });
-    const canonicalIds = [...new Set(liveScores.map((r:any)=>String(r.hkjc_event_id||"")).filter(Boolean))];
+    const canonicalIds = [...new Set(liveScores.map((r:any)=>String(r.match_id||"")).filter(Boolean))];
 
     const [matchResult, referenceOddsResult] = await Promise.all([
       canonicalIds.length
-        ? db.from("matches").select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status").in("hkjc_event_id", canonicalIds)
+        ? db.from("canonical_fixture_current").select("match_id,kickoff_hkt,tournament:league,home_en,away_en,status").in("match_id", canonicalIds)
         : Promise.resolve({data:[],error:null} as any),
       canonicalIds.length
-        ? db.from("bet365_current")
-            .select("hkjc_event_id,fetched_at,bet365_home,bet365_draw,bet365_away,bet365_fixture_id,source")
-            .in("hkjc_event_id", canonicalIds)
+        ? db.from("bookmaker_odds_current")
+            .select("match_id,fetched_at,bet365_home,bet365_draw,bet365_away,bet365_fixture_id,source")
+            .in("match_id", canonicalIds)
         : Promise.resolve({data:[],error:null} as any),
     ]);
     if (matchResult.error) throw matchResult.error;
     if (referenceOddsResult.error) console.error("live_reference_odds_unavailable",referenceOddsResult.error);
 
-    const matchById = new Map((matchResult.data ?? []).map((r:any)=>[String(r.hkjc_event_id),r]));
-    const referenceById = new Map((referenceOddsResult.data ?? []).map((r:any)=>[String(r.hkjc_event_id),r]));
-    const scoreSeedById = new Map(liveScores.map((r:any)=>[String(r.hkjc_event_id),r]));
+    const matchById = new Map((matchResult.data ?? []).map((r:any)=>[String(r.match_id),r]));
+    const referenceById = new Map((referenceOddsResult.data ?? []).map((r:any)=>[String(r.match_id),r]));
+    const scoreSeedById = new Map(liveScores.map((r:any)=>[String(r.match_id),r]));
 
     marketRows = liveScores.map((s:any)=>{
-      const id=String(s.hkjc_event_id||"");
+      const id=String(s.match_id||"");
       const canonical:any=matchById.get(id)||{};
       const ref:any=referenceById.get(id)||null;
       return {
-        hkjc_event_id:id,
-        match_id:s.source_match_id??null,
+        match_id:id,
+        provider_match_id:s.source_match_id??null,
         fetched_at:s.updated_at_source??s.source_updated_at??null,
         kickoff_hkt:canonical.kickoff_hkt??null,
         status:s.match_status??canonical.status??"LIVE",
@@ -166,7 +181,7 @@ Deno.serve(async (req: Request) => {
       };
     });
 
-    const ids = (marketRows ?? []).map((r: any) => r.hkjc_event_id).filter(Boolean);
+    const ids = (marketRows ?? []).map((r: any) => r.match_id).filter(Boolean);
     const scoreMap = new Map<string, any>();
     for (const row of marketRows ?? []) {
       const home = num(row.running_home_score);
@@ -174,14 +189,14 @@ Deno.serve(async (req: Request) => {
       const homeCorners = num(row.running_home_corner);
       const awayCorners = num(row.running_away_corner);
       if (home != null || away != null || homeCorners != null || awayCorners != null) {
-        scoreMap.set(row.hkjc_event_id, {
+        scoreMap.set(row.match_id, {
           live_score: home != null && away != null ? `${home}-${away}` : null,
           home_score: home,
           away_score: away,
           minute: null,
           match_status: row.status ?? null,
           source: row.live_score_source ?? "LIVE_SCORE_CURRENT",
-          source_match_id: row.match_id ?? null,
+          source_match_id: row.provider_match_id ?? null,
           match_confidence: 1,
           updated_at_source: row.fetched_at ?? null,
           source_updated_at: row.match_updated_at ?? row.odds_updated_at ?? row.fetched_at ?? null,
@@ -228,22 +243,22 @@ Deno.serve(async (req: Request) => {
 
     if (ids.length) {
       const [scoreResult, statsResult, detailResult, shadowResult, shadowDetailResult, heartbeatResult] = await Promise.all([
-        db.from("live_score_current")
-          .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
-          .in("hkjc_event_id", ids)
+        db.from("live_score_feed_current")
+          .select("match_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,home_corners,away_corners,total_corners,source_match_id")
+          .in("match_id", ids)
           .gte("updated_at_source", liveCutoff),
-        db.from("live_stats_current")
-          .select("hkjc_event_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
-          .in("hkjc_event_id", ids),
-        db.from("live_detail_state_current_v")
-          .select("hkjc_event_id,captured_at_hkt,source,source_match_id,match_confidence,match_minute,match_status,raw_detail_status,effective_detail_status,team_stats_count,events_count,momentum_count")
-          .in("hkjc_event_id", ids),
-        db.from("live_expected_actual_current")
-          .select("hkjc_event_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,model_hda_consensus,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt")
-          .in("hkjc_event_id", ids),
-        db.from("live_detail_shadow_current")
-          .select("hkjc_event_id,captured_at,source,source_match_id,detail_status,events")
-          .in("hkjc_event_id", ids),
+        db.from("live_stats_feed_current")
+          .select("match_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
+          .in("match_id", ids),
+        db.from("live_detail_state_feed_current")
+          .select("match_id,captured_at_hkt,source,source_match_id,match_confidence,match_minute,match_status,raw_detail_status,effective_detail_status,team_stats_count,events_count,momentum_count")
+          .in("match_id", ids),
+        db.from("live_expected_actual_feed_current")
+          .select("match_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,model_hda_consensus,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt")
+          .in("match_id", ids),
+        db.from("live_detail_shadow_feed_current")
+          .select("match_id,captured_at,source,source_match_id,detail_status,events")
+          .in("match_id", ids),
         db.from("source_health")
           .select("source,status,observed_at")
           .in("source", ["LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "PHASE3_IDENTITY_REGISTRY"])
@@ -272,9 +287,9 @@ Deno.serve(async (req: Request) => {
       const shadowDetails = shadowDetailResult.data ?? [];
       heartbeats = [...(bet365Heartbeat ? [bet365Heartbeat] : []), ...(heartbeatResult.data ?? [])];
 
-      for (const row of scores ?? []) scoreMap.set(row.hkjc_event_id, row);
+      for (const row of scores ?? []) scoreMap.set(row.match_id, row);
       for (const row of details ?? []) {
-        detailMap.set(row.hkjc_event_id, {
+        detailMap.set(row.match_id, {
           capturedAt: row.captured_at_hkt ?? null,
           detailStatus: row.effective_detail_status ?? row.raw_detail_status ?? null,
           rawDetailStatus: row.raw_detail_status ?? null,
@@ -288,10 +303,10 @@ Deno.serve(async (req: Request) => {
       }
       for (const row of stats ?? []) {
         const age = row.captured_at_hkt ? (Date.now() - new Date(row.captured_at_hkt).getTime()) / 60000 : Infinity;
-        if (Number.isFinite(age) && age <= 20) statsMap.set(row.hkjc_event_id, compactStats(row));
+        if (Number.isFinite(age) && age <= 20) statsMap.set(row.match_id, compactStats(row));
       }
       for (const row of shadows ?? []) {
-        shadowMap.set(row.hkjc_event_id, {
+        shadowMap.set(row.match_id, {
           segment: row.segment ?? null,
           minute: num(row.match_minute),
           expectedSide: row.expected_control_side ?? null,
@@ -319,7 +334,7 @@ Deno.serve(async (req: Request) => {
         const age = row.captured_at ? (Date.now() - new Date(row.captured_at).getTime()) / 60000 : Infinity;
         const events = Array.isArray(row.events) ? row.events : [];
         if (!Number.isFinite(age) || age > 10 || String(row.detail_status || "").toUpperCase() !== "CAPTURED" || !events.length) continue;
-        shadowDetailMap.set(row.hkjc_event_id, {
+        shadowDetailMap.set(row.match_id, {
           capturedAt: row.captured_at ?? null,
           detailStatus: row.detail_status ?? null,
           source: row.source ?? null,
@@ -332,9 +347,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const rows = (marketRows ?? []).map((r: any) => {
-      const score = scoreMap.get(r.hkjc_event_id) ?? {};
+      const score = scoreMap.get(r.match_id) ?? {};
       return {
-        id: r.hkjc_event_id,
+        id: r.match_id,
         kickoff: r.kickoff_hkt,
         status: r.status,
         league: r.tournament,
@@ -376,10 +391,10 @@ Deno.serve(async (req: Request) => {
             awayCorners: num(score.away_corners),
             totalCorners: num(score.total_corners),
           },
-          detail: detailMap.get(r.hkjc_event_id) ?? null,
-          stats: statsMap.get(r.hkjc_event_id) ?? null,
-          shadow: shadowMap.get(r.hkjc_event_id) ?? null,
-          shadowDetail: shadowDetailMap.get(r.hkjc_event_id) ?? null,
+          detail: detailMap.get(r.match_id) ?? null,
+          stats: statsMap.get(r.match_id) ?? null,
+          shadow: shadowMap.get(r.match_id) ?? null,
+          shadowDetail: shadowDetailMap.get(r.match_id) ?? null,
         },
       };
     });
