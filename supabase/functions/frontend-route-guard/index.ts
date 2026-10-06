@@ -56,23 +56,34 @@ Deno.serve(async (req:Request)=>{
     const {data:cfg}=await db.from("system_config").select("value").eq("key","dashboard_primary_url").maybeSingle();
     const base=String(cfg?.value||"https://fast-tracker-public-production.up.railway.app/").replace(/\/+$/,"");
 
-    const {data:feedRows,error:feedError}=await db.rpc("ft_internal_app_phase1_feed",{window_hours:24});
-    const currentRows=Array.isArray(feedRows)?feedRows:[];
-    const currentIds=[...new Set(currentRows.map((row:any)=>String(row?.hkjc_event_id||"").trim()).filter(Boolean))];
+    let feedError:any=null;
+    let currentRows:any[]=[];
+    try{
+      const feedRes=await fetch(supabaseUrl+"/functions/v1/app-phase1-feed?hours=24&view=summary",{
+        headers:{Authorization:"Bearer "+key,apikey:key,accept:"application/json"},
+        signal:AbortSignal.timeout(15000)
+      });
+      if(!feedRes.ok) throw new Error("phase1_summary_http_"+feedRes.status);
+      const feedPayload=await feedRes.json();
+      currentRows=Array.isArray(feedPayload?.matches)?feedPayload.matches:[];
+    }catch(e){
+      feedError=e;
+    }
+    const currentIds=[...new Set(currentRows.map((row:any)=>String(row?.id||row?.match_id||"").trim()).filter(Boolean))];
 
     const liveCutoff=new Date(Date.now()-10*60*1000).toISOString();
     const [{data:canonicalRows,error:canonicalError},{data:liveRows,error:liveError}]=await Promise.all([
       currentIds.length
-        ? db.from("matches").select("hkjc_event_id,kickoff_hkt,status").in("hkjc_event_id",currentIds)
+        ? db.from("canonical_fixture_current").select("match_id,kickoff_hkt,status").in("match_id",currentIds)
         : Promise.resolve({data:[],error:null} as any),
       currentIds.length
-        ? db.from("live_score_current").select("hkjc_event_id,updated_at_source,match_status").in("hkjc_event_id",currentIds).gte("updated_at_source",liveCutoff)
+        ? db.from("live_score_feed_current").select("match_id,updated_at_source,match_status").in("match_id",currentIds).gte("updated_at_source",liveCutoff)
         : Promise.resolve({data:[],error:null} as any),
     ]);
-    const canonicalSet=new Set((canonicalRows||[]).map((row:any)=>String(row.hkjc_event_id)));
+    const canonicalSet=new Set((canonicalRows||[]).map((row:any)=>String(row.match_id)));
     const liveSet=new Set((liveRows||[])
       .filter((row:any)=>!["FINISHED","FT","FULLTIME","FULL_TIME","ENDED","POSTPONED","CANCELLED"].includes(String(row?.match_status||"").toUpperCase()))
-      .map((row:any)=>String(row.hkjc_event_id)));
+      .map((row:any)=>String(row.match_id)));
     const unresolvedIds=currentIds.filter((id:string)=>!canonicalSet.has(id));
     const feedConsistencyError=feedError||canonicalError||liveError;
 
