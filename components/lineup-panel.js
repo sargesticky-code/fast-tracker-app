@@ -513,6 +513,12 @@ function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
                 const assists = matches.reduce((sum, m) => sum + (Number(m?.assists) || 0), 0);
                 const avgRating = Number(recent?.averageRating);
                 const club = profile?.primaryTeam?.teamName || null;
+                const traits = Array.isArray(profile?.traits?.items)
+                  ? profile.traits.items
+                      .filter((item) => Number.isFinite(Number(item?.value)))
+                      .sort((a, b) => Number(b.value) - Number(a.value))
+                      .slice(0, 3)
+                  : [];
                 return (
                   <div key={row?.player_key || i} style={{padding:"9px 10px",border:"1px solid #e5ece8",borderRadius:11,background:"#fafcfb"}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
@@ -530,6 +536,15 @@ function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
                       <span>{goals}G</span>
                       <span>{assists}A</span>
                     </div>
+                    {traits.length ? (
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}>
+                        {traits.map((item) => (
+                          <span key={item?.key || item?.title} title={profile?.traits?.title || "Relative player profile"} style={{fontSize:8,padding:"3px 5px",borderRadius:999,background:"#edf3ef",color:"#52695d",fontWeight:800}}>
+                            {item?.title || item?.key} {Math.round(Number(item.value) * 100)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <small style={{display:"block",marginTop:5,fontSize:8.2,color:"#87958d"}}>{row?.source_name || "FOTMOB"} · profile {formatHkt(row?.profile_updated_at)}</small>
                   </div>
                 );
