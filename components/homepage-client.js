@@ -410,6 +410,8 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                     {shortTime(match.kickoff)} · {dateKey(match.kickoff)}
                     {match?.sourceContext?.lineupCoverage?.starters === 22 ? " · XI 22/22" : ""}
                     {Number(match?.sourceContext?.lineupCoverage?.profileCount) > 0 ? " · " + match.sourceContext.lineupCoverage.profileCount + " player profiles" : ""}
+                    {match?.sourceContext?.statsAvailable ? " · Match stats" : ""}
+                    {match?.sourceContext?.xgAvailable ? " · xG" : ""}
                   </small>
                 </div>
               </div>
