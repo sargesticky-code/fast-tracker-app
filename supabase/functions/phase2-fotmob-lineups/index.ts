@@ -362,10 +362,11 @@ Deno.serve(async (req:Request)=>{
     const priority=(x)=>{
       const ko=new Date(x.h.kickoff_hkt).getTime(),st=lineupState(x.h.match_id);
       if(st.confirmed)return 99;
-      if(!st.full && ko<=now+6*3600000)return 0;
-      if(st.full && ko<=now+90*60000)return 1;
-      if(!st.full)return 2;
-      return 3;
+      if(ko<=now && ko>=now-2*3600000)return 0;
+      if(!st.full && ko<=now+6*3600000)return 1;
+      if(st.full && ko<=now+90*60000)return 2;
+      if(!st.full)return 3;
+      return 4;
     };
     matched.sort((a,b)=>{
       const pa=priority(a),pb=priority(b); if(pa!==pb)return pa-pb;
