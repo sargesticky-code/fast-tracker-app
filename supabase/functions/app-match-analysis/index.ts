@@ -91,7 +91,7 @@ function provenanceGroup(sourceValue: unknown, fallback: string) {
   if (source.includes("brazilianfootball") || source.includes("brazil serie b full-league")) return "BRAZILIANFOOTBALL_SHARED";
   if (source.includes("football-data.co.uk") || source.includes("football data co uk")) return "FOOTBALL_DATA_CO_UK";
   if (source.includes("martj42")) return "MARTJ42_INTERNATIONAL_RESULTS";
-  if (source.includes("hkjc")) return "HKJC_RESULTS";
+  if (source.includes("verified_results")) return "VERIFIED_RESULTS";
   return fallback;
 }
 
@@ -146,16 +146,16 @@ function sideLabel(side: string | null, home: string, away: string) {
 }
 
 function oddsFor(r: any, side: string | null) {
-  if (side === "H") return n(r.hkjc_home_odds);
-  if (side === "D") return n(r.hkjc_draw_odds);
-  if (side === "A") return n(r.hkjc_away_odds);
+  if (side === "H") return n(r.bookmaker_home_odds);
+  if (side === "D") return n(r.bookmaker_draw_odds);
+  if (side === "A") return n(r.bookmaker_away_odds);
   return null;
 }
 
 function fairMarket(r: any): T | null {
-  const direct = triplet(r.hkjc_novig_home, r.hkjc_novig_draw, r.hkjc_novig_away);
+  const direct = triplet(r.bookmaker_novig_home, r.bookmaker_novig_draw, r.bookmaker_novig_away);
   if (direct) return direct;
-  const oh = n(r.hkjc_home_odds), od = n(r.hkjc_draw_odds), oa = n(r.hkjc_away_odds);
+  const oh = n(r.bookmaker_home_odds), od = n(r.bookmaker_draw_odds), oa = n(r.bookmaker_away_odds);
   if (!oh || !od || !oa || oh <= 0 || od <= 0 || oa <= 0) return null;
   const s = 1 / oh + 1 / od + 1 / oa;
   return { home: (1 / oh) / s, draw: (1 / od) / s, away: (1 / oa) / s };
@@ -446,7 +446,7 @@ function buildHandicapAdvice(opts: {
       action: "NO_BET",
       method: "MODEL_DERIVED_SCORE_DISTRIBUTION",
       advice: !usable
-        ? "亞洲讓球：現時未有完整 HKJC 讓球盤或可用模型分布。"
+        ? "亞洲讓球：現時未有完整 bookmaker 讓球盤或可用模型分布。"
         : "亞洲讓球：市場價格 freshness 未通過，暫不以舊價計 Value。",
     };
   }
@@ -584,7 +584,7 @@ function evidenceKey(table:string,row:any,idFallback:string){
 }
 function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
   return [
-    String(row?.hkjc_event_id||""),
+    String(row?.match_id||""),
     normalizedSide(row?.team_side)||"?",
     canonicalIdentity || "UNRESOLVED:" + compactToken(row?.player_name||row?.raw?.player?.name||row?.raw?.player_name||row?.player_key||"unknown"),
     compactToken(row?.status_type),
@@ -822,15 +822,15 @@ function buildBinaryAdvice(opts: {
   let advice = "PASS：未有足夠模型證據形成方向。";
   if (candidateClass === "DATA_RISK") {
     const why = dataRiskReason === "MISSING_MARKET_PRICE"
-      ? "HKJC 現價未齊"
+      ? "Current bookmaker price is incomplete"
       : dataRiskReason === "MISSING_MARKET_LINE"
-        ? "HKJC 盤口線未齊"
+        ? "Current bookmaker line is incomplete"
         : dataRiskReason === "REFERENCE_PRICE_ONLY"
           ? "目前只得參考舊價"
-          : "HKJC 現價已超過 freshness 門檻";
+          : "Current bookmaker price exceeded the freshness threshold";
     advice = `${opts.label}：暫不下注，因為${why}；呢個係資料 gate，唔代表市場本身冇價值。`;
   }
-  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 HKJC 現盤，但未有可比較模型，所以暫不下注；原因係冇模型，而唔係計過冇 Edge。`;
+  else if (candidateClass === "NO_MODEL") advice = `${opts.label} ${lineText}：有 bookmaker 現盤，但未有可比較模型，所以暫不下注；原因係冇模型，而唔係計過冇 Edge。`;
   else if (candidateClass === "NO_EDGE") advice = `${opts.label} ${lineText}：已按現價計算，最佳方向 EV 仍然 ≤ 0%，所以跳過。`;
   else if (selection) {
     const lead = candidateClass.includes("VALUE")
@@ -841,7 +841,7 @@ function buildBinaryAdvice(opts: {
     const thinGapNote = expectedValuePct !== null && expectedValuePct >= 4 && edgePp !== null && edgePp < 3
       ? "；EV 雖高但機率差不足 3pp，可能受高賠率放大，只列觀望"
       : "";
-    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；現價 EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}，模型 ${pct(modelProbability)} vs HKJC fair ${pct(marketProbability)}（機率差 ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}），${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}${thinGapNote}。`;
+    advice = `${opts.label}${lead} ${selectionLabel}${odds ? " @ " + odds.toFixed(2) : ""}；現價 EV ${expectedValuePct === null ? "—" : (expectedValuePct >= 0 ? "+" : "") + expectedValuePct.toFixed(1) + "%"}，模型 ${pct(modelProbability)} vs bookmaker fair ${pct(marketProbability)}（機率差 ${edgePp === null ? "—" : (edgePp >= 0 ? "+" : "") + edgePp.toFixed(1) + "pp"}），${supportCount}/${models.length} 個 evidence family 支持 / ${sourceCount} 個來源訊號${dispersion !== null ? "，模型分歧 " + (dispersion * 100).toFixed(1) + "pp" : ""}${thinGapNote}。`;
   }
 
   return {
@@ -898,25 +898,25 @@ async function readSummaryAuthority(sbUrl:string,id:string){
 function summaryMatchToAnalysisRow(m:any,id:string){
   if(!m) return null;
   return {
-    hkjc_event_id:id,
+    match_id:id,
     home_zh:m?.homeZh ?? null,
     away_zh:m?.awayZh ?? null,
     home_en:m?.home ?? null,
     away_en:m?.away ?? null,
     tournament:m?.league ?? null,
     kickoff_hkt:m?.kickoff ?? null,
-    hkjc_home_odds:m?.odds?.home ?? null,
-    hkjc_draw_odds:m?.odds?.draw ?? null,
-    hkjc_away_odds:m?.odds?.away ?? null,
-    hkjc_novig_home:m?.market?.home ?? null,
-    hkjc_novig_draw:m?.market?.draw ?? null,
-    hkjc_novig_away:m?.market?.away ?? null,
-    hkjc_goals_line:m?.goals?.line ?? null,
-    hkjc_goals_over:m?.goals?.over ?? null,
-    hkjc_goals_under:m?.goals?.under ?? null,
-    hkjc_corners_line:m?.corners?.line ?? null,
-    hkjc_corners_over:m?.corners?.over ?? null,
-    hkjc_corners_under:m?.corners?.under ?? null,
+    bookmaker_home_odds:m?.odds?.home ?? null,
+    bookmaker_draw_odds:m?.odds?.draw ?? null,
+    bookmaker_away_odds:m?.odds?.away ?? null,
+    bookmaker_novig_home:m?.market?.home ?? null,
+    bookmaker_novig_draw:m?.market?.draw ?? null,
+    bookmaker_novig_away:m?.market?.away ?? null,
+    bookmaker_goals_line:m?.goals?.line ?? null,
+    bookmaker_goals_over:m?.goals?.over ?? null,
+    bookmaker_goals_under:m?.goals?.under ?? null,
+    bookmaker_corners_line:m?.corners?.line ?? null,
+    bookmaker_corners_over:m?.corners?.over ?? null,
+    bookmaker_corners_under:m?.corners?.under ?? null,
     forebet_home:null,forebet_draw:null,forebet_away:null,
     forebet_ou_over:null,forebet_ou_under:null,forebet_avg_goals:null,
     forebet_corners_over:null,forebet_corners_under:null,forebet_avg_corners:null,
@@ -927,9 +927,9 @@ function summaryMatchToAnalysisRow(m:any,id:string){
     multisource_count:0,multisource_member_count:0,
     status:m?.status ?? null,
     health_status:m?.health?.status ?? "SUMMARY_AUTHORITY",
-    hkjc_freshness:m?.health?.hkjcFreshness ?? (m?.liveNow?"LIVE":"UNKNOWN"),
-    hkjc_price_changed_at:m?.health?.hkjcPriceChangedAt ?? m?.live?.oddsUpdatedAt ?? null,
-    hkjc_fetched_at:m?.health?.hkjcFetchedAt ?? m?.live?.fetchedAt ?? null,
+    authority_freshness:m?.health?.authorityFreshness ?? (m?.liveNow?"LIVE":"UNKNOWN"),
+    price_changed_at:m?.health?.priceChangedAt ?? m?.live?.oddsUpdatedAt ?? null,
+    authority_fetched_at:m?.health?.authorityFetchedAt ?? m?.live?.fetchedAt ?? null,
     evidence_channel_count:0,
     unified_coverage_status:m?.health?.unifiedCoverageStatus ?? "FLASHSCORE_BET365",
     diagnostic_codes:["SUMMARY_AUTHORITY_FIRST"],
@@ -949,21 +949,21 @@ function evidenceRow(rows:any[],source:string,market:string){
 function englishPublicText(input: string) {
   let out = String(input);
   const replacements: Array<[string,string]> = [
-    ["亞洲讓球：現時未有完整 HKJC 讓球盤或可用模型分布。", "Asian handicap: no verified current line or usable model distribution."],
+    ["亞洲讓球：現時未有完整 bookmaker 讓球盤或可用模型分布。", "Asian handicap: no verified current line or usable model distribution."],
     ["亞洲讓球：市場價格 freshness 未通過，暫不以舊價計 Value。", "Asian handicap: market freshness failed; stale prices are not used for value."],
-    ["HKJC 現價未齊", "current bookmaker price is incomplete"],
-    ["HKJC 盤口線未齊", "current bookmaker line is incomplete"],
-    ["HKJC 現價已超過 freshness 門檻", "current bookmaker price exceeded the freshness threshold"],
-    ["HKJC live 價格超過 4 分鐘，避免用舊價製造假 Edge", "verified live price is stale; stale prices are not used to manufacture edge"],
-    ["HKJC live 市場價格超過 4 分鐘 freshness 門檻", "verified live market price exceeded the freshness threshold"],
-    ["HKJC 即場市場未齊，無法計 fair probability", "verified live market is incomplete; fair probability cannot be calculated"],
-    ["HKJC live fair", "verified live market fair"],
-    ["HKJC live 現價", "verified live price"],
-    ["HKJC live", "verified live market"],
-    ["HKJC no-vig fair", "bookmaker no-vig fair"],
-    ["HKJC no-vig", "bookmaker no-vig"],
-    ["HKJC current price", "current bookmaker price"],
-    ["HKJC 市場不新鮮", "current bookmaker market is stale"],
+    ["Current bookmaker price is incomplete", "current bookmaker price is incomplete"],
+    ["Current bookmaker line is incomplete", "current bookmaker line is incomplete"],
+    ["Current bookmaker price exceeded the freshness threshold", "current bookmaker price exceeded the freshness threshold"],
+    ["verified live market 價格超過 4 分鐘，避免用舊價製造假 Edge", "verified live price is stale; stale prices are not used to manufacture edge"],
+    ["verified live market 市場價格超過 4 分鐘 freshness 門檻", "verified live market price exceeded the freshness threshold"],
+    ["Verified live market is incomplete; fair probability cannot be calculated", "verified live market is incomplete; fair probability cannot be calculated"],
+    ["verified live market fair", "verified live market fair"],
+    ["verified live market 現價", "verified live price"],
+    ["verified live market", "verified live market"],
+    ["bookmaker no-vig fair", "bookmaker no-vig fair"],
+    ["bookmaker no-vig", "bookmaker no-vig"],
+    ["current bookmaker price", "current bookmaker price"],
+    ["Current bookmaker market is stale", "current bookmaker market is stale"],
     ["只有 1 個獨立模型 family，方向只列觀望", "Only 1 independent model family; direction remains WATCH"],
     ["EV 雖高但機率差不足 3pp，高賠率放大效應：只列觀望", "EV is positive but the probability gap is below 3pp; long-odds amplification keeps this at WATCH"],
     ["高賠率尾部風險：Phase 5 calibration 未完成，Strong Value 上限降為 Value", "Long-odds tail risk: Phase 5 calibration is incomplete, so Strong Value is capped at Value"],
@@ -991,7 +991,7 @@ function englishPublicText(input: string) {
     ["市場或模型資料未足以建立可比較機率", "Market or model data is insufficient to establish comparable probabilities"],
     ["資料可信度未達計算門檻", "Data reliability is below the calculation threshold"],
     ["市場價格 freshness 未通過", "Market price freshness failed"],
-    ["HKJC 市場不新鮮", "HKJC market is stale"],
+    ["Current bookmaker market is stale", "bookmaker market is stale"],
     ["缺可靠比分／分鐘", "Reliable score/minute is missing"],
     ["Official XI 尚未確認", "Official XI is not confirmed"],
     ["獨立 evidence family 少於 2", "Fewer than 2 independent evidence families"],
@@ -1026,17 +1026,17 @@ function englishPublicText(input: string) {
 }
 function publicMarketText(input:string){
   return input
-    .replace(/HKJC connected history/gi,"Verified connected history")
-    .replace(/HKJC[_ -]?RESULTS/gi,"VERIFIED_RESULTS")
-    .replace(/HKJC[_ -]?TEAM[_ -]?FORM/gi,"VERIFIED_RESULTS_TEAM_FORM")
-    .replace(/HKJC no-vig fair/gi,"Bet365 no-vig fair")
-    .replace(/HKJC fair/gi,"Bet365 fair")
-    .replace(/HKJC market/gi,"Bet365 market")
-    .replace(/HKJC current price/gi,"Bet365 current price")
-    .replace(/HKJC price/gi,"Bet365 price")
-    .replace(/HKJC live/gi,"verified live market")
-    .replace(/hkjc_odds_current/gi,"market_odds_current")
-    .replace(/HKJC/gi,"RETIRED_LEGACY_SOURCE");
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ;
 }
 function englishPublicPayload(value: any): any {
   if (typeof value === "string") return publicMarketText(englishPublicText(value));
@@ -1044,8 +1044,7 @@ function englishPublicPayload(value: any): any {
   if (value && typeof value === "object") {
     const out:any={};
     for(const [k,v] of Object.entries(value)){
-      if(k==="hkjc_event_id"){ out.match_id=englishPublicPayload(v); continue; }
-      if(/^hkjc_/i.test(k)){ out["bookmaker_"+k.replace(/^hkjc_/i,"")]=englishPublicPayload(v); continue; }
+      if(k==="match_id"){ out.match_id=englishPublicPayload(v); continue; }
       out[k]=englishPublicPayload(v);
     }
     return out;
@@ -1085,7 +1084,7 @@ Deno.serve(async (req: Request) => {
     const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
     authorityRpcError = oneError(baseResult.error);
     const rows = Array.isArray(baseResult.data) ? baseResult.data : [];
-    r = rows.find((x: any) => String(x.hkjc_event_id) === id) || null;
+    r = rows.find((x: any) => String(x.match_id) === id) || null;
     fallbackMode = Boolean(authorityRpcError);
   }
 
@@ -1093,9 +1092,9 @@ Deno.serve(async (req: Request) => {
     const [matchRes, oddsRes, forebetRes, modelRes, formRes] = await Promise.all([
       db.from("canonical_fixture_current").select("*").eq("match_id", id).maybeSingle(),
       db.from("market_odds_current").select("*").eq("match_id", id).maybeSingle(),
-      db.from("forebet_predictions").select("*").eq("hkjc_event_id", id).maybeSingle(),
-      db.from("model_predictions").select("*").eq("hkjc_event_id", id).maybeSingle(),
-      db.from("form_predictions").select("*").eq("hkjc_event_id", id).maybeSingle(),
+      db.from("forebet_prediction_current").select("*").eq("match_id", id).maybeSingle(),
+      db.from("model_prediction_current").select("*").eq("match_id", id).maybeSingle(),
+      db.from("form_prediction_current").select("*").eq("match_id", id).maybeSingle(),
     ]);
 
     const m:any = matchRes.data || null;
@@ -1106,7 +1105,7 @@ Deno.serve(async (req: Request) => {
 
     if (m || o || fb || im || fr) {
       r = {
-        hkjc_event_id:id,
+        match_id:id,
         home_zh:m?.home_zh ?? null,
         away_zh:m?.away_zh ?? null,
         home_en:m?.home_en ?? im?.home ?? fb?.forebet_home_team ?? null,
@@ -1114,18 +1113,18 @@ Deno.serve(async (req: Request) => {
         tournament:m?.league ?? fb?.forebet_league_short ?? null,
         kickoff_hkt:m?.kickoff_hkt ?? null,
 
-        hkjc_home_odds:o?.home_odds ?? null,
-        hkjc_draw_odds:o?.draw_odds ?? null,
-        hkjc_away_odds:o?.away_odds ?? null,
-        hkjc_novig_home:null,
-        hkjc_novig_draw:null,
-        hkjc_novig_away:null,
-        hkjc_goals_line:o?.goals_line ?? null,
-        hkjc_goals_over:o?.goals_over ?? null,
-        hkjc_goals_under:o?.goals_under ?? null,
-        hkjc_corners_line:o?.corners_line ?? null,
-        hkjc_corners_over:o?.corners_over ?? null,
-        hkjc_corners_under:o?.corners_under ?? null,
+        bookmaker_home_odds:o?.home_odds ?? null,
+        bookmaker_draw_odds:o?.draw_odds ?? null,
+        bookmaker_away_odds:o?.away_odds ?? null,
+        bookmaker_novig_home:null,
+        bookmaker_novig_draw:null,
+        bookmaker_novig_away:null,
+        bookmaker_goals_line:o?.goals_line ?? null,
+        bookmaker_goals_over:o?.goals_over ?? null,
+        bookmaker_goals_under:o?.goals_under ?? null,
+        bookmaker_corners_line:o?.corners_line ?? null,
+        bookmaker_corners_over:o?.corners_over ?? null,
+        bookmaker_corners_under:o?.corners_under ?? null,
 
         forebet_home:fb?.prob_home ?? null,
         forebet_draw:fb?.prob_draw ?? null,
@@ -1158,8 +1157,8 @@ Deno.serve(async (req: Request) => {
 
         status:m?.status ?? null,
         health_status:"FALLBACK",
-        hkjc_freshness:"DB_FALLBACK",
-        hkjc_price_changed_at:o?.odds_updated_at ?? null,
+        authority_freshness:"DB_FALLBACK",
+        price_changed_at:o?.odds_updated_at ?? null,
         decision:"CALIBRATION_PENDING_FALLBACK",
         decision_engine_version:"db_fallback_fail_closed_v2",
         evidence_channel_count:[
@@ -1175,7 +1174,7 @@ Deno.serve(async (req: Request) => {
           ...(authorityRpcError ? ["AUTHORITY_RPC_DEGRADED"] : []),
         ],
         live_now:false,
-        hkjc_fetched_at:o?.fetched_at ?? m?.fetched_at ?? fb?.fetched_at ?? null,
+        authority_fetched_at:o?.fetched_at ?? m?.fetched_at ?? fb?.fetched_at ?? null,
       };
       fallbackMode = true;
     }
@@ -1202,12 +1201,12 @@ Deno.serve(async (req: Request) => {
   }
 
   const oneWith = async (client:any, table: string, schema = "public") => {
-    const q = (schema === "public" ? client : client.schema(schema)).from(table).select("*").eq("hkjc_event_id", id).maybeSingle();
+    const q = (schema === "public" ? client : client.schema(schema)).from(table).select("*").eq("match_id", id).maybeSingle();
     const x = await q;
     return { data: x.data ?? null, error: oneError(x.error) };
   };
   const manyWith = async (client:any, table: string, schema = "public") => {
-    const q = (schema === "public" ? client : client.schema(schema)).from(table).select("*").eq("hkjc_event_id", id);
+    const q = (schema === "public" ? client : client.schema(schema)).from(table).select("*").eq("match_id", id);
     const x = await q;
     return { data: x.data ?? [], error: oneError(x.error) };
   };
@@ -1343,7 +1342,7 @@ Deno.serve(async (req: Request) => {
   const shadow = liveShadow.data;
   const liveOddsRow:any = liveOdds.data || null;
 
-  // Treat the canonical feed's live_now as the primary authority. Some HKJC
+  // Treat the canonical feed's live_now as the primary authority. Some bookmaker
   // rows carry in_play=true before kickoff, and stale live rows can survive
   // after a match, so row presence alone must never flip a match into live mode.
   const liveStatusToken = matchStatusToken(
@@ -1399,9 +1398,9 @@ Deno.serve(async (req: Request) => {
     : null;
 
   const liveMarketInput = {
-    hkjc_home_odds: null,
-    hkjc_draw_odds: null,
-    hkjc_away_odds: null,
+    bookmaker_home_odds: null,
+    bookmaker_draw_odds: null,
+    bookmaker_away_odds: null,
   };
   const liveMarket = live ? fairMarket(liveMarketInput) : null;
   const liveOddsAgeSeconds = live ? candidateLiveOddsAgeSeconds : null;
@@ -1430,9 +1429,9 @@ Deno.serve(async (req: Request) => {
   const consensus = weighted(decisionFamilies);
   const market = live ? liveMarket : fairMarket(r);
   const hdaOdds = {
-    H: live ? n(liveMarketInput.hkjc_home_odds) : n(r.hkjc_home_odds),
-    D: live ? n(liveMarketInput.hkjc_draw_odds) : n(r.hkjc_draw_odds),
-    A: live ? n(liveMarketInput.hkjc_away_odds) : n(r.hkjc_away_odds),
+    H: live ? n(liveMarketInput.bookmaker_home_odds) : n(r.bookmaker_home_odds),
+    D: live ? n(liveMarketInput.bookmaker_draw_odds) : n(r.bookmaker_draw_odds),
+    A: live ? n(liveMarketInput.bookmaker_away_odds) : n(r.bookmaker_away_odds),
   };
   const best = maxHdaValue(consensus, market, hdaOdds);
   const bestSide = best.expectedValue !== null && best.expectedValue > 0 ? best.side : null;
@@ -1470,14 +1469,14 @@ Deno.serve(async (req: Request) => {
   const phase1HealthOk = String(r.health_status || "").toUpperCase() === "OK";
   const healthOk = live ? Boolean(market && decisionFamilies.length) : phase1HealthOk;
   const prematchPriceAgeSeconds = secondsOld(
-    r.hkjc_price_changed_at ??
-    r.hkjc_odds_updated_at ??
-    r.hkjc_fetched_at
+    r.price_changed_at ??
+    r.odds_updated_at ??
+    r.authority_fetched_at
   );
   const prematchFresh = Boolean(
     !kickoffStarted &&
     !statusIsTerminal(liveStatusToken) &&
-    String(r.hkjc_freshness || "").toUpperCase() === "FRESH" &&
+    String(r.authority_freshness || "").toUpperCase() === "FRESH" &&
     prematchPriceAgeSeconds !== null &&
     prematchPriceAgeSeconds <= 6 * 60 * 60
   );
@@ -1587,12 +1586,12 @@ Deno.serve(async (req: Request) => {
     fallbackMode,
   });
 
-  const currentGoalsLine = live ? null : r.hkjc_goals_line;
-  const currentGoalsOver = live ? null : r.hkjc_goals_over;
-  const currentGoalsUnder = live ? null : r.hkjc_goals_under;
-  const currentCornersLine = live ? null : r.hkjc_corners_line;
-  const currentCornersOver = live ? null : r.hkjc_corners_over;
-  const currentCornersUnder = live ? null : r.hkjc_corners_under;
+  const currentGoalsLine = live ? null : r.bookmaker_goals_line;
+  const currentGoalsOver = live ? null : r.bookmaker_goals_over;
+  const currentGoalsUnder = live ? null : r.bookmaker_goals_under;
+  const currentCornersLine = live ? null : r.bookmaker_corners_line;
+  const currentCornersOver = live ? null : r.bookmaker_corners_over;
+  const currentCornersUnder = live ? null : r.bookmaker_corners_under;
 
   const goalsModels: BinaryModel[] = [];
   const goalsLine = n(currentGoalsLine);
@@ -1724,9 +1723,9 @@ Deno.serve(async (req: Request) => {
   const evText = expectedValuePctNow === null ? "—" : ((expectedValuePctNow >= 0 ? "+" : "") + expectedValuePctNow.toFixed(1) + "%");
   const oddsText = bestOdds === null ? "—" : bestOdds.toFixed(2);
   const priceRead = fallbackMode
-    ? (bestOdds === null ? "HKJC current price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
+    ? (bestOdds === null ? "current bookmaker price 未確認" : `參考舊價 ${oddsText}（不可當 current price）`)
     : live
-      ? `HKJC live 現價 ${oddsText}`
+      ? `verified live market 現價 ${oddsText}`
       : `現價 ${oddsText}`;
 
   const sourceLineupConfirmed = Boolean(eventMap.data?.lineup_confirmed_at);
@@ -1771,7 +1770,7 @@ Deno.serve(async (req: Request) => {
       : families.map(f => `${f.label}: ${sideLabel(pick(f.probs), home, away)}`).join("；")
     : "目前沒有足夠模型 evidence";
   const marketSentence = market && consensus
-    ? `${live ? "HKJC live" : "HKJC"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}；${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型中心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}。`
+    ? `${live ? "verified live market" : "bookmaker"} no-vig H/D/A 為 ${pct(market.home)}/${pct(market.draw)}/${pct(market.away)}；${live && canStateAdjust ? "比分＋分鐘重估後" : "跨 evidence-family"}模型中心為 ${pct(consensus.home)}/${pct(consensus.draw)}/${pct(consensus.away)}。`
     : "市場或模型資料未足以建立可比較機率。";
   const humanSentence = `Phase 2: ${humanQuality}; canonically resolved player-status claims home/away ${injuryHome ?? "unknown"}/${injuryAway ?? "unknown"}; unresolved player-status rows ${unresolvedStatusRows.length}; lineup ${lineupConfirmed ? "confirmed with resolved identities" : sourceLineupConfirmed ? "source-confirmed but identity reconciliation incomplete" : "not confirmed"}.`;
   const liveSentence = liveState
@@ -1780,7 +1779,7 @@ Deno.serve(async (req: Request) => {
 
   const invalidators: string[] = [];
   if (fallbackMode) invalidators.push("賽事暫不在 canonical active feed；只用 database fallback，投注 action 強制 NO_BET");
-  if (!fresh) invalidators.push(live ? "HKJC live 市場價格超過 4 分鐘 freshness 門檻" : "HKJC 市場不新鮮");
+  if (!fresh) invalidators.push(live ? "verified live market 市場價格超過 4 分鐘 freshness 門檻" : "Current bookmaker market is stale");
   if (!phase1HealthOk && !live) invalidators.push("Phase 1 data health 非 OK");
   if (!phase1HealthOk && live) invalidators.push("Phase 1 coverage 非完整，但即場 market + 可用模型仍可計算方向");
   if (families.length < 2) invalidators.push("獨立 evidence family 少於 2");
@@ -1803,7 +1802,7 @@ Deno.serve(async (req: Request) => {
   const strongestSupport = supportingFamilies[0] || null;
   const strongestOpposition = opposingFamilies[0] || null;
   const professionalSummary = bestSide && best.edge !== null
-    ? `${priceRead}；模型估計 ${selection} 勝率 ${pct(bestProb)}，按現價計 EV ${evText}。HKJC no-vig fair 約 ${pct(marketProb)}，機率差 ${edgeText}；${modelConsensusLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
+    ? `${priceRead}；模型估計 ${selection} 勝率 ${pct(bestProb)}，按現價計 EV ${evText}。bookmaker no-vig fair 約 ${pct(marketProb)}，機率差 ${edgeText}；${modelConsensusLabel}，${supportingFamilies.length}/${families.length} 個 evidence family 定價高過市場。`
     : `目前市場與可用模型未形成清晰正 Edge；先以資料完整度同價格變化為主。`;
   const supportRead = bestSide
     ? `主要支持：${strongestSupport ? strongestSupport.label + " " + (strongestSupport.edgePp! >= 0 ? "+" : "") + strongestSupport.edgePp!.toFixed(1) + "pp" : "暫無明顯支持"}。`
@@ -1815,11 +1814,11 @@ Deno.serve(async (req: Request) => {
   let advice = "PASS：現時未見足夠正 Edge。";
   if (candidate === "DATA_RISK") {
     const why = !market
-      ? "HKJC 即場市場未齊，無法計 fair probability"
+      ? "Verified live market is incomplete; fair probability cannot be calculated"
       : !decisionFamilies.length
         ? "未有可用模型機率"
         : !fresh
-          ? "HKJC live 價格超過 4 分鐘，避免用舊價製造假 Edge"
+          ? "verified live market 價格超過 4 分鐘，避免用舊價製造假 Edge"
           : live && (!scorePair || resolvedLiveMinute === null)
             ? "缺可靠比分／分鐘，未能按剩餘時間重估"
             : "資料可信度未達計算門檻";
@@ -1832,13 +1831,13 @@ Deno.serve(async (req: Request) => {
       ? `${liveState?.metricCount} 項 live metrics，場面控制 ${liveState?.actualSide || "—"}`
       : "暫時主要靠比分、分鐘、即場賠率同賽前模型";
     if (candidate.includes("VALUE_CANDIDATE")) {
-      advice = `可考慮下注 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}），${supportingFamilies.length}/${decisionFamilies.length} 個模型 family 支持；${liveEvidenceText}。`;
+      advice = `可考慮下注 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs verified live market fair ${pct(marketProb)}（機率差 ${edgeText}），${supportingFamilies.length}/${decisionFamilies.length} 個模型 family 支持；${liveEvidenceText}。`;
     } else if (candidate === "LEAN") {
-      advice = `輕注／偏向 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs HKJC live fair ${pct(marketProb)}（機率差 ${edgeText}）。方向存在，但優勢未到 Value 級。`;
+      advice = `輕注／偏向 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；模型 ${pct(bestProb)} vs verified live market fair ${pct(marketProb)}（機率差 ${edgeText}）。方向存在，但優勢未到 Value 級。`;
     } else if (candidate === "WATCH") {
       advice = `觀望 ${selection} @ ${oddsText}：現價 EV ${evText}；${stateText}；EV 為正，但機率差 ${edgeText}、模型支持、分歧或信心其中一項未達 Value 門檻，等價位／場面再改善。`;
     } else {
-      advice = `暫時跳過：${stateText} 後，按 HKJC live 現價計算，最佳方向 EV 仍然 ≤ 0%，所以唔落注。`;
+      advice = `暫時跳過：${stateText} 後，按 verified live market 現價計算，最佳方向 EV 仍然 ≤ 0%，所以唔落注。`;
     }
   }
   else if (candidate === "WATCH") advice = bestSide ? `觀察 ${selection} @ ${oddsText}：現價 EV ${evText}，但獨立 evidence family 太少或模型分歧未收斂，暫未提升至 Value。` : advice;
@@ -1933,20 +1932,20 @@ Deno.serve(async (req: Request) => {
       phase1Health: {
         status: r.health_status,
         freshness: fresh ? "FRESH" : "STALE",
-        upstreamFreshness: r.hkjc_freshness,
+        upstreamFreshness: r.authority_freshness,
         priceObservedAt: live
           ? (liveOddsRow?.odds_updated_at ?? liveOddsRow?.fetched_at ?? r.live_odds_updated_at ?? r.live_fetched_at ?? null)
-          : (r.hkjc_price_changed_at ?? r.hkjc_odds_updated_at ?? r.hkjc_fetched_at ?? null),
+          : (r.price_changed_at ?? r.odds_updated_at ?? r.authority_fetched_at ?? null),
         fetchedAt: live
           ? (liveOddsRow?.fetched_at ?? r.live_fetched_at ?? null)
-          : (r.hkjc_fetched_at ?? null),
+          : (r.authority_fetched_at ?? null),
         priceAgeSeconds: live ? liveOddsAgeSeconds : prematchPriceAgeSeconds,
         sourceMode: fallbackMode ? "DB_FALLBACK_FAIL_CLOSED" : "CANONICAL_ACTIVE_FEED",
         evidenceChannelCount: r.evidence_channel_count,
         unifiedCoverageStatus: r.unified_coverage_status,
         diagnostics: r.diagnostic_codes ?? [],
-        evidenceKey: `hkjc_odds_current:${id}`,
-        sourceUrl: r.hkjc_source_url ?? null,
+        evidenceKey: `market_odds_current:${id}`,
+        sourceUrl: r.bookmaker_source_url ?? null,
       },
       phase2: {
         quality: humanQuality,
