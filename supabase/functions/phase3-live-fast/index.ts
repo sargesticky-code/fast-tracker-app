@@ -88,24 +88,24 @@ Deno.serve(async (_req:Request)=>{
 
   try{
     const cutoff=new Date(now.getTime()-10*60*1000).toISOString();
-    const {data:liveRows,error:liveError}=await db.from("live_score_current")
-      .select("hkjc_event_id,match_status,updated_at_source,source_updated_at,source,source_match_id,match_confidence")
+    const {data:liveRows,error:liveError}=await db.from("live_score_feed_current")
+      .select("match_id,match_status,updated_at_source,source_updated_at,source,source_match_id,match_confidence")
       .gte("updated_at_source",cutoff);
     if(liveError) throw new Error("live_score_authority:"+liveError.message);
     const live=(liveRows||[]).filter((r:any)=>!ended(r.match_status));
-    const ids=[...new Set(live.map((r:any)=>String(r.hkjc_event_id||"")).filter(Boolean))];
+    const ids=[...new Set(live.map((r:any)=>String(r.match_id||"")).filter(Boolean))];
 
     if(!ids.length){
-      await db.from("phase3_live_fast_current").delete().neq("hkjc_event_id","");
+      await db.from("live_fast_current").delete().neq("match_id","");
       await db.from("phase3_live_fast_snapshot").update({
         fetched_at:now.toISOString(),source:"FOTMOB_DAILY_BOARD_FAST",ok:true,lease_until:null,payload:[],raw:{live_ids:0}
       }).eq("id",1);
       return Response.json({ok:true,cached:false,source:"FOTMOB_DAILY_BOARD_FAST",rows:[]});
     }
 
-    const {data:maps,error:mapError}=await db.from("live_score_current")
-      .select("hkjc_event_id,source,source_match_id,match_confidence")
-      .in("hkjc_event_id",ids)
+    const {data:maps,error:mapError}=await db.from("live_score_feed_current")
+      .select("match_id,source,source_match_id,match_confidence")
+      .in("match_id",ids)
       .not("source_match_id","is",null)
       .gte("match_confidence",0.74);
     if(mapError) throw new Error("mapping:"+mapError.message);
@@ -114,7 +114,7 @@ Deno.serve(async (_req:Request)=>{
     for(const r of (maps||[])){
       const src=txt(r.source);
       if(!["FOOTBALL_LIVE_API_SELF_HOSTED","FOTMOB_BOARD_FALLBACK"].includes(src)) continue;
-      mapByEvent.set(r.hkjc_event_id,r);
+      mapByEvent.set(r.match_id,r);
     }
 
     const hp=hktParts(now);
@@ -135,7 +135,7 @@ Deno.serve(async (_req:Request)=>{
       const status=m?.status||{};
       if(status?.finished || status?.cancelled || status?.awarded) continue;
       const rec={
-        hkjc_event_id:id,
+        match_id:id,
         source:"FOTMOB_DAILY_BOARD_FAST",
         source_match_id:String(mp.source_match_id),
         match_confidence:Number(mp.match_confidence),
@@ -152,13 +152,16 @@ Deno.serve(async (_req:Request)=>{
     }
 
     if(upserts.length){
-      const {error}=await db.from("phase3_live_fast_current").upsert(upserts,{onConflict:"hkjc_event_id"});
-      if(error) throw new Error("fast_upsert:"+error.message);
+      const idsToReplace=upserts.map(x=>x.match_id);
+      const del=await db.from("live_fast_current").delete().in("match_id",idsToReplace);
+      if(del.error) throw new Error("fast_replace_delete:"+del.error.message);
+      const ins=await db.from("live_fast_current").insert(upserts);
+      if(ins.error) throw new Error("fast_replace_insert:"+ins.error.message);
     }
-    const keep=new Set(upserts.map(x=>x.hkjc_event_id));
-    const {data:existing}=await db.from("phase3_live_fast_current").select("hkjc_event_id");
-    const stale=(existing||[]).map((r:any)=>r.hkjc_event_id).filter((id:string)=>!keep.has(id));
-    if(stale.length) await db.from("phase3_live_fast_current").delete().in("hkjc_event_id",stale);
+    const keep=new Set(upserts.map(x=>x.match_id));
+    const {data:existing}=await db.from("live_fast_current").select("match_id");
+    const stale=(existing||[]).map((r:any)=>r.match_id).filter((id:string)=>!keep.has(id));
+    if(stale.length) await db.from("live_fast_current").delete().in("match_id",stale);
 
     await db.from("phase3_live_fast_snapshot").update({
       fetched_at:now.toISOString(),source:"FOTMOB_DAILY_BOARD_FAST",ok:true,lease_until:null,payload:out,
