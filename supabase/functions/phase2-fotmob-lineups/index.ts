@@ -165,9 +165,16 @@ function parseLineup(detail,eventId,externalId){
   const l=detail?.content?.lineup;
   if(!l)return {rows:[],kind:null,injuries:[],managers:[],complete:false};
   const kind=String(l?.lineupType||"").toLowerCase();
-  const confirmed=["confirmed","official","actual"].some(x=>kind.includes(x));
+  const explicitConfirmed=["confirmed","official","actual"].some(x=>kind.includes(x));
+  const matchStarted=Boolean(detail?.header?.status?.started||detail?.header?.status?.finished);
+  const playerStats=detail?.content?.playerStats;
+  const hasPerformanceEvidence=Boolean(
+    playerStats && typeof playerStats==="object" &&
+    Object.values(playerStats).some((p:any)=>Array.isArray(p?.stats)&&p.stats.length>0)
+  );
+  const confirmed=explicitConfirmed||(matchStarted&&hasPerformanceEvidence);
   const sourceName=confirmed?"FOTMOB_OFFICIAL":"FOTMOB_PREDICTED";
-  const confidence=confirmed?.96:.82;
+  const confidence=confirmed?.98:.82;
   const fetchedAt=new Date().toISOString();
   const rows=[],injuries=[],managers=[];
 
