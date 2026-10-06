@@ -454,9 +454,12 @@ Deno.serve(async ()=>{
         playerProfilesFetched++;
         const compact=compactPlayerProfile(profile);
         const primaryTeam=profile?.primaryTeam||{};
-        const position=profile?.position
-          || profile?.primaryTeam?.role
+        const position=compact?.position?.primaryPosition?.label
+          || profile?.position?.primaryPosition?.label
+          || profile?.positionDescription?.positions?.find((p:any)=>p?.isMainPosition)?.strPos?.label
           || profile?.positionDescription?.positions?.[0]?.strPos?.label
+          || (typeof profile?.position==="string"?profile.position:null)
+          || profile?.primaryTeam?.role
           || row?.role
           || null;
         const nationality=compact.country||null;
