@@ -424,14 +424,16 @@ function TeamPitch({ teamName, rows, accent, status }) {
             const country = playerCountry(row);
             const role = playerRole(row);
             const statSummary = playerStatSummary(row);
-            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.club || null;
+            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.primaryTeam?.teamName || row?.canonical_profile?.club || null;
+            const profileAge = row?.canonical_profile?.age || null;
+            const profileHeight = row?.canonical_profile?.height || null;
             return (
               <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e3ebe6",borderRadius:11,background:"#fafcfb"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:11,fontWeight:950,boxShadow:"inset 0 0 0 1px rgba(255,255,255,.22)"}}>{row?.shirt_number ?? "•"}</span>
                 <div style={{minWidth:0}}>
                   <b style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
                   <small style={{display:"block",marginTop:2,fontSize:9,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[country, currentClub, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
+                    {[country, currentClub, profileAge ? "Age " + profileAge : null, profileHeight, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
                   </small>
                   {statSummary.length ? <small style={{display:"block",marginTop:3,fontSize:8.5,fontWeight:800,color:"#4d6d5b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statSummary.slice(0,4).join(" · ")}</small> : null}
                 </div>
@@ -460,14 +462,16 @@ function SquadList({ title, rows, accent, empty }) {
             const country = playerCountry(row);
             const captain = playerFlags(row).includes("C");
             const statSummary = playerStatSummary(row);
-            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.club || null;
+            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.primaryTeam?.teamName || row?.canonical_profile?.club || null;
+            const profileAge = row?.canonical_profile?.age || null;
+            const profileHeight = row?.canonical_profile?.height || null;
             return (
               <div key={row?.id || row?.player_key || i} style={{display:"grid",gridTemplateColumns:"36px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e8eeea",borderRadius:11,background:"#f8faf8"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:10,fontWeight:950}}>#{row?.shirt_number ?? "—"}</span>
                 <div style={{minWidth:0}}>
                   <span style={{display:"block",fontSize:11.5,fontWeight:850,color:"#2f4036",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row?.player_name || "Unknown"}</span>
                   <small style={{display:"block",marginTop:2,fontSize:8.8,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[country, currentClub, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
+                    {[country, currentClub, profileAge ? "Age " + profileAge : null, profileHeight, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
                   </small>
                   {statSummary.length ? <small style={{display:"block",marginTop:3,fontSize:8.4,fontWeight:800,color:"#4d6d5b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statSummary.slice(0,4).join(" · ")}</small> : null}
                 </div>
@@ -659,6 +663,9 @@ function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
                 const assists = matches.reduce((sum, m) => sum + (Number(m?.assists) || 0), 0);
                 const avgRating = Number(recent?.averageRating);
                 const club = profile?.primaryTeam?.teamName || null;
+                const primaryPosition = profile?.position?.primaryPosition?.label || row?.role || null;
+                const age = profile?.age || null;
+                const height = profile?.height || null;
                 const traits = Array.isArray(profile?.traits?.items)
                   ? profile.traits.items
                       .filter((item) => Number.isFinite(Number(item?.value)))
@@ -671,7 +678,7 @@ function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
                       <div style={{minWidth:0}}>
                         <b style={{display:"block",fontSize:11.5,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
                         <small style={{display:"block",marginTop:2,fontSize:8.7,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                          {[row?.role, row?.nationality, club].filter(Boolean).join(" · ") || "Profile"}
+                          {[primaryPosition, row?.nationality, club, age ? "Age " + age : null, height].filter(Boolean).join(" · ") || "Profile"}
                         </small>
                       </div>
                       {Number.isFinite(avgRating) && avgRating > 0 ? <strong style={{fontSize:15,color:"#245f43"}}>{avgRating.toFixed(2)}</strong> : null}
