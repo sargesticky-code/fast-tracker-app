@@ -254,7 +254,7 @@ Deno.serve(async (req:Request)=>{
   const url=Deno.env.get("SUPABASE_URL")||"",key=serviceKey();
   if(!url||!key)return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-  const now=Date.now(),fromIso=new Date(now-2*3600000).toISOString(),toIso=new Date(now+WINDOW_HOURS*3600000).toISOString();
+  const now=Date.now(),fromIso=new Date(now-4*3600000).toISOString(),toIso=new Date(now+WINDOW_HOURS*3600000).toISOString();
   try{
     const [fixtureRes,shadowRes,aliasRes]=await Promise.all([
       db.from("canonical_fixture_current").select("match_id,kickoff_hkt,home_en,away_en,home_zh,away_zh").gte("kickoff_hkt",fromIso).lte("kickoff_hkt",toIso),
