@@ -444,12 +444,41 @@ Deno.serve(async(req:Request)=>{
     const matchStats=playerMatchStatsById.get(key)||null;
     return matchStats?{...row,match_stats:matchStats}:row;
   });
+  const publicLineups=(()=>{
+    const byIdentity=new Map<string,any>();
+    const norm=(value:any)=>String(value||"")
+      .normalize("NFD").replace(/\p{M}+/gu,"").toLowerCase().replace(/[^a-z0-9]+/g,"");
+    const score=(row:any)=>
+      (row?.match_stats?100:0)
+      +(row?.confirmed?20:0)
+      +(row?.starter?10:0)
+      +(String(row?.source_name||"").toUpperCase().startsWith("FOTMOB")?5:0);
+    for(const row of lineupsWithMatchStats){
+      const name=row?.canonical_player_name||row?.player_name||row?.player_key||"";
+      const identity=String(row?.team_side||"")+"|"+norm(name);
+      if(!identity||identity==="|")continue;
+      const current=byIdentity.get(identity);
+      const sources=[...new Set([
+        ...(current?.evidence_sources||[]),
+        current?.source_name,
+        row?.source_name
+      ].filter(Boolean))];
+      const preferred=!current||score(row)>score(current)?row:current;
+      byIdentity.set(identity,{...preferred,evidence_sources:sources});
+    }
+    return [...byIdentity.values()].sort((a:any,b:any)=>{
+      const side=String(a?.team_side||"").localeCompare(String(b?.team_side||""));
+      if(side)return side;
+      if(Boolean(a?.starter)!==Boolean(b?.starter))return a?.starter?-1:1;
+      return String(a?.player_name||"").localeCompare(String(b?.player_name||""));
+    });
+  })();
   const playerMatchStatsMeta=playerMatchStats.length?{
     source:"FOTMOB",
     externalEventId:sourceMatchDetail.data?.external_event_id??null,
     observedAt:sourceMatchDetail.data?.detail_fetched_at??sourceMatchDetail.data?.updated_at??null,
     players:playerMatchStats.length,
-    lineupRowsMatched:lineupsWithMatchStats.filter((row:any)=>row?.match_stats).length,
+    lineupRowsMatched:publicLineups.filter((row:any)=>row?.match_stats).length,
     joinMethod:"EXACT_FOTMOB_PLAYER_ID"
   }:null;
 
@@ -478,7 +507,7 @@ Deno.serve(async(req:Request)=>{
       summary:human.data,
       eventMap:eventMap.data,
       playerStatus:annotatedPlayerStatus,
-      lineup:lineupsWithMatchStats,
+      lineup:publicLineups,
       playerProfiles,
       playerMatchStats,
       playerMatchStatsMeta,
