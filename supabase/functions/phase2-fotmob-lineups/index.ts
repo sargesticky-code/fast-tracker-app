@@ -241,7 +241,9 @@ function parseLineup(detail,eventId,externalId){
   return {rows:complete?rows:[],kind,injuries,managers,complete};
 }
 
-Deno.serve(async ()=>{
+Deno.serve(async (req:Request)=>{
+  const requestUrl=new URL(req.url);
+  const profilesOnly=requestUrl.searchParams.get("profilesOnly")==="1";
   const url=Deno.env.get("SUPABASE_URL")||"",key=serviceKey();
   if(!url||!key)return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -363,7 +365,7 @@ Deno.serve(async ()=>{
       const ak=new Date(a.h.kickoff_hkt).getTime(),bk=new Date(b.h.kickoff_hkt).getTime();
       return Math.abs(ak-now)-Math.abs(bk-now);
     });
-    const picked=matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
+    const picked=profilesOnly?[]:matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
     let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0,playerProfilesFetched=0,playerProfilesFailed=0,playerProfilesWritten=0;
     await mapLimit(picked,DETAIL_CONCURRENCY,async(target)=>{
     const {h,best}=target;
@@ -417,9 +419,9 @@ Deno.serve(async ()=>{
       .select("player_key,player_name,team_key,role,starter,source_updated_at")
       .in("match_id",ids)
       .in("source_name",["FOTMOB_OFFICIAL","FOTMOB_PREDICTED"])
-      .eq("starter",true)
+      .order("starter",{ascending:false})
       .order("source_updated_at",{ascending:false})
-      .limit(240)).data||[];
+      .limit(2000)).data||[];
     const uniqueProfiles=new Map();
     for(const row of profileCandidates){
       const id=String(row.player_key||"");
@@ -427,11 +429,17 @@ Deno.serve(async ()=>{
       uniqueProfiles.set(id,row);
     }
     const playerKeys=[...uniqueProfiles.keys()];
-    const existingProfiles=playerKeys.length
-      ? await db.from("phase2_players").select("player_key,source_updated_at,profile").in("player_key",playerKeys)
-      : {data:[],error:null};
-    if(existingProfiles.error)console.warn("player_profile_cache_read_failed",existingProfiles.error.message);
-    const cachedByKey=new Map((existingProfiles.data||[]).map((r:any)=>[String(r.player_key),r]));
+    const existingProfileRows:any[]=[];
+    for(let offset=0;offset<playerKeys.length;offset+=400){
+      const chunk=playerKeys.slice(offset,offset+400);
+      if(!chunk.length)continue;
+      const rr=await db.from("phase2_players")
+        .select("player_key,source_updated_at,profile")
+        .in("player_key",chunk);
+      if(rr.error)console.warn("player_profile_cache_read_failed",rr.error.message);
+      else existingProfileRows.push(...(rr.data||[]));
+    }
+    const cachedByKey=new Map(existingProfileRows.map((r:any)=>[String(r.player_key),r]));
     const staleBefore=Date.now()-24*3600000;
     const profileTargets=[...uniqueProfiles.entries()]
       .map(([id,row]:any)=>{
@@ -444,6 +452,7 @@ Deno.serve(async ()=>{
       .filter((x:any)=>x.missing||x.stale)
       .sort((a:any,b:any)=>{
         if(a.missing!==b.missing)return a.missing?-1:1;
+        if(Boolean(a.row?.starter)!==Boolean(b.row?.starter))return a.row?.starter?-1:1;
         return a.ts-b.ts;
       })
       .slice(0,MAX_PLAYER_PROFILES)
@@ -486,7 +495,7 @@ Deno.serve(async ()=>{
       }
     });
 
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,playerProfilesFetched,playerProfilesFailed,playerProfilesWritten,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={profilesOnly,matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,playerProfilesFetched,playerProfilesFailed,playerProfilesWritten,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",
