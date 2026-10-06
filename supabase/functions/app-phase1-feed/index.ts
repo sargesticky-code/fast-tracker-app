@@ -288,11 +288,11 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       status: freshness.status === "FRESH" ? "OK" : "ATTENTION",
       primaryMissingReason: "SUMMARY_AUTHORITY_ONLY",
       diagnostics: freshness.status === "FRESH" ? [] : ["BET365_AUTHORITY_" + freshness.status],
-      hkjcFetchedAt: r.fetched_at ?? null,
-      hkjcPriceChangedAt: r.odds_updated_at ?? null,
-      hkjcMarketCapturedAt: r.fetched_at ?? null,
-      hkjcFetchAgeMinutes: freshness.ageMinutes,
-      hkjcFreshness: freshness.status,
+      authorityFetchedAt: r.fetched_at ?? null,
+      priceChangedAt: r.odds_updated_at ?? null,
+      marketCapturedAt: r.fetched_at ?? null,
+      authorityFetchAgeMinutes: freshness.ageMinutes,
+      authorityFreshness: freshness.status,
       evidenceChannelCount: 0,
       multisourceMemberCount: 0,
       missingCanonical1x2: !pricesFresh || had.home == null || had.draw == null || had.away == null,
@@ -334,7 +334,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     return {...summary,source:"supabase-lightweight-enrichment-recovery",view:"full",recoveryMode:"AUTHORITY_ONLY"};
   }
 
-  const [evidenceResult,modelResult]=await Promise.all([
+  const [evidenceResult,modelResult,lineupResult]=await Promise.all([
     db.schema("private")
       .from("prediction_evidence_current")
       .select("hkjc_event_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
@@ -342,6 +342,11 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     db.from("model_predictions")
       .select("hkjc_event_id,fetched_at,quality,model_source,model_league,training_matches,team_match_quality,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff")
       .in("hkjc_event_id",ids),
+    db.from("phase2_match_lineup_evidence")
+      .select("hkjc_event_id,player_key,team_side,starter,confirmed,source_name,source_updated_at")
+      .in("hkjc_event_id",ids)
+      .in("source_name",["FOTMOB_OFFICIAL","FOTMOB_PREDICTED","FLASHSCORE_OFFICIAL","SOFASCORE"])
+      .eq("starter",true),
   ]);
 
   const evidenceRows=Array.isArray(evidenceResult.data)?evidenceResult.data:[];
@@ -355,6 +360,37 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     evidenceById.set(id,bucket);
   }
   const modelById=new Map(modelRows.map((row:any)=>[String(row?.hkjc_event_id||""),row]));
+
+  const lineupRows=Array.isArray(lineupResult.data)?lineupResult.data:[];
+  const lineupByEventSource=new Map<string,any>();
+  const allLineupPlayerKeys=new Set<string>();
+  for(const row of lineupRows){
+    const id=String(row?.hkjc_event_id||"");
+    const source=String(row?.source_name||"UNKNOWN");
+    if(!id)continue;
+    const key=id+"|"+source;
+    const state=lineupByEventSource.get(key)||{id,source,home:0,away:0,confirmed:0,playerKeys:new Set<string>(),updatedAt:null};
+    if(row?.team_side==="H")state.home++;
+    if(row?.team_side==="A")state.away++;
+    if(row?.confirmed)state.confirmed++;
+    if(row?.player_key){state.playerKeys.add(String(row.player_key));allLineupPlayerKeys.add(String(row.player_key));}
+    if(!state.updatedAt || new Date(row?.source_updated_at||0).getTime()>new Date(state.updatedAt||0).getTime())state.updatedAt=row?.source_updated_at||null;
+    lineupByEventSource.set(key,state);
+  }
+  let profileKeys=new Set<string>();
+  if(allLineupPlayerKeys.size){
+    const profileResult=await db.from("phase2_players").select("player_key,profile").in("player_key",[...allLineupPlayerKeys].slice(0,1000));
+    if(!profileResult.error){
+      profileKeys=new Set((profileResult.data??[]).filter((r:any)=>r.profile!=null).map((r:any)=>String(r.player_key)));
+    }
+  }
+  const lineupSourceRank=(source:string)=>source==="FOTMOB_OFFICIAL"?4:source==="FLASHSCORE_OFFICIAL"?3:source==="SOFASCORE"?2:source==="FOTMOB_PREDICTED"?1:0;
+  const lineupBestByEvent=new Map<string,any>();
+  for(const state of lineupByEventSource.values()){
+    if(state.home!==11||state.away!==11)continue;
+    const current=lineupBestByEvent.get(state.id);
+    if(!current||lineupSourceRank(state.source)>lineupSourceRank(current.source))lineupBestByEvent.set(state.id,state);
+  }
 
   const recovered=matches.map((m:any)=>{
     const id=String(m?.id||"");
@@ -416,6 +452,24 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
         available:Boolean(pi),
         missingReason:pi?null:(model?.quality??"NO_MODEL_ROW"),
       }:null,
+      sourceContext:(()=>{
+        const lineup=lineupBestByEvent.get(id);
+        if(!lineup)return m?.sourceContext??null;
+        return {
+          ...(m?.sourceContext||{}),
+          source:"FOTMOB",
+          lineupAvailable:true,
+          lineupCoverage:{
+            source:lineup.source,
+            starters:lineup.home+lineup.away,
+            homeStarters:lineup.home,
+            awayStarters:lineup.away,
+            confirmedStarters:lineup.confirmed,
+            profileCount:[...lineup.playerKeys].filter((key:string)=>profileKeys.has(key)).length,
+            updatedAt:lineup.updatedAt
+          }
+        };
+      })(),
       health:{
         ...(m?.health||{}),
         evidenceChannelCount:evidenceCount,
@@ -480,8 +534,8 @@ Deno.serve(async (req: Request) => {
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
 
       const [fixtureResult, bet365Result, liveResult, bet365HealthResult] = await Promise.all([
-        db.from("matches")
-          .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,home_en,away_en,updated_at")
+        db.from("canonical_fixture_current")
+          .select("hkjc_event_id:match_id,fetched_at,kickoff_hkt,status,tournament:league,home_en,away_en,updated_at")
           .gte("kickoff_hkt", now.toISOString())
           .lt("kickoff_hkt", end.toISOString())
           .order("kickoff_hkt", { ascending:true }),
@@ -579,6 +633,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) {
+      const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,createReadClientWithTimeout(supabaseUrl,serverKey,8_000),hours);
+      return Response.json(recovered,{
+        headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"},
+      });
+    }
 
     const eventIds = rows.map((r: any) => r.hkjc_event_id).filter(Boolean);
     const liveEventIds = rows.filter((r: any) => Boolean(r.live_now)).map((r: any) => r.hkjc_event_id).filter(Boolean);
@@ -610,7 +670,7 @@ Deno.serve(async (req: Request) => {
       const identityPromise = currentNameKeys.length
         ? db.from("team_name_master")
             .select("source_key")
-            .eq("source", "HKJC_EN")
+            .in("source", ["FLASHSCORE","FOTMOB","BET365","FOOTBALL_DATA","OPTA","FORM","FOREBET","FOOTBALL_LIVE_API_SELF_HOSTED"])
             .eq("status", "VERIFIED")
             .in("source_key", currentNameKeys)
         : Promise.resolve({ data: [], error: null });
@@ -630,12 +690,17 @@ Deno.serve(async (req: Request) => {
         .select("source_key,external_event_id,matched_hkjc_event_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")
         .eq("source_key", "FOTMOB")
         .in("matched_hkjc_event_id", eventIds);
+      const lineupCoveragePromise = db.from("phase2_match_lineup_evidence")
+        .select("hkjc_event_id,player_key,team_side,starter,confirmed,source_name,source_updated_at")
+        .in("hkjc_event_id", eventIds)
+        .in("source_name", ["FOTMOB_OFFICIAL","FOTMOB_PREDICTED","FLASHSCORE_OFFICIAL","SOFASCORE"])
+        .eq("starter", true);
       const movementPromise = db.from("odds_movement_current")
         .select("hkjc_event_id,captured_at,movement_side,now_odds,odds_24h,move_24h_pp,odds_2h,move_2h_pp,odds_1h,move_1h_pp,vol_24h_pp,signal,model_side,model_prob,model_alignment,match_confidence,alert_score")
         .in("hkjc_event_id", eventIds);
-      const powerPromise = db.from("hkjc_power_current")
-        .select("hkjc_event_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
-        .in("hkjc_event_id", eventIds);
+      const powerPromise = db.from("team_power_current")
+        .select("hkjc_event_id:match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
+        .in("match_id", eventIds);
 
       const [{ data: upcomingAuthorityRows, error: upcomingAuthorityError }, { data: liveAuthorityRows, error: liveAuthorityError }] = await authorityPromise;
       if (upcomingAuthorityError) {
@@ -727,6 +792,59 @@ Deno.serve(async (req: Request) => {
             detailFetchedAt: row.detail_fetched_at,
             updatedAt: row.updated_at,
             mode: "SHADOW_CONTEXT_ONLY",
+          });
+        }
+      }
+
+      const { data: lineupCoverageRows, error: lineupCoverageError } = await lineupCoveragePromise;
+      if (lineupCoverageError) {
+        console.error("lineup_coverage_query_failed", lineupCoverageError);
+      } else {
+        const byEventSource = new Map<string, any>();
+        const playerKeys = new Set<string>();
+        for (const row of lineupCoverageRows ?? []) {
+          const id=String(row.hkjc_event_id||"");
+          const source=String(row.source_name||"UNKNOWN");
+          const key=id+"|"+source;
+          const state=byEventSource.get(key)||{id,source,home:0,away:0,confirmed:0,playerKeys:new Set<string>(),updatedAt:null};
+          if(row.team_side==="H")state.home++;
+          if(row.team_side==="A")state.away++;
+          if(row.confirmed)state.confirmed++;
+          if(row.player_key){state.playerKeys.add(String(row.player_key));playerKeys.add(String(row.player_key));}
+          if(!state.updatedAt || new Date(row.source_updated_at||0).getTime()>new Date(state.updatedAt||0).getTime())state.updatedAt=row.source_updated_at||null;
+          byEventSource.set(key,state);
+        }
+        let profileKeys=new Set<string>();
+        if(playerKeys.size){
+          const {data:profileRows,error:profileError}=await db.from("phase2_players")
+            .select("player_key,profile")
+            .in("player_key",[...playerKeys].slice(0,1000));
+          if(profileError)console.error("lineup_profile_coverage_query_failed",profileError);
+          else profileKeys=new Set((profileRows??[]).filter((r:any)=>r.profile!=null).map((r:any)=>String(r.player_key)));
+        }
+        const sourceRank=(source:string)=>source==="FOTMOB_OFFICIAL"?4:source==="FLASHSCORE_OFFICIAL"?3:source==="SOFASCORE"?2:source==="FOTMOB_PREDICTED"?1:0;
+        const bestByEvent=new Map<string,any>();
+        for(const state of byEventSource.values()){
+          const complete=state.home===11&&state.away===11;
+          if(!complete)continue;
+          const current=bestByEvent.get(state.id);
+          if(!current || sourceRank(state.source)>sourceRank(current.source))bestByEvent.set(state.id,state);
+        }
+        for(const [id,state] of bestByEvent.entries()){
+          const existing=sourceContextMap.get(id)||{};
+          const profileCount=[...state.playerKeys].filter((key:string)=>profileKeys.has(key)).length;
+          sourceContextMap.set(id,{
+            ...existing,
+            lineupAvailable:true,
+            lineupCoverage:{
+              source:state.source,
+              starters:state.home+state.away,
+              homeStarters:state.home,
+              awayStarters:state.away,
+              confirmedStarters:state.confirmed,
+              profileCount,
+              updatedAt:state.updatedAt
+            }
           });
         }
       }
@@ -1153,7 +1271,7 @@ Deno.serve(async (req: Request) => {
         const awayDetail = detail?.away ?? {};
         return {
           quality: meta?.quality ?? null,
-          source: meta?.model_source ?? "HKJC confirmed results",
+          source: meta?.model_source ?? "Verified results history",
           fetchedAt: meta?.fetched_at ?? null,
           home: {
             ...homeDetail,
@@ -1184,11 +1302,11 @@ Deno.serve(async (req: Request) => {
           if (code === "AWAY_ALIAS_NOT_REGISTERED" && identityPresent(r.away_alias_present, r.away_en)) return false;
           return true;
         }),
-        hkjcFetchedAt: r.hkjc_fetched_at,
-        hkjcPriceChangedAt: r.hkjc_price_changed_at,
-        hkjcMarketCapturedAt: r.hkjc_market_captured_at,
-        hkjcFetchAgeMinutes: num(r.hkjc_fetch_age_minutes),
-        hkjcFreshness: r.hkjc_freshness,
+        authorityFetchedAt: r.hkjc_fetched_at,
+        priceChangedAt: r.hkjc_price_changed_at,
+        marketCapturedAt: r.hkjc_market_captured_at,
+        authorityFetchAgeMinutes: num(r.hkjc_fetch_age_minutes),
+        authorityFreshness: r.hkjc_freshness,
         forebetCheckedAt: r.forebet_checked_at,
         forebetState: r.forebet_state,
         forebetReason: r.forebet_reason,
