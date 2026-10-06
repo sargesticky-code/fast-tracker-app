@@ -1036,7 +1036,7 @@ function publicMarketText(input:string){
     .replace(/HKJC price/gi,"Bet365 price")
     .replace(/HKJC live/gi,"verified live market")
     .replace(/hkjc_odds_current/gi,"market_odds_current")
-    .replace(/\bHKJC\b/gi,"retired legacy source");
+    .replace(/HKJC/gi,"RETIRED_LEGACY_SOURCE");
 }
 function englishPublicPayload(value: any): any {
   if (typeof value === "string") return publicMarketText(englishPublicText(value));
