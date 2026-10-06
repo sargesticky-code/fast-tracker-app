@@ -259,27 +259,30 @@ Deno.serve(async (req)=>{
 
     const fromIso=new Date(Date.now()-3*3600000).toISOString();
     const toIso48=new Date(Date.now()+48*3600000).toISOString();
-    const hk=await db.from("hkjc_upcoming_current")
-      .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en")
+    const fixtureRes=await db.from("canonical_fixture_current")
+      .select("match_id,kickoff_hkt,league,home_en,away_en")
       .gte("kickoff_hkt",fromIso).lte("kickoff_hkt",toIso48);
-    if(hk.error) throw hk.error;
-    const hkjc=hk.data||[];
+    if(fixtureRes.error) throw fixtureRes.error;
+    const fixtures=fixtureRes.data||[];
 
-    const {data:phase1Feed,error:phase1FeedError}=await db.rpc("ft_internal_app_phase1_feed",{window_hours:24});
+    const {data:phase1Feed,error:phase1FeedError}=await db.rpc("ft_internal_app_phase1_feed_generic",{window_hours:24});
     if(phase1FeedError) console.warn("phase1_gap_priority_query_failed",phase1FeedError.message);
     const gapPriority=new Set(
       (Array.isArray(phase1Feed)?phase1Feed:[])
         .filter((row:any)=>Number(row?.evidence_channel_count??0)===0)
-        .map((row:any)=>String(row?.hkjc_event_id||""))
+        .map((row:any)=>String(row?.match_id||""))
         .filter(Boolean)
     );
 
-    const [fmMapRes,hkMapRes]=await Promise.all([
-      db.from("team_name_master").select("source_key,team_key").eq("source","FOTMOB").eq("status","VERIFIED"),
-      db.from("team_name_master").select("source_key,team_key").eq("source","HKJC_EN").eq("status","VERIFIED")
-    ]);
-    const fmMap=new Map((fmMapRes.data||[]).map(x=>[x.source_key,x.team_key]));
-    const hkMap=new Map((hkMapRes.data||[]).map(x=>[x.source_key,x.team_key]));
+    const fmMapRes=await db.from("team_identity_current")
+      .select("source_key,team_key,canonical_name_en")
+      .eq("source","FOTMOB")
+      .eq("status","VERIFIED");
+    if(fmMapRes.error) console.warn("fotmob_identity_query_failed",fmMapRes.error.message);
+    const fmMap=new Map((fmMapRes.data||[]).map((x:any)=>[
+      keyName(x.source_key),
+      {teamKey:x.team_key,canonical:keyName(x.canonical_name_en)}
+    ]));
 
     const days=[hktDate(0),hktDate(1)];
     const daily=[];
@@ -299,50 +302,49 @@ Deno.serve(async (req)=>{
       if(!m.homeName||!m.awayName) continue;
       const ko=m.kickoff?new Date(m.kickoff).getTime():NaN;
       let best=null;
-      for(const h of hkjc){
-        const hkms=new Date(h.kickoff_hkt).getTime();
-        if(Number.isFinite(ko)&&Math.abs(ko-hkms)>20*60000) continue;
+      for(const h of fixtures){
+        const fixtureMs=new Date(h.kickoff_hkt).getTime();
+        if(Number.isFinite(ko)&&Math.abs(ko-fixtureMs)>20*60000) continue;
         const hm=keyName(m.homeName), am=keyName(m.awayName);
-        const hh=keyName(h.home_en), ah=keyName(h.away_en);
+        const ch=keyName(h.home_en), ca=keyName(h.away_en);
         let conf=0, identity="UNMATCHED";
-        if(hm===hh&&am===ah){conf=.99;identity="EXACT_PAIR";}
+        if(hm===ch&&am===ca){conf=.99;identity="EXACT_PAIR";}
         else{
-          const fmh=fmMap.get(hm), fma=fmMap.get(am);
-          const hkh=hkMap.get(hh), hka=hkMap.get(ah);
-          if(fmh&&fma&&hkh&&hka&&fmh===hkh&&fma===hka){conf=.98;identity="VERIFIED_ALIAS";}
-          else if((hm===hh&&fma&&hka&&fma===hka)||(am===ah&&fmh&&hkh&&fmh===hkh)){conf=.94;identity="MIXED_CONTEXT";}
+          const fmh:any=fmMap.get(hm), fma:any=fmMap.get(am);
+          if(fmh?.canonical===ch&&fma?.canonical===ca){conf=.98;identity="VERIFIED_IDENTITY";}
+          else if((hm===ch&&fma?.canonical===ca)||(am===ca&&fmh?.canonical===ch)){conf=.94;identity="MIXED_CONTEXT";}
         }
-        if(conf>0&&(best==null||conf>best.conf)) best={eventId:h.hkjc_event_id,conf,identity,kickoff:h.kickoff_hkt};
+        if(conf>0&&(best==null||conf>best.conf)) best={matchId:h.match_id,conf,identity,kickoff:h.kickoff_hkt};
       }
       const schemaFingerprint=await sha256(JSON.stringify(Object.keys(m.raw||{}).sort()));
       const row={
         source_key:SOURCE,external_event_id:m.id,fetched_at:nowIso,kickoff_utc:m.kickoff,
         league_name:m.leagueName,league_external_id:m.leagueId,
         home_name:m.homeName,away_name:m.awayName,home_external_id:m.homeId,away_external_id:m.awayId,
-        match_status:m.status,matched_hkjc_event_id:best?.eventId||null,
+        match_status:m.status,match_id:best?.matchId||null,
         match_confidence:best?.conf||null,identity_status:best?.identity||"UNMATCHED",
         schema_fingerprint:schemaFingerprint,updated_at:nowIso,raw:m.raw
       };
       rows.push(row);
       if(best&&best.conf>=.94&&m.kickoff&&new Date(m.kickoff).getTime()<=Date.now()+24*3600000){
-        matchedForDetail.push({id:m.id,eventId:best.eventId,homeName:m.homeName,awayName:m.awayName,kickoff:best.kickoff});
+        matchedForDetail.push({id:m.id,matchId:best.matchId,homeName:m.homeName,awayName:m.awayName,kickoff:best.kickoff});
       }
     }
 
     for(let i=0;i<rows.length;i+=300){
-      const up=await db.from("phase15_source_shadow_current").upsert(rows.slice(i,i+300),{onConflict:"source_key,external_event_id"});
+      const up=await db.rpc("ft_upsert_source_shadow_generic",{rows_data:rows.slice(i,i+300)});
       if(up.error) throw up.error;
     }
 
     let detailOk=0,detailFail=0,xgRows=0,lineupRows=0,statsRows=0;
     matchedForDetail.sort((a,b)=>{
-      const gapA=gapPriority.has(String(a.eventId))?1:0;
-      const gapB=gapPriority.has(String(b.eventId))?1:0;
+      const gapA=gapPriority.has(String(a.matchId))?1:0;
+      const gapB=gapPriority.has(String(b.matchId))?1:0;
       if(gapA!==gapB) return gapB-gapA;
       return new Date(a.kickoff||0).getTime()-new Date(b.kickoff||0).getTime();
     });
     const picked=matchedForDetail.slice(0,MAX_DETAIL);
-    const priorityGapDetailCount=picked.filter(x=>gapPriority.has(String(x.eventId))).length;
+    const priorityGapDetailCount=picked.filter(x=>gapPriority.has(String(x.matchId))).length;
     for(let i=0;i<picked.length;i++){
       const p=picked[i];
       try{
@@ -368,10 +370,10 @@ Deno.serve(async (req)=>{
         const items=await fetchCommentary(p.homeName,p.awayName,p.kickoff);
         if(items.length) commentaryMatches++;
         for(const item of items){
-          const fingerprint=await sha256([p.eventId,item.publisher,item.title,item.link].join("|"));
+          const fingerprint=await sha256([p.matchId,item.publisher,item.title,item.link].join("|"));
           const signalPack=editorialSignals([item.title,item.excerpt].filter(Boolean).join(" "),p.homeName,p.awayName);
           const row={
-            hkjc_event_id:p.eventId,
+            match_id:p.matchId,
             source:item.publisher,
             source_type:"NEWS_PREVIEW",
             source_url:item.link,
@@ -398,7 +400,7 @@ Deno.serve(async (req)=>{
             content_fingerprint:fingerprint,
             updated_at:new Date().toISOString()
           };
-          const up=await db.from("match_commentary_evidence").upsert(row,{onConflict:"hkjc_event_id,source,content_fingerprint"});
+          const up=await db.rpc("ft_upsert_match_commentary_generic",{row_data:row});
           if(up.error) throw up.error;
           commentaryRows++;
         }
@@ -409,7 +411,7 @@ Deno.serve(async (req)=>{
       if(i+1<picked.length) await sleep(1200);
     }
 
-    const matched=rows.filter(r=>r.matched_hkjc_event_id).length;
+    const matched=rows.filter(r=>r.match_id).length;
     const exact=rows.filter(r=>r.identity_status==="EXACT_PAIR").length;
     const schema=await sha256(JSON.stringify({listKeys:["leagues","matches"],sample:rows.slice(0,20).map(r=>r.schema_fingerprint)}));
     const prevS=reg.data?.consecutive_success||0;
@@ -431,7 +433,7 @@ Deno.serve(async (req)=>{
 
     return Response.json({ok:true,source:SOURCE,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
   }catch(e){
-    const message=e instanceof Error?e.message:String(e);
+    const message=e instanceof Error?e.message:(typeof e==="object"?JSON.stringify(e):String(e));
     const reg=await db.from("phase15_source_registry").select("consecutive_failure").eq("source_key",SOURCE).maybeSingle();
     const fails=(reg.data?.consecutive_failure||0)+1;
     await db.from("phase15_source_registry").update({
