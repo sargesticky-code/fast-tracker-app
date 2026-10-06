@@ -334,7 +334,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     return {...summary,source:"supabase-lightweight-enrichment-recovery",view:"full",recoveryMode:"AUTHORITY_ONLY"};
   }
 
-  const [evidenceResult,modelResult,lineupResult]=await Promise.all([
+  const [evidenceResult,modelResult,lineupResult,sourceDetailResult]=await Promise.all([
     db.schema("private")
       .from("prediction_evidence_current")
       .select("hkjc_event_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
@@ -347,6 +347,10 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       .in("hkjc_event_id",ids)
       .in("source_name",["FOTMOB_OFFICIAL","FOTMOB_PREDICTED","FLASHSCORE_OFFICIAL","SOFASCORE"])
       .eq("starter",true),
+    db.from("source_match_detail_current")
+      .select("match_id,source_key,detail_raw,detail_fetched_at,updated_at")
+      .in("match_id",ids)
+      .eq("source_key","FOTMOB"),
   ]);
 
   const evidenceRows=Array.isArray(evidenceResult.data)?evidenceResult.data:[];
@@ -360,6 +364,17 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     evidenceById.set(id,bucket);
   }
   const modelById=new Map(modelRows.map((row:any)=>[String(row?.hkjc_event_id||""),row]));
+
+  const sourceDetailRows=Array.isArray(sourceDetailResult.data)?sourceDetailResult.data:[];
+  const sourceDetailById=new Map<string,any>();
+  for(const row of sourceDetailRows){
+    const id=String(row?.match_id||"");
+    if(!id)continue;
+    const current=sourceDetailById.get(id);
+    const ts=new Date(row?.detail_fetched_at||row?.updated_at||0).getTime();
+    const currentTs=new Date(current?.detail_fetched_at||current?.updated_at||0).getTime();
+    if(!current||ts>=currentTs)sourceDetailById.set(id,row);
+  }
 
   const lineupRows=Array.isArray(lineupResult.data)?lineupResult.data:[];
   const lineupByEventSource=new Map<string,any>();
@@ -454,12 +469,23 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       }:null,
       sourceContext:(()=>{
         const lineup=lineupBestByEvent.get(id);
-        if(!lineup)return m?.sourceContext??null;
+        const detail=sourceDetailById.get(id);
+        const content=detail?.detail_raw?.content||{};
+        const playerStats=content?.playerStats;
+        const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
+        const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
+        const shotRows=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
+        const xgAvailable=shotRows.some((shot:any)=>Number.isFinite(Number(shot?.expectedGoals)))
+          || JSON.stringify(content?.stats||{}).toLowerCase().includes("expected_goals");
+        if(!lineup&&!detail)return m?.sourceContext??null;
         return {
           ...(m?.sourceContext||{}),
           source:"FOTMOB",
-          lineupAvailable:true,
-          lineupCoverage:{
+          lineupAvailable:Boolean(lineup)||Boolean(m?.sourceContext?.lineupAvailable),
+          statsAvailable:matchStatsAvailable||Boolean(m?.sourceContext?.statsAvailable),
+          xgAvailable:xgAvailable||Boolean(m?.sourceContext?.xgAvailable),
+          detailFetchedAt:detail?.detail_fetched_at??m?.sourceContext?.detailFetchedAt??null,
+          lineupCoverage:lineup?{
             source:lineup.source,
             starters:lineup.home+lineup.away,
             homeStarters:lineup.home,
@@ -467,7 +493,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
             confirmedStarters:lineup.confirmed,
             profileCount:[...lineup.playerKeys].filter((key:string)=>profileKeys.has(key)).length,
             updatedAt:lineup.updatedAt
-          }
+          }:(m?.sourceContext?.lineupCoverage??null)
         };
       })(),
       health:{
@@ -478,6 +504,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
         enrichmentErrors:{
           predictionEvidence:evidenceResult.error?String(evidenceResult.error.message||evidenceResult.error):null,
           modelPredictions:modelResult.error?String(modelResult.error.message||modelResult.error):null,
+          sourceDetail:sourceDetailResult.error?String(sourceDetailResult.error.message||sourceDetailResult.error):null,
         },
       },
     };
