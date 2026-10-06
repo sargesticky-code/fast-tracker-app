@@ -159,6 +159,28 @@ async function readSummaryFixture(sbUrl:string,id:string){
   };
 }
 
+function sanitizePublicLegacy(value:any):any{
+  if(Array.isArray(value))return value.map(sanitizePublicLegacy);
+  if(!value||typeof value!=="object"){
+    if(typeof value==="string"){
+      if(value==="HKJC_RESULTS")return "VERIFIED_RESULTS";
+      if(value==="HKJC_TEAM_FORM")return "VERIFIED_RESULTS_TEAM_FORM";
+      if(value==="HKJC_RUNNING_RESULT")return "LEGACY_RETIRED";
+    }
+    return value;
+  }
+  const out:any={};
+  for(const [key,raw] of Object.entries(value)){
+    if(key==="hkjc_event_id"){
+      if(out.match_id==null)out.match_id=sanitizePublicLegacy(raw);
+      continue;
+    }
+    if(/^hkjc_/i.test(key))continue;
+    out[key]=sanitizePublicLegacy(raw);
+  }
+  return out;
+}
+
 function compactFotmobPlayerMatchStats(detailRaw:any){
   const block=detailRaw?.content?.playerStats;
   if(!block||typeof block!=="object"||Array.isArray(block))return [];
@@ -455,7 +477,7 @@ Deno.serve(async(req:Request)=>{
     },
     errors,
   }, String(fixture.data?.home_zh||""), String(fixture.data?.home_en||""), String(fixture.data?.away_zh||""), String(fixture.data?.away_en||""));
-  return Response.json(publicDetail,{
+  return Response.json(sanitizePublicLegacy(publicDetail),{
     headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}
   });
 });
