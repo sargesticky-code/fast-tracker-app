@@ -46,12 +46,11 @@ function mergeLiveOverlay(authorityFeed, liveFeed) {
   if (!authorityMatches.length || !liveMatches.length) return authorityFeed;
   const liveById = new Map(liveMatches.filter((m) => m?.id).map((m) => [String(m.id), m]));
   const matches = authorityMatches.map((authority) => {
-    if (!authority?.liveNow) return authority;
     const liveRow = liveById.get(String(authority.id ?? ""));
     if (!liveRow?.live) return authority;
     return {
       ...authority,
-      status: liveRow.status ?? authority.status,
+      status: liveRow.status ?? liveRow?.live?.status ?? authority.status,
       inPlay: true,
       liveNow: true,
       liveEligible: true,
