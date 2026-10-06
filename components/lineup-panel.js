@@ -545,11 +545,47 @@ function PlayerMatchStatsPanel({ rows, meta, homeTeam, awayTeam }) {
     );
   }
   const teams=[homeTeam,awayTeam];
+  const topPerformers=rows
+    .filter((r)=>Number.isFinite(Number(r?.rating)) && Number(r.rating)>0)
+    .sort((a,b)=>Number(b.rating)-Number(a.rating))
+    .slice(0,3);
   return (
     <div style={{display:"grid",gap:12}}>
+      {topPerformers.length ? (
+        <div style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+            <b style={{fontSize:13,color:palette.ink}}>Top performers</b>
+            <small style={{fontSize:9,color:palette.muted}}>{meta?.source||"FOTMOB"} · exact player match stats</small>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:7,marginTop:9}}>
+            {topPerformers.map((r,i)=>(
+              <div key={r?.playerId||r?.optaId||i} style={{padding:"9px 10px",border:"1px solid #e5ece8",borderRadius:11,background:"#fafcfb"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
+                  <div style={{minWidth:0}}>
+                    <b style={{display:"block",fontSize:11.5,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r?.playerName||"Unknown"}</b>
+                    <small style={{display:"block",marginTop:2,fontSize:8.5,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r?.teamName||"Team"} · #{r?.shirtNumber||"—"}</small>
+                  </div>
+                  <strong style={{fontSize:17,color:"#245f43"}}>{Number(r.rating).toFixed(2)}</strong>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7,fontSize:8.4,fontWeight:850,color:"#587064"}}>
+                  <span>{r?.goals??0}G</span>
+                  <span>{r?.assists??0}A</span>
+                  <span>{r?.totalShots??0} shots</span>
+                  <span>{r?.chancesCreated??0} chances</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {teams.map((teamName) => {
-        const teamRows=rows.filter((r)=>String(r?.teamName||"")===String(teamName||"")).slice(0,18);
-        const fallbackRows=teamRows.length?teamRows:rows.filter((r)=>String(r?.teamName||"").toLowerCase().includes(String(teamName||"").toLowerCase())).slice(0,18);
+        const sortPerformance=(list)=>[...list].sort((a,b)=>{
+          const ar=Number(a?.rating),br=Number(b?.rating);
+          if(Number.isFinite(ar)||Number.isFinite(br)) return (Number.isFinite(br)?br:-1)-(Number.isFinite(ar)?ar:-1);
+          return String(a?.playerName||"").localeCompare(String(b?.playerName||""));
+        });
+        const exactRows=sortPerformance(rows.filter((r)=>String(r?.teamName||"")===String(teamName||""))).slice(0,18);
+        const fallbackRows=exactRows.length?exactRows:sortPerformance(rows.filter((r)=>String(r?.teamName||"").toLowerCase().includes(String(teamName||"").toLowerCase()))).slice(0,18);
         return (
           <div key={teamName} style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
