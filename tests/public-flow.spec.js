@@ -60,7 +60,7 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
   };
 }
 
-function detailPayload({ confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historical = false, dataCase = "empty" } = {}) {
+function detailPayload({ confirmedLineup = false, unresolvedLineup = false, mixedCanonicalLineup = false, playerCase = "missing", historical = false, dataCase = "empty" } = {}) {
   const marketIntelligence = dataCase === "populated"
     ? {
         mode: "VALUE_DETECT",
@@ -150,7 +150,38 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         match_quality: 0.97,
         lineup_confirmed_at: (confirmedLineup || unresolvedLineup) ? new Date().toISOString() : null
       },
-      lineup: confirmedLineup ? [
+      lineup: mixedCanonicalLineup ? [
+        {
+          id: 9001,
+          team_side: "H",
+          player_key: "FM:9001",
+          player_name: "Canonical Home",
+          starter: true,
+          confirmed: true,
+          shirt_number: 9,
+          source_name: "FOTMOB_OFFICIAL",
+          source_url: "https://www.fotmob.com/match/9001",
+          evidence_sources: ["FOTMOB_OFFICIAL", "FOTMOB_PREDICTED"],
+          identity_status: "CANONICAL",
+          fact_status: "CONFIRMED",
+          record_group: "FBTEST1|H|canonical-home||"
+        },
+        {
+          id: 9002,
+          team_side: "A",
+          player_key: "FS:9002",
+          player_name: "Canonical Away",
+          starter: true,
+          confirmed: true,
+          shirt_number: 10,
+          source_name: "FLASHSCORE_OFFICIAL",
+          source_url: "https://www.flashscore.com/match/test/#/match-summary/lineups",
+          evidence_sources: ["FLASHSCORE_OFFICIAL"],
+          identity_status: "CANONICAL",
+          fact_status: "CONFIRMED",
+          record_group: "FBTEST1|A|canonical-away||"
+        }
+      ] : confirmedLineup ? [
         {
           id: 1001,
           team_side: "H",
@@ -401,7 +432,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty", totalsCase = "partial", totalsStale = false } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, mixedCanonicalLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty", totalsCase = "partial", totalsStale = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed(dataCase, totalsCase, totalsStale)) });
   });
@@ -409,7 +440,7 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
   });
   await page.route("**/functions/v1/app-match-detail?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, playerCase, historical: historicalDetail, dataCase })) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, mixedCanonicalLineup, playerCase, historical: historicalDetail, dataCase })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
     const payload = analysisPayload(totalsCase);
@@ -486,8 +517,24 @@ test("homepage promotes verified live overlay and shows real live stats", async 
   await expect(page.getByText("Poss 57-43%", { exact: true })).toBeVisible();
 });
 
+test("canonical mixed-provider lineup rows remain visible", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await mockApis(page, { mixedCanonicalLineup: true });
+  await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
+  const lineupTool = page.locator("details.lineup-tool-disclosure");
+  await expect(lineupTool).toBeVisible();
+  if (!(await lineupTool.evaluate(el => el.open))) {
+    await lineupTool.locator(":scope > summary").click();
+  }
+  await page.getByRole("button", { name: "Squad" }).click();
+  await expect(page.getByText("Canonical Home", { exact: true })).toBeVisible();
+  await expect(page.getByText("Canonical Away", { exact: true })).toBeVisible();
+  await expect(page.getByText("FOTMOB_OFFICIAL, FOTMOB_PREDICTED, FLASHSCORE_OFFICIAL", { exact: true })).toBeVisible();
+});
+
 for (const device of [
   { name: "desktop", viewport: { width: 1440, height: 900 } },
+  { name: "tablet", viewport: { width: 820, height: 1180 } },
   { name: "mobile", viewport: { width: 390, height: 844 } }
 ]) {
   test(device.name + " homepage to English evidence article", async ({ page }) => {
