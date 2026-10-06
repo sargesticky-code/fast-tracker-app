@@ -210,7 +210,19 @@ def run_refresh():
         _state["last_started_at"] = utcnow()
         _state["last_error"] = None
     try:
-        fixtures, snapshot = asyncio.run(refresh_once())
+        fixtures = snapshot = None
+        last_refresh_error = None
+        for attempt in range(2):
+            try:
+                fixtures, snapshot = asyncio.run(refresh_once())
+                break
+            except Exception as exc:
+                last_refresh_error = exc
+                if attempt == 0:
+                    print(f"[flashscore-odds] refresh attempt 1 failed {type(exc).__name__}: {exc}; retrying once", flush=True)
+                    time.sleep(2)
+        if fixtures is None or snapshot is None:
+            raise last_refresh_error or RuntimeError("refresh_failed_without_result")
         completed_at = utcnow()
         discovered = [{
             "source": "FLASHSCORE",
