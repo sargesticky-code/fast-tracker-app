@@ -220,15 +220,20 @@ Deno.serve(async (req: Request) => {
     const bet365HeartbeatAgeSeconds = bet365Heartbeat?.observed_at
       ? Math.max(0,(Date.now()-new Date(bet365Heartbeat.observed_at).getTime())/1000)
       : null;
+    const bet365HeartbeatStatus=String(bet365Heartbeat?.status||"").toUpperCase();
+    const bet365HeartbeatValue=String(bet365Heartbeat?.value_text||"").toUpperCase();
+    const bet365SourceHealthy=bet365HeartbeatStatus==="OK" && !["STALE","ERROR","FETCH_FAILED"].includes(bet365HeartbeatValue);
     const bet365MarketHealth = bet365HealthResult.error
       ? {status:"UNAVAILABLE",source:marketSource,reason:"heartbeat_read_failed"}
       : !bet365Heartbeat
         ? {status:"UNAVAILABLE",source:marketSource,reason:"cloud_bookmaker_health_missing"}
-        : !Number.isFinite(bet365HeartbeatAgeSeconds) || bet365HeartbeatAgeSeconds > 1200
-          ? {status:"STALE",source:marketSource,reason:"cloud_bookmaker_health_stale",ageSeconds:bet365HeartbeatAgeSeconds}
-          : marketRows.length
-            ? {status:"REFERENCE_AVAILABLE",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds,semantics:"prematch_reference_not_verified_in_play"}
-            : {status:"REFERENCE_EMPTY",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds,semantics:"live_fixture_state_independent_of_bookmaker_reference"};
+        : !bet365SourceHealthy
+          ? {status:"STALE",source:marketSource,reason:"cloud_bookmaker_health_not_ok",ageSeconds:bet365HeartbeatAgeSeconds,upstreamStatus:bet365HeartbeatStatus,upstreamValue:bet365HeartbeatValue}
+          : !Number.isFinite(bet365HeartbeatAgeSeconds) || bet365HeartbeatAgeSeconds > 1200
+            ? {status:"STALE",source:marketSource,reason:"cloud_bookmaker_health_stale",ageSeconds:bet365HeartbeatAgeSeconds}
+            : marketRows.length
+              ? {status:"REFERENCE_AVAILABLE",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds,semantics:"prematch_reference_not_verified_in_play"}
+              : {status:"REFERENCE_EMPTY",source:marketSource,ageSeconds:bet365HeartbeatAgeSeconds,semantics:"live_fixture_state_independent_of_bookmaker_reference"};
 
     const readHealth: Record<string, any> = {
       market: bet365MarketHealth,
@@ -343,6 +348,16 @@ Deno.serve(async (req: Request) => {
           events,
           provenance: "SHADOW_PROVIDER_DETAIL",
         });
+      }
+    }
+
+    if(!bet365SourceHealthy){
+      for(const row of marketRows){
+        row.had_home=null;
+        row.had_draw=null;
+        row.had_away=null;
+        row.reference_odds_source=null;
+        row.odds_updated_at=null;
       }
     }
 
