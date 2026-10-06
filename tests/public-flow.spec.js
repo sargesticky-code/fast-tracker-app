@@ -531,7 +531,7 @@ for (const device of [
     const lineupTool = page.locator("details.lineup-tool-disclosure");
     const lineupToolSummary = lineupTool.locator(":scope > summary");
     await expect(lineupToolSummary.getByText("FULL LINEUP TOOL", { exact: true })).toBeVisible();
-    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
+    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
     const decisionBeforeLineup = await page.evaluate(() => {
       const decision = document.querySelector(".detail-decision-board");
       const lineup = document.querySelector("details.lineup-tool-disclosure");
