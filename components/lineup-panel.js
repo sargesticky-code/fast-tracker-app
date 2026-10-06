@@ -854,7 +854,7 @@ export default function LineupPanel() {
 
   return (
     <section style={{maxWidth:1180,margin:"10px auto 18px",padding:"0 16px"}} aria-label="Professional lineup module">
-      <details className="lineup-tool-disclosure">
+      <details className="lineup-tool-disclosure" open>
         <summary>
           <div>
             <span>FULL LINEUP TOOL</span>
