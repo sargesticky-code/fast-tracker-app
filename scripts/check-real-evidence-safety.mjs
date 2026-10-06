@@ -106,6 +106,7 @@ const checks = [
   [detail.includes("let liveApplied = false") && detail.includes("if (liveApplied && previous?.live)") && detail.includes("if (!liveApplied)"), "newer live state must remain ahead of a later summary response"],
   [detail.includes("20000") && detail.includes("35000") && detail.includes("70000") && detail.includes("120000"), "browser deadlines must remain outside the corresponding bounded server-stage windows"],
   [detailApi.includes('joinMethod:"EXACT_FOTMOB_PLAYER_ID"') && detailApi.includes('playerMatchStatsById.get(key)') && detailApi.includes('source.startsWith("FOTMOB")'), "lineup player match stats must join by exact FotMob player id rather than fuzzy names"],
+  [phase1Feed.includes('if (ageMinutes > 20) return { status: "STALE", ageMinutes };') && phase1Feed.includes('const bookmakerHealthy=bet365HeartbeatStatus==="OK"') && phase1Feed.includes('const b:any=bookmakerHealthy ? (bet365ById.get(id)||null) : null;'), "Phase 1 summary must suppress bookmaker odds when the cloud source is stale or unhealthy"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
