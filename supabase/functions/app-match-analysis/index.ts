@@ -1058,7 +1058,7 @@ Deno.serve(async (req: Request) => {
 
   const u = new URL(req.url);
   const id = String(u.searchParams.get("id") || "").trim();
-  if (!/^[A-Za-z0-9_-]{2,40}$/.test(id)) {
+  if (!/^[A-Za-z0-9:_-]{2,80}$/.test(id)) {
     return Response.json({ error: "invalid_match_id" }, { status: 400, headers: { ...cors, "Cache-Control": "no-store" } });
   }
 
