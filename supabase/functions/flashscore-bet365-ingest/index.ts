@@ -83,8 +83,8 @@ Deno.serve(async () => {
   const from = new Date(now - 18 * 60 * 60 * 1000).toISOString();
   const to = new Date(now + 4 * 24 * 60 * 60 * 1000).toISOString();
   const { data: matches, error: matchError } = await db
-    .from("matches")
-    .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en")
+    .from("canonical_fixture_current")
+    .select("match_id,kickoff_hkt,tournament:league,home_en,away_en")
     .gte("kickoff_hkt", from)
     .lt("kickoff_hkt", to);
 
@@ -103,15 +103,15 @@ Deno.serve(async () => {
 
   const [flashAliasResult, consensusAliasResult] = await Promise.all([
     observedNames.length
-      ? db.from("team_name_master")
-          .select("source,source_name,team_key,hkjc_name_en,status")
+      ? db.from("team_identity_current")
+          .select("source,source_name,team_key,canonical_name_en,status")
           .eq("source", "FLASHSCORE")
           .eq("status", "VERIFIED")
           .in("source_name", observedNames)
       : Promise.resolve({ data:[], error:null } as any),
     pricedNames.length
-      ? db.from("team_name_master")
-          .select("source,source_name,team_key,hkjc_name_en,status")
+      ? db.from("team_identity_current")
+          .select("source,source_name,team_key,canonical_name_en,status")
           .eq("status", "VERIFIED")
           .in("source_name", pricedNames)
       : Promise.resolve({ data:[], error:null } as any),
@@ -124,7 +124,7 @@ Deno.serve(async () => {
   for (const a of flashAliasResult.data ?? []) {
     const keyName = norm(a?.source_name);
     const teamKey = String(a?.team_key ?? "").trim();
-    const canonicalName = String(a?.hkjc_name_en ?? "").trim();
+    const canonicalName = String(a?.canonical_name_en ?? "").trim();
     if (!keyName || !teamKey || !canonicalName) continue;
     const targets = flashTargets.get(keyName) ?? new Map<string,string>();
     targets.set(teamKey, canonicalName);
@@ -135,7 +135,7 @@ Deno.serve(async () => {
   for (const a of consensusAliasResult.data ?? []) {
     const keyName = norm(a?.source_name);
     const teamKey = String(a?.team_key ?? "").trim();
-    const canonicalName = String(a?.hkjc_name_en ?? "").trim();
+    const canonicalName = String(a?.canonical_name_en ?? "").trim();
     const source = String(a?.source ?? "").trim();
     if (!keyName || !teamKey || !canonicalName || !source) continue;
     const allTargets = consensusTargets.get(keyName) ?? new Map<string, { canonicalName:string; sources:Set<string> }>();
@@ -188,7 +188,7 @@ Deno.serve(async () => {
     let identity = "DISCOVERED_ONLY";
     let canonical:string|null = null;
 
-    const directProviderMatch = canonicalPool.find((m:any) => String(m?.hkjc_event_id ?? "") === fsId);
+    const directProviderMatch = canonicalPool.find((m:any) => String(m?.match_id ?? "") === fsId);
     const exactCandidates = Number.isFinite(koMs)
       ? canonicalPool.filter((m:any) => {
           const mk = Date.parse(m?.kickoff_hkt ?? "");
@@ -208,7 +208,7 @@ Deno.serve(async () => {
       fixtureInvalidTime++;
     } else if (exactCandidates.length === 1) {
       identity = "EXACT_EXISTING";
-      canonical = String(exactCandidates[0].hkjc_event_id);
+      canonical = String(exactCandidates[0].match_id);
       fixtureExactExisting++;
     } else if (exactCandidates.length > 1) {
       identity = "AMBIGUOUS";
@@ -231,8 +231,8 @@ Deno.serve(async () => {
         canonical = fsId;
         fixtureCreated++;
         const created = {
-          hkjc_event_id: fsId,
-          hkjc_match_id: providerEventId,
+          match_id: fsId,
+          provider_match_id: providerEventId,
           kickoff_hkt: ko,
           status: "PREEVENT",
           tournament: row?.competition ?? null,
@@ -292,9 +292,26 @@ Deno.serve(async () => {
   }
 
   if (canonicalCreates.length) {
-    const { error: canonicalCreateError } = await db
-      .from("matches")
-      .upsert(canonicalCreates, { onConflict: "hkjc_event_id" });
+    const genericRows=canonicalCreates.map((row:any)=>({
+      match_id:row.match_id,
+      provider_match_id:row.provider_match_id,
+      kickoff_hkt:row.kickoff_hkt,
+      status:row.status,
+      league:row.tournament,
+      home_en:row.home_en,
+      away_en:row.away_en,
+      home_zh:row.home_zh,
+      away_zh:row.away_zh,
+      pools:row.pools,
+      pool_status:row.pool_status,
+      in_play:row.in_play,
+      selling:row.selling,
+      fetched_at:row.fetched_at,
+      source_updated_at:row.source_updated_at,
+      raw:row.raw,
+      updated_at:row.updated_at
+    }));
+    const { error: canonicalCreateError } = await db.rpc("ft_upsert_canonical_fixtures_generic",{rows:genericRows});
     if (canonicalCreateError) {
       return Response.json({ error: "canonical_fixture_create_failed", detail: canonicalCreateError.message }, { status: 500 });
     }
@@ -351,7 +368,7 @@ Deno.serve(async () => {
     let canonical: string | null = null;
     if (candidates.length === 1) {
       identity = "VERIFIED";
-      canonical = String(candidates[0].hkjc_event_id);
+      canonical = String(candidates[0].match_id);
       if (usedAlias) aliasResolved++;
       if (usedConsensus) consensusResolved++;
     } else if (candidates.length > 1) {
@@ -390,7 +407,7 @@ Deno.serve(async () => {
     if (identity === "VERIFIED" && canonical) {
       const m = candidates[0];
       verified.push({
-        hkjc_event_id: canonical,
+        match_id: canonical,
         fetched_at: capturedAt,
         match_date: row?.fixture_date ?? null,
         kickoff_hkt: m.kickoff_hkt,
@@ -421,33 +438,44 @@ Deno.serve(async () => {
     if (stale.length) await db.from("flashscore_bet365_current").delete().in("provider_event_id", stale);
   }
 
-  const verifiedIds = verified.map((x) => x.hkjc_event_id);
-  const { data: oldPromoted } = await db.from("bet365_current").select("hkjc_event_id").eq("source", SOURCE);
-  const removeIds = (oldPromoted ?? []).map((x: any) => x.hkjc_event_id).filter((id: string) => !verifiedIds.includes(id));
-  if (removeIds.length) await db.from("bet365_current").delete().eq("source", SOURCE).in("hkjc_event_id", removeIds);
-
   if (verified.length) {
-    const { error } = await db.from("bet365_current").upsert(verified, { onConflict: "hkjc_event_id" });
-    if (error) return Response.json({ error: "promotion_failed", detail: error.message }, { status: 500 });
-
-    const snapshots = verified.map((x: any) => ({
-      hkjc_event_id: x.hkjc_event_id,
-      captured_at: capturedAt,
-      source: SOURCE,
-      market: "ML",
-      line: "FT",
-      home_price: x.bet365_home,
-      draw_price: x.bet365_draw,
-      away_price: x.bet365_away,
-      over_price: null,
-      under_price: null,
-      raw: x.raw,
+    const bookmakerRows=verified.map((x:any)=>({
+      match_id:x.match_id,
+      fetched_at:x.fetched_at,
+      match_date:x.match_date,
+      kickoff_hkt:x.kickoff_hkt,
+      league:x.league,
+      home:x.home,
+      away:x.away,
+      home_odds:x.bet365_home,
+      draw_odds:x.bet365_draw,
+      away_odds:x.bet365_away,
+      provider_fixture_id:x.bet365_fixture_id,
+      match_quality:x.match_quality,
+      raw:x.raw,
+      updated_at:x.updated_at
     }));
-    const { error: snapshotError } = await db.from("odds_snapshots").upsert(snapshots, {
-      onConflict: "hkjc_event_id,captured_at,source,market,line",
-      ignoreDuplicates: true,
-    });
-    if (snapshotError) return Response.json({ error: "snapshot_write_failed", detail: snapshotError.message }, { status: 500 });
+    const {error:promotionError}=await db.rpc("ft_replace_bookmaker_current_generic",{source_key:SOURCE,rows:bookmakerRows});
+    if(promotionError)return Response.json({error:"promotion_failed",detail:promotionError.message},{status:500});
+
+    const snapshots=bookmakerRows.map((x:any)=>({
+      match_id:x.match_id,
+      captured_at:capturedAt,
+      source:SOURCE,
+      market:"ML",
+      line:"FT",
+      home_price:x.home_odds,
+      draw_price:x.draw_odds,
+      away_price:x.away_odds,
+      over_price:null,
+      under_price:null,
+      raw:x.raw
+    }));
+    const {error:snapshotError}=await db.rpc("ft_insert_market_snapshots_generic",{rows:snapshots});
+    if(snapshotError)return Response.json({error:"snapshot_write_failed",detail:snapshotError.message},{status:500});
+  } else {
+    const {error:promotionError}=await db.rpc("ft_replace_bookmaker_current_generic",{source_key:SOURCE,rows:[]});
+    if(promotionError)return Response.json({error:"promotion_clear_failed",detail:promotionError.message},{status:500});
   }
 
   const [{ data: marketRefresh, error: marketRefreshError }, { data: movementRefresh, error: movementRefreshError }] = await Promise.all([
