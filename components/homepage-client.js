@@ -288,6 +288,37 @@ function liveLabel(match) {
   return Number.isFinite(Number(minute)) ? `${minute}'` : "LIVE";
 }
 
+function livePairLabel(pair, digits = 0) {
+  if (!pair) return null;
+  const h = Number(pair.home), a = Number(pair.away);
+  if (!Number.isFinite(h) && !Number.isFinite(a)) return null;
+  const fmt = (v) => Number.isFinite(v) ? (digits ? v.toFixed(digits) : String(Math.round(v))) : "—";
+  return `${fmt(h)}-${fmt(a)}`;
+}
+
+function LiveStatStrip({ match }) {
+  if (!match?.liveNow) return null;
+  const stats = match?.live?.stats;
+  if (!stats) return null;
+  const items = [
+    ["xG", livePairLabel(stats.xg, 2)],
+    ["Shots", livePairLabel(stats.shots)],
+    ["SOT", livePairLabel(stats.shotsOnTarget)],
+    ["Corners", livePairLabel(stats.corners)],
+    ["Poss", livePairLabel(stats.possession)],
+  ].filter(([, value]) => value);
+  if (!items.length) return null;
+  return (
+    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:4}}>
+      {items.map(([label,value]) => (
+        <span key={label} style={{fontSize:8,padding:"2px 4px",borderRadius:5,background:"#edf3f8",color:"#355773",fontWeight:800,whiteSpace:"nowrap"}}>
+          {label} {value}{label === "Poss" ? "%" : ""}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function AdvertSlot({ variant = "wide" }) {
   return (
     <div className={`ft-ad-slot ft-ad-${variant}`} aria-label="Advertisement placeholder">
@@ -423,6 +454,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
+                <LiveStatStrip match={match} />
               </div>
               <MarketOdds match={match} marketKey={activeMarket} />
             </a>
