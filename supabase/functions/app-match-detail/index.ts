@@ -159,32 +159,14 @@ async function readSummaryFixture(sbUrl:string,id:string){
   };
 }
 
-function sanitizePublicLegacy(value:any):any{
-  if(Array.isArray(value))return value.map(sanitizePublicLegacy);
-  if(!value||typeof value!=="object"){
-    if(typeof value==="string"){
-      if(value==="HKJC_RESULTS")return "VERIFIED_RESULTS";
-      if(value==="HKJC_TEAM_FORM")return "VERIFIED_RESULTS_TEAM_FORM";
-      if(value==="HKJC_RUNNING_RESULT")return "VERIFIED_HISTORICAL_FEED";
-      if(/hkjc/i.test(value)){
-        if(/^https?:/i.test(value))return null;
-        return value
-          .replace(/HKJC connected history/gi,"Verified connected history")
-          .replace(/HKJC[_ -]?RESULTS/gi,"VERIFIED_RESULTS")
-          .replace(/HKJC[_ -]?TEAM[_ -]?FORM/gi,"VERIFIED_RESULTS_TEAM_FORM")
-          .replace(/HKJC/gi,"VERIFIED_HISTORICAL_FEED");
-      }
-    }
-    return value;
-  }
+function sanitizePublicCompatibility(value:any):any{
+  if(Array.isArray(value))return value.map(sanitizePublicCompatibility);
+  if(!value||typeof value!=="object")return value;
   const out:any={};
   for(const [key,raw] of Object.entries(value)){
-    if(key==="hkjc_event_id"){
-      if(out.match_id==null)out.match_id=sanitizePublicLegacy(raw);
-      continue;
-    }
-    if(/^hkjc_/i.test(key))continue;
-    out[key]=sanitizePublicLegacy(raw);
+    if(key!=="match_id" && /_event_id$/i.test(key))continue;
+    if(/^raw(?:_|$)/i.test(key))continue;
+    out[key]=sanitizePublicCompatibility(raw);
   }
   return out;
 }
@@ -302,10 +284,12 @@ Deno.serve(async(req:Request)=>{
   };
 
   const predictionEvidence=await manyWith(coreDb,"prediction_evidence_feed_current","*","private");
-  const [model,form]=await Promise.all([
-    oneWith(coreDb,"model_prediction_current"),
-    oneWith(coreDb,"form_prediction_current"),
+  const [modelRaw,formRaw]=await Promise.all([
+    oneWith(coreDb,"model_prediction_current","match_id,fetched_at,home,away,model_league,model_home_name,model_away_name,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,updated_at"),
+    oneWith(coreDb,"form_prediction_current","match_id,fetched_at,home,away,form_prob_home,form_prob_draw,form_prob_away,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,updated_at"),
   ]);
+  const model={...modelRaw,data:modelRaw.data?{...modelRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
+  const form={...formRaw,data:formRaw.data?{...formRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
 
   const [
     fixtureUpcomingDb,fixtureLive,forebet,power,human,scenario,movement,h2h,eventMap,
@@ -348,16 +332,32 @@ Deno.serve(async(req:Request)=>{
     oneWith(optionalDb,"human_factor_feed_current"),
     manyWith(optionalDb,"match_scenario_feed_current"),
     oneWith(optionalDb,"odds_movement_feed_current"),
-    oneWith(optionalDb,"match_h2h_feed_current"),
+    (async()=>{
+      const r=await optionalDb.from("match_h2h_feed_current")
+        .select("match_id,fetched_at,kickoff_hkt,home_id,away_id,home,away,h2h_games,home_wins,draws,away_wins,home_goals,away_goals,avg_total_goals,last5,meetings,quality,updated_at")
+        .eq("match_id",id).maybeSingle();
+      return {data:r.data?{...r.data,source:"VERIFIED_RESULTS_HISTORY"}:null,error:cleanError(r.error)};
+    })(),
     oneWith(optionalDb,"provider_event_map_current"),
     manyWith(optionalDb,"player_status_evidence_current"),
     manyWith(optionalDb,"lineup_evidence_current"),
     manyWith(optionalDb,"lineup_strength_feed_current"),
     manyWith(optionalDb,"manager_evidence_current"),
     oneWith(optionalDb,"multisource_consensus_feed_current","*","private"),
-    manyWith(optionalDb,"value_market_feed_current"),
+    (async()=>{
+      const r=await optionalDb.from("value_market_feed_current")
+        .select("match_id,market_key,period_key,line_key,selection_key,provider_id,odds_decimal,effective_odds_decimal,model_prob,market_prob_raw,market_prob_devig,market_overround,probability_edge_pct,expected_roi_pct,model_source_count,quote_age_seconds,status,calculated_at")
+        .eq("match_id",id)
+        .in("provider_id",["BET365","POLYMARKET"]);
+      return {data:r.data||[],error:cleanError(r.error)};
+    })(),
     manyWith(optionalDb,"arb_market_feed_current"),
-    oneWith(optionalDb,"arb_watch_feed_current"),
+    (async()=>{
+      const r=await optionalDb.from("arb_watch_feed_current")
+        .select("match_id,market_key,period_key,inverse_sum,gross_roi_pct,distance_to_arb_pct,best_home_provider,best_home_odds,best_home_currency,best_home_liquidity,best_draw_provider,best_draw_odds,best_draw_currency,best_draw_liquidity,best_away_provider,best_away_odds,best_away_currency,best_away_liquidity,provider_count,currency_count,status,calculated_at")
+        .eq("match_id",id).maybeSingle();
+      return {data:r.data||null,error:cleanError(r.error)};
+    })(),
     (async()=>{
       const r=await optionalDb.from("source_match_detail_current")
         .select("match_id,source_key,external_event_id,detail_raw,detail_fetched_at,updated_at")
@@ -455,6 +455,11 @@ Deno.serve(async(req:Request)=>{
 
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
   const arbRows=[...(arbMarket.data||[])].sort((a:any,b:any)=>Number(b.net_roi_pct||0)-Number(a.net_roi_pct||0));
+  const publicModel=model.data?{
+    ...model.data,
+    model_league:fixture.data?.tournament??fixture.data?.league??null,
+    model_source:"VERIFIED_RESULTS_HISTORY"
+  }:null;
 
   const publicDetail=englishDetailPayload({
     generatedAt:new Date().toISOString(),
@@ -462,7 +467,7 @@ Deno.serve(async(req:Request)=>{
     fixture:fixture.data,
     fixtureSource,
     models:{
-      internal:model.data,
+      internal:publicModel,
       forebet:forebet.data || forebetEvidenceFallback(predictionEvidence.data),
       form:form.data,
       opta:power.data,
@@ -499,7 +504,7 @@ Deno.serve(async(req:Request)=>{
     },
     errors,
   }, String(fixture.data?.home_zh||""), String(fixture.data?.home_en||""), String(fixture.data?.away_zh||""), String(fixture.data?.away_en||""));
-  return Response.json(sanitizePublicLegacy(publicDetail),{
+  return Response.json(sanitizePublicCompatibility(publicDetail),{
     headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}
   });
 });
