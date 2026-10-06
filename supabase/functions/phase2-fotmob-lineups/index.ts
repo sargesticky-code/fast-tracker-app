@@ -2,11 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
 const SOURCE="FOTMOB";
-const MAX_DETAIL=12;
+const MAX_DETAIL=16;
 const DETAIL_TIMEOUT_MS=5_000;
 const DETAIL_CONCURRENCY=3;
 const WINDOW_HOURS=24;
-const MAX_PLAYER_PROFILES=36;
+const MAX_PLAYER_PROFILES=48;
 const PLAYER_PROFILE_CONCURRENCY=3;
 
 function serviceKey(){
@@ -434,12 +434,20 @@ Deno.serve(async ()=>{
     const cachedByKey=new Map((existingProfiles.data||[]).map((r:any)=>[String(r.player_key),r]));
     const staleBefore=Date.now()-24*3600000;
     const profileTargets=[...uniqueProfiles.entries()]
-      .filter(([id])=>{
+      .map(([id,row]:any)=>{
         const current:any=cachedByKey.get(id);
         const ts=current?.source_updated_at?new Date(current.source_updated_at).getTime():0;
-        return !current?.profile||!Number.isFinite(ts)||ts<staleBefore;
+        const missing=!current?.profile;
+        const stale=!Number.isFinite(ts)||ts<staleBefore;
+        return {id,row,missing,stale,ts};
       })
-      .slice(0,MAX_PLAYER_PROFILES);
+      .filter((x:any)=>x.missing||x.stale)
+      .sort((a:any,b:any)=>{
+        if(a.missing!==b.missing)return a.missing?-1:1;
+        return a.ts-b.ts;
+      })
+      .slice(0,MAX_PLAYER_PROFILES)
+      .map((x:any)=>[x.id,x.row]);
     await mapLimit(profileTargets,PLAYER_PROFILE_CONCURRENCY,async([id,row]:any)=>{
       try{
         const profile=await fetchPlayerProfile(id);
