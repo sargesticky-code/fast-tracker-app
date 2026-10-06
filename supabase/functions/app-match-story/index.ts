@@ -747,6 +747,34 @@ ${JSON.stringify(evidence)}`;
   }
 }
 
+function sanitizePublicStory(value:any):any{
+  if(typeof value==="string"){
+    return value
+      .replace(/HKJC connected history/gi,"Verified connected history")
+      .replace(/HKJC[_ -]?RESULTS/gi,"VERIFIED_RESULTS")
+      .replace(/HKJC[_ -]?TEAM[_ -]?FORM/gi,"VERIFIED_RESULTS_TEAM_FORM")
+      .replace(/HKJC no-vig fair/gi,"Bet365 no-vig fair")
+      .replace(/HKJC fair/gi,"Bet365 fair")
+      .replace(/HKJC market/gi,"Bet365 market")
+      .replace(/HKJC current price/gi,"Bet365 current price")
+      .replace(/HKJC price/gi,"Bet365 price")
+      .replace(/HKJC live/gi,"verified live market")
+      .replace(/\bHKJC\b/gi,"retired legacy source");
+  }
+  if(Array.isArray(value))return value.map(sanitizePublicStory);
+  if(value&&typeof value==="object"){
+    const out:any={};
+    for(const [k,v] of Object.entries(value)){
+      if(k==="hkjc_event_id"){out.match_id=sanitizePublicStory(v);continue;}
+      if(k==="hkjc"){out.bookmaker=sanitizePublicStory(v);continue;}
+      if(/^hkjc_/i.test(k)){out["bookmaker_"+k.replace(/^hkjc_/i,"")]=sanitizePublicStory(v);continue;}
+      out[k]=sanitizePublicStory(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers:cors });
@@ -852,10 +880,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!cached.error && cached.data?.analysis_hash === analysisHash && cached.data?.payload) {
-      return Response.json({
+      return Response.json(sanitizePublicStory({
         ...cached.data.payload,
         cache:{ hit:true, analysisHash, generatedAt:cached.data.generated_at }
-      }, { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
+      }), { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
     }
 
     const deterministic = fallbackStory(analysis, detail, language, commentary, editorialAlignment);
@@ -954,7 +982,7 @@ Deno.serve(async (req: Request) => {
       };
     }
 
-    return Response.json(payload, {
+    return Response.json(sanitizePublicStory(payload), {
       headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"}
     });
   } catch (e) {
