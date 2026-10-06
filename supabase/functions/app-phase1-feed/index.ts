@@ -559,7 +559,7 @@ Deno.serve(async (req: Request) => {
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
 
-      const [fixtureResult, bet365Result, liveResult, bet365HealthResult] = await Promise.all([
+      const [fixtureResult, bet365Result, liveResult, bet365HealthResult, coverageResult] = await Promise.all([
         db.from("canonical_fixture_current")
           .select("match_id,fetched_at,kickoff_hkt,status,tournament:league,home_en,away_en,updated_at")
           .gte("kickoff_hkt", now.toISOString())
@@ -573,6 +573,10 @@ Deno.serve(async (req: Request) => {
           .eq("source","FLASHSCORE_BET365")
           .eq("metric","cloud_ingest")
           .maybeSingle(),
+        db.from("match_public_coverage_current")
+          .select("match_id,lineup_source,starters,home_starters,away_starters,confirmed_starters,profile_count,lineup_updated_at,detail_source,detail_available,source_lineup_available,stats_available,xg_available,detail_fetched_at")
+          .gte("kickoff_hkt", now.toISOString())
+          .lt("kickoff_hkt", end.toISOString()),
       ]);
       if (fixtureResult.error) throw fixtureResult.error;
       if (bet365Result.error) console.error("summary_bookmaker_odds_current_unavailable",bet365Result.error);
@@ -593,6 +597,8 @@ Deno.serve(async (req: Request) => {
       const bookmakerHealthy=bet365HeartbeatStatus==="OK";
       const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.match_id),r]));
       const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
+      const coverageById=new Map((coverageResult.data??[]).map((r:any)=>[String(r.match_id),r]));
+      if(coverageResult.error)console.error("summary_public_coverage_unavailable",coverageResult.error);
       const rows:any[]=[];
       for(const fixture of fixtureResult.data??[]){
         const id=String(fixture.match_id||""); if(!id) continue;
@@ -620,8 +626,31 @@ Deno.serve(async (req: Request) => {
         rows.push({row,liveNow:Boolean(l)});
       }
 
-      const directMatches=rows.map((item:any)=>directAuthoritySummaryRow(item.row,item.liveNow))
-        .sort((a:any,b:any)=>String(a.kickoff??"").localeCompare(String(b.kickoff??"")));
+      const directMatches=rows.map((item:any)=>{
+        const match=directAuthoritySummaryRow(item.row,item.liveNow);
+        const coverage:any=coverageById.get(String(match.id||""))||null;
+        if(!coverage)return match;
+        return {
+          ...match,
+          sourceContext:{
+            source:coverage.detail_source||coverage.lineup_source||null,
+            lineupAvailable:Number(coverage.starters||0)>=22||Boolean(coverage.source_lineup_available),
+            statsAvailable:Boolean(coverage.stats_available),
+            xgAvailable:Boolean(coverage.xg_available),
+            detailAvailable:Boolean(coverage.detail_available),
+            detailFetchedAt:coverage.detail_fetched_at??null,
+            lineupCoverage:{
+              source:coverage.lineup_source??null,
+              starters:Number(coverage.starters||0),
+              homeStarters:Number(coverage.home_starters||0),
+              awayStarters:Number(coverage.away_starters||0),
+              confirmedStarters:Number(coverage.confirmed_starters||0),
+              profileCount:Number(coverage.profile_count||0),
+              updatedAt:coverage.lineup_updated_at??null
+            }
+          }
+        };
+      }).sort((a:any,b:any)=>String(a.kickoff??"").localeCompare(String(b.kickoff??"")));
       return Response.json({
         generatedAt:new Date().toISOString(),
         source:"canonical-fixtures-flashscore-bet365",
