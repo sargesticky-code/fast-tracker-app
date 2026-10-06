@@ -183,6 +183,26 @@ function firstStat(stats, keys) {
 }
 
 function playerStatSummary(row) {
+  const matchStats = row?.match_stats || null;
+  if (matchStats) {
+    const out = [];
+    const rating = Number(matchStats?.rating);
+    const minutes = Number(matchStats?.minutes);
+    const goals = Number(matchStats?.goals);
+    const assists = Number(matchStats?.assists);
+    if (Number.isFinite(rating) && rating > 0) out.push("Rating " + rating.toFixed(2));
+    if (Number.isFinite(minutes) && minutes >= 0) out.push(minutes + " min");
+    if (Number.isFinite(goals) || Number.isFinite(assists)) out.push((Number.isFinite(goals) ? goals : 0) + "G " + (Number.isFinite(assists) ? assists : 0) + "A");
+    if (Number.isFinite(Number(matchStats?.totalShots))) out.push(Number(matchStats.totalShots) + " shots");
+    if (Number.isFinite(Number(matchStats?.chancesCreated))) out.push(Number(matchStats.chancesCreated) + " chances");
+    if (Number.isFinite(Number(matchStats?.tackles))) out.push(Number(matchStats.tackles) + " tackles");
+    if (Number.isFinite(Number(matchStats?.accuratePasses))) {
+      const attempts = Number(matchStats?.passAttempts);
+      out.push(Number(matchStats.accuratePasses) + (Number.isFinite(attempts) && attempts > 0 ? "/" + attempts : "") + " passes");
+    }
+    if (out.length) return out;
+  }
+
   const stats = row?.raw?.statistics || row?.statistics || null;
   const ratingRaw = row?.raw?.rating ?? row?.rating ?? stats?.rating ?? null;
   const rating = Number(ratingRaw);
