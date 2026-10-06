@@ -6,6 +6,8 @@ const MAX_DETAIL=12;
 const DETAIL_TIMEOUT_MS=5_000;
 const DETAIL_CONCURRENCY=3;
 const WINDOW_HOURS=24;
+const MAX_PLAYER_PROFILES=36;
+const PLAYER_PROFILE_CONCURRENCY=3;
 
 function serviceKey(){
   const a=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); if(a) return a;
@@ -102,6 +104,63 @@ async function fetchDetail(id){
   for(const u of urls){try{return await getJson(u)}catch(e){last=String(e)}}
   throw new Error(last||"detail_failed");
 }
+async function fetchPlayerProfile(id){
+  const urls=[
+    `https://www.fotmob.com/api/data/playerData?id=${encodeURIComponent(id)}`,
+    `https://www.fotmob.com/api/playerData?id=${encodeURIComponent(id)}`
+  ];
+  let last="";
+  for(const u of urls){try{return await getJson(u)}catch(e){last=String(e)}}
+  throw new Error(last||"player_profile_failed");
+}
+function infoValue(profile,key){
+  const rows=Array.isArray(profile?.playerInformation)?profile.playerInformation:[];
+  const row=rows.find((x:any)=>String(x?.translationKey||x?.title||"").toLowerCase().includes(String(key).toLowerCase()));
+  const v=row?.value;
+  if(v==null)return null;
+  if(typeof v==="string"||typeof v==="number")return String(v);
+  return v?.fallback??v?.value??v?.text??null;
+}
+function recentPlayerSummary(profile){
+  const rows=Array.isArray(profile?.recentMatches)?profile.recentMatches:
+    Array.isArray(profile?.recentMatchHistory)?profile.recentMatchHistory:
+    Array.isArray(profile?.lastMatches)?profile.lastMatches:[];
+  const normalized=rows.slice(0,8).map((m:any)=>({
+    matchId:m?.matchId??m?.id??null,
+    date:m?.date?.utcTime??m?.date??m?.startDate??null,
+    opponent:m?.opponent?.name??m?.opponentName??m?.away?.name??m?.home?.name??null,
+    rating:Number.isFinite(Number(m?.rating??m?.performance?.rating))?Number(m?.rating??m?.performance?.rating):null,
+    minutes:Number.isFinite(Number(m?.minutesPlayed??m?.minutes))?Number(m?.minutesPlayed??m?.minutes):null,
+    goals:Number.isFinite(Number(m?.goals))?Number(m?.goals):null,
+    assists:Number.isFinite(Number(m?.assists))?Number(m?.assists):null
+  }));
+  const ratings=normalized.map((m:any)=>m.rating).filter((x:any)=>Number.isFinite(x));
+  return {
+    matches:normalized,
+    averageRating:ratings.length?Number((ratings.reduce((a:number,b:number)=>a+b,0)/ratings.length).toFixed(2)):null,
+    ratedMatches:ratings.length
+  };
+}
+function compactPlayerProfile(profile){
+  const recent=recentPlayerSummary(profile);
+  return {
+    fotmobId:profile?.id??null,
+    name:profile?.name??null,
+    photo:profile?.imageUrl??profile?.photo??null,
+    primaryTeam:profile?.primaryTeam??null,
+    position:profile?.position??profile?.positionDescription??profile?.positionRow??null,
+    country:infoValue(profile,"country"),
+    height:infoValue(profile,"height"),
+    age:profile?.age??infoValue(profile,"age")??null,
+    birthDate:profile?.birthDate?.utcTime??profile?.birthDate??null,
+    marketValue:profile?.marketValue??profile?.marketValues?.[0]??null,
+    injuryInformation:profile?.injuryInformation??null,
+    traits:profile?.traits??null,
+    statSeasons:profile?.statSeasons??null,
+    recent,
+    nextMatch:profile?.nextMatch??null
+  };
+}
 function parseLineup(detail,eventId,externalId){
   const l=detail?.content?.lineup;
   if(!l)return {rows:[],kind:null,injuries:[],managers:[],complete:false};
@@ -127,7 +186,7 @@ function parseLineup(detail,eventId,externalId){
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
         source_updated_at:fetchedAt,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null},
+        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null,statistics:player?.stats??player?.statistics??null,rating:player?.rating??player?.stats?.rating??player?.statistics?.rating??null},
         created_at:fetchedAt
       });
     }
@@ -142,7 +201,7 @@ function parseLineup(detail,eventId,externalId){
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
         source_updated_at:fetchedAt,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null},
+        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null,statistics:player?.stats??player?.statistics??null,rating:player?.rating??player?.stats?.rating??player?.statistics?.rating??null},
         created_at:fetchedAt
       });
     }
@@ -189,7 +248,7 @@ Deno.serve(async ()=>{
   const now=Date.now(),fromIso=new Date(now-2*3600000).toISOString(),toIso=new Date(now+WINDOW_HOURS*3600000).toISOString();
   try{
     const [hkRes,shadowRes,aliasRes]=await Promise.all([
-      db.from("hkjc_upcoming_current").select("hkjc_event_id,kickoff_hkt,home_en,away_en,home_zh,away_zh").gte("kickoff_hkt",fromIso).lte("kickoff_hkt",toIso),
+      db.from("canonical_fixture_current").select("hkjc_event_id:match_id,kickoff_hkt,home_en,away_en,home_zh,away_zh").gte("kickoff_hkt",fromIso).lte("kickoff_hkt",toIso),
       db.from("phase15_source_shadow_current").select("external_event_id,kickoff_utc,home_name,away_name,home_external_id,away_external_id,matched_hkjc_event_id,match_confidence,identity_status,detail_available,lineup_available,detail_raw,detail_fetched_at").eq("source_key",SOURCE).gte("kickoff_utc",fromIso).lte("kickoff_utc",toIso),
       db.from("team_aliases").select("source,alias,canonical_hkjc_name,confidence,status").eq("status","ACTIVE").gte("confidence",0.94)
     ]);
@@ -300,7 +359,7 @@ Deno.serve(async ()=>{
       return Math.abs(ak-now)-Math.abs(bk-now);
     });
     const picked=matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
-    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
+    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0,playerProfilesFetched=0,playerProfilesFailed=0,playerProfilesWritten=0;
     await mapLimit(picked,DETAIL_CONCURRENCY,async(target)=>{
     const {h,best}=target;
     try{
@@ -344,11 +403,73 @@ Deno.serve(async ()=>{
     }catch(e){detailFail++;console.warn("detail_fail",h.hkjc_event_id,String(e));}
 
     });
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const profileCandidates=(await db.from("phase2_match_lineup_evidence")
+      .select("player_key,player_name,team_key,role,starter,source_updated_at")
+      .in("hkjc_event_id",ids)
+      .in("source_name",["FOTMOB_OFFICIAL","FOTMOB_PREDICTED"])
+      .eq("starter",true)
+      .order("source_updated_at",{ascending:false})
+      .limit(240)).data||[];
+    const uniqueProfiles=new Map();
+    for(const row of profileCandidates){
+      const id=String(row.player_key||"");
+      if(!/^\d+$/.test(id)||uniqueProfiles.has(id))continue;
+      uniqueProfiles.set(id,row);
+    }
+    const playerKeys=[...uniqueProfiles.keys()];
+    const existingProfiles=playerKeys.length
+      ? await db.from("phase2_players").select("player_key,source_updated_at,profile").in("player_key",playerKeys)
+      : {data:[],error:null};
+    if(existingProfiles.error)console.warn("player_profile_cache_read_failed",existingProfiles.error.message);
+    const cachedByKey=new Map((existingProfiles.data||[]).map((r:any)=>[String(r.player_key),r]));
+    const staleBefore=Date.now()-24*3600000;
+    const profileTargets=[...uniqueProfiles.entries()]
+      .filter(([id])=>{
+        const current:any=cachedByKey.get(id);
+        const ts=current?.source_updated_at?new Date(current.source_updated_at).getTime():0;
+        return !current?.profile||!Number.isFinite(ts)||ts<staleBefore;
+      })
+      .slice(0,MAX_PLAYER_PROFILES);
+    await mapLimit(profileTargets,PLAYER_PROFILE_CONCURRENCY,async([id,row]:any)=>{
+      try{
+        const profile=await fetchPlayerProfile(id);
+        playerProfilesFetched++;
+        const compact=compactPlayerProfile(profile);
+        const primaryTeam=profile?.primaryTeam||{};
+        const position=profile?.position
+          || profile?.primaryTeam?.role
+          || profile?.positionDescription?.positions?.[0]?.strPos?.label
+          || row?.role
+          || null;
+        const nationality=compact.country||null;
+        const dateOfBirth=compact.birthDate&&/^\d{4}-\d{2}-\d{2}/.test(String(compact.birthDate))
+          ? String(compact.birthDate).slice(0,10):null;
+        const wr=await db.from("phase2_players").upsert({
+          player_key:String(id),
+          canonical_name:String(profile?.name||row?.player_name||id),
+          team_key:String(primaryTeam?.teamId??row?.team_key??"")||null,
+          team_name:primaryTeam?.teamName??null,
+          position,
+          nationality,
+          date_of_birth:dateOfBirth,
+          source_ids:{fotmob:Number(id)},
+          profile:compact,
+          source_updated_at:new Date().toISOString(),
+          updated_at:new Date().toISOString()
+        },{onConflict:"player_key"});
+        if(wr.error)throw wr.error;
+        playerProfilesWritten++;
+      }catch(e){
+        playerProfilesFailed++;
+        console.warn("player_profile_fail",id,String(e));
+      }
+    });
+
+    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,playerProfilesFetched,playerProfilesFailed,playerProfilesWritten,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",
-      notes:"Phase 1 HKJC identity -> FotMob near-kickoff XI + bench + coach + unavailable players -> Phase 2.",
+      notes:"Canonical fixture identity -> FotMob near-kickoff XI + bench + coach + player profiles + unavailable players -> Phase 2.",
       observed_at:new Date().toISOString(),raw:health
     },{onConflict:"source,metric"});
     return Response.json({ok:true,...health});
