@@ -166,6 +166,14 @@ function sanitizePublicLegacy(value:any):any{
       if(value==="HKJC_RESULTS")return "VERIFIED_RESULTS";
       if(value==="HKJC_TEAM_FORM")return "VERIFIED_RESULTS_TEAM_FORM";
       if(value==="HKJC_RUNNING_RESULT")return "LEGACY_RETIRED";
+      if(/hkjc/i.test(value)){
+        if(/^https?:/i.test(value))return null;
+        return value
+          .replace(/HKJC connected history/gi,"Verified connected history")
+          .replace(/HKJC[_ -]?RESULTS/gi,"VERIFIED_RESULTS")
+          .replace(/HKJC[_ -]?TEAM[_ -]?FORM/gi,"VERIFIED_RESULTS_TEAM_FORM")
+          .replace(/HKJC/gi,"RETIRED_LEGACY_SOURCE");
+      }
     }
     return value;
   }
