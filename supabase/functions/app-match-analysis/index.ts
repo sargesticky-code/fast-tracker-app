@@ -1081,7 +1081,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!r) {
-    const baseResult = await db.rpc("ft_internal_app_phase1_feed", { window_hours: 48 });
+    const baseResult = await db.rpc("ft_internal_app_phase1_feed_generic", { window_hours: 48 });
     authorityRpcError = oneError(baseResult.error);
     const rows = Array.isArray(baseResult.data) ? baseResult.data : [];
     r = rows.find((x: any) => String(x.match_id) === id) || null;
@@ -1214,28 +1214,28 @@ Deno.serve(async (req: Request) => {
   // Critical probability evidence is deliberately read before the optional
   // human/live fan-out. This prevents connection pressure in optional layers
   // from starving the model rows already stored for the match.
-  const predictionEvidence = await manyWith(coreDb,"prediction_evidence_current","private");
+  const predictionEvidence = await manyWith(coreDb,"prediction_evidence_feed_current","private");
   const [modelTotals,formTotals] = await Promise.all([
-    oneWith(coreDb,"model_predictions"),
-    oneWith(coreDb,"form_predictions"),
+    oneWith(coreDb,"model_prediction_current"),
+    oneWith(coreDb,"form_prediction_current"),
   ]);
 
   const [
     human, eventMap, playerStatus, lineups, managers, movement,
     liveScore, liveStats, liveOdds, upcomingOdds, liveShadow, scenarios
   ] = await Promise.all([
-    oneWith(optionalDb,"human_factors_current"),
-    oneWith(optionalDb,"api_football_event_map"),
-    manyWith(optionalDb,"phase2_player_status_evidence"),
-    manyWith(optionalDb,"phase2_match_lineup_evidence"),
-    manyWith(optionalDb,"phase2_manager_evidence"),
-    oneWith(optionalDb,"odds_movement_current"),
-    oneWith(optionalDb,"live_score_current"),
-    oneWith(optionalDb,"live_stats_current"),
+    oneWith(optionalDb,"human_factor_feed_current"),
+    oneWith(optionalDb,"provider_event_map_current"),
+    manyWith(optionalDb,"player_status_evidence_current"),
+    manyWith(optionalDb,"lineup_evidence_current"),
+    manyWith(optionalDb,"manager_evidence_current"),
+    oneWith(optionalDb,"odds_movement_feed_current"),
+    oneWith(optionalDb,"live_score_feed_current"),
+    oneWith(optionalDb,"live_stats_feed_current"),
     Promise.resolve({data:null,error:null}),
-    oneWith(optionalDb,"bet365_current"),
-    oneWith(optionalDb,"live_expected_actual_current"),
-    manyWith(optionalDb,"match_scenario_current"),
+    oneWith(optionalDb,"bookmaker_odds_current"),
+    oneWith(optionalDb,"live_expected_actual_feed_current"),
+    manyWith(optionalDb,"match_scenario_feed_current"),
   ]);
 
 
@@ -1251,8 +1251,8 @@ Deno.serve(async (req: Request) => {
       {canonicalName:String(row.canonical_name||row.player_key),teamKey:String(row.team_key||"")}
     ]));
   }
-  const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence",id));
-  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence",id));
+  const playerStatusRowsAnnotated=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"player_status_evidence_current",id));
+  const lineupRowsAnnotated=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"lineup_evidence_current",id));
 
   const evidenceRows=predictionEvidence.data||[];
   const forebetEvidenceHda=evidenceRow(evidenceRows,"FOREBET","1X2");
