@@ -432,11 +432,25 @@ Deno.serve(async(req:Request)=>{
   })();
 
   const playerMatchStats=compactFotmobPlayerMatchStats(sourceMatchDetail.data?.detail_raw);
+  const playerMatchStatsById=new Map(
+    playerMatchStats
+      .filter((row:any)=>row?.playerId!=null)
+      .map((row:any)=>[String(row.playerId),row])
+  );
+  const lineupsWithMatchStats=annotatedLineups.map((row:any)=>{
+    const source=String(row?.source_name||"").toUpperCase();
+    if(!source.startsWith("FOTMOB"))return row;
+    const key=String(row?.canonical_player_key||row?.player_key||"");
+    const matchStats=playerMatchStatsById.get(key)||null;
+    return matchStats?{...row,match_stats:matchStats}:row;
+  });
   const playerMatchStatsMeta=playerMatchStats.length?{
     source:"FOTMOB",
     externalEventId:sourceMatchDetail.data?.external_event_id??null,
     observedAt:sourceMatchDetail.data?.detail_fetched_at??sourceMatchDetail.data?.updated_at??null,
-    players:playerMatchStats.length
+    players:playerMatchStats.length,
+    lineupRowsMatched:lineupsWithMatchStats.filter((row:any)=>row?.match_stats).length,
+    joinMethod:"EXACT_FOTMOB_PLAYER_ID"
   }:null;
 
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
@@ -459,7 +473,7 @@ Deno.serve(async(req:Request)=>{
       summary:human.data,
       eventMap:eventMap.data,
       playerStatus:annotatedPlayerStatus,
-      lineup:annotatedLineups,
+      lineup:lineupsWithMatchStats,
       playerProfiles,
       playerMatchStats,
       playerMatchStatsMeta,
