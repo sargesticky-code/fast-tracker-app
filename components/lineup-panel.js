@@ -40,6 +40,38 @@ function findLineup(payload) {
   return candidates.find(Array.isArray) || [];
 }
 
+function chooseLineupEvidence(rows) {
+  if (!Array.isArray(rows) || rows.length <= 1) return rows || [];
+  const bySource = new Map();
+  for (const row of rows) {
+    const source = String(row?.source_name || row?.source || "UNKNOWN");
+    if (!bySource.has(source)) bySource.set(source, []);
+    bySource.get(source).push(row);
+  }
+  const priority = (source) => {
+    const s = String(source || "").toUpperCase();
+    if (s === "FLASHSCORE_OFFICIAL") return 40;
+    if (s === "FOTMOB_OFFICIAL") return 35;
+    if (s === "SOFASCORE") return 30;
+    if (s === "FOTMOB_PREDICTED") return 20;
+    return 0;
+  };
+  const ranked = [...bySource.entries()].map(([source, sourceRows]) => {
+    const starters = sourceRows.filter((r) => r?.starter !== false);
+    const homeStarters = starters.filter((r) => side(r) === "H").length;
+    const awayStarters = starters.filter((r) => side(r) === "A").length;
+    const confirmedStarters = starters.filter((r) => r?.confirmed === true).length;
+    const fullXi = homeStarters >= 11 && awayStarters >= 11;
+    const avg = avgConfidence(sourceRows) || 0;
+    return {
+      source,
+      rows: sourceRows,
+      score: (fullXi ? 10000 : 0) + confirmedStarters * 100 + starters.length * 10 + priority(source) + avg,
+    };
+  }).sort((a, b) => b.score - a.score);
+  return ranked[0]?.rows || rows;
+}
+
 function getHumanFactors(payload) {
   return payload?.humanFactors
     || payload?.human_factors
@@ -674,9 +706,10 @@ export default function LineupPanel() {
     const unresolvedIdentityRows = identityAnnotated
       ? sourceRows.filter((r) => factStatus(r) === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
       : [];
-    const rows = identityAnnotated
+    const identityApprovedRows = identityAnnotated
       ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
       : sourceRows;
+    const rows = chooseLineupEvidence(identityApprovedRows);
     const canonicalFixtureMissing = String(payload?.fixtureSource || "").toUpperCase() === "MISSING";
     const home = rows.filter((r) => side(r) === "H");
     const away = rows.filter((r) => side(r) === "A");
