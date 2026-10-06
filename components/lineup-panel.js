@@ -483,6 +483,64 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
   );
 }
 
+function PlayerMatchStatsPanel({ rows, meta, homeTeam, awayTeam }) {
+  if (!rows.length) {
+    return (
+      <div style={{padding:18,border:"1px dashed #cfdad3",borderRadius:14,background:"#fbfcfb"}}>
+        <b style={{display:"block",fontSize:13,color:palette.ink}}>Match player stats not available yet</b>
+        <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted}}>This fills automatically after FotMob publishes player-level match performance. Missing metrics stay unknown.</small>
+      </div>
+    );
+  }
+  const teams=[homeTeam,awayTeam];
+  return (
+    <div style={{display:"grid",gap:12}}>
+      {teams.map((teamName) => {
+        const teamRows=rows.filter((r)=>String(r?.teamName||"")===String(teamName||"")).slice(0,18);
+        const fallbackRows=teamRows.length?teamRows:rows.filter((r)=>String(r?.teamName||"").toLowerCase().includes(String(teamName||"").toLowerCase())).slice(0,18);
+        return (
+          <div key={teamName} style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+              <b style={{fontSize:13,color:palette.ink}}>{teamName}</b>
+              <small style={{fontSize:9,color:palette.muted}}>{meta?.source||"FOTMOB"} · {formatHkt(meta?.observedAt)}</small>
+            </div>
+            <div style={{display:"grid",gap:7,marginTop:9}}>
+              {fallbackRows.map((r,i)=>{
+                const passes=(Number.isFinite(Number(r?.accuratePasses))&&Number.isFinite(Number(r?.passAttempts))&&Number(r.passAttempts)>0)
+                  ? Math.round((Number(r.accuratePasses)/Number(r.passAttempts))*100)+"%"
+                  : null;
+                return (
+                  <div key={r?.playerId||r?.optaId||i} style={{display:"grid",gridTemplateColumns:"minmax(140px,1.2fr) repeat(6,minmax(54px,.55fr))",gap:6,alignItems:"center",padding:"8px 9px",border:"1px solid #e8eeea",borderRadius:10,background:"#fafcfb"}}>
+                    <div style={{minWidth:0}}>
+                      <b style={{display:"block",fontSize:11,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r?.playerName||"Unknown"}</b>
+                      <small style={{fontSize:8.3,color:palette.muted}}>#{r?.shirtNumber||"—"}{r?.isGoalkeeper?" · GK":""}</small>
+                    </div>
+                    <span style={{fontSize:9,fontWeight:900}}>R {Number.isFinite(Number(r?.rating))?Number(r.rating).toFixed(2):"—"}</span>
+                    <span style={{fontSize:9}}>G/A {(r?.goals??"—")}/{(r?.assists??"—")}</span>
+                    <span style={{fontSize:9}}>Shots {r?.totalShots??"—"}</span>
+                    <span style={{fontSize:9}}>Chances {r?.chancesCreated??"—"}</span>
+                    <span style={{fontSize:9}}>Tkl {r?.tackles??"—"}</span>
+                    <span style={{fontSize:9}}>Pass {passes||"—"}</span>
+                    <div style={{gridColumn:"1 / -1",display:"flex",gap:8,flexWrap:"wrap",fontSize:8.3,color:"#6f8177"}}>
+                      <span>Touches {r?.touches??"—"}</span>
+                      <span>Rec {r?.recoveries??"—"}</span>
+                      <span>Int {r?.interceptions??"—"}</span>
+                      <span>Clr {r?.clearances??"—"}</span>
+                      <span>Duels {r?.duelsWon??"—"}</span>
+                      <span>Aerial {r?.aerialsWon??"—"}/{r?.aerialDuels??"—"}</span>
+                      {r?.isGoalkeeper?<span>Saves {r?.saves??"—"}</span>:null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
   if (!rows.length) {
     return (
@@ -648,6 +706,8 @@ export default function LineupPanel() {
       : playerStatusRaw;
     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
     const playerProfiles = Array.isArray(hf?.playerProfiles) ? hf.playerProfiles : [];
+    const playerMatchStats = Array.isArray(hf?.playerMatchStats) ? hf.playerMatchStats : [];
+    const playerMatchStatsMeta = hf?.playerMatchStatsMeta || null;
     const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
       : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
     const homeStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "HOME") || null;
@@ -664,7 +724,7 @@ export default function LineupPanel() {
       unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
       home, away, homeStarters, awayStarters, homeBench, awayBench,
       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
-      playerStatus, playerStatusRaw, playerProfiles, managers, conflicts, homeStrength, awayStrength,
+      playerStatus, playerStatusRaw, playerProfiles, playerMatchStats, playerMatchStatsMeta, managers, conflicts, homeStrength, awayStrength,
       homeFormation: normalizeFormation(formation(homeStarters)),
       awayFormation: normalizeFormation(formation(awayStarters)),
       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
@@ -691,6 +751,7 @@ export default function LineupPanel() {
     ["formation","Formation"],
     ["squad","Squad"],
     ["form","Player form"],
+    ["matchstats","Match stats"],
     ["availability","Availability"],
     ["source","Sources"],
   ];
@@ -792,6 +853,12 @@ export default function LineupPanel() {
         {tab === "form" ? (
           <div style={{padding:14}}>
             <PlayerFormPanel rows={view.playerProfiles} homeTeam={view.homeTeam} awayTeam={view.awayTeam} />
+          </div>
+        ) : null}
+
+        {tab === "matchstats" ? (
+          <div style={{padding:14}}>
+            <PlayerMatchStatsPanel rows={view.playerMatchStats} meta={view.playerMatchStatsMeta} homeTeam={view.homeTeam} awayTeam={view.awayTeam} />
           </div>
         ) : null}
 
