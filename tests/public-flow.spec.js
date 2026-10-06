@@ -594,11 +594,11 @@ for (const device of [
 
     await lineupToolSummary.focus();
     await page.keyboard.press("Enter");
-    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
-    await expect(lineupTool.getByRole("button", { name: "Formation" })).toBeVisible();
+    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
     await lineupToolSummary.focus();
     await page.keyboard.press("Enter");
-    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
+    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
+    await expect(lineupTool.getByRole("button", { name: "Formation" })).toBeVisible();
 
     const renderedText = await page.locator("body").innerText();
     expect(renderedText).not.toMatch(/[\u3400-\u9fff]/);
