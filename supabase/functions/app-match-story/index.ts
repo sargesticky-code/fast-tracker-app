@@ -779,7 +779,7 @@ Deno.serve(async (req: Request) => {
     const language = "en";
     const styleRaw = String(u.searchParams.get("style") || "professional").toLowerCase();
     const style = ["professional","concise","broadcast"].includes(styleRaw) ? styleRaw : "professional";
-    if (!/^[A-Za-z0-9_-]{2,40}$/.test(id)) {
+    if (!/^[A-Za-z0-9:_-]{2,80}$/.test(id)) {
       return Response.json({ error:"invalid_match_id" }, { status:400, headers:{...cors,"Cache-Control":"no-store"} });
     }
 
