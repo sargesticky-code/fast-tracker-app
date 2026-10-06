@@ -1024,11 +1024,31 @@ function englishPublicText(input: string) {
     .trim();
   return out;
 }
+function publicMarketText(input:string){
+  return input
+    .replace(/HKJC connected history/gi,"Verified connected history")
+    .replace(/HKJC[_ -]?RESULTS/gi,"VERIFIED_RESULTS")
+    .replace(/HKJC[_ -]?TEAM[_ -]?FORM/gi,"VERIFIED_RESULTS_TEAM_FORM")
+    .replace(/HKJC no-vig fair/gi,"Bet365 no-vig fair")
+    .replace(/HKJC fair/gi,"Bet365 fair")
+    .replace(/HKJC market/gi,"Bet365 market")
+    .replace(/HKJC current price/gi,"Bet365 current price")
+    .replace(/HKJC price/gi,"Bet365 price")
+    .replace(/HKJC live/gi,"verified live market")
+    .replace(/hkjc_odds_current/gi,"market_odds_current")
+    .replace(/\bHKJC\b/gi,"retired legacy source");
+}
 function englishPublicPayload(value: any): any {
-  if (typeof value === "string") return englishPublicText(value);
+  if (typeof value === "string") return publicMarketText(englishPublicText(value));
   if (Array.isArray(value)) return value.map(englishPublicPayload);
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k,v]) => [k, englishPublicPayload(v)]));
+    const out:any={};
+    for(const [k,v] of Object.entries(value)){
+      if(k==="hkjc_event_id"){ out.match_id=englishPublicPayload(v); continue; }
+      if(/^hkjc_/i.test(k)){ out["bookmaker_"+k.replace(/^hkjc_/i,"")]=englishPublicPayload(v); continue; }
+      out[k]=englishPublicPayload(v);
+    }
+    return out;
   }
   return value;
 }
