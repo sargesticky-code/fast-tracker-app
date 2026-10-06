@@ -59,7 +59,7 @@ function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
     compactToken(row?.status_value),
   ].join("|");
 }
-function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalName:string,teamKey:string}>,table:string){
+function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null}>,table:string){
   const playerKey=String(row?.player_key||"").trim();
   const side=normalizedSide(row?.team_side);
   const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
@@ -81,6 +81,11 @@ function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalNa
     source_link:row?.source_url||null,
     identity_status:identityStatus,
     canonical_player_identity:canonicalIdentity,
+    canonical_position:canonicalPlayer?.position ?? null,
+    canonical_nationality:canonicalPlayer?.nationality ?? null,
+    canonical_date_of_birth:canonicalPlayer?.dateOfBirth ?? null,
+    canonical_profile:canonicalPlayer?.profile ?? null,
+    canonical_profile_updated_at:canonicalPlayer?.sourceUpdatedAt ?? null,
     fact_status:factStatus,
     record_group:playerClaimFingerprint(row,canonicalIdentity),
   };
@@ -147,11 +152,71 @@ async function readSummaryFixture(sbUrl:string,id:string){
     chl_line:m?.corners?.line??null,
     chl_over:m?.corners?.over??null,
     chl_under:m?.corners?.under??null,
-    fetched_at:m?.health?.hkjcFetchedAt??m?.updatedAt??null,
-    odds_updated_at:m?.health?.hkjcPriceChangedAt??m?.live?.oddsUpdatedAt??null,
+    fetched_at:m?.health?.authorityFetchedAt??m?.updatedAt??null,
+    odds_updated_at:m?.health?.priceChangedAt??m?.live?.oddsUpdatedAt??null,
     authority_source:"APP_PHASE1_SUMMARY",
     live_now:Boolean(m?.liveNow),
   };
+}
+
+function compactFotmobPlayerMatchStats(detailRaw:any){
+  const block=detailRaw?.content?.playerStats;
+  if(!block||typeof block!=="object"||Array.isArray(block))return [];
+  const valueFor=(player:any,key:string)=>{
+    const groups=Array.isArray(player?.stats)?player.stats:[];
+    for(const group of groups){
+      const entries=group?.stats&&typeof group.stats==="object"?Object.values(group.stats):[];
+      for(const item of entries as any[]){
+        if(String(item?.key||"")!==key)continue;
+        const stat=item?.stat||{};
+        const value=stat?.value;
+        const total=stat?.total;
+        if(value===undefined||value===null)return null;
+        return {value:Number.isFinite(Number(value))?Number(value):value,total:Number.isFinite(Number(total))?Number(total):null};
+      }
+    }
+    return null;
+  };
+  const rows=[];
+  for(const player of Object.values(block) as any[]){
+    if(!player||!player.name)continue;
+    const stat=(key:string)=>valueFor(player,key);
+    const rating=stat("rating_title")?.value??null;
+    const minutes=stat("minutes_played")?.value??null;
+    const goals=stat("goals")?.value??null;
+    const assists=stat("assists")?.value??null;
+    const totalShots=stat("total_shots")?.value??null;
+    const shotsOnTarget=stat("ShotsOnTarget")?.value??null;
+    const chancesCreated=stat("chances_created")?.value??null;
+    const accuratePasses=stat("accurate_passes");
+    const tackles=stat("matchstats.headers.tackles")?.value??null;
+    const interceptions=stat("interceptions")?.value??null;
+    const clearances=stat("clearances")?.value??null;
+    const recoveries=stat("recoveries")?.value??null;
+    const duelsWon=stat("duel_won")?.value??null;
+    const aerialsWon=stat("aerials_won");
+    const touches=stat("touches")?.value??null;
+    const saves=stat("saves")?.value??null;
+    const goalsConceded=stat("goals_conceded")?.value??null;
+    const hasAny=[rating,minutes,goals,assists,totalShots,shotsOnTarget,chancesCreated,tackles,interceptions,clearances,recoveries,duelsWon,touches,saves,goalsConceded,accuratePasses?.value,aerialsWon?.value].some(v=>v!==null&&v!==undefined);
+    if(!hasAny)continue;
+    rows.push({
+      playerId:player.id?String(player.id):null,
+      optaId:player.optaId?String(player.optaId):null,
+      playerName:String(player.name),
+      teamId:player.teamId?String(player.teamId):null,
+      teamName:player.teamName??null,
+      shirtNumber:player.shirtNumber??null,
+      positionId:player.positionId??null,
+      isGoalkeeper:Boolean(player.isGoalkeeper),
+      rating,minutes,goals,assists,totalShots,shotsOnTarget,chancesCreated,tackles,interceptions,clearances,recoveries,duelsWon,touches,saves,goalsConceded,
+      accuratePasses:accuratePasses?.value??null,
+      passAttempts:accuratePasses?.total??null,
+      aerialsWon:aerialsWon?.value??null,
+      aerialDuels:aerialsWon?.total??null
+    });
+  }
+  return rows.sort((a:any,b:any)=>(Number(b.rating)||0)-(Number(a.rating)||0));
 }
 
 function normalizeH2H(row:any,error:any){
@@ -214,9 +279,14 @@ Deno.serve(async(req:Request)=>{
 
   const [
     fixtureUpcomingDb,fixtureLive,forebet,power,human,scenario,movement,h2h,eventMap,
-    playerStatus,lineups,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch
+    playerStatus,lineups,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail
   ]=await Promise.all([
-    summaryFixture?Promise.resolve({data:null,error:null}):oneWith(optionalDb,"matches"),
+    summaryFixture?Promise.resolve({data:null,error:null}):(async()=>{
+      const r=await optionalDb.from("canonical_fixture_current")
+        .select("hkjc_event_id:match_id,kickoff_hkt,status,tournament:league,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at,source_updated_at,updated_at")
+        .eq("match_id",id).maybeSingle();
+      return {data:r.data||null,error:cleanError(r.error)};
+    })(),
     (async()=>{
       const r=await optionalDb.from("live_score_current")
         .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,source_match_id")
@@ -239,7 +309,12 @@ Deno.serve(async(req:Request)=>{
       }:null,error:cleanError(r.error)};
     })(),
     oneWith(optionalDb,"forebet_predictions"),
-    oneWith(optionalDb,"hkjc_power_current"),
+    (async()=>{
+      const r=await optionalDb.from("team_power_current")
+        .select("hkjc_event_id:match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
+        .eq("match_id",id).maybeSingle();
+      return {data:r.data||null,error:cleanError(r.error)};
+    })(),
     oneWith(optionalDb,"human_factors_current"),
     manyWith(optionalDb,"match_scenario_current"),
     oneWith(optionalDb,"odds_movement_current"),
@@ -253,32 +328,86 @@ Deno.serve(async(req:Request)=>{
     manyWith(optionalDb,"phase4_value_api"),
     manyWith(optionalDb,"phase4_arb_api"),
     oneWith(optionalDb,"phase4_arb_watch_api"),
+    (async()=>{
+      const r=await optionalDb.from("source_match_detail_current")
+        .select("match_id,source_key,external_event_id,detail_raw,detail_fetched_at,updated_at")
+        .eq("match_id",id)
+        .eq("source_key","FOTMOB")
+        .order("detail_fetched_at",{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      return {data:r.data||null,error:cleanError(r.error)};
+    })(),
   ]);
   const fixtureUpcoming=summaryFixture?{data:summaryFixture,error:null}:fixtureUpcomingDb;
 
   const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
   const fixtureSource = summaryFixture ? "AUTHORITY_SUMMARY" : fixtureUpcoming.data ? "CANONICAL" : fixtureLive.data ? "LIVE_SCORE_CURRENT" : "MISSING";
   const errors:any={};
-  for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch})){
+  for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail})){
     if((v as any).error) errors[k]=(v as any).error;
   }
 
 
   const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
-  let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string}>();
+  let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null}>();
   let canonicalPlayerError:any=null;
   if(playerKeys.length){
-    const canonicalPlayers=await db.from("phase2_players").select("player_key,canonical_name,team_key").in("player_key",playerKeys);
+    const canonicalPlayers=await db.from("phase2_players").select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at").in("player_key",playerKeys);
     if(canonicalPlayers.error) canonicalPlayerError=cleanError(canonicalPlayers.error);
     else canonicalPlayersByKey=new Map((canonicalPlayers.data||[]).map((row:any)=>[
       String(row.player_key),
-      {canonicalName:String(row.canonical_name||row.player_key),teamKey:String(row.team_key||"")}
+      {
+        canonicalName:String(row.canonical_name||row.player_key),
+        teamKey:String(row.team_key||""),
+        position:row.position??null,
+        nationality:row.nationality??null,
+        dateOfBirth:row.date_of_birth??null,
+        profile:row.profile??null,
+        sourceUpdatedAt:row.source_updated_at??null
+      }
     ]));
   }
   if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
   const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence"));
   const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence"));
+  const playerProfiles=(()=>{
+    const byKey=new Map<string,any>();
+    for(const row of annotatedLineups){
+      if(!row?.canonical_profile)continue;
+      const key=String(row?.canonical_player_key||row?.player_key||row?.player_name||"");
+      if(!key)continue;
+      const candidate={
+        player_key:key,
+        player_name:row?.canonical_player_name||row?.player_name||null,
+        team_side:row?.team_side??null,
+        starter:row?.starter??null,
+        role:row?.canonical_position||row?.role||null,
+        nationality:row?.canonical_nationality||null,
+        source_name:row?.source_name||null,
+        profile:row?.canonical_profile||null,
+        profile_updated_at:row?.canonical_profile_updated_at||null
+      };
+      const current=byKey.get(key);
+      const rank=(x:any)=>(x?.starter?2:0)+(String(x?.source_name||"").startsWith("FOTMOB")?1:0);
+      if(!current||rank(candidate)>rank(current))byKey.set(key,candidate);
+    }
+    return [...byKey.values()].sort((a:any,b:any)=>{
+      const side=String(a.team_side||"").localeCompare(String(b.team_side||""));
+      if(side)return side;
+      if(Boolean(a.starter)!==Boolean(b.starter))return a.starter?-1:1;
+      return String(a.player_name||"").localeCompare(String(b.player_name||""));
+    });
+  })();
+
+  const playerMatchStats=compactFotmobPlayerMatchStats(sourceMatchDetail.data?.detail_raw);
+  const playerMatchStatsMeta=playerMatchStats.length?{
+    source:"FOTMOB",
+    externalEventId:sourceMatchDetail.data?.external_event_id??null,
+    observedAt:sourceMatchDetail.data?.detail_fetched_at??sourceMatchDetail.data?.updated_at??null,
+    players:playerMatchStats.length
+  }:null;
 
   const valueRows=[...(valueMarket.data||[])].sort((a:any,b:any)=>Number(b.expected_roi_pct||0)-Number(a.expected_roi_pct||0));
   const arbRows=[...(arbMarket.data||[])].sort((a:any,b:any)=>Number(b.net_roi_pct||0)-Number(a.net_roi_pct||0));
@@ -301,6 +430,9 @@ Deno.serve(async(req:Request)=>{
       eventMap:eventMap.data,
       playerStatus:annotatedPlayerStatus,
       lineup:annotatedLineups,
+      playerProfiles,
+      playerMatchStats,
+      playerMatchStatsMeta,
       lineupStrength:lineupStrength.data,
       managers:managers.data,
     },
