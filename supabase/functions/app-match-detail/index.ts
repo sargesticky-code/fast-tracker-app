@@ -261,7 +261,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method!=="GET") return Response.json({error:"method_not_allowed"},{status:405,headers:{...cors,"Cache-Control":"no-store"}});
   const url=new URL(req.url);
   const id=String(url.searchParams.get("id")||"").trim();
-  if(!/^[A-Za-z0-9_-]{2,40}$/.test(id)){
+  if(!/^[A-Za-z0-9:_-]{2,80}$/.test(id)){
     return Response.json({error:"invalid_match_id"},{status:400,headers:{...cors,"Cache-Control":"no-store"}});
   }
   const sbUrl=Deno.env.get("SUPABASE_URL")||"",key=serverKey();
