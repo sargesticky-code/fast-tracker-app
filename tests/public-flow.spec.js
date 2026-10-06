@@ -442,6 +442,50 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
   });
 }
 
+test("homepage promotes verified live overlay and shows real live stats", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  const feed = fixtureFeed();
+  feed.matches[0].liveNow = false;
+  feed.matches[0].inPlay = false;
+
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(feed) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        matches: [{
+          id: "FBTEST1",
+          status: "LIVE",
+          live: {
+            status: "LIVE",
+            score: { text: "1-0", home: 1, away: 0, minute: 52, status: "LIVE" },
+            stats: {
+              xg: { home: 1.21, away: 0.44 },
+              shots: { home: 8, away: 4 },
+              shotsOnTarget: { home: 4, away: 1 },
+              corners: { home: 5, away: 2 },
+              possession: { home: 57, away: 43 }
+            }
+          }
+        }]
+      })
+    });
+  });
+
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByText("52'", { exact: true })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("1 - 0", { exact: true })).toBeVisible();
+  await expect(page.getByText("xG 1.21-0.44", { exact: true })).toBeVisible();
+  await expect(page.getByText("Shots 8-4", { exact: true })).toBeVisible();
+  await expect(page.getByText("SOT 4-1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Corners 5-2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Poss 57-43%", { exact: true })).toBeVisible();
+});
+
 for (const device of [
   { name: "desktop", viewport: { width: 1440, height: 900 } },
   { name: "mobile", viewport: { width: 390, height: 844 } }
