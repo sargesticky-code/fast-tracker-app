@@ -48,11 +48,11 @@ function compactToken(value:any){
 }
 function evidenceKey(table:string,row:any){
   const id=String(row?.id??"").trim();
-  return id ? `${table}:${id}` : `${table}:${String(row?.hkjc_event_id||"unknown")}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
+  return id ? `${table}:${id}` : `${table}:${String(row?.match_id||"unknown")}:${compactToken(row?.player_key||row?.player_name||"unknown")}`;
 }
 function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
   return [
-    String(row?.hkjc_event_id||""),
+    String(row?.match_id||""),
     normalizedSide(row?.team_side)||"?",
     canonicalIdentity || "UNRESOLVED:" + compactToken(row?.player_name||row?.raw?.player?.name||row?.raw?.player_name||row?.player_key||"unknown"),
     compactToken(row?.status_type),
@@ -128,7 +128,7 @@ async function readSummaryFixture(sbUrl:string,id:string){
   const m=Array.isArray(body?.matches)?body.matches.find((x:any)=>String(x?.id||"")===id):null;
   if(!m) return null;
   return {
-    hkjc_event_id:id,
+    match_id:id,
     kickoff_hkt:m?.kickoff??null,
     status:m?.status??null,
     tournament:m?.league??null,
@@ -165,14 +165,14 @@ function sanitizePublicLegacy(value:any):any{
     if(typeof value==="string"){
       if(value==="HKJC_RESULTS")return "VERIFIED_RESULTS";
       if(value==="HKJC_TEAM_FORM")return "VERIFIED_RESULTS_TEAM_FORM";
-      if(value==="HKJC_RUNNING_RESULT")return "LEGACY_RETIRED";
+      if(value==="HKJC_RUNNING_RESULT")return "VERIFIED_HISTORICAL_FEED";
       if(/hkjc/i.test(value)){
         if(/^https?:/i.test(value))return null;
         return value
           .replace(/HKJC connected history/gi,"Verified connected history")
           .replace(/HKJC[_ -]?RESULTS/gi,"VERIFIED_RESULTS")
           .replace(/HKJC[_ -]?TEAM[_ -]?FORM/gi,"VERIFIED_RESULTS_TEAM_FORM")
-          .replace(/HKJC/gi,"RETIRED_LEGACY_SOURCE");
+          .replace(/HKJC/gi,"VERIFIED_HISTORICAL_FEED");
       }
     }
     return value;
@@ -291,20 +291,20 @@ Deno.serve(async(req:Request)=>{
   try{summaryFixture=await readSummaryFixture(sbUrl,id);}catch(e){console.error("detail_summary_authority_failed",e);}
 
   const oneWith=async(client:any,table:string,select="*",schema="public")=>{
-    const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("hkjc_event_id",id).maybeSingle();
+    const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("match_id",id).maybeSingle();
     const r=await q;
     return {data:r.data||null,error:cleanError(r.error)};
   };
   const manyWith=async(client:any,table:string,select="*",schema="public")=>{
-    const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("hkjc_event_id",id);
+    const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("match_id",id);
     const r=await q;
     return {data:r.data||[],error:cleanError(r.error)};
   };
 
-  const predictionEvidence=await manyWith(coreDb,"prediction_evidence_current","*","private");
+  const predictionEvidence=await manyWith(coreDb,"prediction_evidence_feed_current","*","private");
   const [model,form]=await Promise.all([
-    oneWith(coreDb,"model_predictions"),
-    oneWith(coreDb,"form_predictions"),
+    oneWith(coreDb,"model_prediction_current"),
+    oneWith(coreDb,"form_prediction_current"),
   ]);
 
   const [
@@ -313,18 +313,18 @@ Deno.serve(async(req:Request)=>{
   ]=await Promise.all([
     summaryFixture?Promise.resolve({data:null,error:null}):(async()=>{
       const r=await optionalDb.from("canonical_fixture_current")
-        .select("hkjc_event_id:match_id,kickoff_hkt,status,tournament:league,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at,source_updated_at,updated_at")
+        .select("match_id,kickoff_hkt,status,tournament:league,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at,source_updated_at,updated_at")
         .eq("match_id",id).maybeSingle();
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
     (async()=>{
-      const r=await optionalDb.from("live_score_current")
-        .select("hkjc_event_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,source_match_id")
-        .eq("hkjc_event_id",id)
+      const r=await optionalDb.from("live_score_feed_current")
+        .select("match_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,source_match_id")
+        .eq("match_id",id)
         .gte("updated_at_source",new Date(Date.now()-10*60*1000).toISOString())
         .maybeSingle();
       return {data:r.data?{
-        hkjc_event_id:id,
+        match_id:id,
         fetched_at:r.data.updated_at_source??r.data.source_updated_at??null,
         status:r.data.match_status??"LIVE",
         live_eligible:true,
@@ -338,26 +338,26 @@ Deno.serve(async(req:Request)=>{
         market_semantics:"NO_VERIFIED_IN_PLAY_BOOKMAKER_MARKET"
       }:null,error:cleanError(r.error)};
     })(),
-    oneWith(optionalDb,"forebet_predictions"),
+    oneWith(optionalDb,"forebet_prediction_current"),
     (async()=>{
       const r=await optionalDb.from("team_power_current")
-        .select("hkjc_event_id:match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
+        .select("match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
         .eq("match_id",id).maybeSingle();
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
-    oneWith(optionalDb,"human_factors_current"),
-    manyWith(optionalDb,"match_scenario_current"),
-    oneWith(optionalDb,"odds_movement_current"),
-    oneWith(optionalDb,"match_h2h_current"),
-    oneWith(optionalDb,"api_football_event_map"),
-    manyWith(optionalDb,"phase2_player_status_evidence"),
-    manyWith(optionalDb,"phase2_match_lineup_evidence"),
-    manyWith(optionalDb,"phase2_lineup_strength_current"),
-    manyWith(optionalDb,"phase2_manager_evidence"),
-    oneWith(optionalDb,"multisource_consensus_current","*","private"),
-    manyWith(optionalDb,"phase4_value_api"),
-    manyWith(optionalDb,"phase4_arb_api"),
-    oneWith(optionalDb,"phase4_arb_watch_api"),
+    oneWith(optionalDb,"human_factor_feed_current"),
+    manyWith(optionalDb,"match_scenario_feed_current"),
+    oneWith(optionalDb,"odds_movement_feed_current"),
+    oneWith(optionalDb,"match_h2h_feed_current"),
+    oneWith(optionalDb,"provider_event_map_current"),
+    manyWith(optionalDb,"player_status_evidence_current"),
+    manyWith(optionalDb,"lineup_evidence_current"),
+    manyWith(optionalDb,"lineup_strength_feed_current"),
+    manyWith(optionalDb,"manager_evidence_current"),
+    oneWith(optionalDb,"multisource_consensus_feed_current","*","private"),
+    manyWith(optionalDb,"value_market_feed_current"),
+    manyWith(optionalDb,"arb_market_feed_current"),
+    oneWith(optionalDb,"arb_watch_feed_current"),
     (async()=>{
       const r=await optionalDb.from("source_match_detail_current")
         .select("match_id,source_key,external_event_id,detail_raw,detail_fetched_at,updated_at")
@@ -400,8 +400,8 @@ Deno.serve(async(req:Request)=>{
     ]));
   }
   if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
-  const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_player_status_evidence"));
-  const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"phase2_match_lineup_evidence"));
+  const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"player_status_evidence_current"));
+  const annotatedLineups=(lineups.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"lineup_evidence_current"));
   const playerProfiles=(()=>{
     const byKey=new Map<string,any>();
     for(const row of annotatedLineups){
