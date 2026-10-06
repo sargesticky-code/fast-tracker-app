@@ -83,8 +83,8 @@ const checks = [
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL') && detail.includes("35000"), "live client deadline must remain outside the bounded two-phase live server read window"],
   [[phase1Feed, detailApi, analysis, storyApi].every((src) => src.includes("db: { retry:false }")), "public read APIs must disable automatic PostgREST retries during saturation"],
   [analysis.includes('error:"analysis_read_unavailable"') && analysis.includes('semantics:"read_failure_not_fixture_absence"'), "analysis must distinguish upstream read failure from genuine fixture absence"],
-  [analysis.includes('app-phase1-feed?hours=48&view=summary') && analysis.includes('summaryMatchToAnalysisRow') && analysis.indexOf('readSummaryAuthority(sbUrl,id)') < analysis.indexOf('db.rpc("ft_internal_app_phase1_feed"'), "analysis must prefer the bounded authority summary before the congested 48h RPC"],
-  [analysis.includes('manyWith(coreDb,"prediction_evidence_current","private")') && analysis.includes('forebetEvidenceHda=evidenceRow') && analysis.includes('modelTotals.data?.quality==="MODELED"'), "analysis must recover stored Forebet/internal model evidence before optional fan-out without treating aggregate availability as independence"],
+  [analysis.includes('app-phase1-feed?hours=48&view=summary') && analysis.includes('summaryMatchToAnalysisRow') && analysis.indexOf('readSummaryAuthority(sbUrl,id)') < analysis.indexOf('db.rpc("ft_internal_app_phase1_feed_generic"'), "analysis must prefer the bounded authority summary before the congested 48h RPC"],
+  [analysis.includes('prediction_evidence_feed_current') && analysis.includes('forebetEvidenceHda=evidenceRow') && analysis.includes('modelTotals.data?.quality==="MODELED"'), "analysis must recover stored Forebet/internal model evidence before optional fan-out without treating aggregate availability as independence"],
   [analysis.includes('"AUTHORITY_RPC_DEGRADED"'), "analysis fail-closed fallback must retain authority-RPC degradation provenance"],
   [storyApi.includes("AbortSignal.timeout(UPSTREAM_READ_TIMEOUT_MS)"), "story upstream analysis/detail reads must have a bounded deadline"],
   [storyApi.includes("AI_READ_TIMEOUT_MS = 15_000") && storyApi.includes("AbortSignal.timeout(AI_READ_TIMEOUT_MS)"), "optional AI story fetch must have its own bounded deadline"],
@@ -105,6 +105,7 @@ const checks = [
   [detail.includes("DETAIL_SUMMARY_FEED_URL") && detail.includes("view=summary"), "detail route Phase-1 refresh must use the bounded summary feed rather than full enrichments"],
   [detail.includes("let liveApplied = false") && detail.includes("if (liveApplied && previous?.live)") && detail.includes("if (!liveApplied)"), "newer live state must remain ahead of a later summary response"],
   [detail.includes("20000") && detail.includes("35000") && detail.includes("70000") && detail.includes("120000"), "browser deadlines must remain outside the corresponding bounded server-stage windows"],
+  [detailApi.includes('joinMethod:"EXACT_FOTMOB_PLAYER_ID"') && detailApi.includes('playerMatchStatsById.get(key)') && detailApi.includes('source.startsWith("FOTMOB")'), "lineup player match stats must join by exact FotMob player id rather than fuzzy names"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
