@@ -262,7 +262,23 @@ Deno.serve(async (req:Request)=>{
       db.from("team_alias_current").select("source,alias,canonical_name,confidence,status").eq("status","ACTIVE").gte("confidence",0.94)
     ]);
     if(fixtureRes.error)throw fixtureRes.error;if(shadowRes.error)throw shadowRes.error;if(aliasRes.error)throw aliasRes.error;
-    const fixtures=fixtureRes.data||[],shadow=shadowRes.data||[];
+    const fixtures=[...(fixtureRes.data||[])],shadow=shadowRes.data||[];
+    const fixtureIds=new Set(fixtures.map((x:any)=>String(x.match_id)));
+    for(const s of shadow){
+      const matchId=String(s?.match_id||"");
+      const kickoffMs=new Date(s?.kickoff_utc||"").getTime();
+      if(!matchId||fixtureIds.has(matchId)||!Number.isFinite(kickoffMs))continue;
+      if(kickoffMs>now||kickoffMs<now-4*3600000)continue;
+      fixtures.push({
+        match_id:matchId,
+        kickoff_hkt:s.kickoff_utc,
+        home_en:s.home_name,
+        away_en:s.away_name,
+        home_zh:null,
+        away_zh:null
+      });
+      fixtureIds.add(matchId);
+    }
     const aliasMap=new Map();
     for(const x of aliasRes.data||[]){
       const a=keyName(x.alias),c=keyName(x.canonical_name);
