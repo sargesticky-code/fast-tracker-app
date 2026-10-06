@@ -107,7 +107,7 @@ const checks = [
   [detail.includes("20000") && detail.includes("35000") && detail.includes("70000") && detail.includes("120000"), "browser deadlines must remain outside the corresponding bounded server-stage windows"],
   [detailApi.includes('joinMethod:"EXACT_FOTMOB_PLAYER_ID"') && detailApi.includes('playerMatchStatsById.get(key)') && detailApi.includes('source.startsWith("FOTMOB")'), "lineup player match stats must join by exact FotMob player id rather than fuzzy names"],
   [phase1Feed.includes('if (ageMinutes > 20) return { status: "STALE", ageMinutes };') && phase1Feed.includes('const bookmakerHealthy=bet365HeartbeatStatus==="OK"') && phase1Feed.includes('const b:any=bookmakerHealthy ? (bet365ById.get(id)||null) : null;'), "Phase 1 summary must suppress bookmaker odds when the cloud source is stale or unhealthy"],
-  [detailApi.includes('[A-Za-z0-9:_-]{2,80}') && analysis.includes('[A-Za-z0-9:_-]{2,80}') && story.includes('[A-Za-z0-9:_-]{2,80}'), "detail, analysis, and story APIs must accept provider-prefixed canonical match ids consistently"],
+  [detailApi.includes('[A-Za-z0-9:_-]{2,80}') && analysis.includes('[A-Za-z0-9:_-]{2,80}') && storyApi.includes('[A-Za-z0-9:_-]{2,80}'), "detail, analysis, and story APIs must accept provider-prefixed canonical match ids consistently"],
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);
