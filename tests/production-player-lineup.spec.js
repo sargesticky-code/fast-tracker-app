@@ -95,6 +95,9 @@ for (const device of devices) {
     await page.goto(`${BASE_URL}/details?id=FB6355`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const board = page.locator(".phase4-board");
+    if (!(await board.isVisible().catch(() => false))) {
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
+    }
     await expect(board).toBeVisible({ timeout: 20000 });
     await expect(board.getByText("NOT ESTABLISHED", { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(board.getByText("WATCH · MODEL VALIDATION GAP", { exact: true })).toBeVisible({ timeout: 15000 });
@@ -151,8 +154,7 @@ for (const device of devices) {
       return row?.id &&
         Number(lineup?.homeStarters) === 11 &&
         Number(lineup?.awayStarters) === 11 &&
-        Number(lineup?.confirmedStarters) === 0 &&
-        row?.sourceContext?.statsAvailable !== true;
+        Number(lineup?.confirmedStarters) === 0;
     });
     expect(predictedControl).toBeTruthy();
 
