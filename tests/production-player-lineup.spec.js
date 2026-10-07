@@ -54,6 +54,25 @@ const devices = [
 ];
 
 for (const device of devices) {
+  test(`production HDA validation gap renders · ${device.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: device.width, height: device.height });
+    await page.goto(`${BASE_URL}/details?id=FB6355`, { waitUntil: "domcontentloaded", timeout: 45000 });
+
+    const board = page.locator(".phase4-board");
+    await expect(board).toBeVisible({ timeout: 20000 });
+    await expect(board.getByText("NOT ESTABLISHED", { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(board.getByText("WATCH · MODEL VALIDATION GAP", { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/PHASE4_HDA_VALUE_V3/).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Predictive release validation is not established/i).first()).toBeVisible({ timeout: 15000 });
+
+    await page.screenshot({
+      path: `test-results/production-hda-validation-${device.name}.png`,
+      fullPage: true,
+    });
+  });
+}
+
+for (const device of devices) {
   test(`production confirmed XI + player stats · ${device.name}`, async ({ page }) => {
     await page.setViewportSize({ width: device.width, height: device.height });
     await page.goto(`${BASE_URL}/details?id=FB6317`, { waitUntil: "domcontentloaded", timeout: 45000 });
