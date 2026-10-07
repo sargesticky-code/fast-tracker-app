@@ -560,7 +560,7 @@ Deno.serve(async (req: Request) => {
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
 
       const [fixtureResult, bet365Result, liveResult, bet365HealthResult, coverageResult] = await Promise.all([
-        db.from("canonical_fixture_current")
+        db.from("active_canonical_fixture_current")
           .select("match_id,fetched_at,kickoff_hkt,status,tournament:league,home_en,away_en,updated_at")
           .gte("kickoff_hkt", now.toISOString())
           .lt("kickoff_hkt", end.toISOString())
