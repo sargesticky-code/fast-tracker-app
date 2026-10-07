@@ -317,7 +317,7 @@ Deno.serve(async(req:Request)=>{
   const [
     summaryFixtureResult,predictionEvidence,modelRaw,formRaw,
     fixtureUpcomingDb,fixtureLive,forebet,power,human,scenario,movement,h2h,eventMap,
-    playerStatus,lineups,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail
+    playerStatus,lineupsRaw,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail
   ]=await Promise.all([
     readSummaryFixture(sbUrl,id)
       .then((data:any)=>({data,error:null}))
@@ -370,7 +370,7 @@ Deno.serve(async(req:Request)=>{
     })(),
     oneWith(optionalDb,"provider_event_map_current"),
     manyWith(criticalDb,"player_status_evidence_current"),
-    manyWith(criticalDb,"lineup_evidence_current"),
+    manyWith(criticalDb,"phase2_match_lineup_evidence"),
     manyWith(criticalDb,"lineup_strength_feed_current"),
     manyWith(criticalDb,"manager_evidence_current"),
     oneWith(optionalDb,"multisource_consensus_feed_current","*","private"),
@@ -400,6 +400,26 @@ Deno.serve(async(req:Request)=>{
     })(),
   ]);
   const summaryFixture=summaryFixtureResult.data||null;
+  // Read lineup snapshots from the indexed evidence table. The compatibility view
+  // performs a cross-fixture ranking before filtering by match_id and can become a
+  // PostgREST latency hotspot under concurrent production traffic.
+  const latestLineupFetchBySource=new Map<string,number>();
+  for(const row of lineupsRaw.data||[]){
+    const source=String(row?.source_name||"UNKNOWN");
+    const ts=new Date(row?.fetched_at||0).getTime();
+    if(Number.isFinite(ts) && ts>=(latestLineupFetchBySource.get(source)??-Infinity)){
+      latestLineupFetchBySource.set(source,ts);
+    }
+  }
+  const lineups={
+    ...lineupsRaw,
+    data:(lineupsRaw.data||[]).filter((row:any)=>{
+      const source=String(row?.source_name||"UNKNOWN");
+      const ts=new Date(row?.fetched_at||0).getTime();
+      const latest=latestLineupFetchBySource.get(source);
+      return latest===undefined || ts===latest;
+    })
+  };
   const model={...modelRaw,data:modelRaw.data?{...modelRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
   const form={...formRaw,data:formRaw.data?{...formRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
 
@@ -419,22 +439,23 @@ Deno.serve(async(req:Request)=>{
   let canonicalPlayerError:any=null;
   if(playerKeys.length){
     const canonicalRows:any[]=[];
-    const direct=await criticalDb.from("phase2_players")
-      .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
-      .in("player_key",playerKeys);
-    if(direct.error) canonicalPlayerError=cleanError(direct.error);
-    else canonicalRows.push(...(direct.data||[]));
-
     const flashscoreKeys=[...new Set(playerEvidenceRaw
       .filter((row:any)=>String(row?.source_name||"").toUpperCase().startsWith("FLASHSCORE"))
       .map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
-    if(!canonicalPlayerError && flashscoreKeys.length){
-      const mapped=await criticalDb.from("phase2_players")
+    const [direct,mapped]=await Promise.all([
+      criticalDb.from("phase2_players")
         .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
-        .in("source_ids->>flashscore",flashscoreKeys);
-      if(mapped.error) canonicalPlayerError=cleanError(mapped.error);
-      else canonicalRows.push(...(mapped.data||[]));
-    }
+        .in("player_key",playerKeys),
+      flashscoreKeys.length
+        ? criticalDb.from("phase2_players")
+          .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
+          .in("source_ids->>flashscore",flashscoreKeys)
+        : Promise.resolve({data:[],error:null})
+    ]);
+    if(direct.error) canonicalPlayerError=cleanError(direct.error);
+    else canonicalRows.push(...(direct.data||[]));
+    if(mapped.error) canonicalPlayerError=canonicalPlayerError||cleanError(mapped.error);
+    else canonicalRows.push(...(mapped.data||[]));
     if(!canonicalPlayerError){
       for(const row of canonicalRows){
         const canonical={
