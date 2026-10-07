@@ -571,3 +571,46 @@ coverage and a tablet rendered-flow viewport alongside desktop/mobile.
 Do not replace fixture identity with Bet365 identity. Bet365 remains a bookmaker/price
 source; canonical fixture/player identity stays provider-neutral and fail-closed.
 
+## FT-20261007-001 milestone release — confirmed lineups and player performance
+
+The first release milestone is accepted on exact real evidence. Public fixture/player
+identity remains provider-neutral; Bet365 is a bookmaker/price source only.
+
+Production examples:
+- `FB6401` Argentina v Benin: 22 confirmed starters + 26 confirmed bench,
+  0 source-confirmed unresolved lineup rows, 22 player performance records,
+  all performance joins by exact FotMob player id.
+- `FB6402` Mexico v Chile: 22 predicted starters, 0 confirmed, 30 bench rows,
+  0 player performance rows. No missing statistic is zero-filled.
+
+Identity hardening:
+- `app-match-detail` v39 dedupes by canonical player identity first.
+  Unresolved observations stay provider-local and are not merged from shirt/name
+  similarity.
+- `phase2-fotmob-lineups` v22 can run an exact-match profile backfill with
+  `profilesOnly=1&matchId=<canonical id>`; it only resolves exact numeric FotMob
+  ids already stored in lineup evidence.
+- The FB6401 targeted run wrote 24 remaining bench profiles with 0 failures,
+  changing official bench canonicalization from 2/26 to 26/26 after the earlier
+  global pass.
+
+Presentation:
+- Lineup UI consumes the API's canonical merged rows directly and preserves all
+  provider provenance instead of choosing one provider and dropping valid players.
+- Rendered regression coverage now includes desktop 1440×900, tablet 820×1180 and
+  mobile 390×844, plus a mixed-provider canonical lineup test.
+
+Acceptance/release:
+- PR verification #453 (run `37550407808`) passed on exact commit
+  `036c4cf25f3a15798f0c8ed35e51add2c2aa51e2`.
+- Railway public deployment `5c9469a9-ae96-4a1f-b533-685385b84179` reached
+  SUCCESS on that exact commit, Online 1/1. Public health and FB6401 detail routes
+  returned HTTP 200 after cutover.
+- Supabase security advisor reports no ERROR/WARN findings.
+- No public base table/view name or active cron contains HKJC; tested public
+  Phase 1/detail/live responses contain zero literal HKJC.
+
+Next work should improve exact player/availability coverage and validated fair-price/
+edge surfaces. Do not perform broad cosmetic legacy renames ahead of evidenced
+delivery gaps, and never replace canonical identity with bookmaker identity.
+
