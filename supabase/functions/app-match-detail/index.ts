@@ -332,6 +332,28 @@ Deno.serve(async(req:Request)=>{
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
     (async()=>{
+      const r=await optionalDb.from("live_score_feed_current")
+        .select("match_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,source_match_id")
+        .eq("match_id",id)
+        .gte("updated_at_source",new Date(Date.now()-10*60*1000).toISOString())
+        .maybeSingle();
+      return {data:r.data?{
+        match_id:id,
+        fetched_at:r.data.updated_at_source??r.data.source_updated_at??null,
+        status:r.data.match_status??"LIVE",
+        live_eligible:true,
+        source:r.data.source??"LIVE_SCORE_CURRENT",
+        provider_event_id:r.data.source_match_id??null,
+        home_score:r.data.home_score,
+        away_score:r.data.away_score,
+        minute:r.data.minute,
+        stats:null,
+        markets:null,
+        market_semantics:"NO_VERIFIED_IN_PLAY_BOOKMAKER_MARKET"
+      }:null,error:cleanError(r.error)};
+    })(),
+    oneWith(optionalDb,"forebet_prediction_current"),
+    (async()=>{
       const r=await optionalDb.from("team_power_current")
         .select("match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
         .eq("match_id",id).maybeSingle();
