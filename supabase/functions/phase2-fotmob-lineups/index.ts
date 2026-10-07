@@ -251,6 +251,7 @@ function parseLineup(detail,eventId,externalId){
 Deno.serve(async (req:Request)=>{
   const requestUrl=new URL(req.url);
   const profilesOnly=requestUrl.searchParams.get("profilesOnly")==="1";
+  const requestedMatchId=String(requestUrl.searchParams.get("matchId")||"").trim();
   const url=Deno.env.get("SUPABASE_URL")||"",key=serviceKey();
   if(!url||!key)return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -278,6 +279,11 @@ Deno.serve(async (req:Request)=>{
         away_zh:null
       });
       fixtureIds.add(matchId);
+    }
+    if(requestedMatchId){
+      for(let i=fixtures.length-1;i>=0;i--){
+        if(String(fixtures[i]?.match_id||"")!==requestedMatchId)fixtures.splice(i,1);
+      }
     }
     const aliasMap=new Map();
     for(const x of aliasRes.data||[]){
@@ -522,7 +528,7 @@ Deno.serve(async (req:Request)=>{
       }
     });
 
-    const health={profilesOnly,matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,playerProfilesFetched,playerProfilesFailed,playerProfilesWritten,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={profilesOnly,requestedMatchId:requestedMatchId||null,matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,playerProfilesFetched,playerProfilesFailed,playerProfilesWritten,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",
