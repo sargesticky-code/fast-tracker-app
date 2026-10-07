@@ -1279,8 +1279,19 @@ export default function MatchDetailClient() {
   const phase4QuoteAge = Number(bestValue?.quote_age_seconds);
   const phase4BackendStatus = String(bestValue?.status || "").toUpperCase();
   const phase4Fresh = bestValue ? phase4BackendStatus !== "STALE" : false;
+  const phase4ValidationStatus = String(bestValue?.details?.release_validation_status || bestValue?.details?.predictive_calibration_status || "").toUpperCase();
+  const phase4ValidationReason = String(bestValue?.details?.validation_gate_reason || "");
+  const phase4CalculationVersion = String(bestValue?.details?.calculation_version || "");
+  const phase4QuoteSourceAt = bestValue?.details?.quote_lineage?.source_ts || null;
+  const phase4ModelCalculatedAt = bestValue?.details?.model_lineage?.consensus_calculated_at || null;
   const phase4Status = bestValue
-    ? (!phase4Fresh ? "STALE QUOTE" : phase4Sources < 2 ? "WATCH · LOW COVERAGE" : phase4BackendStatus || "WATCH")
+    ? (!phase4Fresh
+      ? "STALE QUOTE"
+      : phase4BackendStatus === "MODEL_VALIDATION_GAP"
+        ? "WATCH · MODEL VALIDATION GAP"
+        : phase4Sources < 2
+          ? "WATCH · LOW COVERAGE"
+          : phase4BackendStatus || "WATCH")
     : "NO VALUE SIGNAL";
   const nearArb = marketIntel.nearArbitrage || null;
   const nearArbInverse = Number(nearArb?.inverse_sum);
@@ -2008,9 +2019,9 @@ export default function MatchDetailClient() {
           </div>
 
           <div className="phase4-metric-cell">
-            <span>COVERAGE</span>
-            <strong>{bestValue ? phase4Coverage : "NO MODEL"}</strong>
-            <small>{Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —"}</small>
+            <span>VALIDATION</span>
+            <strong>{bestValue ? (phase4ValidationStatus === "ESTABLISHED" ? "ESTABLISHED" : "NOT ESTABLISHED") : "NO MODEL"}</strong>
+            <small>{bestValue ? phase4Coverage + " · " + (Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —") : "validation unavailable"}</small>
           </div>
 
           <div className="phase4-metric-cell">
@@ -2038,7 +2049,7 @@ export default function MatchDetailClient() {
                   <div key={(row.provider_id || "provider") + "-" + (row.selection_key || index)}>
                     <span>{row.provider_id || "—"} · {phase4SelectionLabel(row.selection_key)}</span>
                     <b>@ {formatOdds(row.odds_decimal)} · EV {Number(row.expected_roi_pct) >= 0 ? "+" : ""}{numText(row.expected_roi_pct, 1)}%</b>
-                    <small>Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source</small>
+                    <small>Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source · {String(row.status || "").replaceAll("_", " ")}</small>
                   </div>
                 ))}
               </div>
@@ -2057,7 +2068,16 @@ export default function MatchDetailClient() {
           </details>
         ) : null}
 
-        <p className="fineprint">Value signals depend on model probabilities. Arbitrage requires simultaneously available, settlement-compatible prices across distinct providers. Automatic execution remains off and fail-closed.</p>
+        <p className="fineprint">
+          Value calculations use stored model probabilities and compatibility-verified sourced prices. {phase4HasValue && phase4ValidationStatus !== "ESTABLISHED"
+            ? "Predictive release validation is not established, so calculated fair price and edge remain analysis-only and cannot become a VALUE recommendation."
+            : "Validated value release still requires all backend gates."}
+          {phase4CalculationVersion ? " Calculation " + phase4CalculationVersion + "." : ""}
+          {phase4QuoteSourceAt ? " Quote captured " + formatUpdated(phase4QuoteSourceAt) + "." : ""}
+          {phase4ModelCalculatedAt ? " Model consensus calculated " + formatUpdated(phase4ModelCalculatedAt) + "." : ""}
+          {phase4ValidationReason ? " " + phase4ValidationReason : ""}
+          {" "}Arbitrage requires simultaneously available, settlement-compatible prices across distinct providers. Automatic execution remains off and fail-closed.
+        </p>
       </section>
 
 
