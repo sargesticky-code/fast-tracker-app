@@ -301,9 +301,6 @@ Deno.serve(async(req:Request)=>{
     }
   }catch(e){console.error("detail_fixture_redirect_failed",e);}
 
-  let summaryFixture:any=null;
-  try{summaryFixture=await readSummaryFixture(sbUrl,id);}catch(e){console.error("detail_summary_authority_failed",e);}
-
   const oneWith=async(client:any,table:string,select="*",schema="public")=>{
     const q=(schema==="public"?client:client.schema(schema)).from(table).select(select).eq("match_id",id).maybeSingle();
     const r=await q;
@@ -315,46 +312,25 @@ Deno.serve(async(req:Request)=>{
     return {data:r.data||[],error:cleanError(r.error)};
   };
 
-  const predictionEvidence=await manyWith(coreDb,"prediction_evidence_feed_current","*","private");
-  const [modelRaw,formRaw]=await Promise.all([
-    oneWith(coreDb,"model_prediction_current","match_id,fetched_at,home,away,model_league,model_home_name,model_away_name,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,updated_at"),
-    oneWith(coreDb,"form_prediction_current","match_id,fetched_at,home,away,form_prob_home,form_prob_draw,form_prob_away,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,updated_at"),
-  ]);
-  const model={...modelRaw,data:modelRaw.data?{...modelRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
-  const form={...formRaw,data:formRaw.data?{...formRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
-
+  // Independent evidence reads must start together. Under PostgREST contention, serial
+  // timeout phases can otherwise turn a few slow reads into a 30s+ degraded response.
   const [
+    summaryFixtureResult,predictionEvidence,modelRaw,formRaw,
     fixtureUpcomingDb,fixtureLive,forebet,power,human,scenario,movement,h2h,eventMap,
     playerStatus,lineups,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail
   ]=await Promise.all([
-    summaryFixture?Promise.resolve({data:null,error:null}):(async()=>{
+    readSummaryFixture(sbUrl,id)
+      .then((data:any)=>({data,error:null}))
+      .catch((error:any)=>{console.error("detail_summary_authority_failed",error);return {data:null,error:cleanError(error)};}),
+    manyWith(coreDb,"prediction_evidence_feed_current","*","private"),
+    oneWith(coreDb,"model_prediction_current","match_id,fetched_at,home,away,model_league,model_home_name,model_away_name,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,updated_at"),
+    oneWith(coreDb,"form_prediction_current","match_id,fetched_at,home,away,form_prob_home,form_prob_draw,form_prob_away,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,updated_at"),
+    (async()=>{
       const r=await criticalDb.from("canonical_fixture_current")
         .select("match_id,kickoff_hkt,status,tournament:league,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at,source_updated_at,updated_at")
         .eq("match_id",id).maybeSingle();
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
-    (async()=>{
-      const r=await optionalDb.from("live_score_feed_current")
-        .select("match_id,updated_at_source,live_score,home_score,away_score,minute,match_status,source,match_confidence,source_updated_at,source_match_id")
-        .eq("match_id",id)
-        .gte("updated_at_source",new Date(Date.now()-10*60*1000).toISOString())
-        .maybeSingle();
-      return {data:r.data?{
-        match_id:id,
-        fetched_at:r.data.updated_at_source??r.data.source_updated_at??null,
-        status:r.data.match_status??"LIVE",
-        live_eligible:true,
-        source:r.data.source??"LIVE_SCORE_CURRENT",
-        provider_event_id:r.data.source_match_id??null,
-        home_score:r.data.home_score,
-        away_score:r.data.away_score,
-        minute:r.data.minute,
-        stats:null,
-        markets:null,
-        market_semantics:"NO_VERIFIED_IN_PLAY_BOOKMAKER_MARKET"
-      }:null,error:cleanError(r.error)};
-    })(),
-    oneWith(optionalDb,"forebet_prediction_current"),
     (async()=>{
       const r=await optionalDb.from("team_power_current")
         .select("match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
@@ -401,6 +377,10 @@ Deno.serve(async(req:Request)=>{
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
   ]);
+  const summaryFixture=summaryFixtureResult.data||null;
+  const model={...modelRaw,data:modelRaw.data?{...modelRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
+  const form={...formRaw,data:formRaw.data?{...formRaw.data,model_source:"VERIFIED_RESULTS_HISTORY"}:null};
+
   const fixtureUpcoming=summaryFixture?{data:summaryFixture,error:null}:fixtureUpcomingDb;
 
   const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
@@ -417,7 +397,7 @@ Deno.serve(async(req:Request)=>{
   let canonicalPlayerError:any=null;
   if(playerKeys.length){
     const canonicalRows:any[]=[];
-    const direct=await db.from("phase2_players")
+    const direct=await criticalDb.from("phase2_players")
       .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
       .in("player_key",playerKeys);
     if(direct.error) canonicalPlayerError=cleanError(direct.error);
@@ -427,7 +407,7 @@ Deno.serve(async(req:Request)=>{
       .filter((row:any)=>String(row?.source_name||"").toUpperCase().startsWith("FLASHSCORE"))
       .map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
     if(!canonicalPlayerError && flashscoreKeys.length){
-      const mapped=await db.from("phase2_players")
+      const mapped=await criticalDb.from("phase2_players")
         .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
         .in("source_ids->>flashscore",flashscoreKeys);
       if(mapped.error) canonicalPlayerError=cleanError(mapped.error);
