@@ -763,9 +763,12 @@ export default function LineupPanel() {
             ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
             : rows.length ? "PARTIAL" : "MISSING");
     const confidence = avgConfidence(rows);
-    const source = meta?.source || sourceRows[0]?.source_name || null;
-    const sourceUrl = sourceRows.find((r) => r?.source_url)?.source_url || null;
-    const evidenceSources = meta?.evidenceSources || [...new Set(sourceRows.map((r) => r?.source_name).filter(Boolean))];
+    const evidenceSources = meta?.evidenceSources || [...new Set(rows.flatMap((r) => [
+      r?.source_name,
+      ...(Array.isArray(r?.evidence_sources) ? r.evidence_sources : [])
+    ]).filter(Boolean))];
+    const source = meta?.source || (evidenceSources.length > 1 ? "MULTIPLE VERIFIED SOURCES" : evidenceSources[0] || null);
+    const sourceUrl = rows.find((r) => r?.source_url)?.source_url || null;
     const playerStatusRaw = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
     const playerStatusAnnotated = playerStatusRaw.some((r) => Boolean(r?.fact_status));
     const playerStatus = playerStatusAnnotated
