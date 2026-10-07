@@ -11,7 +11,7 @@ const devices = [
 for (const device of devices) {
   test(`production confirmed XI + player stats · ${device.name}`, async ({ page }) => {
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`${BASE_URL}/details?id=FB6373`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto(`${BASE_URL}/details?id=FB6317`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
@@ -19,14 +19,11 @@ for (const device of devices) {
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible({ timeout: 15000 });
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
-    await expect(module.getByText("Alexis Sabella", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Kang-In Lee", { exact: true }).first()).toBeVisible();
 
-    // Real FB6373 proves the cross-provider roster-slot collapse does not
-    // collapse distinct similarly named players: these three Díaz players
-    // occupy different team/slot/shirt identities and must remain separate.
-    await expect(module.getByText("Cristian Díaz", { exact: true }).first()).toBeVisible();
-    await expect(module.getByText("Gedeón Díaz", { exact: true }).first()).toBeVisible();
-    await expect(module.getByText("Danilo Díaz", { exact: true }).first()).toBeVisible();
+    // Real FB6317 contains distinct near-name players and must not collapse them.
+    await expect(module.getByText("Tae-Hyun Kim", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Tae-Hyeon Kim", { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
     await expect(module.getByText("Top performers", { exact: true })).toBeVisible({ timeout: 15000 });
@@ -40,7 +37,7 @@ for (const device of devices) {
 
   test(`production predicted XI keeps match stats unknown · ${device.name}`, async ({ page }) => {
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`${BASE_URL}/details?id=FB6402`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto(`${BASE_URL}/details?id=FS:EorMYH1s`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
@@ -48,7 +45,7 @@ for (const device of devices) {
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
-    await expect(module.getByText("Santiago Giménez", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Everton Morelli", { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
     await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible({ timeout: 15000 });
