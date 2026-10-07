@@ -25,6 +25,28 @@ test("production exact Flashscore player identity remains fail-closed", async ({
   expect(unresolved.length).toBeGreaterThan(0);
 });
 
+test("production HDA value API exposes validation gap and capture lineage", async ({ request }) => {
+  const response = await request.get(`${DETAIL_API_URL}?id=FB6355`, { timeout: 45000 });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  const rows = body?.marketIntelligence?.value || [];
+  expect(rows).toHaveLength(3);
+
+  const home = rows.find((row) => row?.selection_key === "HOME");
+  expect(home).toBeTruthy();
+  expect(home.status).toBe("MODEL_VALIDATION_GAP");
+  expect(home.details?.calculation_version).toBe("PHASE4_HDA_VALUE_V3");
+  expect(home.details?.release_validation_status).toBe("NOT_ESTABLISHED");
+  expect(home.details?.quote_lineage?.canonical_match_id).toBe("FB6355");
+  expect(home.details?.quote_lineage?.compatibility_verified).toBe(true);
+  expect(home.details?.quote_lineage?.source_ts).toBeTruthy();
+  expect(home.details?.model_lineage?.consensus_version).toBe("PHASE4_HDA_CONSENSUS_V3");
+  expect(home.details?.model_lineage?.evaluation_evidence?.dixon_coles?.settled_matches).toBe(0);
+  expect(home.details?.model_lineage?.evaluation_evidence?.pi?.settled_matches).toBe(0);
+  expect(Number(home.details?.fair_odds_decimal)).toBeGreaterThan(1);
+  expect(Number.isFinite(Number(home.probability_edge_pct))).toBe(true);
+});
+
 const devices = [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "tablet", width: 1024, height: 1366 },
