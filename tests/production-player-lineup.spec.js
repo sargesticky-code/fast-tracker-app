@@ -101,7 +101,7 @@ for (const device of devices) {
 
   test(`production predicted XI keeps match stats unknown · ${device.name}`, async ({ page }) => {
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`${BASE_URL}/details?id=FS:EorMYH1s`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto(`${BASE_URL}/details?id=FB6365`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
@@ -114,7 +114,7 @@ for (const device of devices) {
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
-    await expect(module.getByText("Everton Morelli", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Helton Leite", { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
     await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible({ timeout: 15000 });
