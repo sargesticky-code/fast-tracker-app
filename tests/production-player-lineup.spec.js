@@ -21,6 +21,13 @@ for (const device of devices) {
     await module.getByRole("button", { name: "Squad", exact: true }).click();
     await expect(module.getByText("Alexis Sabella", { exact: true }).first()).toBeVisible();
 
+    // Real FB6373 proves the cross-provider roster-slot collapse does not
+    // collapse distinct similarly named players: these three Díaz players
+    // occupy different team/slot/shirt identities and must remain separate.
+    await expect(module.getByText("Cristian Díaz", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Gedeón Díaz", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Danilo Díaz", { exact: true }).first()).toBeVisible();
+
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
     await expect(module.getByText("Top performers", { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(module.getByText(/exact player match stats/i)).toBeVisible();
