@@ -142,22 +142,43 @@ for (const device of devices) {
     });
   });
 
-  test(`production predicted XI keeps match stats unknown · ${device.name}`, async ({ page }) => {
+  test(`production predicted XI keeps match stats unknown · ${device.name}`, async ({ page, request }) => {
+    const feedResponse = await request.get(`${PHASE1_API_URL}?hours=48&view=summary`, { timeout: 45000 });
+    expect(feedResponse.ok()).toBeTruthy();
+    const feed = await feedResponse.json();
+    const predictedControl = (Array.isArray(feed?.matches) ? feed.matches : []).find((row) => {
+      const lineup = row?.sourceContext?.lineupCoverage;
+      return row?.id &&
+        Number(lineup?.homeStarters) === 11 &&
+        Number(lineup?.awayStarters) === 11 &&
+        Number(lineup?.confirmedStarters) === 0 &&
+        row?.sourceContext?.statsAvailable !== true;
+    });
+    expect(predictedControl).toBeTruthy();
+
+    const detailResponse = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(predictedControl.id)}`, { timeout: 45000 });
+    expect(detailResponse.ok()).toBeTruthy();
+    const detailBody = await detailResponse.json();
+    const storedLineup = Array.isArray(detailBody?.humanFactors?.lineup) ? detailBody.humanFactors.lineup : [];
+    const starters = storedLineup.filter((row) => row?.starter === true);
+    const confirmedStarters = starters.filter((row) => row?.confirmed === true || row?.fact_status === "CONFIRMED");
+    expect(starters).toHaveLength(22);
+    expect(confirmedStarters).toHaveLength(0);
+    expect(Array.isArray(detailBody?.humanFactors?.playerMatchStats) ? detailBody.humanFactors.playerMatchStats : []).toHaveLength(0);
+    const samplePlayer = starters.find((row) => row?.canonical_player_name || row?.player_name);
+    expect(samplePlayer).toBeTruthy();
+    const samplePlayerName = samplePlayer.canonical_player_name || samplePlayer.player_name;
+
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`${BASE_URL}/details?id=FB6365`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(predictedControl.id)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
-    const predictedLabel = module.getByText("PREDICTED 11v11", { exact: true }).first();
-    if (!(await predictedLabel.isVisible().catch(() => false))) {
-      await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
-      await expect(module).toBeVisible({ timeout: 20000 });
-    }
-    await expect(predictedLabel).toBeVisible({ timeout: 15000 });
+    await expect(module.getByText("PREDICTED 11v11", { exact: true }).first()).toBeVisible({ timeout: 15000 });
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
-    await expect(module.getByText("Helton Leite", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText(samplePlayerName, { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
     await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible({ timeout: 15000 });
