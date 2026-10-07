@@ -10,6 +10,7 @@ const phase1Feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts"
 const storyApi = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
 const liveFeedApi = fs.readFileSync("supabase/functions/app-live-feed/index.ts", "utf8");
 const cloudIngest = fs.readFileSync("supabase/functions/flashscore-bet365-ingest/index.ts", "utf8");
+const cloudIngestCommit = fs.readFileSync("supabase/migrations/20261007165000_flashscore_bet365_ingest_commit_rpc.sql", "utf8");
 const hkjcUpcoming = fs.readFileSync("supabase/functions/hkjc-upcoming-direct/index.ts", "utf8");
 const hkjcLive = fs.readFileSync("supabase/functions/hkjc-live-direct/index.ts", "utf8");
 const lineupPanel = fs.readFileSync("components/lineup-panel.js", "utf8");
@@ -58,7 +59,7 @@ const checks = [
   [liveFeedApi.includes("db: { retry: false }"), "live feed must disable built-in PostgREST retries during saturation"],
   [liveFeedApi.includes('readHealth[lane]') && liveFeedApi.includes('status: "UNAVAILABLE"'), "live feed enrichment failures must remain distinguishable from absent data"],
   [liveFeedApi.includes('semantics: "read_failure_not_fixture_absence"'), "live feed top-level failure must explicitly remain distinct from fixture absence"],
-  [cloudIngest.includes('MAX_AGE_MS = 20 * 60 * 1000') && cloudIngest.includes('identity = "AMBIGUOUS"') && cloudIngest.includes('identity === "VERIFIED"') && cloudIngest.includes('ft_replace_bookmaker_current_generic') && cloudIngest.includes('ft_insert_market_snapshots_generic') && cloudIngest.includes('market:"ML"'), "cloud bookmaker ingest must fail closed on stale/ambiguous identity and persist only verified market snapshots"],
+  [cloudIngest.includes('MAX_AGE_MS = 20 * 60 * 1000') && cloudIngest.includes('identity = "AMBIGUOUS"') && cloudIngest.includes('identity === "VERIFIED"') && cloudIngest.includes('const bookmakerRows=verified.map') && cloudIngest.includes('ft_commit_flashscore_bet365_ingest') && cloudIngest.includes('market:"ML"') && cloudIngestCommit.includes('ft_replace_bookmaker_current_generic') && cloudIngestCommit.includes('ft_insert_market_snapshots_generic'), "cloud bookmaker ingest must fail closed on stale/ambiguous identity and persist only verified market snapshots through the transactional commit RPC"],
   [!phase1Feed.includes('bet365_browser_live_current') && !liveFeedApi.includes('bet365_browser_live_current') && !detailApi.includes('bet365_browser_live_current') && !analysis.includes('bet365_browser_live_current'), "active public consumers must not depend on the retired Bet365 browser tables"],
   [analysis.includes('bookmaker_home_odds: null') && analysis.includes('const hdcAuthority:any = live ? null') && analysis.includes('const currentGoalsLine = live ? null') && analysis.includes('const currentCornersLine = live ? null'), "live analysis must not calculate EV from prematch/reference bookmaker prices when no verified in-play market exists"],
   [liveFeedApi.includes('"live_detail_shadow_feed_current"') && liveFeedApi.includes('shadowDetail: shadowDetailMap.get') && liveFeedApi.includes('provenance: "SHADOW_PROVIDER_DETAIL"'), "live feed must expose verified provider events as a separate shadowDetail evidence lane"],
