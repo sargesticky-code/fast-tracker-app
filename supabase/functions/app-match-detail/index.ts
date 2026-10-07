@@ -485,18 +485,10 @@ Deno.serve(async(req:Request)=>{
       const name=row?.canonical_player_name||row?.player_name||row?.player_key||"";
       const canonicalIdentity=String(row?.canonical_player_identity||"").trim();
       const sourceName=String(row?.source_name||"UNKNOWN").trim();
-      const sourceUpper=sourceName.toUpperCase();
       const providerPlayerKey=String(row?.player_key||"").trim();
-      const shirt=Number(row?.shirt_number);
-      const officialConfirmed=Boolean(row?.confirmed)
-        && (sourceUpper==="FOTMOB_OFFICIAL"||sourceUpper==="FLASHSCORE_OFFICIAL")
-        && Number.isFinite(shirt)
-        && shirt>0;
-      const identity=officialConfirmed
-        ? "OFFICIAL_ROSTER|"+String(row?.team_side||"")+"|"+(row?.starter?"STARTER":"BENCH")+"|"+String(shirt)
-        : canonicalIdentity
-          ? "CANONICAL|"+String(row?.team_side||"")+"|"+canonicalIdentity
-          : "UNRESOLVED|"+String(row?.team_side||"")+"|"+sourceName+"|"+(providerPlayerKey||norm(name));
+      const identity=canonicalIdentity
+        ? "CANONICAL|"+String(row?.team_side||"")+"|"+canonicalIdentity
+        : "UNRESOLVED|"+String(row?.team_side||"")+"|"+sourceName+"|"+(providerPlayerKey||norm(name));
       if(!canonicalIdentity && !providerPlayerKey && !norm(name))continue;
       const current=byIdentity.get(identity);
       const sources=[...new Set([
@@ -507,7 +499,36 @@ Deno.serve(async(req:Request)=>{
       const preferred=!current||score(row)>score(current)?row:current;
       byIdentity.set(identity,{...preferred,evidence_sources:sources});
     }
-    return [...byIdentity.values()].sort((a:any,b:any)=>{
+    const stageOne=[...byIdentity.values()];
+    const byOfficialRoster=new Map<string,any>();
+    const passthrough:any[]=[];
+    for(const row of stageOne){
+      const sourceUpper=String(row?.source_name||"").toUpperCase();
+      const shirt=Number(row?.shirt_number);
+      const officialConfirmed=Boolean(row?.confirmed)
+        && (sourceUpper==="FOTMOB_OFFICIAL"||sourceUpper==="FLASHSCORE_OFFICIAL")
+        && Number.isFinite(shirt)
+        && shirt>0;
+      if(!officialConfirmed){
+        passthrough.push(row);
+        continue;
+      }
+      const rosterKey=[
+        String(row?.team_side||"?"),
+        row?.starter?"STARTER":"BENCH",
+        String(shirt)
+      ].join("|");
+      const current=byOfficialRoster.get(rosterKey);
+      const sources=[...new Set([
+        ...(current?.evidence_sources||[]),
+        current?.source_name,
+        ...(row?.evidence_sources||[]),
+        row?.source_name
+      ].filter(Boolean))];
+      const preferred=!current||score(row)>score(current)?row:current;
+      byOfficialRoster.set(rosterKey,{...preferred,evidence_sources:sources});
+    }
+    return [...byOfficialRoster.values(),...passthrough].sort((a:any,b:any)=>{
       const side=String(a?.team_side||"").localeCompare(String(b?.team_side||""));
       if(side)return side;
       if(Boolean(a?.starter)!==Boolean(b?.starter))return a?.starter?-1:1;
