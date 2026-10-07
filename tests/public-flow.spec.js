@@ -41,7 +41,8 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       liveNow: false,
       odds: { home: 2.2, draw: 3.3, away: 3.1 },
       market: { home: 0.421, draw: 0.281, away: 0.298 },
-      forebet: { home: 0.48, draw: 0.27, away: 0.25, score: "2-1", avgGoals: 2.7 },
+      forebet: { home: 0.48, draw: 0.27, away: 0.25, score: "2-1", predictedScore: "2-1", avgGoals: 2.7 },
+      predictedScore: "2-1",
       dc: { home: 0.46, draw: 0.28, away: 0.26 },
       pi: { home: 0.45, draw: 0.29, away: 0.26 },
       form: { home: 0.47, draw: 0.27, away: 0.26 },
@@ -792,6 +793,7 @@ test("article remains readable when English story cache/upstream is unavailable"
   const homepageRow = visibleMatchRow(page);
   await expect(homepageRow.getByText("Northbridge FC", { exact: true })).toBeVisible();
   await expect(homepageRow.getByText("Riverside United", { exact: true })).toBeVisible();
+  await expect(homepageRow.getByText("2-1", { exact: true })).toBeVisible();
   await expect(homepageRow.locator(".ft-pred-pill")).toHaveText("1");
   await expect(homepageRow.locator(".ft-goal-number")).toHaveText("2.70");
   await homepageRow.click();
