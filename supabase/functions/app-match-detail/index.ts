@@ -124,7 +124,7 @@ function forebetEvidenceFallback(rows:any[]){
 
 async function readSummaryFixture(sbUrl:string,id:string){
   const res=await fetch(`${sbUrl}/functions/v1/app-phase1-feed?hours=48&view=summary`,{
-    signal:AbortSignal.timeout(10_000),
+    signal:AbortSignal.timeout(3_000),
   });
   if(!res.ok) return null;
   const body=await res.json();
@@ -271,6 +271,7 @@ Deno.serve(async(req:Request)=>{
   if(!sbUrl||!key) return Response.json({error:"server_config_missing"},{status:500,headers:{...cors,"Cache-Control":"no-store"}});
   const db=createReadClient(sbUrl,key);
   const coreDb=createReadClientWithTimeout(sbUrl,key,8_000);
+  const criticalDb=createReadClientWithTimeout(sbUrl,key,12_000);
   const optionalDb=createReadClientWithTimeout(sbUrl,key,4_000);
 
   let id=requestedId;
@@ -327,7 +328,7 @@ Deno.serve(async(req:Request)=>{
     playerStatus,lineups,lineupStrength,managers,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail
   ]=await Promise.all([
     summaryFixture?Promise.resolve({data:null,error:null}):(async()=>{
-      const r=await optionalDb.from("canonical_fixture_current")
+      const r=await criticalDb.from("canonical_fixture_current")
         .select("match_id,kickoff_hkt,status,tournament:league,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at,source_updated_at,updated_at")
         .eq("match_id",id).maybeSingle();
       return {data:r.data||null,error:cleanError(r.error)};
@@ -370,13 +371,13 @@ Deno.serve(async(req:Request)=>{
       return {data:r.data?{...r.data,source:"VERIFIED_RESULTS_HISTORY"}:null,error:cleanError(r.error)};
     })(),
     oneWith(optionalDb,"provider_event_map_current"),
-    manyWith(optionalDb,"player_status_evidence_current"),
-    manyWith(optionalDb,"lineup_evidence_current"),
-    manyWith(optionalDb,"lineup_strength_feed_current"),
-    manyWith(optionalDb,"manager_evidence_current"),
+    manyWith(criticalDb,"player_status_evidence_current"),
+    manyWith(criticalDb,"lineup_evidence_current"),
+    manyWith(criticalDb,"lineup_strength_feed_current"),
+    manyWith(criticalDb,"manager_evidence_current"),
     oneWith(optionalDb,"multisource_consensus_feed_current","*","private"),
     (async()=>{
-      const r=await optionalDb.from("value_market_feed_current")
+      const r=await criticalDb.from("value_market_feed_current")
         .select("match_id,market_key,period_key,line_key,selection_key,provider_id,odds_decimal,effective_odds_decimal,model_prob,market_prob_raw,market_prob_devig,market_overround,probability_edge_pct,expected_roi_pct,model_source_count,quote_age_seconds,status,calculated_at,details")
         .eq("match_id",id)
         .in("provider_id",["BET365","POLYMARKET"]);
@@ -390,7 +391,7 @@ Deno.serve(async(req:Request)=>{
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
     (async()=>{
-      const r=await optionalDb.from("source_match_detail_current")
+      const r=await criticalDb.from("source_match_detail_current")
         .select("match_id,source_key,external_event_id,detail_raw,detail_fetched_at,updated_at")
         .eq("match_id",id)
         .eq("source_key","FOTMOB")
