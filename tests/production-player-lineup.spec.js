@@ -40,9 +40,12 @@ test("production HDA value API exposes validation gap and capture lineage", asyn
   expect(home.details?.quote_lineage?.canonical_match_id).toBe("FB6355");
   expect(home.details?.quote_lineage?.compatibility_verified).toBe(true);
   expect(home.details?.quote_lineage?.source_ts).toBeTruthy();
-  expect(home.details?.model_lineage?.consensus_version).toBe("PHASE4_HDA_CONSENSUS_V3");
-  expect(home.details?.model_lineage?.evaluation_evidence?.dixon_coles?.settled_matches).toBe(0);
-  expect(home.details?.model_lineage?.evaluation_evidence?.pi?.settled_matches).toBe(0);
+  expect(home.details?.model_lineage?.consensus_version).toBe("PHASE4_HDA_CONSENSUS_V4");
+  expect(home.details?.model_lineage?.evaluation_evidence?.dixon_coles?.settled_matches).toBe(27);
+  expect(home.details?.model_lineage?.evaluation_evidence?.pi?.settled_matches).toBe(27);
+  expect(home.details?.model_lineage?.evaluation_evidence?.internal_blend?.settled_matches).toBe(27);
+  expect(home.details?.model_lineage?.evaluation_evidence?.internal_blend?.training_cutoff_verified).toBe(false);
+  expect(home.details?.release_validation_status).toBe("TRAINING_CUTOFF_UNVERIFIED");
   expect(Number(home.details?.fair_odds_decimal)).toBeGreaterThan(1);
   expect(Number.isFinite(Number(home.probability_edge_pct))).toBe(true);
 });
@@ -64,6 +67,8 @@ for (const device of devices) {
     await expect(board.getByText("WATCH · MODEL VALIDATION GAP", { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/PHASE4_HDA_VALUE_V3/).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Predictive release validation is not established/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Evaluation PHASE4_HDA_EVAL_V1: 27 settled internal-blend matches/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Training cutoff UNVERIFIED EXTERNAL MODEL BUILD/i).first()).toBeVisible({ timeout: 15000 });
 
     await page.screenshot({
       path: `test-results/production-hda-validation-${device.name}.png`,
