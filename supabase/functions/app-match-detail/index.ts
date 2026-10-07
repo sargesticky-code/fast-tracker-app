@@ -59,7 +59,7 @@ function playerClaimFingerprint(row:any,canonicalIdentity:string|null){
     compactToken(row?.status_value),
   ].join("|");
 }
-function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null}>,table:string){
+function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalKey:string,canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null,identityMethod:string}>,table:string){
   const playerKey=String(row?.player_key||"").trim();
   const side=normalizedSide(row?.team_side);
   const canonicalPlayer=playerKey ? canonicalPlayers.get(playerKey) : null;
@@ -80,7 +80,10 @@ function annotatePlayerEvidence(row:any,canonicalPlayers:Map<string,{canonicalNa
     evidence_key:evidenceKey(table,row),
     source_link:row?.source_url||null,
     identity_status:identityStatus,
+    canonical_player_key:canonicalPlayer?.canonicalKey ?? null,
+    canonical_player_name:canonicalPlayer?.canonicalName ?? null,
     canonical_player_identity:canonicalIdentity,
+    canonical_identity_method:canonicalPlayer?.identityMethod ?? null,
     canonical_position:canonicalPlayer?.position ?? null,
     canonical_nationality:canonicalPlayer?.nationality ?? null,
     canonical_date_of_birth:canonicalPlayer?.dateOfBirth ?? null,
@@ -409,23 +412,46 @@ Deno.serve(async(req:Request)=>{
 
   const playerEvidenceRaw=[...(playerStatus.data||[]),...(lineups.data||[])];
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
-  let canonicalPlayersByKey=new Map<string,{canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null}>();
+  let canonicalPlayersByKey=new Map<string,{canonicalKey:string,canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null,identityMethod:string}>();
   let canonicalPlayerError:any=null;
   if(playerKeys.length){
-    const canonicalPlayers=await db.from("phase2_players").select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at").in("player_key",playerKeys);
-    if(canonicalPlayers.error) canonicalPlayerError=cleanError(canonicalPlayers.error);
-    else canonicalPlayersByKey=new Map((canonicalPlayers.data||[]).map((row:any)=>[
-      String(row.player_key),
-      {
-        canonicalName:String(row.canonical_name||row.player_key),
-        teamKey:String(row.team_key||""),
-        position:row.position??null,
-        nationality:row.nationality??null,
-        dateOfBirth:row.date_of_birth??null,
-        profile:row.profile??null,
-        sourceUpdatedAt:row.source_updated_at??null
+    const canonicalRows:any[]=[];
+    const direct=await db.from("phase2_players")
+      .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
+      .in("player_key",playerKeys);
+    if(direct.error) canonicalPlayerError=cleanError(direct.error);
+    else canonicalRows.push(...(direct.data||[]));
+
+    const flashscoreKeys=[...new Set(playerEvidenceRaw
+      .filter((row:any)=>String(row?.source_name||"").toUpperCase().startsWith("FLASHSCORE"))
+      .map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
+    if(!canonicalPlayerError && flashscoreKeys.length){
+      const mapped=await db.from("phase2_players")
+        .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
+        .in("source_ids->>flashscore",flashscoreKeys);
+      if(mapped.error) canonicalPlayerError=cleanError(mapped.error);
+      else canonicalRows.push(...(mapped.data||[]));
+    }
+    if(!canonicalPlayerError){
+      for(const row of canonicalRows){
+        const canonical={
+          canonicalKey:String(row.player_key),
+          canonicalName:String(row.canonical_name||row.player_key),
+          teamKey:String(row.team_key||""),
+          position:row.position??null,
+          nationality:row.nationality??null,
+          dateOfBirth:row.date_of_birth??null,
+          profile:row.profile??null,
+          sourceUpdatedAt:row.source_updated_at??null,
+          identityMethod:"EXACT_CANONICAL_PLAYER_KEY"
+        };
+        canonicalPlayersByKey.set(String(row.player_key),canonical);
+        const flashscoreId=String(row?.source_ids?.flashscore||"").trim();
+        if(flashscoreId){
+          canonicalPlayersByKey.set(flashscoreId,{...canonical,identityMethod:"EXACT_FLASHSCORE_PLAYER_ID"});
+        }
       }
-    ]));
+    }
   }
   if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
   const annotatedPlayerStatus=(playerStatus.data||[]).map((row:any)=>annotatePlayerEvidence(row,canonicalPlayersByKey,"player_status_evidence_current"));
