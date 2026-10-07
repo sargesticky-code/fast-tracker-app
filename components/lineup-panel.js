@@ -739,7 +739,7 @@ export default function LineupPanel() {
       : [];
     const unresolvedStarterIdentityRows = unresolvedIdentityRows.filter((r) => r?.starter !== false);
     const identityApprovedRows = identityAnnotated
-      ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
+      ? sourceRows.filter((r) => factStatus(r) !== "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
       : sourceRows;
     // app-match-detail already returns canonical, provider-deduplicated lineup rows.
     // Do not re-group by source here: mixed official providers may each contribute
