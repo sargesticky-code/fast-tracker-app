@@ -1280,6 +1280,7 @@ export default function MatchDetailClient() {
   const phase4BackendStatus = String(bestValue?.status || "").toUpperCase();
   const phase4Fresh = bestValue ? phase4BackendStatus !== "STALE" : false;
   const phase4ValidationStatus = String(bestValue?.details?.release_validation_status || bestValue?.details?.predictive_calibration_status || "").toUpperCase();
+  const phase4ValidationKnown = Boolean(phase4ValidationStatus);
   const phase4ValidationReason = String(bestValue?.details?.validation_gate_reason || "");
   const phase4CalculationVersion = String(bestValue?.details?.calculation_version || "");
   const phase4QuoteSourceAt = bestValue?.details?.quote_lineage?.source_ts || null;
@@ -2019,9 +2020,17 @@ export default function MatchDetailClient() {
           </div>
 
           <div className="phase4-metric-cell">
-            <span>VALIDATION</span>
-            <strong>{bestValue ? (phase4ValidationStatus === "ESTABLISHED" ? "ESTABLISHED" : "NOT ESTABLISHED") : "NO MODEL"}</strong>
-            <small>{bestValue ? phase4Coverage + " · " + (Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —") : "validation unavailable"}</small>
+            <span>{phase4ValidationKnown ? "VALIDATION" : "COVERAGE"}</span>
+            <strong>{bestValue
+              ? (phase4ValidationKnown
+                ? (phase4ValidationStatus === "ESTABLISHED" ? "ESTABLISHED" : "NOT ESTABLISHED")
+                : phase4Coverage)
+              : "NO MODEL"}</strong>
+            <small>{bestValue
+              ? (phase4ValidationKnown
+                ? phase4Coverage + " · " + (Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —")
+                : (Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —"))
+              : "validation unavailable"}</small>
           </div>
 
           <div className="phase4-metric-cell">
