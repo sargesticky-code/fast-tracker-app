@@ -312,35 +312,16 @@ Deno.serve(async(req:Request)=>{
     return {data:r.data||[],error:cleanError(r.error)};
   };
 
-  // Keep the public critical path small under PostgREST contention. Fixture identity,
-  // lineup evidence, value lineage and the player-stat source are fetched first.
-  // Optional panels receive a short independent budget and remain unknown on timeout.
-  const [fixtureUpcomingDb,lineupsRaw,valueMarket,sourceMatchDetail]=await Promise.all([
-    (async()=>{
-      const r=await criticalDb.from("canonical_fixture_current")
-        .select("match_id,kickoff_hkt,status,tournament:league,home_en,away_en,home_zh,away_zh,in_play,selling,pool_status,fetched_at,source_updated_at,updated_at")
-        .eq("match_id",id).maybeSingle();
-      return {data:r.data||null,error:cleanError(r.error)};
-    })(),
-    manyWith(criticalDb,"phase2_match_lineup_evidence"),
-    (async()=>{
-      const r=await criticalDb.from("value_market_feed_current")
-        .select("match_id,market_key,period_key,line_key,selection_key,provider_id,odds_decimal,effective_odds_decimal,model_prob,market_prob_raw,market_prob_devig,market_overround,probability_edge_pct,expected_roi_pct,model_source_count,quote_age_seconds,status,calculated_at,details")
-        .eq("match_id",id)
-        .in("provider_id",["BET365","POLYMARKET"]);
-      return {data:r.data||[],error:cleanError(r.error)};
-    })(),
-    (async()=>{
-      const r=await criticalDb.from("source_match_detail_current")
-        .select("match_id,source_key,external_event_id,detail_raw,detail_fetched_at,updated_at")
-        .eq("match_id",id)
-        .eq("source_key","FOTMOB")
-        .order("detail_fetched_at",{ascending:false})
-        .limit(1)
-        .maybeSingle();
-      return {data:r.data||null,error:cleanError(r.error)};
-    })(),
-  ]);
+  // One RPC carries the critical public evidence to avoid request amplification
+  // through multiple concurrent PostgREST reads under production load.
+  const criticalResult=await criticalDb.rpc("ft_internal_app_match_detail_critical",{p_match_id:id});
+  const criticalPayload=criticalResult.data&&typeof criticalResult.data==="object"?criticalResult.data:{};
+  const criticalError=cleanError(criticalResult.error);
+  const fixtureUpcomingDb={data:criticalPayload?.fixture||null,error:criticalError};
+  const lineupsRaw={data:Array.isArray(criticalPayload?.lineups)?criticalPayload.lineups:[],error:criticalError};
+  const valueMarket={data:Array.isArray(criticalPayload?.value)?criticalPayload.value:[],error:criticalError};
+  const sourceMatchDetail={data:criticalPayload?.source_match_detail||null,error:criticalError};
+  const criticalPlayers=Array.isArray(criticalPayload?.players)?criticalPayload.players:[];
 
   const summaryFixture=null;
   const latestLineupFetchBySource=new Map<string,number>();
@@ -436,44 +417,22 @@ Deno.serve(async(req:Request)=>{
   const playerKeys=[...new Set(playerEvidenceRaw.map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
   let canonicalPlayersByKey=new Map<string,{canonicalKey:string,canonicalName:string,teamKey:string,position:string|null,nationality:string|null,dateOfBirth:string|null,profile:any,sourceUpdatedAt:string|null,identityMethod:string}>();
   let canonicalPlayerError:any=null;
-  if(playerKeys.length){
-    const canonicalRows:any[]=[];
-    const flashscoreKeys=[...new Set(playerEvidenceRaw
-      .filter((row:any)=>String(row?.source_name||"").toUpperCase().startsWith("FLASHSCORE"))
-      .map((row:any)=>String(row?.player_key||"").trim()).filter(Boolean))];
-    const [direct,mapped]=await Promise.all([
-      coreDb.from("phase2_players")
-        .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
-        .in("player_key",playerKeys),
-      flashscoreKeys.length
-        ? coreDb.from("phase2_players")
-          .select("player_key,canonical_name,team_key,position,nationality,date_of_birth,profile,source_updated_at,source_ids")
-          .in("source_ids->>flashscore",flashscoreKeys)
-        : Promise.resolve({data:[],error:null})
-    ]);
-    if(direct.error) canonicalPlayerError=cleanError(direct.error);
-    else canonicalRows.push(...(direct.data||[]));
-    if(mapped.error) canonicalPlayerError=canonicalPlayerError||cleanError(mapped.error);
-    else canonicalRows.push(...(mapped.data||[]));
-    if(!canonicalPlayerError){
-      for(const row of canonicalRows){
-        const canonical={
-          canonicalKey:String(row.player_key),
-          canonicalName:String(row.canonical_name||row.player_key),
-          teamKey:String(row.team_key||""),
-          position:row.position??null,
-          nationality:row.nationality??null,
-          dateOfBirth:row.date_of_birth??null,
-          profile:row.profile??null,
-          sourceUpdatedAt:row.source_updated_at??null,
-          identityMethod:"EXACT_CANONICAL_PLAYER_KEY"
-        };
-        canonicalPlayersByKey.set(String(row.player_key),canonical);
-        const flashscoreId=String(row?.source_ids?.flashscore||"").trim();
-        if(flashscoreId){
-          canonicalPlayersByKey.set(flashscoreId,{...canonical,identityMethod:"EXACT_FLASHSCORE_PLAYER_ID"});
-        }
-      }
+  for(const row of criticalPlayers){
+    const canonical={
+      canonicalKey:String(row.player_key),
+      canonicalName:String(row.canonical_name||row.player_key),
+      teamKey:String(row.team_key||""),
+      position:row.position??null,
+      nationality:row.nationality??null,
+      dateOfBirth:row.date_of_birth??null,
+      profile:row.profile??null,
+      sourceUpdatedAt:row.source_updated_at??null,
+      identityMethod:"EXACT_CANONICAL_PLAYER_KEY"
+    };
+    canonicalPlayersByKey.set(String(row.player_key),canonical);
+    const flashscoreId=String(row?.source_ids?.flashscore||"").trim();
+    if(flashscoreId){
+      canonicalPlayersByKey.set(flashscoreId,{...canonical,identityMethod:"EXACT_FLASHSCORE_PLAYER_ID"});
     }
   }
   if(canonicalPlayerError) errors.playerIdentity=canonicalPlayerError;
