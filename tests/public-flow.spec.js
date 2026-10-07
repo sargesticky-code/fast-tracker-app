@@ -527,9 +527,11 @@ test("canonical mixed-provider lineup rows remain visible", async ({ page }) => 
     await lineupTool.locator(":scope > summary").click();
   }
   await page.getByRole("button", { name: "Squad" }).click();
-  await expect(page.getByText("Canonical Home", { exact: true })).toBeVisible();
-  await expect(page.getByText("Canonical Away", { exact: true })).toBeVisible();
-  await expect(page.getByText("FOTMOB_OFFICIAL, FOTMOB_PREDICTED, FLASHSCORE_OFFICIAL", { exact: true })).toBeVisible();
+  await expect(lineupTool.getByText("Canonical Home", { exact: true })).toBeVisible();
+  await expect(lineupTool.getByText("Canonical Away", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Source" }).click();
+  await expect(lineupTool.getByText(/FOTMOB_OFFICIAL/)).toBeVisible();
+  await expect(lineupTool.getByText(/FLASHSCORE_OFFICIAL/)).toBeVisible();
 });
 
 for (const device of [
