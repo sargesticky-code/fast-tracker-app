@@ -11,7 +11,7 @@ const devices = [
 for (const device of devices) {
   test(`production confirmed XI + player stats · ${device.name}`, async ({ page }) => {
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`${BASE_URL}/details?id=FB6359`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto(`${BASE_URL}/details?id=FB6373`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
@@ -19,7 +19,7 @@ for (const device of devices) {
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
-    await expect(module.getByText("Jonathan Bamba", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("Alexis Sabella", { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
     await expect(module.getByText("Top performers", { exact: true })).toBeVisible();
