@@ -82,14 +82,6 @@ Deno.serve(async () => {
 
   const from = new Date(now - 18 * 60 * 60 * 1000).toISOString();
   const to = new Date(now + 4 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: matches, error: matchError } = await db
-    .from("canonical_fixture_current")
-    .select("match_id,kickoff_hkt,tournament:league,home_en,away_en")
-    .gte("kickoff_hkt", from)
-    .lt("kickoff_hkt", to);
-
-  if (matchError) return Response.json({ error: "canonical_read_failed", detail: matchError.message }, { status: 500 });
-
   const observedNames = [...new Set(
     [...fixtures, ...discovered]
       .flatMap((row:any) => [String(row?.home ?? "").trim(), String(row?.away ?? "").trim()])
@@ -101,7 +93,12 @@ Deno.serve(async () => {
       .filter(Boolean)
   )];
 
-  const [flashAliasResult, consensusAliasResult] = await Promise.all([
+  // Collapse independent preflight reads into one latency phase.
+  const [matchResult,flashAliasResult,consensusAliasResult] = await Promise.all([
+    db.from("canonical_fixture_current")
+      .select("match_id,kickoff_hkt,tournament:league,home_en,away_en")
+      .gte("kickoff_hkt", from)
+      .lt("kickoff_hkt", to),
     observedNames.length
       ? db.from("team_identity_current")
           .select("source,source_name,team_key,canonical_name_en,status")
@@ -118,8 +115,10 @@ Deno.serve(async () => {
       : Promise.resolve({ data:[], error:null } as any),
   ]);
 
+  if (matchResult.error) return Response.json({ error: "canonical_read_failed", detail: matchResult.error.message }, { status: 500 });
   if (flashAliasResult.error) return Response.json({ error: "flash_alias_read_failed", detail: flashAliasResult.error.message }, { status: 500 });
   if (consensusAliasResult.error) return Response.json({ error: "consensus_alias_read_failed", detail: consensusAliasResult.error.message }, { status: 500 });
+  const matches=matchResult.data||[];
 
   const flashTargets = new Map<string, Map<string, string>>();
   for (const a of flashAliasResult.data ?? []) {
@@ -328,58 +327,6 @@ Deno.serve(async () => {
     });
   }
 
-  if (canonicalCreates.length) {
-    const genericRows=canonicalCreates.map((row:any)=>({
-      match_id:row.match_id,
-      provider_match_id:row.provider_match_id,
-      kickoff_hkt:row.kickoff_hkt,
-      status:row.status,
-      league:row.tournament,
-      home_en:row.home_en,
-      away_en:row.away_en,
-      home_zh:row.home_zh,
-      away_zh:row.away_zh,
-      pools:row.pools,
-      pool_status:row.pool_status,
-      in_play:row.in_play,
-      selling:row.selling,
-      fetched_at:row.fetched_at,
-      source_updated_at:row.source_updated_at,
-      raw:row.raw,
-      updated_at:row.updated_at
-    }));
-    const { error: canonicalCreateError } = await db.rpc("ft_upsert_canonical_fixtures_generic",{rows:genericRows});
-    if (canonicalCreateError) {
-      return Response.json({ error: "canonical_fixture_create_failed", detail: canonicalCreateError.message }, { status: 500 });
-    }
-  }
-
-  if (redirects.length) {
-    const {error:redirectError}=await db.from("fixture_identity_redirects")
-      .upsert(redirects,{onConflict:"source_match_id"});
-    if(redirectError){
-      return Response.json({error:"fixture_redirect_write_failed",detail:redirectError.message},{status:500});
-    }
-  }
-
-  if (fixtureStage.length) {
-    const { error: fixtureStageError } = await db
-      .from("flashscore_fixture_current")
-      .upsert(fixtureStage, { onConflict: "provider_event_id" });
-    if (fixtureStageError) {
-      return Response.json({ error: "fixture_stage_write_failed", detail: fixtureStageError.message }, { status: 500 });
-    }
-
-    const currentFixtureIds = fixtureStage.map((x:any) => x.provider_event_id);
-    const { data: oldFixtureRows } = await db.from("flashscore_fixture_current").select("provider_event_id");
-    const staleFixtureIds = (oldFixtureRows ?? [])
-      .map((x:any) => String(x.provider_event_id))
-      .filter((id:string) => !currentFixtureIds.includes(id));
-    if (staleFixtureIds.length) {
-      await db.from("flashscore_fixture_current").delete().in("provider_event_id", staleFixtureIds);
-    }
-  }
-
   const stage: any[] = [];
   const verified: any[] = [];
   let ambiguous = 0;
@@ -471,65 +418,54 @@ Deno.serve(async () => {
     }
   }
 
-  if (stage.length) {
-    const { error } = await db.from("flashscore_bet365_current").upsert(stage, { onConflict: "provider_event_id" });
-    if (error) return Response.json({ error: "stage_write_failed", detail: error.message }, { status: 500 });
-  }
-
-  const currentIds = stage.map((x) => x.provider_event_id);
-  if (currentIds.length) {
-    const { data: existing } = await db.from("flashscore_bet365_current").select("provider_event_id");
-    const stale = (existing ?? []).map((x: any) => x.provider_event_id).filter((id: string) => !currentIds.includes(id));
-    if (stale.length) await db.from("flashscore_bet365_current").delete().in("provider_event_id", stale);
-  }
-
-  if (verified.length) {
-    const bookmakerRows=verified.map((x:any)=>({
-      match_id:x.match_id,
-      fetched_at:x.fetched_at,
-      match_date:x.match_date,
-      kickoff_hkt:x.kickoff_hkt,
-      league:x.league,
-      home:x.home,
-      away:x.away,
-      home_odds:x.bet365_home,
-      draw_odds:x.bet365_draw,
-      away_odds:x.bet365_away,
-      provider_fixture_id:x.bet365_fixture_id,
-      match_quality:x.match_quality,
-      raw:x.raw,
-      updated_at:x.updated_at
-    }));
-    const {error:promotionError}=await db.rpc("ft_replace_bookmaker_current_generic",{source_key:SOURCE,rows:bookmakerRows});
-    if(promotionError)return Response.json({error:"promotion_failed",detail:promotionError.message},{status:500});
-
-    const snapshots=bookmakerRows.map((x:any)=>({
-      match_id:x.match_id,
-      captured_at:capturedAt,
-      source:SOURCE,
-      market:"ML",
-      line:"FT",
-      home_price:x.home_odds,
-      draw_price:x.draw_odds,
-      away_price:x.away_odds,
-      over_price:null,
-      under_price:null,
-      raw:x.raw
-    }));
-    const {error:snapshotError}=await db.rpc("ft_insert_market_snapshots_generic",{rows:snapshots});
-    if(snapshotError)return Response.json({error:"snapshot_write_failed",detail:snapshotError.message},{status:500});
-  } else {
-    const {error:promotionError}=await db.rpc("ft_replace_bookmaker_current_generic",{source_key:SOURCE,rows:[]});
-    if(promotionError)return Response.json({error:"promotion_clear_failed",detail:promotionError.message},{status:500});
-  }
-
-  const [{ data: marketRefresh, error: marketRefreshError }, { data: movementRefresh, error: movementRefreshError }] = await Promise.all([
-    db.rpc("ft_refresh_cloud_market_current"),
-    db.rpc("ft_refresh_cloud_odds_movement"),
-  ]);
-  if (marketRefreshError) console.error("cloud_private_market_refresh_failed", marketRefreshError);
-  if (movementRefreshError) console.error("cloud_odds_movement_refresh_failed", movementRefreshError);
-
+  const genericRows=canonicalCreates.map((row:any)=>({
+    match_id:row.match_id,
+    provider_match_id:row.provider_match_id,
+    kickoff_hkt:row.kickoff_hkt,
+    status:row.status,
+    league:row.tournament,
+    home_en:row.home_en,
+    away_en:row.away_en,
+    home_zh:row.home_zh,
+    away_zh:row.away_zh,
+    pools:row.pools,
+    pool_status:row.pool_status,
+    in_play:row.in_play,
+    selling:row.selling,
+    fetched_at:row.fetched_at,
+    source_updated_at:row.source_updated_at,
+    raw:row.raw,
+    updated_at:row.updated_at
+  }));
+  const bookmakerRows=verified.map((x:any)=>({
+    match_id:x.match_id,
+    fetched_at:x.fetched_at,
+    match_date:x.match_date,
+    kickoff_hkt:x.kickoff_hkt,
+    league:x.league,
+    home:x.home,
+    away:x.away,
+    home_odds:x.bet365_home,
+    draw_odds:x.bet365_draw,
+    away_odds:x.bet365_away,
+    provider_fixture_id:x.bet365_fixture_id,
+    match_quality:x.match_quality,
+    raw:x.raw,
+    updated_at:x.updated_at
+  }));
+  const snapshots=bookmakerRows.map((x:any)=>({
+    match_id:x.match_id,
+    captured_at:capturedAt,
+    source:SOURCE,
+    market:"ML",
+    line:"FT",
+    home_price:x.home_odds,
+    draw_price:x.draw_odds,
+    away_price:x.away_odds,
+    over_price:null,
+    under_price:null,
+    raw:x.raw
+  }));
   const healthRaw = {
     discovered_count: discovered.length,
     fixture_staged: fixtureStage.length,
@@ -548,21 +484,28 @@ Deno.serve(async () => {
     alias_resolved: aliasResolved,
     consensus_resolved: consensusResolved,
     captured_at: capturedAt,
-    market_refresh: marketRefreshError
-      ? { status:"ERROR", message:marketRefreshError.message }
-      : marketRefresh,
-    movement_refresh: movementRefreshError
-      ? { status:"ERROR", message:movementRefreshError.message }
-      : movementRefresh,
   };
-  await db.from("source_health").upsert({
-    source: SOURCE, metric: "cloud_ingest",
-    value_text: String(verified.length),
-    status: verified.length ? "OK" : "ATTENTION",
-    notes: verified.length ? "Cloud snapshot ingested; only strict unique canonical matches promoted." : "Cloud snapshot healthy but no strict canonical fixture matches promoted.",
-    observed_at: new Date().toISOString(),
-    raw: healthRaw,
-  }, { onConflict: "source,metric" });
 
-  return Response.json({ ok: true, source: SOURCE, ...healthRaw });
+  // Commit all database writes, stale-row reconciliation, market refreshes and health
+  // evidence in one transaction to avoid a long chain of PostgREST round trips.
+  const {data:commitResult,error:commitError}=await db.rpc("ft_commit_flashscore_bet365_ingest",{
+    p_fixture_stage:fixtureStage,
+    p_canonical_creates:genericRows,
+    p_redirects:redirects,
+    p_stage:stage,
+    p_bookmaker_rows:bookmakerRows,
+    p_snapshots:snapshots,
+    p_health:healthRaw
+  });
+  if(commitError){
+    await db.from("source_health").upsert({
+      source:SOURCE,metric:"cloud_ingest",value_text:"COMMIT_FAILED",status:"ERROR",
+      notes:commitError.message,observed_at:new Date().toISOString(),
+      raw:{captured_at:capturedAt,stage:stage.length,verified:verified.length}
+    },{onConflict:"source,metric"});
+    return Response.json({error:"ingest_commit_failed",detail:commitError.message},{status:500});
+  }
+
+  return Response.json({ ok: true, source: SOURCE, ...healthRaw, commit:commitResult });
+
 });
