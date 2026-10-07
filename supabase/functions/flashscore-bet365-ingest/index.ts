@@ -113,6 +113,7 @@ Deno.serve(async () => {
       ? db.from("team_identity_current")
           .select("source,source_name,team_key,canonical_name_en,status")
           .eq("status", "VERIFIED")
+          .neq("source", "CANONICAL_EN")
           .in("source_name", pricedNames)
       : Promise.resolve({ data:[], error:null } as any),
   ]);
@@ -164,6 +165,7 @@ Deno.serve(async () => {
   const canonicalPool:any[] = [...(matches ?? [])];
   const fixtureStage:any[] = [];
   const canonicalCreates:any[] = [];
+  const redirects:any[] = [];
   let fixtureExactExisting = 0;
   let fixtureCreated = 0;
   let fixtureDeferredNearby = 0;
@@ -199,7 +201,42 @@ Deno.serve(async () => {
         })
       : [];
 
-    if (directProviderMatch) {
+    const strictRedirectCandidates = Number.isFinite(koMs)
+      ? exactCandidates.filter((m:any) => {
+          if(String(m?.match_id||"")===fsId)return false;
+          const mk=Date.parse(m?.kickoff_hkt??"");
+          return Number.isFinite(mk) && Math.abs(mk-koMs)<=10*60*1000;
+        })
+      : [];
+
+    if (directProviderMatch && strictRedirectCandidates.length === 1) {
+      const target=strictRedirectCandidates[0];
+      identity = "REDIRECTED_EXISTING";
+      canonical = String(target.match_id);
+      fixtureExactExisting++;
+      redirects.push({
+        source_match_id:fsId,
+        target_match_id:canonical,
+        source_name:SOURCE,
+        confidence:0.995,
+        evidence:{
+          provider_event_id:providerEventId,
+          provider_home:home,
+          provider_away:away,
+          resolved_home:resolvedHome,
+          resolved_away:resolvedAway,
+          provider_kickoff:ko,
+          target_kickoff:target.kickoff_hkt,
+          home_method:homeAlias.method,
+          away_method:awayAlias.method,
+          home_source_count:homeAlias.sourceCount,
+          away_source_count:awayAlias.sourceCount,
+          rule:"UNIQUE_TWO_TEAM_IDENTITY_PLUS_10M_KICKOFF"
+        },
+        active:true,
+        updated_at:new Date().toISOString()
+      });
+    } else if (directProviderMatch) {
       identity = "EXACT_EXISTING";
       canonical = fsId;
       fixtureExactExisting++;
@@ -314,6 +351,14 @@ Deno.serve(async () => {
     const { error: canonicalCreateError } = await db.rpc("ft_upsert_canonical_fixtures_generic",{rows:genericRows});
     if (canonicalCreateError) {
       return Response.json({ error: "canonical_fixture_create_failed", detail: canonicalCreateError.message }, { status: 500 });
+    }
+  }
+
+  if (redirects.length) {
+    const {error:redirectError}=await db.from("fixture_identity_redirects")
+      .upsert(redirects,{onConflict:"source_match_id"});
+    if(redirectError){
+      return Response.json({error:"fixture_redirect_write_failed",detail:redirectError.message},{status:500});
     }
   }
 
@@ -494,6 +539,7 @@ Deno.serve(async () => {
     fixture_discovered_only: fixtureDiscoveredOnly,
     fixture_invalid_time: fixtureInvalidTime,
     fixture_ambiguous: fixtureAmbiguous,
+    fixture_redirected: redirects.length,
     cloud_complete_hda: fixtures.length,
     staged: stage.length,
     verified: verified.length,
