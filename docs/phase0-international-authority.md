@@ -718,3 +718,110 @@ Next unfinished outcome:
   public value selections. Continue expanding exact provider-neutral
   player/availability mappings only from strict evidence; do not fuzzy-merge
   same-name players or convert unknowns to zeros.
+
+
+## FT-20261007-005 validated HDA release-gate checkpoint
+
+FT004 reconciliation before advancing:
+- PR #44 was reconciled at exact head `089b88fdb20b545aed3818a9fc7e27a2ec359812`.
+  CI #478 / run `37629340914` completed SUCCESS on that exact head.
+- Production `app-match-detail` was ACTIVE v43, SHA
+  `9fe84610e32ce9100fcff00dc6e4d1a4d84212321379f412590a48a6b6279df9`.
+- Supabase migration registry already contained
+  `20261007133152 phase4_version_hda_probability_contract`; it was not replayed.
+- The prior exact Flashscore identity batch remains 940/940 safe bijective mappings
+  with zero conflicts. Canonical player `648366` (Zhunyi Gao) remains deliberately
+  unmapped for Flashscore because two provider ids were non-bijective. Raw lineup
+  observations remain unchanged.
+
+HDA validation gate delivered:
+- New repository migration:
+  `supabase/migrations/20261007140500_phase4_gate_value_on_model_validation.sql`.
+  It was transaction-dry-run first, then applied once through migration tracking as
+  `20261007140128 phase4_gate_value_on_model_validation`.
+- Consensus is now `PHASE4_HDA_CONSENSUS_V3`; value calculation is
+  `PHASE4_HDA_VALUE_V3`. Complete, non-negative H/D/A family probabilities are
+  normalized before consensus. Dixon-Coles + Pi remain one correlated internal
+  evidence family.
+- Consensus lineage now carries model capture timestamps plus stored evaluation
+  evidence. Value lineage carries canonical match id, provider/external event id,
+  compatibility verification, source/fetch timestamps, settlement key, commission,
+  calculation method/version and model-consensus timestamp/version.
+- Release status now fails closed in this order: stale quote -> model-validation gap
+  -> source coverage -> value/watch/no-edge. A calculated fair price or edge cannot
+  become a public `VALUE` while predictive release validation is not established.
+- Current stored evaluation evidence does not justify a validated prediction claim:
+  Dixon-Coles has 0 settled evaluation matches; Pi has 0. Forebet has 10 settled
+  matches with stored RPS/Brier/log-loss metrics, but Forebet is not a contributing
+  family for the representative FB6355 consensus. Therefore
+  `release_validation_status=NOT_ESTABLISHED` is intentional.
+
+Representative genuine current evidence:
+- `FB6355` Botafogo v Vasco da Gama is bound to a compatibility-verified Polymarket
+  H/D/A market, external event `1075390`, settlement
+  `SOCCER_90M_1X2_USDC_UNHEDGED`. At the final checkpoint query, quote source time
+  was `2026-10-07T14:12:00.806Z` and quote age was about 239 seconds.
+- HOME: odds 3.030303, model probability 0.50741050, de-vig market probability
+  0.32352940, calculated probability edge +18.3881 percentage points, expected ROI
+  +48.7285%.
+- DRAW: odds 3.571429, model probability 0.28818250, de-vig market probability
+  0.27450976, calculated edge +1.3673 points, expected ROI -0.6887%.
+- AWAY: odds 2.439024, model probability 0.20440700, de-vig market probability
+  0.40196083, calculated edge -19.7554 points, expected ROI -51.5871%.
+- All three remain `MODEL_VALIDATION_GAP`, not betting recommendations. These values
+  are derived analysis outputs from sourced prices and the current model; they are
+  not evidence that the model is profitable or independently calibrated.
+
+API and public rendering:
+- `app-match-detail` v44 is ACTIVE with SHA
+  `7095b8e1aee3e52f09c345f4b9d9074b6be8a27a153f14d1ea6d0493602619fa`.
+  Commit `9e1072e69c41b4fbff5bf9eaadf72c607cb9de74` added the derived-value
+  `details` projection so calculation/validation/capture lineage reaches the public
+  client instead of existing only in Postgres.
+- Frontend commit `d474abc9f2f951e67df58f55a929186e2033988b` displays
+  `WATCH · MODEL VALIDATION GAP` and `NOT ESTABLISHED` only when validation
+  metadata is actually supplied, while preserving the previous coverage hierarchy for
+  legacy/mock rows without validation metadata.
+- Railway `fast-tracker-public` deployment
+  `a42da384-261d-4f33-aa57-fb415a3a3593` is SUCCESS in `sfo`, pinned to exact
+  application commit `d474abc9f2f951e67df58f55a929186e2033988b`.
+- Production HDA view acceptance runs against real
+  `/details?id=FB6355` at desktop 1440x1000, tablet 1024x1366 and mobile 390x844.
+  The tests require the Phase 4 board, exact `NOT ESTABLISHED`, exact
+  `WATCH · MODEL VALIDATION GAP`, calculation version `PHASE4_HDA_VALUE_V3`,
+  and the explicit predictive-release-validation warning.
+- Final pre-documentation test head
+  `e28db56cbfbaa179ba10de809175c2d778798080` passed CI #485 / run
+  `37635155912`. The production acceptance also retains:
+  - exact Flashscore player identity regression on `FB6287`;
+  - confirmed lineup/player-stat control `FB6317` with near-name players kept distinct;
+  - predicted 11v11 control `FB6365` with 0 confirmed starters and missing match
+    player statistics remaining unknown, never zero-filled;
+  - the full deterministic rendered-flow suite.
+
+Recovery:
+- HDA database functions: restore the V2 definitions from
+  `20261007133000_phase4_version_hda_probability_contract.sql`, then run
+  `select phase4.refresh_core();`. Provider quotes, fixtures, predictions and
+  evaluation evidence are not deleted by either direction.
+- Edge rollback: redeploy v43 / SHA
+  `9fe84610e32ce9100fcff00dc6e4d1a4d84212321379f412590a48a6b6279df9`
+  if the v44 details projection regresses.
+- Railway rollback: deployment `a8b79c41-d0dc-4fdc-bc80-b84d47a6a73b` remains
+  the prior known-good public application release if the d474 UI needs rollback.
+
+Post-DDL advisor state:
+- Supabase security advisor still reports legacy INFO findings for RLS-enabled
+  tables without policies and one existing WARN for `pg_net` installed in
+  `public`. These were not introduced by this HDA function migration and are not
+  represented as a clean advisor state.
+
+Next unfinished outcome:
+- Build genuine versioned out-of-sample HDA evaluation/calibration with sufficient
+  settled matches and explicit release thresholds. Only an evidence-backed validation
+  state may lift `MODEL_VALIDATION_GAP` into `VALUE`.
+- Increase independent model-family coverage only from genuinely independent sourced
+  evidence. Continue strict provider-neutral player/availability identity improvement
+  without fuzzy same-name merging or destructive provenance cleanup.
+- The whole-platform release remains incomplete until the broader handoff acceptance
+  programme is verified.
