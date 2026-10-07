@@ -627,3 +627,94 @@ delivery gaps, and never replace canonical identity with bookmaker identity.
 - Recovery: if the public frontend later regresses, Railway deployment `a8b79c41-d0dc-4fdc-bc80-b84d47a6a73b` is the known-good live application release. Edge rollback should use the immediately prior `app-match-detail` deployed source/version only if a future Edge deployment changes the dedup contract; no rollback is warranted at this checkpoint.
 - Remaining gap: raw storage intentionally retains independent provider observations (80 rows for FB6373); dedup occurs in the public canonical API so provenance is preserved. Availability rows can still be source-confirmed while player identity is unresolved and must remain explicitly unresolved. The next unfinished outcome is broader exact player/availability canonicalization and then versioned fair-probability/value coverage; do not replace canonical identity with bookmaker identity.
 
+
+
+## FT-20261007-004 exact player identity + HDA v2 checkpoint
+
+Player identity milestone:
+- Reconciled PR #44 from the FT003 durable state without replaying the earlier
+  lineup dedup or fixture-redirect work.
+- Exact cross-provider identity backfill uses only confirmed official FotMob and
+  Flashscore observations that agree on canonical match, team side,
+  starter/bench role and positive shirt number, and only promotes a provider id
+  when the relationship is bijective across the measured 30-day evidence window.
+- 940 Flashscore player ids are now mapped exactly through
+  `phase2_players.source_ids.flashscore`; verification reports 940/940 exact
+  mappings and zero conflicts. A non-bijective case for canonical player
+  `648366` (Zhunyi Gao) had two Flashscore ids, so its Flashscore mapping was
+  removed and remains unresolved rather than guessed.
+- Raw provider observations in `phase2_match_lineup_evidence` were not deleted
+  or rewritten. Recovery for this additive alias batch is to remove only the
+  `flashscore` key from the mappings added in this checkpoint; the raw evidence
+  remains the reconstruction source.
+- `app-match-detail` v43, Edge SHA
+  `9fe84610e32ce9100fcff00dc6e4d1a4d84212321379f412590a48a6b6279df9`,
+  resolves exact Flashscore aliases to canonical player key/name and publishes
+  identity method `EXACT_FLASHSCORE_PLAYER_ID`; unmatched provider identities
+  remain `UNRESOLVED`.
+- Real API regression fixture `FB6287` has Flashscore-only official lineup
+  evidence. Provider player `j7xVIm1h` now resolves exactly to canonical
+  `1646522 / Puso Dithejane`; other unmatched rows on the same fixture remain
+  unresolved. This exact production assertion is part of
+  `tests/production-player-lineup.spec.js`.
+- Current acceptance fixtures were refreshed instead of weakening assertions:
+  `FB6317` is the confirmed XI + real player-stat control and
+  `FS:EorMYH1s` is the predicted XI + unknown-stat control. One bounded reload
+  is allowed only for a transient public fetch; after reload the same exact
+  predicted/11v11/unknown-stat assertions are still required.
+- CI #476 / run `37628360273` completed SUCCESS on commit
+  `7fceb734a440def2c9791c94cbc8bbba1fb8ef3a`, including the deployed exact
+  Flashscore identity API regression, production lineup checks at
+  desktop/tablet/mobile and the full rendered-flow suite.
+- Railway `fast-tracker-public` intentionally remains on deployment
+  `a8b79c41-d0dc-4fdc-bc80-b84d47a6a73b` SUCCESS because FT004 player identity
+  is an Edge/API change; no frontend application redeploy was required.
+
+HDA probability/value progression:
+- Migration `phase4_version_hda_probability_contract` is registered in
+  production as version `20261007133152`; repository source is
+  `supabase/migrations/20261007133000_phase4_version_hda_probability_contract.sql`.
+- `PHASE4_HDA_CONSENSUS_V2` admits a model family only when all H/D/A
+  probabilities are present, non-negative and have a positive total; each
+  accepted family is normalized before consensus. Dixon-Coles and Pi continue
+  to count as one correlated internal evidence family.
+- Post-release validation currently has 12 HDA matches / 36 consensus rows:
+  all 12 are complete three-selection triplets, all 12 sum to 1 within
+  0.000001, and all 12 have a consistent independent-family count across H/D/A.
+- Value calculations are explicitly versioned as `PHASE4_HDA_VALUE_V2`.
+  Published metadata now names proportional de-vig market probability,
+  reciprocal-model-probability fair odds, probability edge and expected-ROI
+  methods.
+- Predictive calibration is deliberately published as `NOT_ESTABLISHED`.
+  Structural probability validity is not presented as proof that the model is
+  profitable or calibrated.
+- Current genuine sourced HDA value feed remains deliberately fail-closed:
+  `FB6355` has a complete POLYMARKET H/D/A board but only one independent
+  model family, so all three selections remain `LOW_COVERAGE`, not `VALUE`.
+  Current model probabilities/fair prices are HOME 0.5074105 / 1.971,
+  DRAW 0.2881825 / 3.470, AWAY 0.2044070 / 4.892. The HOME calculated edge is
+  +19.3685 percentage points and expected ROI +53.3014%, but it is still
+  suppressed by the two-family minimum because predictive calibration is not
+  established.
+- The HDA migration was first transaction-dry-run successfully, then applied
+  through Supabase migration tracking. Its refresh produced 36 consensus rows
+  and 3 current value rows without modifying provider source evidence.
+- CI #477 validates repository head
+  `f2af39037001ceafbd2b3f0e4c9d8497d1b3c3b2`; record the final conclusion
+  below after the documentation checkpoint commit.
+
+Recovery:
+- Player API rollback: redeploy prior `app-match-detail` v42 source/SHA
+  `7dd8e6f35e76524e8d658f3c28f0eafe120959e4bbc77eaf019df0ac8e632f61`
+  only if v43 regresses.
+- HDA rollback: restore `phase4.refresh_model_consensus()` from
+  `20261007011800_phase4_collapse_correlated_model_methods.sql`, restore the
+  prior `phase4.refresh_value_opportunities()` definition, then run
+  `select phase4.refresh_core();`. Source odds/predictions are not deleted.
+
+Next unfinished outcome:
+- Establish genuine out-of-sample HDA calibration/backtest evidence and increase
+  independent model-family coverage before allowing LOW_COVERAGE rows to become
+  public value selections. Continue expanding exact provider-neutral
+  player/availability mappings only from strict evidence; do not fuzzy-merge
+  same-name players or convert unknowns to zeros.
