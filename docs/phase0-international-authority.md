@@ -825,3 +825,101 @@ Next unfinished outcome:
   without fuzzy same-name merging or destructive provenance cleanup.
 - The whole-platform release remains incomplete until the broader handoff acceptance
   programme is verified.
+
+
+## FT-20261007-007 prospective HDA production acceptance + reliability checkpoint
+
+Reconciled state without replay:
+- PR #44 head before FT007 changes: `d8e48e5345ef9ecc17d14c87575a10c0fe3f2b69`.
+- Supabase migration registry contains exactly one prospective evaluation migration:
+  `20261007145543 phase4_prospective_hda_evaluation`, in addition to
+  `20261007140128 phase4_gate_value_on_model_validation` and
+  `20261007133152 phase4_version_hda_probability_contract`.
+- Railway public deployment `53df51af-b507-40c2-a829-093da394c25f` is SUCCESS,
+  region `sfo`, built from application commit
+  `52102121e2b403eba0e1bd783acadc1b6aa95bf3`.
+- Deployed `app-match-detail` is ACTIVE v45, SHA
+  `945804c1556f322d614c57191d3cadc4144d0e07266166ba094516013f1f421e`.
+  v45 was not replayed. Its exact deployed source was checkpointed back into Git in
+  commit `1d9db76250fccd83135100d2f47a4ce20593626d` so recovery is reproducible.
+
+Prospective HDA evaluation evidence:
+- `PHASE4_HDA_EVAL_V1` uses the latest complete normalized H/D/A snapshot captured
+  at least 30 minutes before kickoff; `source_updated_at` must be null or no later
+  than kickoff. Outcomes come from settled `private.match_results`.
+- Current accepted coverage:
+  - Dixon-Coles: 27 settled matches, one coverage day (2026-09-20), Brier
+    0.190918, RPS 0.216119, log loss 0.959177, top-pick accuracy 55.56%.
+  - Pi: 27 settled matches, one coverage day, Brier 0.218457, RPS 0.244544,
+    log loss 1.127863, top-pick accuracy 51.85%.
+  - INTERNAL_BLEND (the correlated DC/Pi family used by Phase 4): 27 settled
+    matches, one coverage day, Brier 0.202389, RPS 0.227819, log loss 1.013922,
+    top-pick accuracy 59.26%, top calibration gap -0.092630.
+  - Forebet: 52 settled matches across five coverage days (2026-09-16..20),
+    Brier 0.213552, RPS 0.224649, log loss 1.058081, top-pick accuracy 50.00%.
+- These scores are prospective-snapshot/outcome leakage guarded, but model training
+  cutoff cannot be independently verified because the external model-build pipeline
+  is not present in this repository. Every evaluation row therefore has
+  `training_cutoff_verified=false`,
+  `training_cutoff_status=UNVERIFIED_EXTERNAL_MODEL_BUILD` and
+  `release_validation_status=TRAINING_CUTOFF_UNVERIFIED`.
+- Limited capture history is not treated as release-ready calibration evidence.
+
+Representative genuine current value evidence:
+- Public fixture URL:
+  `https://fast-tracker-public-production.up.railway.app/details?id=FB6355`.
+- Canonical fixture `FB6355` remains bound to compatibility-verified POLYMARKET
+  event `1075390`, settlement `SOCCER_90M_1X2_USDC_UNHEDGED`.
+- Latest verified quote lineage at checkpoint:
+  `source_ts=2026-10-07T15:47:01.093Z`,
+  `fetched_at=2026-10-07T15:47:13.52925Z`.
+- Current V4/V3 derived rows:
+  - HOME odds 3.125000; model 0.50741050; de-vig market 0.31372547;
+    calculated edge +19.3685pp; calculated expected ROI +53.3014%.
+  - DRAW odds 3.703704; model 0.28818250; de-vig market 0.26470585;
+    calculated edge +2.3477pp; calculated expected ROI +2.9394%.
+  - AWAY odds 2.325581; model 0.20440700; de-vig market 0.42156868;
+    calculated edge -21.7162pp; calculated expected ROI -53.7935%.
+- All three rows remain `MODEL_VALIDATION_GAP`,
+  `PHASE4_HDA_VALUE_V3`, `PHASE4_HDA_CONSENSUS_V4`,
+  validation `TRAINING_CUTOFF_UNVERIFIED`. These are analysis outputs, not
+  validated opportunities or betting recommendations.
+
+Production acceptance:
+- CI #490 / run `37641474308` live production acceptance step passed 11/11:
+  exact Flashscore identity, FB6355 API lineage, FB6355 rendered value board on
+  desktop 1440x1000 / tablet 1024x1366 / mobile 390x844, confirmed XI/player stats,
+  predicted XI and unknown-not-zero controls.
+- The overall #490 workflow is FAILURE only because the separate mocked local
+  `public-flow.spec.js` suite has 13 legacy UI expectation failures (for example
+  stale `Bet365 HDA`, `Goals 2.5` and test-fixture visibility assertions).
+  This is recorded as an integration-suite debt; it is not represented as a green
+  full-CI result.
+- Lineup/player acceptance therefore remains preserved, including distinct
+  near-name players and predicted/confirmed semantics.
+
+Recovery:
+- Evaluation functions/table: restore V3 consensus from
+  `20261007140500_phase4_gate_value_on_model_validation.sql`; drop only the
+  additive evaluation layer if needed; run `select phase4.refresh_core();`.
+  Raw snapshots/results/quotes are not modified.
+- Edge: deployed v45 is now durably represented by Git commit
+  `1d9db76250fccd83135100d2f47a4ce20593626d`; prior v44 SHA
+  `7095b8e1aee3e52f09c345f4b9d9074b6be8a27a153f14d1ea6d0493602619fa`
+  remains the previous rollback point for the details-lineage era.
+- Railway: deployment `53df51af-b507-40c2-a829-093da394c25f` is the accepted
+  public application deployment for this checkpoint.
+
+Remaining release gaps:
+- Training-data cutoff / model-build lineage is still unverifiable.
+- Internal prospective sample is only 27 matches from one day; Forebet is 52 matches
+  across five days. No release validation threshold has been satisfied.
+- Full CI remains red because the independent mocked local rendered-flow suite is
+  stale/broken relative to the current UI.
+- Full platform release remains incomplete.
+
+Next unfinished outcome:
+- Repair the deterministic local rendered-flow fixtures/assertions to match current
+  provider-neutral UI semantics without weakening evidence checks.
+- Continue notebook-independent ingestion/reliability work using existing authorized
+  providers and scheduled infrastructure; no expanded scraping/provider scope.
