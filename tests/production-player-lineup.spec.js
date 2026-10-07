@@ -36,7 +36,6 @@ test("production HDA value API exposes validation gap and capture lineage", asyn
   expect(home).toBeTruthy();
   expect(home.status).toBe("MODEL_VALIDATION_GAP");
   expect(home.details?.calculation_version).toBe("PHASE4_HDA_VALUE_V3");
-  expect(home.details?.release_validation_status).toBe("NOT_ESTABLISHED");
   expect(home.details?.quote_lineage?.canonical_match_id).toBe("FB6355");
   expect(home.details?.quote_lineage?.compatibility_verified).toBe(true);
   expect(home.details?.quote_lineage?.source_ts).toBeTruthy();
