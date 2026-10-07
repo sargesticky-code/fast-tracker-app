@@ -737,6 +737,7 @@ export default function LineupPanel() {
     const unresolvedIdentityRows = identityAnnotated
       ? sourceRows.filter((r) => factStatus(r) === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
       : [];
+    const unresolvedStarterIdentityRows = unresolvedIdentityRows.filter((r) => r?.starter !== false);
     const identityApprovedRows = identityAnnotated
       ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
       : sourceRows;
@@ -756,7 +757,7 @@ export default function LineupPanel() {
     const awayBench = away.filter((r) => r?.starter === false);
     const status = canonicalFixtureMissing
       ? "IDENTITY_BLOCKED"
-      : unresolvedIdentityRows.length
+      : unresolvedStarterIdentityRows.length
         ? "IDENTITY_PARTIAL"
         : meta?.status
           || (homeStarters.length >= 11 && awayStarters.length >= 11
@@ -789,9 +790,9 @@ export default function LineupPanel() {
     const conflicts = rows.filter((r) => statusNames.has(String(r?.player_name || "").toLowerCase()));
 
     return {
-      rows, sourceRows, unresolvedIdentityRows, canonicalFixtureMissing,
-      unresolvedHome: unresolvedIdentityRows.filter((r) => side(r) === "H").length,
-      unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
+      rows, sourceRows, unresolvedIdentityRows, unresolvedStarterIdentityRows, canonicalFixtureMissing,
+      unresolvedHome: unresolvedStarterIdentityRows.filter((r) => side(r) === "H").length,
+      unresolvedAway: unresolvedStarterIdentityRows.filter((r) => side(r) === "A").length,
       home, away, homeStarters, awayStarters, homeBench, awayBench,
       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
       playerStatus, playerStatusRaw, playerProfiles, playerMatchStats, playerMatchStatsMeta, managers, conflicts, homeStrength, awayStrength,
@@ -806,7 +807,7 @@ export default function LineupPanel() {
   if (!id) return null;
 
   const tone = statusTone(view.status);
-  const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
+  const identityBlocked = view.canonicalFixtureMissing || view.unresolvedStarterIdentityRows.length > 0;
   const lineupPending = view.sourceRows.length === 0;
   const countsUnknown = identityBlocked || lineupPending;
   const ready = !countsUnknown && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
@@ -887,8 +888,8 @@ export default function LineupPanel() {
         {!loading && !ready && view.rows.length === 0 ? (
           <div style={{padding:22}}>
             <div style={{padding:18,border:"1px dashed #cdd9d1",borderRadius:14,background:"#fff"}}>
-              <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedIdentityRows.length ? "Source lineup exists, but player identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
-              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>{view.canonicalFixtureMissing ? "Lineup rows are not promoted while the canonical fixture gate is unresolved." : view.unresolvedIdentityRows.length ? `${view.unresolvedIdentityRows.length} source-confirmed row(s) remain outside confirmed XI counts until canonical player identity resolves.` : "This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions."}</small>
+              <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedStarterIdentityRows.length ? "Source starting XI exists, but starter identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
+              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>{view.canonicalFixtureMissing ? "Lineup rows are not promoted while the canonical fixture gate is unresolved." : view.unresolvedStarterIdentityRows.length ? `${view.unresolvedStarterIdentityRows.length} source starter row(s) remain outside XI counts until canonical player identity resolves.` : "This panel upgrades automatically when predicted or official XI evidence arrives; unresolved bench rows do not block a complete XI, and missing players are never invented to fill positions."}</small>
             </div>
           </div>
         ) : null}
