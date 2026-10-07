@@ -377,7 +377,7 @@ Deno.serve(async(req:Request)=>{
     oneWith(optionalDb,"multisource_consensus_feed_current","*","private"),
     (async()=>{
       const r=await optionalDb.from("value_market_feed_current")
-        .select("match_id,market_key,period_key,line_key,selection_key,provider_id,odds_decimal,effective_odds_decimal,model_prob,market_prob_raw,market_prob_devig,market_overround,probability_edge_pct,expected_roi_pct,model_source_count,quote_age_seconds,status,calculated_at")
+        .select("match_id,market_key,period_key,line_key,selection_key,provider_id,odds_decimal,effective_odds_decimal,model_prob,market_prob_raw,market_prob_devig,market_overround,probability_edge_pct,expected_roi_pct,model_source_count,quote_age_seconds,status,calculated_at,details")
         .eq("match_id",id)
         .in("provider_id",["BET365","POLYMARKET"]);
       return {data:r.data||[],error:cleanError(r.error)};
