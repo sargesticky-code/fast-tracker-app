@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 const BASE_URL = process.env.FAST_TRACKER_PRODUCTION_URL || "https://fast-tracker-public-production.up.railway.app";
 
 const DETAIL_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
+const PHASE1_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed";
 
 test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
   const response = await request.get(`${DETAIL_API_URL}?id=FB6287`, { timeout: 45000 });
@@ -47,6 +48,39 @@ test("production HDA value API exposes validation gap and capture lineage", asyn
   expect(home.details?.release_validation_status).toBe("TRAINING_CUTOFF_UNVERIFIED");
   expect(Number(home.details?.fair_odds_decimal)).toBeGreaterThan(1);
   expect(Number.isFinite(Number(home.probability_edge_pct))).toBe(true);
+});
+
+test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepage", async ({ page, request }) => {
+  const response = await request.get(`${PHASE1_API_URL}?hours=24&view=summary`, { timeout: 45000 });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+
+  expect(body?.source).toBe("canonical-fixtures-flashscore-bet365");
+  expect(body?.systemHealth?.FLASHSCORE_BET365?.status).toBe("OK");
+  const observedAt = Date.parse(body?.systemHealth?.FLASHSCORE_BET365?.observedAt || "");
+  expect(Number.isFinite(observedAt)).toBe(true);
+  expect(Date.now() - observedAt).toBeLessThan(25 * 60 * 1000);
+
+  const matches = Array.isArray(body?.matches) ? body.matches : [];
+  const match = matches.find((row) =>
+    row?.id &&
+    row?.odds?.home != null &&
+    row?.odds?.draw != null &&
+    row?.odds?.away != null &&
+    row?.health?.authorityFreshness === "FRESH"
+  );
+  expect(match).toBeTruthy();
+  expect(match.health?.unifiedCoverageStatus).toBe("FLASHSCORE_BET365");
+  expect(match.health?.missingCanonical1x2).toBe(false);
+  expect(match.health?.authorityFetchedAt).toBeTruthy();
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
+  const row = page.locator(`a[href*="${match.id}"]:visible`).first();
+  await expect(row).toBeVisible({ timeout: 20000 });
+  await expect(row.getByText(match.home, { exact: true })).toBeVisible();
+  await expect(row.getByText(match.away, { exact: true })).toBeVisible();
+  await expect(row.getByText("BET365 HDA", { exact: true })).toBeVisible();
 });
 
 const devices = [
