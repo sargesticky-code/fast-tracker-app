@@ -2,6 +2,29 @@ import { test, expect } from "@playwright/test";
 
 const BASE_URL = process.env.FAST_TRACKER_PRODUCTION_URL || "https://fast-tracker-public-production.up.railway.app";
 
+const DETAIL_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
+
+test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
+  const response = await request.get(`${DETAIL_API_URL}?id=FB6287`, { timeout: 45000 });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  const lineup = body?.humanFactors?.lineup || [];
+
+  const mapped = lineup.find((row) =>
+    row?.player_key === "j7xVIm1h" ||
+    row?.canonical_player_key === "1646522" ||
+    row?.canonical_player_name === "Puso Dithejane"
+  );
+  expect(mapped).toBeTruthy();
+  expect(mapped.identity_status).toBe("CANONICAL");
+  expect(mapped.canonical_player_key).toBe("1646522");
+  expect(mapped.canonical_player_name).toBe("Puso Dithejane");
+  expect(mapped.canonical_identity_method).toBe("EXACT_FLASHSCORE_PLAYER_ID");
+
+  const unresolved = lineup.filter((row) => row?.identity_status === "UNRESOLVED");
+  expect(unresolved.length).toBeGreaterThan(0);
+});
+
 const devices = [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "tablet", width: 1024, height: 1366 },
