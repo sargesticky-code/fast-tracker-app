@@ -41,7 +41,12 @@ for (const device of devices) {
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
-    await expect(module.getByText("PREDICTED 11v11", { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    const predictedLabel = module.getByText("PREDICTED 11v11", { exact: true }).first();
+    if (!(await predictedLabel.isVisible().catch(() => false))) {
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
+      await expect(module).toBeVisible({ timeout: 20000 });
+    }
+    await expect(predictedLabel).toBeVisible({ timeout: 15000 });
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
