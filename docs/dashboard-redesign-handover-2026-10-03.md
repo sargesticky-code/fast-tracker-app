@@ -1052,3 +1052,23 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [ ] CI #446 is the acceptance run for the current UI/test head and must be green before production frontend release.
 - [ ] Next player/lineup outcome after CI: production frontend release + desktop/tablet/mobile verification against the rendered build, then improve remaining canonical player-identity coverage for source-confirmed Flashscore rows without weakening identity thresholds.
 
+### FT-20261007-001 milestone release — 2026-10-07 00:12 UTC
+
+- [x] Player/lineup milestone completed end to end without weakening fixture/player identity.
+- [x] UI commit `f021ccbe925ca6a36887051b499254b6cc1ec554` removed the second lossy provider selection in `LineupPanel`; canonical API rows are rendered directly.
+- [x] UI provenance commit `a17b44199b05573ce3ae258c3542ff235ce17cef` preserves merged `evidence_sources` and labels mixed-provider lineups as `MULTIPLE VERIFIED SOURCES`.
+- [x] `app-match-detail` v39 / Edge SHA `e0dec1152c284e8ae9a5854cf206dd427ae93e4fd31f3e701c167c9c97e01adf`, source commit `bacde8c4f90a04682918b48bf8b05d6c7d32e07f`: dedupe now uses canonical player identity before any provider-local fallback. Unresolved rows are never cross-provider merged by shirt/name similarity.
+- [x] `phase2-fotmob-lineups` v21 first prioritized missing confirmed official identities ahead of predicted/stale profile refreshes. A global profiles-only run wrote 48 exact profiles with 0 failures but FB6401 moved only 0→2 canonical bench rows because the global 48-profile cap was shared.
+- [x] `phase2-fotmob-lineups` v22 / Edge SHA `f4ae0072d3149692b233e288fd2d246c4147690ee36747c1209ae362d3db2067`, source commit `036c4cf25f3a15798f0c8ed35e51add2c2aa51e2`: added safe `profilesOnly=1&matchId=<canonical match id>` targeting. It does not broaden provider scope or use fuzzy player joins; it only fetches exact numeric FotMob player IDs already present in lineup evidence.
+- [x] Targeted FB6401 backfill fetched/wrote 24 exact profiles with 0 failures. Storage acceptance became 26/26 official FotMob bench rows canonical, 0 missing.
+- [x] Real production API acceptance after backfill: FB6401 Argentina v Benin = 48 canonical lineup rows, 22 confirmed starters, 26 confirmed bench, 0 source-confirmed unresolved rows, 22 player performance rows, all 22 joined by `EXACT_FOTMOB_PLAYER_ID`. FB6402 Mexico v Chile remains 22 predicted starters, 0 confirmed and 0 player stats; missing remains unknown.
+- [x] Current coverage after backfill: 5,762 player rows, 2,420 FotMob-linked profiles; at the freshness check there were 54 fixtures in the next 24h, 41 fresh Bet365 rows in 20m, 7 fresh live-score rows in 10m and 4 fresh live-stat rows in 10m.
+- [x] Runtime retirement check: no public-schema base table/view name contains `hkjc`; no active cron job contains `hkjc`; Phase 1, match detail and live-feed tested responses return HTTP 200 with zero literal HKJC.
+- [x] Supabase security advisor after these changes: 0 ERROR and 0 WARN findings.
+- [x] Test commit `36876db71fc4f4aff231c9d7dedd3ef5a1090139` added a mixed-provider canonical lineup regression and a tablet 820×1180 viewport. CI #446 exposed only an over-broad test locator; application/build and 34/35 tests passed. Locator fix was committed as `3b0a7bed05eef1bd60113dc13fde24cf38e04e9f`.
+- [x] Final source head used for release: `036c4cf25f3a15798f0c8ed35e51add2c2aa51e2`. PR Build Verification #453 / run `37550407808` passed every contract/safety check, static build/routes and rendered desktop/tablet/mobile flow.
+- [x] Railway `fast-tracker-public` was pinned to exact tested commit `036c4cf25f3a15798f0c8ed35e51add2c2aa51e2`. Deployment `5c9469a9-ae96-4a1f-b533-685385b84179` reached SUCCESS at 2026-10-07 00:12:03Z; service Online, 1/1 running, 0 crashes, 0 warnings/criticals.
+- [x] Public-domain post-release checks through an external outbound path: `/api/health` HTTP 200 with `{"ok":true,"service":"fast-tracker-public"}`; `/details?id=FB6401` HTTP 200. Opera live-render check could not run because Browser Connector was not enabled, so visual acceptance is the deterministic CI render plus production HTTP/health, not a claimed live-browser screenshot.
+- [x] Recovery point: Railway previous successful deployment was `9d9b4da6-c7ab-4c3a-b3d4-90e7362deccb` at commit `7902e78b3fcbf675baf31980627efb2efdb317d2`; Railway retains rollback capability.
+- [ ] Next outcome: extend exact canonicalization to remaining source-confirmed player/availability rows across other fixtures, then expose/validate versioned HDA fair probability and market-edge coverage on the same traceable match-detail surface. Do not substitute Bet365 for canonical fixture/player identity.
+
