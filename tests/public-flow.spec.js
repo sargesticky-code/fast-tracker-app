@@ -473,6 +473,10 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
   });
 }
 
+function visibleMatchRow(page) {
+  return page.locator('a[href*="FBTEST1"]:visible').first();
+}
+
 test("homepage promotes verified live overlay and shows real live stats", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 820 });
   const feed = fixtureFeed();
@@ -549,16 +553,16 @@ for (const device of [
 
     await page.goto("http://127.0.0.1:4173/");
     await expect(page.getByText("Mathematical Football Predictions and Statistics")).toBeVisible();
-    await expect(page.getByText("Northbridge FC").first()).toBeVisible();
+    await expect(visibleMatchRow(page).getByText("Northbridge FC", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "HDA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Goals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Corners" })).toBeVisible();
-    await expect(page.getByText("Bet365 HDA").first()).toBeVisible();
+    await expect(visibleMatchRow(page).getByText("BET365 HDA", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Goals" }).click();
-    await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
+    await expect(visibleMatchRow(page).getByText("Goals 2.5", { exact: true })).toBeVisible();
     await page.screenshot({ path: `test-results/dashboard-${device.name}-home.png`, fullPage: true });
 
-    const matchLink = page.locator('a[href*="FBTEST1"]').first();
+    const matchLink = visibleMatchRow(page);
     await expect(matchLink).toBeVisible();
     await matchLink.click();
 
@@ -670,7 +674,7 @@ for (const totalsCase of ["populated", "partial", "empty"]) {
 
       await page.goto("http://127.0.0.1:4173/");
       await page.getByRole("button", { name: "Corners" }).click();
-      await page.locator('a[href*="FBTEST1"]').first().click();
+      await visibleMatchRow(page).click();
 
       const totals = page.locator("#market-totals");
       await expect(totals.getByText("Goals and corners", { exact: true })).toBeVisible({ timeout: 10000 });
@@ -729,8 +733,8 @@ for (const stateCase of ["populated", "partial", "empty"]) {
 
       await page.goto("http://127.0.0.1:4173/");
       await page.getByRole("button", { name: "Goals" }).click();
-      await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
-      await page.locator('a[href*="FBTEST1"]').first().click();
+      await expect(visibleMatchRow(page).getByText("Goals 2.5", { exact: true })).toBeVisible();
+      await visibleMatchRow(page).click();
       await expect(page.getByText("Value and price comparison", { exact: true })).toBeVisible({ timeout: 10000 });
       await expect(page.getByText("Recent form comparison", { exact: true })).toBeVisible();
 
@@ -785,10 +789,11 @@ test("article remains readable when English story cache/upstream is unavailable"
   await mockApis(page, { withStory: false, legacyAnalysis: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  const homepageRow = page.locator('a[href*="FBTEST1"]').first();
+  const homepageRow = visibleMatchRow(page);
   await expect(homepageRow.getByText("Northbridge FC", { exact: true })).toBeVisible();
   await expect(homepageRow.getByText("Riverside United", { exact: true })).toBeVisible();
-  await expect(homepageRow.getByText("2-1", { exact: true })).toBeVisible();
+  await expect(homepageRow.locator(".ft-pred-pill")).toHaveText("1");
+  await expect(homepageRow.locator(".ft-goal-number")).toHaveText("2.70");
   await homepageRow.click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
@@ -802,7 +807,7 @@ test("stale market data disables an actionable article price", async ({ page }) 
   await mockApis(page, { stale: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Not current")).toBeVisible();
@@ -814,7 +819,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await mockApis(page, { confirmedLineup: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
@@ -827,7 +832,7 @@ test("post-kickoff historical detail overrides cached prematch price", async ({ 
   await mockApis(page, { historicalDetail: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
   await expect(page.locator("#analysis").getByText("Not current")).toBeVisible();
@@ -840,7 +845,7 @@ test("canonical confirmed player status keeps durable source attribution", async
   await mockApis(page, { playerCase: "confirmed" });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   const article = page.locator("#analysis");
   await article.locator("details.ft-article-deep > summary").click();
@@ -856,7 +861,7 @@ test("source-confirmed player with unresolved identity never becomes a confirmed
   await mockApis(page, { playerCase: "unresolved" });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   const article = page.locator("#analysis");
   await article.locator("details.ft-article-deep > summary").click();
@@ -871,7 +876,7 @@ test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page
   await mockApis(page, { playerCase: "ambiguous" });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   const article = page.locator("#analysis");
   await article.locator("details.ft-article-deep > summary").click();
@@ -885,7 +890,7 @@ test("official source lineup with unresolved player identity remains partial", a
   await mockApis(page, { unresolvedLineup: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Official lineup source confirmed · player identity reconciliation incomplete", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toHaveCount(0);
