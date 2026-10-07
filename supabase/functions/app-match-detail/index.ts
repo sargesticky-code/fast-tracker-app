@@ -260,8 +260,8 @@ Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   if(req.method!=="GET") return Response.json({error:"method_not_allowed"},{status:405,headers:{...cors,"Cache-Control":"no-store"}});
   const url=new URL(req.url);
-  const id=String(url.searchParams.get("id")||"").trim();
-  if(!/^[A-Za-z0-9:_-]{2,80}$/.test(id)){
+  const requestedId=String(url.searchParams.get("id")||"").trim();
+  if(!/^[A-Za-z0-9:_-]{2,80}$/.test(requestedId)){
     return Response.json({error:"invalid_match_id"},{status:400,headers:{...cors,"Cache-Control":"no-store"}});
   }
   const sbUrl=Deno.env.get("SUPABASE_URL")||"",key=serverKey();
@@ -269,6 +269,34 @@ Deno.serve(async(req:Request)=>{
   const db=createReadClient(sbUrl,key);
   const coreDb=createReadClientWithTimeout(sbUrl,key,8_000);
   const optionalDb=createReadClientWithTimeout(sbUrl,key,4_000);
+
+  let id=requestedId;
+  let fixtureRedirect:any=null;
+  try{
+    const redirectResult=await optionalDb.from("fixture_identity_redirects")
+      .select("source_match_id,target_match_id,source_name,confidence,evidence,updated_at")
+      .eq("source_match_id",requestedId)
+      .eq("active",true)
+      .gte("confidence",0.99)
+      .order("confidence",{ascending:false})
+      .limit(2);
+    if(!redirectResult.error && Array.isArray(redirectResult.data) && redirectResult.data.length===1){
+      const row=redirectResult.data[0];
+      const target=String(row?.target_match_id||"").trim();
+      if(target && target!==requestedId){
+        id=target;
+        fixtureRedirect={
+          requestedMatchId:requestedId,
+          canonicalMatchId:target,
+          source:row?.source_name||null,
+          confidence:Number(row?.confidence)||null,
+          updatedAt:row?.updated_at||null,
+          evidence:row?.evidence||null
+        };
+      }
+    }
+  }catch(e){console.error("detail_fixture_redirect_failed",e);}
+
   let summaryFixture:any=null;
   try{summaryFixture=await readSummaryFixture(sbUrl,id);}catch(e){console.error("detail_summary_authority_failed",e);}
 
@@ -498,6 +526,8 @@ Deno.serve(async(req:Request)=>{
   const publicDetail=englishDetailPayload({
     generatedAt:new Date().toISOString(),
     id,
+    requestedId,
+    redirect:fixtureRedirect,
     fixture:fixture.data,
     fixtureSource,
     models:{
