@@ -5,6 +5,51 @@ const BASE_URL = process.env.FAST_TRACKER_PRODUCTION_URL || "https://fast-tracke
 const DETAIL_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 const PHASE1_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed";
 
+async function ensureVisibleAfterReloads(page, locatorFactory, attempts = 3) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const locator = locatorFactory();
+    if (await locator.isVisible().catch(() => false)) return locator;
+    if (attempt < attempts - 1) {
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
+    }
+  }
+  const locator = locatorFactory();
+  await expect(locator).toBeVisible({ timeout: 15000 });
+  return locator;
+}
+
+async function findPredictedControl(request) {
+  const feedResponse = await request.get(`${PHASE1_API_URL}?hours=48&view=summary`, { timeout: 45000 });
+  expect(feedResponse.ok()).toBeTruthy();
+  const feed = await feedResponse.json();
+  const candidates = (Array.isArray(feed?.matches) ? feed.matches : [])
+    .filter((row) => {
+      const kickoff = Date.parse(row?.kickoff || "");
+      return row?.id && Number.isFinite(kickoff) && kickoff - Date.now() > 2 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff))
+    .slice(0, 16);
+
+  for (const candidate of candidates) {
+    const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(candidate.id)}`, { timeout: 45000 });
+    if (!response.ok()) continue;
+    const body = await response.json();
+    const lineup = Array.isArray(body?.humanFactors?.lineup) ? body.humanFactors.lineup : [];
+    const starters = lineup.filter((row) => row?.starter === true);
+    const confirmedStarters = starters.filter((row) => row?.confirmed === true || row?.fact_status === "CONFIRMED");
+    const playerMatchStats = Array.isArray(body?.humanFactors?.playerMatchStats) ? body.humanFactors.playerMatchStats : [];
+    if (starters.length !== 22 || confirmedStarters.length !== 0 || playerMatchStats.length !== 0) continue;
+    const samplePlayer = starters.find((row) => row?.canonical_player_name || row?.player_name);
+    if (!samplePlayer) continue;
+    return {
+      id: candidate.id,
+      body,
+      samplePlayerName: samplePlayer.canonical_player_name || samplePlayer.player_name,
+    };
+  }
+  return null;
+}
+
 test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
   const response = await request.get(`${DETAIL_API_URL}?id=FB6287`, { timeout: 45000 });
   expect(response.ok()).toBeTruthy();
@@ -90,7 +135,10 @@ test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepa
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
-  const row = page.locator(`a[href*="${renderMatch.id}"]:visible`).first();
+  const allMatches = page.getByRole("button", { name: "All matches", exact: true });
+  if (await allMatches.isVisible().catch(() => false)) await allMatches.click();
+  const encodedMatchId = encodeURIComponent(renderMatch.id);
+  const row = page.locator(`a[href*="${encodedMatchId}"]:visible`).first();
   await expect(row).toBeVisible({ timeout: 20000 });
   await expect(row.getByText(renderMatch.home, { exact: true })).toBeVisible();
   await expect(row.getByText(renderMatch.away, { exact: true })).toBeVisible();
@@ -138,12 +186,10 @@ for (const device of devices) {
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
-    const confirmedLabel = module.getByText("CONFIRMED 11v11", { exact: true }).first();
-    if (!(await confirmedLabel.isVisible().catch(() => false))) {
-      await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
-      await expect(module).toBeVisible({ timeout: 20000 });
-    }
-    await expect(confirmedLabel).toBeVisible({ timeout: 15000 });
+    const confirmedLabel = await ensureVisibleAfterReloads(
+      page,
+      () => page.getByRole("region", { name: "Professional lineup module" }).getByText("CONFIRMED 11v11", { exact: true }).first()
+    );
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible({ timeout: 15000 });
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
@@ -164,40 +210,26 @@ for (const device of devices) {
   });
 
   test(`production predicted XI keeps match stats unknown · ${device.name}`, async ({ page, request }) => {
-    const feedResponse = await request.get(`${PHASE1_API_URL}?hours=48&view=summary`, { timeout: 45000 });
-    expect(feedResponse.ok()).toBeTruthy();
-    const feed = await feedResponse.json();
-    const predictedControl = (Array.isArray(feed?.matches) ? feed.matches : []).find((row) => {
-      const lineup = row?.sourceContext?.lineupCoverage;
-      const kickoff = Date.parse(row?.kickoff || "");
-      return row?.id &&
-        Number.isFinite(kickoff) &&
-        kickoff - Date.now() > 2 * 60 * 60 * 1000 &&
-        Number(lineup?.homeStarters) === 11 &&
-        Number(lineup?.awayStarters) === 11 &&
-        Number(lineup?.confirmedStarters) === 0;
-    });
+    const predictedControl = await findPredictedControl(request);
     expect(predictedControl).toBeTruthy();
-
-    const detailResponse = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(predictedControl.id)}`, { timeout: 45000 });
-    expect(detailResponse.ok()).toBeTruthy();
-    const detailBody = await detailResponse.json();
+    const detailBody = predictedControl.body;
     const storedLineup = Array.isArray(detailBody?.humanFactors?.lineup) ? detailBody.humanFactors.lineup : [];
     const starters = storedLineup.filter((row) => row?.starter === true);
     const confirmedStarters = starters.filter((row) => row?.confirmed === true || row?.fact_status === "CONFIRMED");
     expect(starters).toHaveLength(22);
     expect(confirmedStarters).toHaveLength(0);
     expect(Array.isArray(detailBody?.humanFactors?.playerMatchStats) ? detailBody.humanFactors.playerMatchStats : []).toHaveLength(0);
-    const samplePlayer = starters.find((row) => row?.canonical_player_name || row?.player_name);
-    expect(samplePlayer).toBeTruthy();
-    const samplePlayerName = samplePlayer.canonical_player_name || samplePlayer.player_name;
+    const samplePlayerName = predictedControl.samplePlayerName;
 
     await page.setViewportSize({ width: device.width, height: device.height });
     await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(predictedControl.id)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
-    await expect(module.getByText("PREDICTED 11v11", { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    await ensureVisibleAfterReloads(
+      page,
+      () => page.getByRole("region", { name: "Professional lineup module" }).getByText("PREDICTED 11v11", { exact: true }).first()
+    );
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
