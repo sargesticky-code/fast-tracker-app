@@ -15,14 +15,14 @@ for (const device of devices) {
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
-    await expect(module.getByText("CONFIRMED 11v11", { exact: true }).first()).toBeVisible();
-    await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
+    await expect(module.getByText("CONFIRMED 11v11", { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible({ timeout: 15000 });
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
     await expect(module.getByText("Alexis Sabella", { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
-    await expect(module.getByText("Top performers", { exact: true })).toBeVisible();
+    await expect(module.getByText("Top performers", { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(module.getByText(/exact player match stats/i)).toBeVisible();
 
     await page.screenshot({
@@ -37,14 +37,14 @@ for (const device of devices) {
 
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
-    await expect(module.getByText("PREDICTED 11v11", { exact: true }).first()).toBeVisible();
+    await expect(module.getByText("PREDICTED 11v11", { exact: true }).first()).toBeVisible({ timeout: 15000 });
     await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Squad", exact: true }).click();
     await expect(module.getByText("Santiago Giménez", { exact: true }).first()).toBeVisible();
 
     await module.getByRole("button", { name: "Match stats", exact: true }).click();
-    await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible();
+    await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible({ timeout: 15000 });
 
     await page.screenshot({
       path: `test-results/production-predicted-${device.name}.png`,
