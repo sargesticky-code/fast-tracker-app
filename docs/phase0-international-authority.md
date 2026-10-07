@@ -539,3 +539,35 @@ production path.
 Do not weaken the identity rule merely to increase coverage. The next coverage
 work should resolve the 48 staging rows through reviewed aliases/fixture identity
 evidence, then extend markets beyond HDA where the upstream data is stable.
+
+## FT-20261007-001 reconciliation — player/lineup milestone
+
+The active production foundation is now provider-neutral at the named-object/job layer:
+there are no public base-table/view names containing `hkjc` and no active cron jobs
+containing `hkjc`. Historical provenance and compatibility fields may remain inside
+records, but they are not current source authority.
+
+Real current coverage measured during this checkpoint:
+- 5,642 canonical player rows;
+- 2,300 FotMob-linked profiles;
+- 169 matches with lineup evidence in the last 72h;
+- 149 matches with confirmed starter evidence;
+- 84 matches with availability evidence;
+- 37 FotMob match-detail payloads carrying playerStats;
+- current bookmaker/live freshness remained populated at measurement time.
+
+The match-detail API had already advanced beyond the earlier handover: it canonicalizes
+provider lineup evidence, deduplicates shared observations, preserves provider provenance,
+and joins player performance only by exact FotMob player id. Real acceptance:
+`FB6401` Argentina v Benin = 22 confirmed starters + 26 bench + 22 exact player-stat
+joins; `FB6402` Mexico v Chile = 22 predicted starters + 30 bench + 0 invented stats.
+
+The remaining presentation defect was frontend re-selection by provider after the API
+had already canonicalized the rows. Commit `f021ccbe925ca6a36887051b499254b6cc1ec554`
+removes that lossy second selection. Commit
+`36876db71fc4f4aff231c9d7dedd3ef5a1090139` adds mixed-provider lineup regression
+coverage and a tablet rendered-flow viewport alongside desktop/mobile.
+
+Do not replace fixture identity with Bet365 identity. Bet365 remains a bookmaker/price
+source; canonical fixture/player identity stays provider-neutral and fail-closed.
+
