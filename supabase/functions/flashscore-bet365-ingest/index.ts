@@ -211,7 +211,7 @@ Deno.serve(async () => {
 
     if (directProviderMatch && strictRedirectCandidates.length === 1) {
       const target=strictRedirectCandidates[0];
-      identity = "REDIRECTED_EXISTING";
+      identity = "EXACT_EXISTING";
       canonical = String(target.match_id);
       fixtureExactExisting++;
       redirects.push({
