@@ -485,10 +485,18 @@ Deno.serve(async(req:Request)=>{
       const name=row?.canonical_player_name||row?.player_name||row?.player_key||"";
       const canonicalIdentity=String(row?.canonical_player_identity||"").trim();
       const sourceName=String(row?.source_name||"UNKNOWN").trim();
+      const sourceUpper=sourceName.toUpperCase();
       const providerPlayerKey=String(row?.player_key||"").trim();
-      const identity=canonicalIdentity
-        ? "CANONICAL|"+String(row?.team_side||"")+"|"+canonicalIdentity
-        : "UNRESOLVED|"+String(row?.team_side||"")+"|"+sourceName+"|"+(providerPlayerKey||norm(name));
+      const shirt=Number(row?.shirt_number);
+      const officialConfirmed=Boolean(row?.confirmed)
+        && (sourceUpper==="FOTMOB_OFFICIAL"||sourceUpper==="FLASHSCORE_OFFICIAL")
+        && Number.isFinite(shirt)
+        && shirt>0;
+      const identity=officialConfirmed
+        ? "OFFICIAL_ROSTER|"+String(row?.team_side||"")+"|"+(row?.starter?"STARTER":"BENCH")+"|"+String(shirt)
+        : canonicalIdentity
+          ? "CANONICAL|"+String(row?.team_side||"")+"|"+canonicalIdentity
+          : "UNRESOLVED|"+String(row?.team_side||"")+"|"+sourceName+"|"+(providerPlayerKey||norm(name));
       if(!canonicalIdentity && !providerPlayerKey && !norm(name))continue;
       const current=byIdentity.get(identity);
       const sources=[...new Set([
