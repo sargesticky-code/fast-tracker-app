@@ -440,7 +440,7 @@ Deno.serve(async (req:Request)=>{
 
     });
     const profileCandidates=(await db.from("lineup_evidence_current")
-      .select("player_key,player_name,team_key,role,starter,source_updated_at")
+      .select("player_key,player_name,team_key,role,starter,confirmed,source_name,source_updated_at")
       .in("match_id",ids)
       .in("source_name",["FOTMOB_OFFICIAL","FOTMOB_PREDICTED"])
       .order("starter",{ascending:false})
@@ -476,6 +476,9 @@ Deno.serve(async (req:Request)=>{
       .filter((x:any)=>x.missing||x.stale)
       .sort((a:any,b:any)=>{
         if(a.missing!==b.missing)return a.missing?-1:1;
+        const aOfficialMissing=a.missing && a.row?.confirmed===true && String(a.row?.source_name||"").toUpperCase()==="FOTMOB_OFFICIAL";
+        const bOfficialMissing=b.missing && b.row?.confirmed===true && String(b.row?.source_name||"").toUpperCase()==="FOTMOB_OFFICIAL";
+        if(aOfficialMissing!==bOfficialMissing)return aOfficialMissing?-1:1;
         if(Boolean(a.row?.starter)!==Boolean(b.row?.starter))return a.row?.starter?-1:1;
         return a.ts-b.ts;
       })
