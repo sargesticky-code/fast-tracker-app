@@ -455,11 +455,13 @@ Deno.serve(async(req:Request)=>{
       +(String(row?.source_name||"").toUpperCase().startsWith("FOTMOB")?5:0);
     for(const row of lineupsWithMatchStats){
       const name=row?.canonical_player_name||row?.player_name||row?.player_key||"";
-      const shirt=Number(row?.shirt_number);
-      const identity=Number.isFinite(shirt)
-        ? String(row?.team_side||"")+"|#"+String(shirt)
-        : String(row?.team_side||"")+"|"+norm(name);
-      if(!identity||identity==="|")continue;
+      const canonicalIdentity=String(row?.canonical_player_identity||"").trim();
+      const sourceName=String(row?.source_name||"UNKNOWN").trim();
+      const providerPlayerKey=String(row?.player_key||"").trim();
+      const identity=canonicalIdentity
+        ? "CANONICAL|"+String(row?.team_side||"")+"|"+canonicalIdentity
+        : "UNRESOLVED|"+String(row?.team_side||"")+"|"+sourceName+"|"+(providerPlayerKey||norm(name));
+      if(!canonicalIdentity && !providerPlayerKey && !norm(name))continue;
       const current=byIdentity.get(identity);
       const sources=[...new Set([
         ...(current?.evidence_sources||[]),
