@@ -1285,6 +1285,10 @@ export default function MatchDetailClient() {
   const phase4CalculationVersion = String(bestValue?.details?.calculation_version || "");
   const phase4QuoteSourceAt = bestValue?.details?.quote_lineage?.source_ts || null;
   const phase4ModelCalculatedAt = bestValue?.details?.model_lineage?.consensus_calculated_at || null;
+  const phase4Evaluation = bestValue?.details?.model_lineage?.evaluation_evidence?.internal_blend || null;
+  const phase4EvaluationMatches = Number(phase4Evaluation?.settled_matches || 0);
+  const phase4EvaluationVersion = String(phase4Evaluation?.evaluation_version || "");
+  const phase4TrainingCutoff = String(phase4Evaluation?.training_cutoff_status || "");
   const phase4Status = bestValue
     ? (!phase4Fresh
       ? "STALE QUOTE"
@@ -2085,6 +2089,8 @@ export default function MatchDetailClient() {
           {phase4QuoteSourceAt ? " Quote captured " + formatUpdated(phase4QuoteSourceAt) + "." : ""}
           {phase4ModelCalculatedAt ? " Model consensus calculated " + formatUpdated(phase4ModelCalculatedAt) + "." : ""}
           {phase4ValidationReason ? " " + phase4ValidationReason : ""}
+          {phase4EvaluationVersion ? " Evaluation " + phase4EvaluationVersion + ": " + phase4EvaluationMatches + " settled internal-blend matches." : ""}
+          {phase4TrainingCutoff ? " Training cutoff " + phase4TrainingCutoff.replaceAll("_", " ") + "." : ""}
           {" "}Arbitrage requires simultaneously available, settlement-compatible prices across distinct providers. Automatic execution remains off and fail-closed.
         </p>
       </section>
