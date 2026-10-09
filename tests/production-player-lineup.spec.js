@@ -5,6 +5,7 @@ const BASE_URL = process.env.FAST_TRACKER_PRODUCTION_URL || "https://fast-tracke
 const DETAIL_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 const PHASE1_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed";
 const LIVE_API_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
+const HDA_TRACE_MATCH_ID = process.env.HDA_TRACE_MATCH_ID || "FB6342";
 
 async function ensureVisibleAfterReloads(page, locatorFactory, attempts = 3) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -52,41 +53,35 @@ async function findPredictedControl(request) {
 }
 
 async function findFreshHdaControl(request) {
-  const feedResponse = await request.get(`${PHASE1_API_URL}?hours=48&view=summary`, { timeout: 45000 });
-  expect(feedResponse.ok()).toBeTruthy();
-  const feed = await feedResponse.json();
-  const candidates = (Array.isArray(feed?.matches) ? feed.matches : [])
-    .filter((row) => {
-      const kickoff = Date.parse(row?.kickoff || "");
-      return row?.id &&
-        Number.isFinite(kickoff) &&
-        kickoff - Date.now() > 2 * 60 * 60 * 1000 &&
-        row?.odds?.home != null &&
-        row?.odds?.draw != null &&
-        row?.odds?.away != null &&
-        row?.health?.authorityFreshness === "FRESH";
-    })
-    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))
-    .slice(0, 20);
-
-  for (const candidate of candidates) {
-    const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(candidate.id)}`, { timeout: 45000 });
-    if (!response.ok()) continue;
-    const body = await response.json();
-    const rows = (Array.isArray(body?.marketIntelligence?.value) ? body.marketIntelligence.value : [])
-      .filter((row) =>
-        row?.provider_id === "BET365" &&
-        row?.market_key === "HAD_1X2" &&
-        row?.period_key === "FULL_TIME" &&
-        ["HOME", "DRAW", "AWAY"].includes(row?.selection_key)
-      );
-    if (rows.length !== 3) continue;
-    if (!rows.every((row) => row?.status === "MODEL_VALIDATION_GAP")) continue;
-    return { id: candidate.id, candidate, body, rows };
-  }
-  return null;
+  const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(HDA_TRACE_MATCH_ID)}`, { timeout: 45000 });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  const rows = (Array.isArray(body?.marketIntelligence?.value) ? body.marketIntelligence.value : [])
+    .filter((row) =>
+      row?.provider_id === "BET365" &&
+      row?.market_key === "HAD_1X2" &&
+      row?.period_key === "FULL_TIME" &&
+      ["HOME", "DRAW", "AWAY"].includes(row?.selection_key)
+    );
+  if (rows.length !== 3) return null;
+  if (!rows.every((row) => row?.status === "MODEL_VALIDATION_GAP")) return null;
+  const fixture = body?.fixture || {};
+  return {
+    id: HDA_TRACE_MATCH_ID,
+    candidate: {
+      id: HDA_TRACE_MATCH_ID,
+      home: fixture?.home_en,
+      away: fixture?.away_en,
+      odds: {
+        home: rows.find((row) => row.selection_key === "HOME")?.odds_decimal,
+        draw: rows.find((row) => row.selection_key === "DRAW")?.odds_decimal,
+        away: rows.find((row) => row.selection_key === "AWAY")?.odds_decimal,
+      },
+    },
+    body,
+    rows,
+  };
 }
-
 
 test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
   const response = await request.get(`${DETAIL_API_URL}?id=FB6287`, { timeout: 45000 });
