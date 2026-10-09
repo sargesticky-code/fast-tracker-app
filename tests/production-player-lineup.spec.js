@@ -110,7 +110,7 @@ async function findFreshHdaControl(request) {
 
 test("Flashscore full-match statistics are source-observed in API and rendered detail", async ({ page, request }) => {
   test.setTimeout(90000);
-  const matchId = "FS:KQgeW0tJ"; // Vejle v Hvidovre: exact canonical Flashscore identity
+  const matchId = "FS:8bQaZET8"; // source-backed exact Flashscore fixture; full-match stats captured 2026-10-09T20:42:14.549Z
   const res = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(matchId)}`, { timeout: 45000 });
   expect(res.ok()).toBeTruthy();
   const detail = await res.json();
