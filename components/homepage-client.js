@@ -444,6 +444,10 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
       <div className="ft-table-body">
         {matches.length ? matches.map((match) => {
           const model = normalizedTriplet(match);
+          // Real bookmaker-implied probability is useful when no independent
+          // model exists; display it as market evidence, never as a prediction.
+          const marketImplied = !model && !match.liveNow ? fairMarket(match.odds) : null;
+          const displayProb = model || marketImplied;
           const edge = match.liveNow ? null : valueEdge(match);
           const market = match.market || fairMarket(match.odds);
           const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
@@ -473,7 +477,10 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                   </small>
                 </div>
               </div>
-              <div className="ft-probs"><ProbabilityStrip model={model} /></div>
+              <div className="ft-probs">
+                <ProbabilityStrip model={displayProb} />
+                {marketImplied && <small title="Derived from current Bet365 H/D/A odds, not an independent model prediction" style={{display:"block",fontSize:10,opacity:0.8}}>Market implied · no model</small>}
+              </div>
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
@@ -524,6 +531,8 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
 function FeaturedMatch({ match }) {
   if (!match) return null;
   const model = normalizedTriplet(match);
+  const marketImplied = !model && !match.liveNow ? fairMarket(match.odds) : null;
+  const displayProb = model || marketImplied;
   const edge = valueEdge(match);
   return (
     <section className="ft-right-card">
@@ -533,7 +542,8 @@ function FeaturedMatch({ match }) {
           <small>{englishLeagueName(match)} · {formatKickoff(match.kickoff)}</small>
           <strong>{match.home || match.homeZh}</strong>
           <span>{match.away || match.awayZh}</span>
-          <ProbabilityStrip model={model} />
+          <ProbabilityStrip model={displayProb} />
+          {marketImplied && <small title="Current bookmaker-implied probability, not a model forecast">Market implied · no model</small>}
           <div className="ft-featured-meta">
             <span>Pick <b>{sideFromTriplet(model)}</b></span>
             <span>Edge <b>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</b></span>
