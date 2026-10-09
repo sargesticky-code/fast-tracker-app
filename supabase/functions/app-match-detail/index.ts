@@ -388,7 +388,7 @@ Deno.serve(async(req:Request)=>{
     manyWith(optionalDb,"player_status_evidence_current"),
     manyWith(optionalDb,"lineup_strength_feed_current"),
     manyWith(optionalDb,"manager_evidence_current"),
-    oneWith(optionalDb,"multisource_consensus_feed_current","*","private"),
+    oneWith(optionalDb,"multisource_consensus_feed_current","*"),
     manyWith(optionalDb,"arb_market_feed_current"),
     (async()=>{
       const r=await optionalDb.from("arb_watch_feed_current")
@@ -396,7 +396,7 @@ Deno.serve(async(req:Request)=>{
         .eq("match_id",id).maybeSingle();
       return {data:r.data||null,error:cleanError(r.error)};
     })(),
-    manyWith(coreDb,"prediction_evidence_feed_current","*","private"),
+    manyWith(coreDb,"prediction_evidence_feed_current","*"),
     oneWith(coreDb,"model_prediction_current","match_id,fetched_at,home,away,model_league,model_home_name,model_away_name,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,updated_at"),
     oneWith(coreDb,"form_prediction_current","match_id,fetched_at,home,away,form_prob_home,form_prob_draw,form_prob_away,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,updated_at"),
   ]);
