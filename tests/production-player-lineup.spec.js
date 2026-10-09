@@ -399,7 +399,8 @@ const FT014_AUDIT_FIXTURES = [
 function publicLineupSummary(body) {
   const lineup = Array.isArray(body?.humanFactors?.lineup) ? body.humanFactors.lineup : [];
   const starters = lineup.filter((row) => row?.starter === true);
-  const confirmedStarters = starters.filter((row) => row?.confirmed === true || row?.fact_status === "CONFIRMED");
+  const confirmedStarters = starters.filter((row) => row?.fact_status === "CONFIRMED");
+  const sourceConfirmedStarters = starters.filter((row) => row?.confirmed === true);
   const unresolvedConfirmed = starters.filter((row) => row?.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
   const stats = Array.isArray(body?.humanFactors?.playerMatchStats) ? body.humanFactors.playerMatchStats : [];
   const starterKeys = starters.map((row) => [
