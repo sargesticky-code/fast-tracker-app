@@ -334,7 +334,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
   }
 
   const [evidenceResult,modelResult,lineupResult,sourceDetailResult]=await Promise.all([
-    db.schema("private")
+    db
       .from("prediction_evidence_feed_current")
       .select("match_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
       .in("match_id",ids),
@@ -675,6 +675,21 @@ Deno.serve(async (req: Request) => {
         },
         matches:directMatches,
       },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
+    }
+
+    // FT-20261009 P0: the generic RPC currently delegates to the removed
+    // ft_internal_app_phase1_feed(integer) function (Postgres 42883).
+    // Avoid that deterministic failure/timeout while preserving real canonical
+    // evidence and explicit unknowns through the existing safe recovery path.
+    // Re-enable this legacy RPC branch only after its SQL dependency is repaired
+    // and an end-to-end production contract has been verified.
+    if (Deno.env.get("FT_PHASE1_USE_GENERIC_RPC") !== "1") {
+      const recovered = await lightweightFullRecovery(
+        supabaseUrl, serverKey, createReadClientWithTimeout(supabaseUrl, serverKey, 8_000), hours
+      );
+      return Response.json(recovered, {
+        headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
+      });
     }
 
     const { data, error } = await fullRpcDb.rpc("ft_internal_app_phase1_feed_generic", {
