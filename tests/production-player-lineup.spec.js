@@ -184,6 +184,9 @@ test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepa
   );
   const renderMatch = pricedMatch || matches.find((row) => row?.id);
   expect(renderMatch).toBeTruthy();
+  // Production must fail acceptance when the All-in-One table has no
+  // publishable Flashscore HDA; a green CI with blank odds is not success.
+  expect(pricedMatch, "Fresh verified Flashscore odds are required for live table acceptance").toBeTruthy();
 
   if (pricedMatch) {
     expect(pricedMatch.health?.unifiedCoverageStatus).toBe("FLASHSCORE_BET365");
@@ -210,11 +213,15 @@ test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepa
   await expect(row).toBeVisible({ timeout: 20000 });
   await expect(row.getByText(renderMatch.home, { exact: true })).toBeVisible();
   await expect(row.getByText(renderMatch.away, { exact: true })).toBeVisible();
-  await expect(row.getByText("BET365 HDA", { exact: true })).toBeVisible();
-  if (!pricedMatch) {
-    const oddsText = await row.locator(".ft-market-odds").innerText();
-    expect(oddsText).not.toMatch(/\b[HDA]\s+\d+\.\d+/);
+  const marketCells = row.locator(".ft-market-odds > div > span");
+  await expect(row.locator(".ft-market-odds small")).toContainText("Flashscore");
+  await expect(row.locator(".ft-market-odds small")).toContainText("Bet365 HDA");
+  await expect(marketCells).toHaveCount(3);
+  for (const [index, key, label] of [[0, "home", "H"], [1, "draw", "D"], [2, "away", "A"]]) {
+    await expect(marketCells.nth(index)).toContainText(label);
+    await expect(marketCells.nth(index)).toContainText(Number(pricedMatch.odds[key]).toFixed(2));
   }
+  await page.screenshot({ path: "test-results/production-all-in-one-flashscore-hda.png", fullPage: true });
 });
 
 
