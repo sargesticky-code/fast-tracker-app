@@ -1075,3 +1075,48 @@ Current unresolved blockers / next action:
 - Predicted-XI blocker: provider/data availability. Need a genuinely future fixture with 22 persisted starters, explicitly predicted/unconfirmed, zero confirmed starters, and zero player-match stats. Until such data exists, the three predicted acceptance assertions must remain red.
 - Current HDA blocker is data/model qualification surface availability, not homepage live rendering: ingestion is healthy but phase4_value_api currently exposes no complete BET365 HDA rows. Missing HDA remains unknown and no stale/synthetic row is promoted.
 - The broader fixture audit and three-cycle ingestion milestone were not started.
+
+## FT-20261009-013 — restore trustworthy future predicted-lineup coverage from existing provider path
+
+### Reconciliation
+- PR #44 started at exact head `13947452a2f5f317a7bd0a7d1e828e28f3ee69a5`, open/draft/mergeable. No workflow existed after CI #523 at assignment start.
+- FT-012 deployment claims reconciled as current: `app-live-feed` v19 remained active and the public Railway service remained on the successful FT-012 deployment path. No FT-013 application deployment was needed.
+
+### Existing provider path traced
+- Production predicted-lineup source is `phase2-fotmob-lineups` (cron job 36, `22,52 * * * *`). Flashscore lineup scout jobs 32/33 are existing official-lineup upgrade paths only: their parser emits `FLASHSCORE_OFFICIAL`, `confirmed=true`, and therefore are not a predicted-XI source.
+- FotMob health at `2026-10-09T02:22:05.624Z`: matched 92 canonical fixtures, picked 16, detailOk 16, detailFail 0, lineupFound 0, promotedMatches 0, predictedMatches 0, confirmedMatches 0.
+- This establishes successful provider reachability and fixture matching while the selected upcoming provider detail payloads themselves contained no usable lineup.
+
+### Representative provider/data blocker control
+- Canonical fixture: `FS:l2OiWEbt` — Daejeon vs Jeonbuk, kickoff `2026-10-09T05:00:00Z`.
+- FotMob event `5140042`; source names Daejeon Hana Citizen vs Jeonbuk Hyundai Motors FC; match confidence `0.96`; identity status `TOKEN_PAIR`.
+- Fresh FotMob detail fetched `2026-10-09T02:22:03.573Z`; `detail_available=true`, `lineup_available=false`, and `content.lineup` is null.
+- Persisted `lineup_evidence_current` rows for this future fixture: 0; starters: 0; confirmed starters: 0.
+- `ft_internal_app_match_detail_critical('FS:l2OiWEbt')` returns the canonical fixture and fresh source detail with `lineups: []`. Player match stats are not promoted from missing lineup evidence.
+- Flashscore also had source-match detail for the same canonical fixture, but its production lineup promotion semantics are official-only and it does not manufacture predicted starters.
+
+### Public rendering proof
+- Added a separate production fail-closed check without changing the original predicted-XI acceptance. The check dynamically selects a genuine future fixture whose public match-detail API returns an empty lineup and empty player-match stats.
+- Expected public state is `Waiting for reliable 11v11 lineups` with unknown counts `—/11 home · —/11 away · lineup pending`; neither `PREDICTED 11v11` nor `CONFIRMED 11v11` may appear.
+- Commit `f3463baa630413d536d96ec5077f95856b290955` added the proof. CI #524 / run `37875145730` exposed that the initial proof incorrectly expected zero counts rather than unknown counts; product UI was already correct.
+- Commit `a7914fe18e480683d935e4d30a0ad3f335032463` aligned the proof with the existing unknown-count semantics. No product logic was changed.
+
+### Exact application/test-head acceptance
+- CI #525 / run `37875572397`, rerun on exact head `a7914fe18e480683d935e4d30a0ad3f335032463`:
+  - build/static/provider/safety/evidence/player-identity checks PASS;
+  - mocked `public-flow.spec.js`: 35/35 PASS;
+  - real production: 13/16 PASS, 3 FAIL;
+  - live rendering PASS;
+  - HDA API + desktop/tablet/mobile HDA board PASS; model release gates remain unchanged;
+  - confirmed XI + player stats PASS desktop/tablet/mobile;
+  - missing future lineup remains unknown PASS desktop/tablet/mobile;
+  - only failures are predicted XI desktop/tablet/mobile because `findPredictedControl` returns null.
+
+### Outcome / blocker
+- No ingestion, promotion, API-selection, or rendering defect was found in the existing predicted-lineup path.
+- The current blocking layer is provider availability: fresh FotMob match detail is present for correctly mapped future fixtures, but no complete predicted 11v11 is currently published in the provider payload.
+- Historical hourly metrics show predicted-full coverage existed earlier, which is consistent with provider timing rather than a permanently broken parser: predicted_full reached 6 in earlier hourly buckets before the current future window moved on.
+- Required human action / next action: wait for an existing authorized provider refresh to encounter a future fixture where FotMob actually publishes 11+11 predicted starters, then re-run the unchanged predicted-XI acceptance. Do not relabel Flashscore official rows, confirmed FotMob rows, or empty detail as predicted.
+- No credentials, spend, migrations, provider additions, scraping expansion, database writes, Edge deployment, Railway deployment, HDA repair, broad fixture audit, or three-cycle ingestion milestone were performed.
+
+Last completed operation before this checkpoint: exact-head CI #525 rerun completed with 13/16 real-production checks passing and only the three genuine predicted-XI controls red.
