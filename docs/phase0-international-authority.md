@@ -1120,3 +1120,59 @@ Current unresolved blockers / next action:
 - No credentials, spend, migrations, provider additions, scraping expansion, database writes, Edge deployment, Railway deployment, HDA repair, broad fixture audit, or three-cycle ingestion milestone were performed.
 
 Last completed operation before this checkpoint: exact-head CI #525 rerun completed with 13/16 real-production checks passing and only the three genuine predicted-XI controls red.
+
+## FT-20261009-014 / R1 — first usable release fixture coverage audit
+
+### Exact tested state
+- Tested application/test head: `418d09cd7bc6a34ae44ed42d3cc579733528b2c6`.
+- CI: #535 / run `37881891681`.
+- Build/static/provider/safety/evidence/player-identity steps: PASS.
+- Mocked public flow: 35/35 PASS.
+- Real production suite: 25/34 PASS, 9 FAIL overall.
+- All 18 FT-014 fixture-audit checks PASS: 6 real fixtures x desktop/tablet/mobile.
+- The nine non-FT014 failures were: 4 separate HDA checks, 3 standing predicted-XI controls with no genuine future predicted 11v11, plus the pre-existing generic confirmed-XI tablet and generic missing-lineup tablet checks. FT-014 did not change HDA, MODEL_VALIDATION_GAP, or TRAINING_CUTOFF_UNVERIFIED.
+
+### Durable inventory artifacts
+- `docs/ft014-upcoming-48h-inventory.csv`: 213 upcoming canonical fixtures.
+  - 207 represented by `phase2_lineup_coverage_current`, all `MISSING` at the inventory snapshot.
+  - 6 canonical EPL fixtures absent from that coverage view: `FB6342`, `FB6339`, `FB6340`, `FB6343`, `FB6346`, `FB6344`.
+  - Absence from the coverage view does not hide the public fixture page; audited `FB6342` renders truthful unknown lineup state.
+- `docs/ft014-recent-48h-inventory.csv`: 74 recent canonical fixtures.
+  - 44 have some persisted lineup evidence; 30 have none.
+  - 43 have at least 22 source-confirmed starter rows.
+  - 13 contain predicted starter evidence in addition to or instead of official evidence.
+  - 31 have at least one canonical player profile linked from persisted lineup evidence.
+  - 0 fixtures have duplicate rows under the exact `(team_side, player_key, source_name)` source-player key in this snapshot.
+  - 7 recent canonical targets have active fixture-identity redirect aliases.
+- Five same-match-looking FB/FS pairs checked during the audit were already redirected, not unresolved duplicate canonicals: `FS:QRDzcFGi -> FB6351`, `FS:EwfVjHNP -> FB6389`, `FS:E9LhiBpT -> FB6357`, `FS:IZr9qZFa -> FB6365`, `FS:phCOok8j -> FB6354`; each active redirect has confidence 0.995.
+
+### Six exact public-page controls
+Routes are `/details?id=<match_id>`.
+
+| Window | Fixture | Exact source/team identity | Public API lineup / stats | Rendered result |
+|---|---|---|---|---|
+| recent | `FB6350` Palmeiras-Bahia | Flashscore event `Mg7qego4`, teams `hMn9FTbH/UeD7XtzM`, EXACT_PAIR 0.99; FotMob `5103647`, teams `10283/7877`, EXACT_PAIR 0.99 | public API dedupes to 46 `FLASHSCORE_OFFICIAL` rows, 22 starters; 22 source-confirmed, 0 canonically confirmed, 22 `SOURCE_CONFIRMED_IDENTITY_UNRESOLVED`; playerMatchStats=0; starter duplicates=0; latest public lineup source `2026-10-09T02:43:52.394Z` | desktop/tablet/mobile PASS; shows source XI identity unresolved, never labels it predicted or confirmed |
+| recent | `FB6352` Fluminense-Coritiba | Flashscore `EmpIvY0N`, teams `EV9L3kU4/KGO4pUqO`, EXACT_PAIR 0.99; FotMob `5103644`, teams `9863/9767`, EXACT_PAIR 0.99 | 46 `FLASHSCORE_OFFICIAL` rows, 22 starters; 22 source-confirmed, 0 canonically confirmed, 22 unresolved; playerMatchStats=0; duplicates=0; latest `2026-10-09T02:43:50.526Z` | desktop/tablet/mobile PASS; truthful unresolved-identity state |
+| recent | `FB6351` Santos-Flamengo | canonical target of active `FS:QRDzcFGi -> FB6351` redirect (0.995); persisted source `FOTMOB_OFFICIAL` | 46 rows, 22 starters, 22 canonically confirmed, 0 unresolved, playerMatchStats=0, duplicates=0; latest `2026-10-09T00:22:03.367Z` | desktop/tablet/mobile PASS; confirmed 11v11 |
+| upcoming | `FS:0CAcmHeT` Cheongju FC-Seongnam | Flashscore `0CAcmHeT`, teams `2TvjJVf3/WMiRgH8G`, LOOSE_PAIR 0.97; FotMob `5155921`, teams `833651/6614`, TOKEN_PAIR 0.96, detail fetched `2026-10-09T03:52:03.809Z` | lineup=0, starters=0, stats=0, no invented players | desktop/tablet/mobile PASS; `Waiting for reliable 11v11 lineups` and unknown counts |
+| upcoming | `FB6342` Arsenal-Leeds | Flashscore `xtmHKGT0`, teams `hA1Zm19f/tUxUbLR2`, EXACT_PAIR 0.99 | lineup=0, starters=0, stats=0; fixture is one of six EPL canonicals absent from the lineup-coverage view | desktop/tablet/mobile PASS; page remains visible and unknown rather than missing/fabricated |
+| upcoming | `FS:U5MTgNEi` Al Kholood-Al Qadsiah | Flashscore `U5MTgNEi`, teams `Mqs1WbFK/tvQZtrTd`, EXACT_PAIR 0.99; FotMob `5970150`, teams `1523706/101919`, EXACT_PAIR 0.99, detail fetched `2026-10-09T03:52:04.281Z` | lineup=0, starters=0, stats=0 | desktop/tablet/mobile PASS; truthful unknown state |
+
+Representative player-identity evidence:
+- `FB6350`: Flashscore official Andreas Pereira is source player `tShG7cpg` with no canonical profile on that source row, while FotMob predicted Andreas Pereira is canonical player `575779`. This is why the official XI is not promoted as canonically confirmed.
+- `FB6352`: Flashscore official Fabio is `GCtnzVHc` with no canonical profile; FotMob predicted Fábio is canonical `30441`. Same strict-identity behavior.
+- `FB6351`: official FotMob players resolve directly, e.g. Agustín Rossi `616528`, Alex Sandro `157865`, Danilo `208077`; public canonical confirmation is therefore valid.
+
+### Release interpretation and limitations
+- Public-page behavior is truthful for the audited release sample: confirmed is only shown when canonical player identity is resolved; source-confirmed-but-unresolved is explicitly blocked from confirmed/predicted labels; missing future data remains unknown.
+- No genuine future predicted 11v11 exists in the audited window. Provider availability remains the predicted-lineup limitation.
+- The six EPL canonicals absent from `phase2_lineup_coverage_current` are a coverage-reporting gap, not a demonstrated public-page rendering failure; `FB6342` proves the page still renders fail-closed.
+- `FB6350` and `FB6352` expose a player-identity coverage gap on Flashscore official player IDs. Existing FotMob predicted canonical identities are not substituted into official evidence, preserving source semantics.
+- The current public API sample has no match-level player stats for these six fixtures; this remains unknown rather than zero/fabricated.
+- No provider/scraping expansion, credentials, spend, migration replay, database rewrite, Edge deployment, Railway deployment, HDA repair, or three-cycle ingestion work was performed.
+
+### Completed operations / next action
+- Added the full upcoming and recent inventory CSVs.
+- Added the six-fixture production audit and corrected its canonical-confirmation classifier; the final 18 FT-014 checks pass on CI #535.
+- Next release work should prioritize (1) resolving verified Flashscore official player IDs into canonical players where bijective evidence exists, and (2) deciding whether the lineup coverage reporting view should include all canonical upcoming fixtures, including the six EPL rows. Neither should weaken current fail-closed public rendering.
+- Last completed tested operation: CI #535 / `37881891681` completed on `418d09cd7bc6a34ae44ed42d3cc579733528b2c6`; FT-014 18/18 passed.
