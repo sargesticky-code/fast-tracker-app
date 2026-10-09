@@ -85,6 +85,15 @@ Deno.serve(async () => {
     return Response.json({ error: "stale_snapshot", captured_at: capturedAt }, { status: 409 });
   }
 
+  // A snapshot already committed successfully cannot provide newer odds;
+  // avoid rewriting hundreds of bookmaker/market rows on each cron retry.
+  if (previous?.status === "OK" && previous?.raw?.captured_at === capturedAt) {
+    return Response.json({
+      ok: true, status: "UNCHANGED", source: SOURCE, captured_at: capturedAt,
+      reason: "already_published_exact_capture",
+    });
+  }
+
   const from = new Date(now - 18 * 60 * 60 * 1000).toISOString();
   const to = new Date(now + 4 * 24 * 60 * 60 * 1000).toISOString();
   const observedNames = [...new Set(
