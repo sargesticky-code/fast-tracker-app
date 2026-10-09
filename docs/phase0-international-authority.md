@@ -995,3 +995,45 @@ Assignment boundary:
   surface. The separate ingestion milestone was explicitly not started here.
 - Next recovery should begin from this checkpoint and address ingestion/current HDA
   availability first; do not replay migrations or deployments without new evidence.
+
+
+## FT-20261009-011 — existing odds ingestion to public match page
+
+Starting reconciliation:
+- FT-010 head e17561f04f122641ba6d1b952bbec608740f9c47 was still the exact PR #44 head.
+- Supabase cron job 38 flashscore-bet365-cloud-ingest remained active at */15 * * * *.
+- At assignment start FLASHSCORE_BET365 / cloud_ingest was ERROR / STALE; health observed 2026-10-09T01:00:03.659Z referenced snapshot 2026-10-09T00:13:32.812129Z.
+- Railway /snapshot requests were HTTP 200. Runtime logs identified the failing layer: the Flashscore next-day picker intermittently timed out during Playwright click despite resolving visible/enabled/stable.
+
+Normal schedule recovery:
+- Producer recovered without manual refresh at 2026-10-09T01:07:59.791Z: 360 fixtures seen, 213 complete HDA.
+- Job 38 at 01:15Z ingested snapshot 2026-10-09T01:07:55.023143Z: 213 staged, 210 strictly verified, 3 unresolved, 0 ambiguous.
+- A later normal ingest at 2026-10-09T01:30:06.452441Z was also healthy: OK, 207 staged, 203 verified, 4 unresolved, 0 ambiguous, 609 current market legs.
+
+Representative trace — FB6342 Arsenal v Leeds:
+- Canonical fixture FB6342; kickoff 2026-10-10T11:30:00Z; provider event xtmHKGT0.
+- Source/stored capture 2026-10-09T01:07:55.023143Z; identity VERIFIED.
+- Duplicate checks: one flashscore_bet365_current row, one distinct provider event ID, one bet365_current canonical row, exactly three Phase-4 BET365 H/D/A legs.
+- Stored prices at trace checkpoint: HOME 1.40, DRAW 5.00, AWAY 7.00.
+- Phase-4 job 23 ran at 2026-10-09T01:16:00.272876Z; all three legs became MODEL_VALIDATION_GAP, not actionable VALUE.
+- Lineage retains BET365, FB6342, compatibility verification, source timestamp, PHASE4_HDA_VALUE_V3, PHASE4_HDA_CONSENSUS_V4 and PHASE4_HDA_EVAL_V1.
+- training_cutoff_verified=false, training_cutoff_status=UNVERIFIED_EXTERNAL_MODEL_BUILD and release_validation_status=TRAINING_CUTOFF_UNVERIFIED remain unchanged.
+- The public detail critical RPC contains the same three rows; the public sanitizer intentionally omits provider external-event ID while retaining public-safe canonical ID, provider, source timestamp and compatibility verification.
+
+Repair and release:
+- Commit 81c8e29b5c03812c4315ca806bffc3e7fdb96410 adds a narrow collector fallback: normal Playwright click first; only after that exact day-picker click times out does the same target receive DOM el.click(). Provider scope, freshness, identity and price admission rules are unchanged.
+- Test follow-ups: db339d1c3d8f42d71723ac2e0184810eb4f68768 and 7239cbe9161dfeeb633b1801d2030aec79348f94.
+- Railway collector deployment ec08e279-4f64-44eb-a3fe-c94de4c135e5 SUCCESS on commit 7239cbe9161dfeeb633b1801d2030aec79348f94. Healthcheck succeeded.
+- First post-deploy refresh: 01:31:08Z current-day discovery, 01:31:14Z next-day discovery, 01:31:34Z complete with 360 fixtures / 211 complete HDA. No day-picker timeout occurred.
+- No Supabase migration, Edge deployment, or public frontend deployment was performed.
+
+CI:
+- #515 / run 37869121950: FAILURE; scheduled Bet365 ingest passed, initial dynamic HDA test discovery was wrong; mocked public-flow 35/35 PASS.
+- #516 / run 37869690351: FAILURE; FB6342 HDA board rendered desktop/tablet/mobile; API test only over-asserted a sanitized external ID; mocked public-flow 35/35 PASS.
+- #517 / run 37870034287 on application/test head 7239cbe9161dfeeb633b1801d2030aec79348f94: FAILURE overall, but FT-011 odds outcome is green: HDA API validation-gap lineage PASS; scheduled Bet365 ingest -> Phase 1 -> rendered homepage PASS; FB6342 HDA rendering desktop/tablet/mobile PASS; build/static/provider/safety/evidence/player-identity PASS; mocked public-flow 35/35 PASS.
+- Remaining #517 failures are outside this assignment's odds path: live-score homepage visibility, intermittent confirmed-XI rendering, and no current predicted-XI control.
+
+Safety / boundary:
+- Missing remains unknown; no synthetic prices or fixtures were inserted. Strict unique canonical identity remains required.
+- Fresh prices remain MODEL_VALIDATION_GAP while model qualification is TRAINING_CUTOFF_UNVERIFIED; no unvalidated price becomes an actionable betting recommendation.
+- The broader fixture audit / multi-cycle ingestion milestone was not started.
