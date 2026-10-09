@@ -478,7 +478,7 @@ function visibleMatchRow(page) {
   return page.locator('a[href*="FBTEST1"]:visible').first();
 }
 
-test("homepage promotes verified live overlay and shows real live stats", async ({ page }) => {
+test("homepage promotes fresh canonical live fixture even after it leaves future authority feed", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 820 });
   const feed = fixtureFeed();
   feed.matches[0].liveNow = false;
@@ -494,7 +494,11 @@ test("homepage promotes verified live overlay and shows real live stats", async 
       body: JSON.stringify({
         generatedAt: new Date().toISOString(),
         matches: [{
-          id: "FBTEST1",
+          id: "FBTESTLIVE",
+          kickoff: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+          league: "EPL",
+          home: "Live Home FC",
+          away: "Live Away FC",
           status: "LIVE",
           live: {
             status: "LIVE",
@@ -513,7 +517,11 @@ test("homepage promotes verified live overlay and shows real live stats", async 
   });
 
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByText("52'", { exact: true })).toBeVisible({ timeout: 5000 });
+  const liveRow = page.locator('a[href*="FBTESTLIVE"]:visible').first();
+  await expect(liveRow).toBeVisible({ timeout: 5000 });
+  await expect(liveRow.getByText("Live Home FC", { exact: true })).toBeVisible();
+  await expect(liveRow.getByText("Live Away FC", { exact: true })).toBeVisible();
+  await expect(page.getByText("52'", { exact: true })).toBeVisible();
   await expect(page.getByText("1 - 0", { exact: true })).toBeVisible();
   await expect(page.getByText("xG 1.21-0.44", { exact: true })).toBeVisible();
   await expect(page.getByText("Shots 8-4", { exact: true })).toBeVisible();
