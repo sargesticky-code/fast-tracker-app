@@ -885,7 +885,7 @@ export default function LineupPanel() {
         {loading && !payload ? <div style={{padding:24,fontSize:12,color:palette.muted}}>Loading lineup data…</div> : null}
         {error && !payload ? <div style={{padding:24,fontSize:12,color:"#a04f43"}}>Lineup feed: {error}</div> : null}
 
-        {!loading && !ready && view.rows.length === 0 ? (
+        {!loading && !ready && (view.rows.length === 0 || view.unresolvedStarterIdentityRows.length > 0) ? (
           <div style={{padding:22}}>
             <div style={{padding:18,border:"1px dashed #cdd9d1",borderRadius:14,background:"#fff"}}>
               <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedStarterIdentityRows.length ? "Source starting XI exists, but starter identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
