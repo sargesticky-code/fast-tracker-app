@@ -228,7 +228,16 @@ function oddsTriplet(match) {
 function MarketOdds({ match, marketKey = "HDA" }) {
   const currentGoals = match?.liveNow && match?.live?.goals ? match.live.goals : match?.goals;
   const currentCorners = match?.liveNow && match?.live?.corners ? match.live.corners : match?.corners;
-  const currentOdds = match?.liveNow && match?.live?.odds ? match.live.odds : match?.odds;
+  // Live payloads may contain an empty odds object. Do not let that
+  // truthy-but-null object erase a real, fresh prematch Flashscore quote.
+  // Never label a prematch reference as an in-play market.
+  const completeHda = (v) => ["home", "draw", "away"].every((k) => Number(v?.[k]) > 1);
+  const verifiedLiveOdds = match?.liveNow &&
+    match?.live?.oddsSemantics === "VERIFIED_IN_PLAY_BOOKMAKER_ODDS" &&
+    completeHda(match?.live?.odds) ? match.live.odds : null;
+  const prematchOdds = completeHda(match?.odds) ? match.odds : null;
+  const currentOdds = verifiedLiveOdds || prematchOdds;
+  const referenceOnly = Boolean(match?.liveNow && !verifiedLiveOdds && prematchOdds);
   if (marketKey === "GOALS") {
     return (
       <div className="ft-market-odds">
@@ -254,7 +263,11 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
-      <small>{match?.liveNow ? "LIVE BET365 HDA" : "BET365 HDA"}</small>
+      <small>{verifiedLiveOdds
+        ? "Flashscore · LIVE Bet365 HDA"
+        : referenceOnly
+          ? "Flashscore · Bet365 HDA (prematch reference)"
+          : "Flashscore · Bet365 HDA"}</small>
       <div>
         {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
