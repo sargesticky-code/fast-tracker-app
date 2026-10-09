@@ -45,17 +45,21 @@ def as_price(value):
         return None
 
 async def collect_fixture_rows(page, target_date):
-    await page.goto(FLASH_URL, timeout=60000, wait_until="domcontentloaded")
+    today = datetime.now().date()
+    delta = (target_date - today).days
+    # The real Flashscore tomorrow URL is already used by the site's day picker.
+    # Start there directly for future dates instead of reloading today and
+    # waiting for a fragile day-picker click on every discovery pass.
+    target_url = FLASH_URL.rstrip("/") + "/tomorrow/" if delta > 0 else FLASH_URL
+    await page.goto(target_url, timeout=30000 if delta > 0 else 60000, wait_until="domcontentloaded")
     try:
         await page.locator("#onetrust-accept-btn-handler").click(timeout=2500)
     except Exception:
         pass
 
-    today = datetime.now().date()
-    delta = (target_date - today).days
-    if delta:
+    if delta > 1 or delta < 0:
         selector = '[data-day-picker-arrow="next"]' if delta > 0 else '[data-day-picker-arrow="prev"]'
-        for _ in range(abs(delta)):
+        for _ in range(delta - 1 if delta > 0 else -delta):
             arrow = page.locator(selector).first
             try:
                 await arrow.click(timeout=10000)
@@ -163,7 +167,19 @@ async def refresh_once():
             today = datetime.now().date()
             seen = set()
             for offset in range(DAYS_AHEAD + 1):
-                rows = await collect_fixture_rows(page, today + timedelta(days=offset))
+                try:
+                    rows = await collect_fixture_rows(page, today + timedelta(days=offset))
+                except Exception as exc:
+                    if offset == 0:
+                        raise
+                    # Optional future-day discovery must not discard the real
+                    # current-day prices already captured on this run.
+                    print(
+                        f"[flashscore-odds] optional day +{offset} failed "
+                        f"{type(exc).__name__}: {exc}; preserving {len(fixtures)} earlier fixtures",
+                        flush=True,
+                    )
+                    break
                 for row in rows:
                     if row["event_id"] in seen:
                         continue
