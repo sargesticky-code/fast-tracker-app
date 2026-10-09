@@ -264,6 +264,30 @@ def run_refresh():
             _state["discovered"] = discovered
             _state["last_completed_at"] = completed_at
         print(f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} complete_hda={len(snapshot)}", flush=True)
+        # Publish the completed real capture immediately. The independent
+        # 5-minute pg_cron remains a recovery mechanism; a cron startup timeout
+        # must not hide newly captured prices for the next quarter-hour.
+        callback = os.getenv(
+            "FLASHSCORE_INGEST_CALLBACK_URL",
+            "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/flashscore-bet365-ingest",
+        )
+        if snapshot and callback.startswith("https://"):
+            try:
+                with httpx.Client(timeout=15.0, follow_redirects=False) as client:
+                    result = client.post(callback, json={})
+                print(
+                    f"[flashscore-odds] publish callback HTTP {result.status_code} "
+                    f"captured_at={completed_at}",
+                    flush=True,
+                )
+            except Exception as publish_error:
+                # Never discard successful collector output because the
+                # callback is unavailable: cron will retry the same snapshot.
+                print(
+                    f"[flashscore-odds] publish callback failed "
+                    f"{type(publish_error).__name__}: {publish_error}",
+                    flush=True,
+                )
     except Exception as e:
         message = f"{type(e).__name__}: {e}"
         with _lock:
