@@ -495,7 +495,7 @@ Deno.serve(async(req:Request)=>{
   });
   const publicLineups=(()=>{
     const confirmedStarterCounts={H:0,A:0};
-    for(const row of eligibleLineups){
+    for(const row of lineupsWithMatchStats){
       if(row?.starter!==true || row?.confirmed!==true || row?.fact_status!=="CONFIRMED")continue;
       if(row?.team_side==="H")confirmedStarterCounts.H++;
       if(row?.team_side==="A")confirmedStarterCounts.A++;
@@ -512,7 +512,7 @@ Deno.serve(async(req:Request)=>{
       +(row?.confirmed?20:0)
       +(row?.starter?10:0)
       +(String(row?.source_name||"").toUpperCase().startsWith("FOTMOB")?5:0);
-    for(const row of lineupsWithMatchStats){
+    for(const row of eligibleLineups){
       const name=row?.canonical_player_name||row?.player_name||row?.player_key||"";
       const canonicalIdentity=String(row?.canonical_player_identity||"").trim();
       const sourceName=String(row?.source_name||"UNKNOWN").trim();
