@@ -43,11 +43,13 @@ const AUTHORITY_KEYS = new Set([
 function mergeLiveOverlay(authorityFeed, liveFeed) {
   const authorityMatches = Array.isArray(authorityFeed?.matches) ? authorityFeed.matches : [];
   const liveMatches = Array.isArray(liveFeed?.matches) ? liveFeed.matches : [];
-  if (!authorityMatches.length || !liveMatches.length) return authorityFeed;
-  const liveById = new Map(liveMatches.filter((m) => m?.id).map((m) => [String(m.id), m]));
+  if (!liveMatches.length) return authorityFeed;
+
+  const liveById = new Map(liveMatches.filter((m) => m?.id && m?.live).map((m) => [String(m.id), m]));
+  const authorityIds = new Set(authorityMatches.map((m) => String(m?.id ?? "")).filter(Boolean));
   const matches = authorityMatches.map((authority) => {
     const liveRow = liveById.get(String(authority.id ?? ""));
-    if (!liveRow?.live) return authority;
+    if (!liveRow) return authority;
     return {
       ...authority,
       status: liveRow.status ?? liveRow?.live?.status ?? authority.status,
@@ -57,9 +59,33 @@ function mergeLiveOverlay(authorityFeed, liveFeed) {
       live: liveRow.live,
     };
   });
+
+  // The Phase 1 authority feed is future-only, so a canonical fixture naturally
+  // drops out at kickoff. Keep genuinely current live fixtures visible by adding
+  // only fresh live-feed rows with exact canonical IDs; missing fields stay null.
+  for (const liveRow of liveMatches) {
+    const id = String(liveRow?.id ?? "");
+    if (!id || !liveRow?.live || authorityIds.has(id)) continue;
+    matches.push({
+      id,
+      kickoff: liveRow.kickoff ?? null,
+      status: liveRow.status ?? liveRow?.live?.status ?? null,
+      league: liveRow.league ?? null,
+      home: liveRow.home ?? null,
+      away: liveRow.away ?? null,
+      homeZh: liveRow.homeZh ?? liveRow.home ?? null,
+      awayZh: liveRow.awayZh ?? liveRow.away ?? null,
+      inPlay: true,
+      liveNow: true,
+      liveEligible: true,
+      live: liveRow.live,
+    });
+  }
+
   return {
     ...authorityFeed,
     matches,
+    count: matches.length,
     liveOverlayGeneratedAt: liveFeed?.generatedAt ?? null,
   };
 }
