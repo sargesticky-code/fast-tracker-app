@@ -319,6 +319,50 @@ Deno.serve(async(req:Request)=>{
   const criticalDb=createReadClientWithTimeout(sbUrl,key,8_000);
   const optionalDb=createReadClientWithTimeout(sbUrl,key,2_000);
 
+  // Fast Flashscore evidence lane: two indexed/equality-scoped reads and
+  // no 25-way optional PostgREST fanout. Only exact FS fixture IDs qualify.
+  // Preserve all recorded numbers and reject statistics captured pre-kickoff.
+  if (requestedId.startsWith("FS:")) {
+    const [fixtureDirect,sourceDirect]=await Promise.all([
+      criticalDb.from("matches")
+        .select("hkjc_event_id,kickoff_hkt,status,tournament,home_en,away_en,home_zh,away_zh,fetched_at,updated_at")
+        .eq("hkjc_event_id",requestedId).maybeSingle(),
+      criticalDb.from("phase15_source_shadow_current")
+        .select("match_id,source_key,detail_raw,detail_fetched_at")
+        .eq("match_id",requestedId).eq("source_key","FLASHSCORE").maybeSingle(),
+    ]);
+    if(!fixtureDirect.error && !sourceDirect.error && fixtureDirect.data && sourceDirect.data?.detail_raw?.statistics_raw) {
+      const f=fixtureDirect.data;
+      const stats=compactFlashscoreMatchStats(
+        sourceDirect.data.detail_raw,sourceDirect.data.detail_fetched_at,f.kickoff_hkt
+      );
+      if(stats){
+        return Response.json(sanitizePublicCompatibility({
+          generatedAt:new Date().toISOString(),id:requestedId,requestedId,
+          fixtureSource:"CANONICAL_FLASHSCORE",redirect:null,
+          fixture:{
+            match_id:requestedId,kickoff_hkt:f.kickoff_hkt,status:f.status,
+            tournament:f.tournament,home_en:f.home_en,away_en:f.away_en,
+            home_zh:f.home_zh,away_zh:f.away_zh,
+            fetched_at:f.fetched_at,updated_at:f.updated_at,
+          },
+          flashscoreStats:stats,
+          models:{internal:null,forebet:null,form:null,opta:null,multisource:null,evidence:[]},
+          humanFactors:{
+            summary:null,eventMap:null,playerStatus:[],lineup:[],
+            playerProfiles:[],playerMatchStats:[],playerMatchStatsMeta:null,
+            lineupStrength:[],managers:[]
+          },
+          scenario:[],oddsMovement:null,
+          h2h:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
+          headToHead:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
+          marketIntelligence:{bestValue:null,value:[],arbitrage:[],nearArbitrage:null,mode:"DETECT_ONLY"},
+          errors:{},evidenceMode:"EXACT_FLASHSCORE_MATCH_STATISTICS"
+        }),{headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}});
+      }
+    }
+  }
+
   let id=requestedId;
   let fixtureRedirect:any=null;
   try{
