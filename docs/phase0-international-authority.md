@@ -923,3 +923,75 @@ Next unfinished outcome:
   provider-neutral UI semantics without weakening evidence checks.
 - Continue notebook-independent ingestion/reliability work using existing authorized
   providers and scheduled infrastructure; no expanded scraping/provider scope.
+
+
+## FT-20261009-010 — trustworthy CI baseline recovery
+
+Reconciliation before edits:
+- Saved interrupted head `2863f6aac0df9d927507642e83eb5c9f06d745cc` was still the exact PR #44 head.
+- No CI existed after #510 before this recovery began. CI #510 / run
+  `37703848528` failed before executing production tests because
+  `tests/production-player-lineup.spec.js` was physically corrupted: the live-score
+  regex/template literal was truncated and a duplicate copy of the test file had been
+  inserted inside it.
+- No migration or deployment was replayed.
+
+Repairs:
+- Restored the last known-good production acceptance body from
+  `cf56c34bc1ff32116ebbeb6f0d03686b5179261a`, then re-applied the intended
+  live-score provenance/render assertion without deleting or weakening checks.
+- Commits `ccdf1525ea7a27e5a861d56eaf26bc8a549d76dc` and
+  `d2f76852ff85a32f25eb55b464ee4b5611a68de8` repaired the corrupted test.
+- CI was adjusted in `38b87e8a5540733d39f7ceee77b8a1ebb11ab23e` so a failing
+  real-production acceptance is captured, reported, and still allows the independent
+  mocked `public-flow.spec.js` suite to run. The final job still fails if either
+  production or mocked rendered acceptance is red; no gate is skipped or weakened.
+
+CI after #510:
+- #511 / run `37866915326`: FAILURE on the first syntax-repair commit.
+- #512 / run `37866974695`: FAILURE; syntax was fixed and all 13 production tests
+  executed, exposing current production-state failures.
+- #513 / run `37867425431`: FAILURE on exact application/test head
+  `38b87e8a5540733d39f7ceee77b8a1ebb11ab23e`.
+  - Build/static routes and all safety/provider/evidence/player-identity contracts: PASS.
+  - Mocked rendered flow: **35/35 PASS**.
+  - Real production acceptance: **4/13 PASS, 9 FAIL**.
+  - Confirmed XI + real player stats: desktop/tablet/mobile PASS.
+  - Exact Flashscore identity control: PASS.
+
+Concrete production blockers observed on 2026-10-09:
+- `public.phase4_value_api` currently contains **0 HDA rows**. The historical FB6355
+  control therefore returns no value rows and the public `.phase4-board` is absent
+  on desktop/tablet/mobile. This is a real fail-closed production state, not a selector
+  relaxation opportunity.
+- `public.source_health` reports
+  `FLASHSCORE_BET365 / cloud_ingest = ERROR / STALE`, observed
+  `2026-10-09T00:45:01.602Z`, with note “Cloud snapshot missing or older than
+  20 minutes.” The Phase 1 production assertion correctly receives `ERROR`, not
+  `OK`.
+- Current full 11v11 lineup coverage has only confirmed controls in the future window;
+  no complete predicted 11v11 + zero confirmed + zero player-match-stats control is
+  currently available, so the predicted-control acceptance fails closed rather than
+  relabelling a confirmed XI.
+- Live API had a fresh live control `FB6350`, but that canonical fixture was not
+  visible in the homepage rendered row set during CI #513. This remains a real
+  live/public-flow coverage gap; the assertion was not weakened.
+- Live source health itself remained fresh (for example `LIVE_SCORE_EDGE=OK` with
+  three live matches at `2026-10-09T00:57:01.054Z`), while
+  `LIVE_LAYER_GUARD=WARN` honestly reported remaining shadow-detail lag.
+
+Safety invariants retained:
+- Missing remains unknown, never zero.
+- Exact fixture/player identity remains required.
+- Predicted and confirmed XI states remain distinct.
+- `MODEL_VALIDATION_GAP` and `TRAINING_CUTOFF_UNVERIFIED` semantics are unchanged.
+- No spend, credential change, destructive operation, provider expansion, migration,
+  Edge deploy, or Railway deploy occurred.
+
+Assignment boundary:
+- The CI/test baseline corruption and mocked rendered-flow debt are resolved.
+- A fully green exact-head CI is currently blocked by genuine production data/service
+  state, principally stale Bet365 cloud ingestion and the consequent empty HDA value
+  surface. The separate ingestion milestone was explicitly not started here.
+- Next recovery should begin from this checkpoint and address ingestion/current HDA
+  availability first; do not replay migrations or deployments without new evidence.
