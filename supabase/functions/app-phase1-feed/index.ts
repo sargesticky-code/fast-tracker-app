@@ -582,6 +582,57 @@ Deno.serve(async (req: Request) => {
     const fullRpcDb = createReadClientWithTimeout(supabaseUrl,serverKey,8_000);
 
     if (summaryOnly) {
+      // One indexed, read-only RPC replaces repeated PostgREST fanout across
+      // fixture, bookmaker, detail, profile and lineup views. This is the
+      // critical All-in-One lane. Legacy queries remain only as fallback.
+      const [fast,heartbeat]=await Promise.all([
+        db.rpc("ft_fast_flashscore_summary",{p_window_hours:hours}),
+        db.from("source_health")
+          .select("status,value_text,observed_at,notes,raw")
+          .eq("source","FLASHSCORE_BET365").eq("metric","cloud_ingest")
+          .maybeSingle(),
+      ]);
+      if(!fast.error && Array.isArray(fast.data)){
+        const matches=fast.data.map((r:any)=>{
+          const base=directAuthoritySummaryRow(r,false);
+          const stats=observedFlashscoreStats(
+            {detail_raw:r.detail_raw,detail_fetched_at:r.detail_fetched_at},
+            r.kickoff_hkt
+          );
+          return stats ? {
+            ...base,
+            sourceContext:{
+              source:"FLASHSCORE",
+              observedStats:stats,statsAvailable:true,
+              xgAvailable:Boolean(stats.stats.xg),
+              detailFetchedAt:stats.capturedAt,
+              lineupAvailable:false,lineupCoverage:null
+            }
+          } : base;
+        });
+        const source=heartbeat.data??null;
+        return Response.json({
+          generatedAt:new Date().toISOString(),
+          source:"flashscore-single-rpc-canonical",
+          view:"summary",windowHours:hours,
+          count:matches.length,matches,
+          systemHealth:{
+            FLASHSCORE_BET365:{
+              status:source?.status??"UNKNOWN",
+              value:source?.value_text??null,
+              observedAt:source?.observed_at??null,
+              notes:source?.notes??null,raw:source?.raw??{}
+            },
+            authorityMode:{
+              status:"OK",value:"EXACT_CANONICAL_WITH_SOURCE_PROVENANCE",
+              notes:"Fast Flashscore fixture/Bet365 HDA and observed-match-stat summary. Independent model and lineups load separately.",
+              observedAt:new Date().toISOString(),
+              raw:{matches:matches.length,observedStats:matches.filter((m:any)=>m.sourceContext?.observedStats).length}
+            }
+          },
+        },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
+      }
+      console.error("fast_flashscore_summary_fallback",fast.error);
       const now = new Date();
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
