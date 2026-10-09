@@ -41,17 +41,10 @@ Deno.serve(async () => {
     .eq("metric", "cloud_ingest")
     .maybeSingle();
 
-  // A failed ingest records an error heartbeat. It must NEVER rate-limit
-  // recovery when a new verified Flashscore snapshot is available.
-  // Suppress repeats only for a genuinely recent successful publication.
-  if (previous?.status === "OK" && previous?.observed_at) {
-    const prior = Date.parse(previous.observed_at);
-    const lastCapturedMs = Date.parse(String(previous?.raw?.captured_at ?? ""));
-    if (Number.isFinite(prior) && Number.isFinite(lastCapturedMs)
-      && now - prior < MIN_INTERVAL_MS && now - lastCapturedMs < MAX_AGE_MS) {
-      return Response.json({ ok: true, status: "THROTTLED", source: SOURCE });
-    }
-  }
+  // Always inspect the actual captured_at before deciding to skip:
+  // a new collector snapshot must publish immediately even if the previous
+  // successful ingest was only seconds ago. The exact-capture UNCHANGED
+  // check below avoids duplicate writes for cron and callback requests.
 
   let payload: any;
   try {
