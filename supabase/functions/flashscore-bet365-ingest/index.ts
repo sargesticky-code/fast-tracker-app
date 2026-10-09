@@ -36,14 +36,19 @@ Deno.serve(async () => {
 
   const { data: previous } = await db
     .from("source_health")
-    .select("observed_at")
+    .select("observed_at,status,raw")
     .eq("source", SOURCE)
     .eq("metric", "cloud_ingest")
     .maybeSingle();
 
-  if (previous?.observed_at) {
+  // A failed ingest records an error heartbeat. It must NEVER rate-limit
+  // recovery when a new verified Flashscore snapshot is available.
+  // Suppress repeats only for a genuinely recent successful publication.
+  if (previous?.status === "OK" && previous?.observed_at) {
     const prior = Date.parse(previous.observed_at);
-    if (Number.isFinite(prior) && now - prior < MIN_INTERVAL_MS) {
+    const lastCapturedMs = Date.parse(String(previous?.raw?.captured_at ?? ""));
+    if (Number.isFinite(prior) && Number.isFinite(lastCapturedMs)
+      && now - prior < MIN_INTERVAL_MS && now - lastCapturedMs < MAX_AGE_MS) {
       return Response.json({ ok: true, status: "THROTTLED", source: SOURCE });
     }
   }
