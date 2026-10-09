@@ -127,7 +127,7 @@ test("production HDA value API exposes validation gap and capture lineage", asyn
   expect(home.details?.quote_lineage?.canonical_match_id).toBe(control.id);
   expect(home.details?.quote_lineage?.compatibility_verified).toBe(true);
   expect(home.details?.quote_lineage?.source_ts).toBeTruthy();
-  expect(home.details?.quote_lineage?.external_event_id).toBeTruthy();
+  expect(home.details?.quote_lineage?.provider_id).toBe("BET365");
   expect(home.details?.model_lineage?.consensus_version).toBe("PHASE4_HDA_CONSENSUS_V4");
   expect(home.details?.model_lineage?.evaluation_evidence?.dixon_coles?.settled_matches).toBe(27);
   expect(home.details?.model_lineage?.evaluation_evidence?.pi?.settled_matches).toBe(27);
