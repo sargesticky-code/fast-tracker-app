@@ -123,13 +123,21 @@ test("Flashscore full-match statistics are source-observed in API and rendered d
     expect(Number.isFinite(metric?.home)).toBe(true);
     expect(Number.isFinite(metric?.away)).toBe(true);
   }
-  await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(matchId)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
-  const statsPanel = page.locator("#flashscore-stats");
-  await expect(statsPanel.getByRole("heading", { name: "Match statistics" })).toBeVisible({ timeout: 45000 });
-  await expect(statsPanel.getByText("Source: Flashscore", { exact: false })).toBeVisible();
-  await expect(statsPanel).toContainText("xG");
-  await expect(statsPanel).toContainText("Total shots");
-  await page.screenshot({ path: "test-results/production-flashscore-match-stats.png", fullPage: true });
+  for (const device of [
+    { name: "desktop", width: 1440, height: 900 },
+    { name: "tablet", width: 1024, height: 1366 },
+    { name: "mobile", width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({ width: device.width, height: device.height });
+    await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(matchId)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    const statsPanel = page.locator("#flashscore-stats");
+    await expect(statsPanel.getByRole("heading", { name: "Match statistics" })).toBeVisible({ timeout: 45000 });
+    await expect(statsPanel.getByText("Source: Flashscore", { exact: false })).toBeVisible();
+    for (const label of ["xG", "Total shots", "Shots on target", "Possession", "Corners"]) {
+      await expect(statsPanel.getByText(label, { exact: true })).toBeVisible();
+    }
+    await page.screenshot({ path: `test-results/production-flashscore-match-stats-${device.name}.png`, fullPage: true });
+  }
 });
 
 test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
