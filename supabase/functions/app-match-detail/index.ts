@@ -259,6 +259,51 @@ function englishDetailPayload(value:any, homeZh:string, homeEn:string, awayZh:st
   return value;
 }
 
+// Flashscore transports section-scoped metrics as SG/SH/SI triplets.
+ // Parse only the full-match SE÷Match section, never half-time duplicates.
+ // These are observed match statistics, NOT independent confirmation of live status.
+function compactFlashscoreMatchStats(raw:any, fetchedAt:any, kickoff:any) {
+  const body=typeof raw?.statistics_raw==="string"?raw.statistics_raw:"";
+  const capturedMs=Date.parse(String(fetchedAt||""));
+  const kickoffMs=Date.parse(String(kickoff||""));
+  if(!body.startsWith("SE÷Match") || !Number.isFinite(capturedMs) || !Number.isFinite(kickoffMs) ||
+     capturedMs < kickoffMs || capturedMs>Date.now()+60_000) return null;
+  const full=body.split("¬~SE÷")[0];
+  const names:any={
+    "Expected goals (xG)":"xg",
+    "xG on target (xGOT)":"xgot",
+    "Ball possession":"possession",
+    "Total shots":"shots",
+    "Shots on target":"shotsOnTarget",
+    "Big chances":"bigChances",
+    "Corner kicks":"corners",
+    "Shots inside the box":"shotsInsideBox",
+  };
+  const stats:any={};
+  const parse=(value:string)=> {
+    const match=String(value).trim().match(/^-?(?:\d+(?:\.\d+)?|\.\d+)/);
+    return match?Number(match[0]):null;
+  };
+  for(const section of full.split("¬~")) {
+    const m=section.match(/(?:^|¬)SG÷([^¬~]+)¬SH÷([^¬~]+)¬SI÷([^¬~]+)/);
+    if(!m)continue;
+    const key=names[m[1]];
+    if(!key || stats[key])continue;
+    const home=parse(m[2]),away=parse(m[3]);
+    if(home!==null && away!==null && Number.isFinite(home) && Number.isFinite(away)){
+      stats[key]={home,away};
+    }
+  }
+  if(!stats.shots || !stats.corners || !stats.possession) return null;
+  const ageMinutes=Math.max(0,(Date.now()-capturedMs)/60000);
+  return {
+    source:"FLASHSCORE",capturedAt:fetchedAt,matchStart: kickoff,
+    freshness:ageMinutes<=20?"FRESH":"HISTORICAL_SNAPSHOT",
+    semantics:"SOURCE_OBSERVED_STATS_NOT_VERIFIED_LIVE_STATUS",
+    stats,
+  };
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   if(req.method!=="GET") return Response.json({error:"method_not_allowed"},{status:405,headers:{...cors,"Cache-Control":"no-store"}});
@@ -314,7 +359,15 @@ Deno.serve(async(req:Request)=>{
 
   // One RPC carries the critical public evidence to avoid request amplification
   // through multiple concurrent PostgREST reads under production load.
-  const criticalResult=await criticalDb.rpc("ft_internal_app_match_detail_critical",{p_match_id:id});
+  const [criticalResult,flashscoreDetailResult]=await Promise.all([
+    criticalDb.rpc("ft_internal_app_match_detail_critical",{p_match_id:id}),
+    (requestedId.startsWith("FS:") || id.startsWith("FS:"))
+      ? optionalDb.from("source_match_detail_current")
+          .select("match_id,source_key,detail_raw,detail_fetched_at")
+          .eq("match_id",requestedId.startsWith("FS:")?requestedId:id)
+          .eq("source_key","FLASHSCORE").maybeSingle()
+      : Promise.resolve({data:null,error:null}),
+  ]);
   const criticalPayload=criticalResult.data&&typeof criticalResult.data==="object"?criticalResult.data:{};
   const criticalError=cleanError(criticalResult.error);
   const fixtureUpcomingDb={data:criticalPayload?.fixture||null,error:criticalError};
@@ -406,6 +459,11 @@ Deno.serve(async(req:Request)=>{
   const fixtureUpcoming=fixtureUpcomingDb;
 
   const fixture = fixtureUpcoming.data ? fixtureUpcoming : fixtureLive;
+  const flashscoreStats=compactFlashscoreMatchStats(
+    flashscoreDetailResult.data?.detail_raw,
+    flashscoreDetailResult.data?.detail_fetched_at,
+    fixture.data?.kickoff_hkt
+  );
   const fixtureSource = summaryFixture ? "AUTHORITY_SUMMARY" : fixtureUpcoming.data ? "CANONICAL" : fixtureLive.data ? "LIVE_SCORE_CURRENT" : "MISSING";
   const errors:any={};
   for(const [k,v] of Object.entries({fixtureUpcoming,fixtureLive,model,forebet,form,power,human,scenario,movement,h2h,eventMap,playerStatus,lineups,lineupStrength,managers,predictionEvidence,multisource,valueMarket,arbMarket,arbWatch,sourceMatchDetail})){
@@ -593,6 +651,7 @@ Deno.serve(async(req:Request)=>{
     redirect:fixtureRedirect,
     fixture:fixture.data,
     fixtureSource,
+    flashscoreStats,
     models:{
       internal:publicModel,
       forebet:forebet.data || forebetEvidenceFallback(predictionEvidence.data),
