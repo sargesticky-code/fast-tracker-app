@@ -759,6 +759,31 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     });
 
     rows = rows.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    // The All-in-One first screen must not be swallowed by recent fixtures
+    // with no current price. Reserve space for real upcoming odds AND
+    // independently observed Flashscore stats, without assuming live status.
+    if ((activeMode === "today" || activeMode === "all") && !q) {
+      const live = rows.filter(m => m.liveNow);
+      const priced = rows.filter(m => !m.liveNow &&
+        new Date(m.kickoff).getTime() > Date.now() &&
+        ["home","draw","away"].every(k => Number(m?.odds?.[k]) > 1));
+      const observed = rows.filter(m => m?.sourceContext?.observedStats?.stats);
+      const selected = [];
+      const seen = new Set();
+      const add = (items, limit) => {
+        let n = 0;
+        for (const m of items) {
+          if (n >= limit) break;
+          if (seen.has(m.id)) continue;
+          selected.push(m); seen.add(m.id); n++;
+        }
+      };
+      add(live, 8);
+      add(priced, 20);
+      add(observed, 8);
+      add(rows, 30 - selected.length);
+      return selected.slice(0, 30);
+    }
     return rows.slice(0, 30);
   }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey]);
 
