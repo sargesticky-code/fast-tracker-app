@@ -359,15 +359,25 @@ Deno.serve(async(req:Request)=>{
 
   // One RPC carries the critical public evidence to avoid request amplification
   // through multiple concurrent PostgREST reads under production load.
-  const [criticalResult,flashscoreDetailResult]=await Promise.all([
-    criticalDb.rpc("ft_internal_app_match_detail_critical",{p_match_id:id}),
-    (requestedId.startsWith("FS:") || id.startsWith("FS:"))
-      ? optionalDb.from("source_match_detail_current")
-          .select("match_id,source_key,detail_raw,detail_fetched_at")
-          .eq("match_id",requestedId.startsWith("FS:")?requestedId:id)
-          .eq("source_key","FLASHSCORE").maybeSingle()
-      : Promise.resolve({data:null,error:null}),
-  ]);
+  // Prioritize one critical read. A database timeout is NOT an empty match:
+  // return an explicit service failure before the optional fan-out can further
+  // saturate PostgREST under load.
+  const criticalResult=await criticalDb.rpc("ft_internal_app_match_detail_critical",{p_match_id:id});
+  if(criticalResult.error){
+    console.error("critical_match_detail_unavailable",cleanError(criticalResult.error));
+    return Response.json({
+      error:"critical_match_detail_unavailable",
+      requestedId,
+      retryable:true,
+      message:"Fixture evidence cannot be read right now; no zero or missing result is implied."
+    },{status:503,headers:{...cors,"Cache-Control":"no-store"}});
+  }
+  const flashscoreDetailResult=(requestedId.startsWith("FS:") || id.startsWith("FS:"))
+    ? await optionalDb.from("source_match_detail_current")
+        .select("match_id,source_key,detail_raw,detail_fetched_at")
+        .eq("match_id",requestedId.startsWith("FS:")?requestedId:id)
+        .eq("source_key","FLASHSCORE").maybeSingle()
+    : {data:null,error:null};
   const criticalPayload=criticalResult.data&&typeof criticalResult.data==="object"?criticalResult.data:{};
   const criticalError=cleanError(criticalResult.error);
   const fixtureUpcomingDb={data:criticalPayload?.fixture||null,error:criticalError};
