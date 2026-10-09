@@ -473,12 +473,24 @@ Deno.serve(async(req:Request)=>{
       .filter((row:any)=>row?.playerId!=null)
       .map((row:any)=>[String(row.playerId),row])
   );
+  const playerMatchStatsByCanonicalIdentity=new Map<string,any>();
+  for(const row of annotatedLineups){
+    const source=String(row?.source_name||"").toUpperCase();
+    if(!source.startsWith("FOTMOB"))continue;
+    const key=String(row?.player_key||"").trim();
+    const canonicalIdentity=String(row?.canonical_player_identity||"").trim();
+    const matchStats=key?playerMatchStatsById.get(key)||null:null;
+    if(matchStats&&canonicalIdentity)playerMatchStatsByCanonicalIdentity.set(canonicalIdentity,matchStats);
+  }
   const lineupsWithMatchStats=annotatedLineups.map((row:any)=>{
     const source=String(row?.source_name||"").toUpperCase();
-    const canonicalKey=String(row?.canonical_player_key||"").trim();
-    const providerKey=String(row?.player_key||"").trim();
-    const statKey=canonicalKey || (source.startsWith("FOTMOB")?providerKey:"");
-    const matchStats=statKey?playerMatchStatsById.get(statKey)||null:null;
+    const key=String(row?.player_key||"").trim();
+    const canonicalIdentity=String(row?.canonical_player_identity||"").trim();
+    const exactFotmobStats=source.startsWith("FOTMOB")&&key
+      ? playerMatchStatsById.get(key)||null
+      : null;
+    const canonicalStats=canonicalIdentity?playerMatchStatsByCanonicalIdentity.get(canonicalIdentity)||null:null;
+    const matchStats=exactFotmobStats||canonicalStats;
     return matchStats?{...row,match_stats:matchStats}:row;
   });
   const publicLineups=(()=>{
