@@ -339,7 +339,7 @@ for (const device of devices) {
     const module = page.getByRole("region", { name: "Professional lineup module" });
     await expect(module).toBeVisible({ timeout: 20000 });
     await expect(module.getByText("Waiting for reliable 11v11 lineups", { exact: true })).toBeVisible({ timeout: 15000 });
-    await expect(module.getByText(/0 home · 0 away · lineup pending/).first()).toBeVisible({ timeout: 15000 });
+    await expect(module.getByText(/—\/11 home · —\/11 away · lineup pending/).first()).toBeVisible({ timeout: 15000 });
     await expect(module.getByText("PREDICTED 11v11", { exact: true })).toHaveCount(0);
     await expect(module.getByText("CONFIRMED 11v11", { exact: true })).toHaveCount(0);
 
