@@ -51,6 +51,43 @@ async function findPredictedControl(request) {
   return null;
 }
 
+async function findFreshHdaControl(request) {
+  const feedResponse = await request.get(`${PHASE1_API_URL}?hours=48&view=summary`, { timeout: 45000 });
+  expect(feedResponse.ok()).toBeTruthy();
+  const feed = await feedResponse.json();
+  const candidates = (Array.isArray(feed?.matches) ? feed.matches : [])
+    .filter((row) => {
+      const kickoff = Date.parse(row?.kickoff || "");
+      return row?.id &&
+        Number.isFinite(kickoff) &&
+        kickoff - Date.now() > 2 * 60 * 60 * 1000 &&
+        row?.odds?.home != null &&
+        row?.odds?.draw != null &&
+        row?.odds?.away != null &&
+        row?.health?.authorityFreshness === "FRESH";
+    })
+    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))
+    .slice(0, 20);
+
+  for (const candidate of candidates) {
+    const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(candidate.id)}`, { timeout: 45000 });
+    if (!response.ok()) continue;
+    const body = await response.json();
+    const rows = (Array.isArray(body?.marketIntelligence?.value) ? body.marketIntelligence.value : [])
+      .filter((row) =>
+        row?.provider_id === "BET365" &&
+        row?.market_key === "HAD_1X2" &&
+        row?.period_key === "FULL_TIME" &&
+        ["HOME", "DRAW", "AWAY"].includes(row?.selection_key)
+      );
+    if (rows.length !== 3) continue;
+    if (!rows.every((row) => row?.status === "MODEL_VALIDATION_GAP")) continue;
+    return { id: candidate.id, candidate, body, rows };
+  }
+  return null;
+}
+
+
 test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
   const response = await request.get(`${DETAIL_API_URL}?id=FB6287`, { timeout: 45000 });
   expect(response.ok()).toBeTruthy();
@@ -73,19 +110,29 @@ test("production exact Flashscore player identity remains fail-closed", async ({
 });
 
 test("production HDA value API exposes validation gap and capture lineage", async ({ request }) => {
-  const response = await request.get(`${DETAIL_API_URL}?id=FB6355`, { timeout: 45000 });
-  expect(response.ok()).toBeTruthy();
-  const body = await response.json();
-  const rows = body?.marketIntelligence?.value || [];
+  const control = await findFreshHdaControl(request);
+  expect(control).toBeTruthy();
+  const rows = control.rows;
   expect(rows).toHaveLength(3);
 
-  const home = rows.find((row) => row?.selection_key === "HOME");
+  const bySelection = new Map(rows.map((row) => [row.selection_key, row]));
+  const home = bySelection.get("HOME");
+  const draw = bySelection.get("DRAW");
+  const away = bySelection.get("AWAY");
   expect(home).toBeTruthy();
+  expect(draw).toBeTruthy();
+  expect(away).toBeTruthy();
+
+  expect(Number(home.odds_decimal)).toBeCloseTo(Number(control.candidate.odds.home), 5);
+  expect(Number(draw.odds_decimal)).toBeCloseTo(Number(control.candidate.odds.draw), 5);
+  expect(Number(away.odds_decimal)).toBeCloseTo(Number(control.candidate.odds.away), 5);
+
   expect(home.status).toBe("MODEL_VALIDATION_GAP");
   expect(home.details?.calculation_version).toBe("PHASE4_HDA_VALUE_V3");
-  expect(home.details?.quote_lineage?.canonical_match_id).toBe("FB6355");
+  expect(home.details?.quote_lineage?.canonical_match_id).toBe(control.id);
   expect(home.details?.quote_lineage?.compatibility_verified).toBe(true);
   expect(home.details?.quote_lineage?.source_ts).toBeTruthy();
+  expect(home.details?.quote_lineage?.external_event_id).toBeTruthy();
   expect(home.details?.model_lineage?.consensus_version).toBe("PHASE4_HDA_CONSENSUS_V4");
   expect(home.details?.model_lineage?.evaluation_evidence?.dixon_coles?.settled_matches).toBe(27);
   expect(home.details?.model_lineage?.evaluation_evidence?.pi?.settled_matches).toBe(27);
@@ -201,9 +248,12 @@ const devices = [
 ];
 
 for (const device of devices) {
-  test(`production HDA validation gap renders · ${device.name}`, async ({ page }) => {
+  test(`production HDA validation gap renders · ${device.name}`, async ({ page, request }) => {
+    const control = await findFreshHdaControl(request);
+    expect(control).toBeTruthy();
+
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`${BASE_URL}/details?id=FB6355`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(control.id)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
 
     const board = page.locator(".phase4-board");
     if (!(await board.isVisible().catch(() => false))) {
@@ -216,6 +266,8 @@ for (const device of devices) {
     await expect(page.getByText(/Predictive release validation is not established/i).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Evaluation PHASE4_HDA_EVAL_V1: 27 settled internal-blend matches/i).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Training cutoff UNVERIFIED EXTERNAL MODEL BUILD/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(control.candidate.home, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(control.candidate.away, { exact: true }).first()).toBeVisible();
 
     await page.screenshot({
       path: `test-results/production-hda-validation-${device.name}.png`,

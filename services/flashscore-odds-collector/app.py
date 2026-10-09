@@ -56,7 +56,14 @@ async def collect_fixture_rows(page, target_date):
     if delta:
         selector = '[data-day-picker-arrow="next"]' if delta > 0 else '[data-day-picker-arrow="prev"]'
         for _ in range(abs(delta)):
-            await page.locator(selector).click(timeout=10000)
+            arrow = page.locator(selector).first
+            try:
+                await arrow.click(timeout=10000)
+            except Exception:
+                # Flashscore occasionally leaves a transient overlay over the visible,
+                # enabled day-picker button. A DOM click preserves the same explicit
+                # navigation target without broadening scraping scope.
+                await arrow.evaluate("(el) => el.click()")
             await page.wait_for_timeout(600)
 
     try:
