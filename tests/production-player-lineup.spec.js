@@ -222,6 +222,17 @@ test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepa
     await expect(marketCells.nth(index)).toContainText(Number(pricedMatch.odds[key]).toFixed(2));
   }
   await page.screenshot({ path: "test-results/production-all-in-one-flashscore-hda.png", fullPage: true });
+
+  // All-in-One means switching Goals/Corners can never erase the verified HDA.
+  for (const [tab, secondary] of [["Goals", "Goals"], ["Corners", "Corners"]]) {
+    await page.locator(".ft-market-tabs").getByRole("button", { name: tab, exact: true }).click();
+    const hdaCells = row.locator(".ft-market-odds > div:first-of-type > span");
+    await expect(hdaCells).toHaveCount(3);
+    for (const [index, key] of [[0,"home"],[1,"draw"],[2,"away"]]) {
+      await expect(hdaCells.nth(index)).toContainText(Number(pricedMatch.odds[key]).toFixed(2));
+    }
+    await expect(row.locator(".ft-secondary-market")).toContainText(secondary);
+  }
 });
 
 
