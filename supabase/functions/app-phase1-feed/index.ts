@@ -213,9 +213,36 @@ function noVig(home: unknown, draw: unknown, away: unknown) {
 }
 
 
+// Parse only full-match Flashscore SG/SH/SI triplets; preserve provenance.
+function observedFlashscoreStats(detail:any,kickoff:any){
+  const raw=detail?.detail_raw?.statistics_raw;
+  const observedAt=detail?.detail_fetched_at;
+  if(typeof raw!=="string"||!raw.startsWith("SE÷Match"))return null;
+  const capturedMs=Date.parse(String(observedAt||""));
+  const kickoffMs=Date.parse(String(kickoff||""));
+  if(!Number.isFinite(capturedMs)||!Number.isFinite(kickoffMs)
+     ||capturedMs<kickoffMs||capturedMs>Date.now()+60_000)return null;
+  const section=raw.split("¬~SE÷")[0];
+  const labels:any={"Expected goals (xG)":"xg","xG on target (xGOT)":"xgot",
+    "Ball possession":"possession","Total shots":"shots","Shots on target":"shotsOnTarget",
+    "Big chances":"bigChances","Corner kicks":"corners"};
+  const stats:any={};
+  for(const item of section.split("¬~")){
+    const m=item.match(/(?:^|¬)SG÷([^¬~]+)¬SH÷([^¬~]+)¬SI÷([^¬~]+)/);
+    if(!m||!labels[m[1]])continue;
+    const read=(v:string)=>{const x=String(v).match(/^-?(?:\d+(?:\.\d+)?|\.\d+)/);return x?Number(x[0]):null;};
+    const home=read(m[2]),away=read(m[3]);
+    if(home!==null&&away!==null&&!stats[labels[m[1]]])stats[labels[m[1]]]={home,away};
+  }
+  if(!stats.shots||!stats.corners||!stats.possession)return null;
+  return {source:"FLASHSCORE",capturedAt:observedAt,
+    freshness:(Date.now()-capturedMs)<=20*60000?"FRESH":"HISTORICAL_SNAPSHOT",
+    semantics:"OBSERVED_MATCH_STATS_NOT_VERIFIED_LIVE_STATUS",stats};
+}
+
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
-  const pricesFresh = freshness.status === "FRESH";
+  const pricesFresh = freshness.status === "FRESH" && new Date(String(r.kickoff_hkt||0)).getTime()>Date.now();
   const had = pricesFresh
     ? { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) }
     : { home: null, draw: null, away: null };
@@ -558,11 +585,12 @@ Deno.serve(async (req: Request) => {
       const now = new Date();
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+      const recentStart = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
 
-      const [fixtureResult, bet365Result, liveResult, bet365HealthResult, coverageResult] = await Promise.all([
+      const [fixtureResult, bet365Result, liveResult, bet365HealthResult, coverageResult, flashscoreDetailResult] = await Promise.all([
         db.from("active_canonical_fixture_current")
           .select("match_id,fetched_at,kickoff_hkt,status,tournament:league,home_en,away_en,updated_at")
-          .gte("kickoff_hkt", now.toISOString())
+          .gte("kickoff_hkt", recentStart)
           .lt("kickoff_hkt", end.toISOString())
           .order("kickoff_hkt", { ascending:true }),
         db.from("bookmaker_odds_current")
@@ -575,8 +603,13 @@ Deno.serve(async (req: Request) => {
           .maybeSingle(),
         db.from("match_public_coverage_current")
           .select("match_id,lineup_source,starters,home_starters,away_starters,confirmed_starters,profile_count,lineup_updated_at,detail_source,detail_available,source_lineup_available,stats_available,xg_available,detail_fetched_at")
-          .gte("kickoff_hkt", now.toISOString())
+          .gte("kickoff_hkt", recentStart)
           .lt("kickoff_hkt", end.toISOString()),
+        db.from("source_match_detail_current")
+          .select("match_id,source_key,detail_raw,detail_fetched_at")
+          .eq("source_key","FLASHSCORE")
+          .gte("detail_fetched_at",new Date(now.getTime()-24*60*60*1000).toISOString())
+          .limit(180),
       ]);
       if (fixtureResult.error) throw fixtureResult.error;
       if (bet365Result.error) console.error("summary_bookmaker_odds_current_unavailable",bet365Result.error);
@@ -602,6 +635,8 @@ Deno.serve(async (req: Request) => {
       const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.match_id),r]));
       const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
       const coverageById=new Map((coverageResult.data??[]).map((r:any)=>[String(r.match_id),r]));
+      const flashscoreDetailById=new Map((flashscoreDetailResult.data??[]).map((r:any)=>[String(r.match_id),r]));
+      if(flashscoreDetailResult.error)console.error("summary_flashscore_details_unavailable",flashscoreDetailResult.error);
       if(coverageResult.error)console.error("summary_public_coverage_unavailable",coverageResult.error);
       const rows:any[]=[];
       for(const fixture of fixtureResult.data??[]){
@@ -633,24 +668,26 @@ Deno.serve(async (req: Request) => {
       const directMatches=rows.map((item:any)=>{
         const match=directAuthoritySummaryRow(item.row,item.liveNow);
         const coverage:any=coverageById.get(String(match.id||""))||null;
-        if(!coverage)return match;
+        const stats=observedFlashscoreStats(flashscoreDetailById.get(String(match.id||"")),match.kickoff);
+        if(!coverage && !stats)return match;
         return {
           ...match,
           sourceContext:{
-            source:coverage.detail_source||coverage.lineup_source||null,
-            lineupAvailable:Number(coverage.starters||0)>=22||Boolean(coverage.source_lineup_available),
-            statsAvailable:Boolean(coverage.stats_available),
-            xgAvailable:Boolean(coverage.xg_available),
-            detailAvailable:Boolean(coverage.detail_available),
-            detailFetchedAt:coverage.detail_fetched_at??null,
+            ...(stats?{observedStats:stats}:{}),
+            source:stats?"FLASHSCORE":(coverage?.detail_source||coverage?.lineup_source||null),
+            lineupAvailable:Number(coverage?.starters||0)>=22||Boolean(coverage.source_lineup_available),
+            statsAvailable:Boolean(stats)||Boolean(coverage?.stats_available),
+            xgAvailable:Boolean(stats?.stats?.xg)||Boolean(coverage?.xg_available),
+            detailAvailable:Boolean(stats)||Boolean(coverage?.detail_available),
+            detailFetchedAt:stats?.capturedAt??coverage?.detail_fetched_at??null,
             lineupCoverage:{
-              source:coverage.lineup_source??null,
-              starters:Number(coverage.starters||0),
-              homeStarters:Number(coverage.home_starters||0),
-              awayStarters:Number(coverage.away_starters||0),
-              confirmedStarters:Number(coverage.confirmed_starters||0),
-              profileCount:Number(coverage.profile_count||0),
-              updatedAt:coverage.lineup_updated_at??null
+              source:coverage?.lineup_source??null,
+              starters:Number(coverage?.starters||0),
+              homeStarters:Number(coverage?.home_starters||0),
+              awayStarters:Number(coverage?.away_starters||0),
+              confirmedStarters:Number(coverage?.confirmed_starters||0),
+              profileCount:Number(coverage?.profile_count||0),
+              updatedAt:coverage?.lineup_updated_at??null
             }
           }
         };
