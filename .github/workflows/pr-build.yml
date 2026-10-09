@@ -129,10 +129,40 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Production player-lineup acceptance
+        id: production_acceptance
         if: steps.static_build.outputs.exit_code == '0'
-        run: npx playwright test tests/production-player-lineup.spec.js --reporter=line
+        shell: bash
+        run: |
+          set +e
+          npx playwright test tests/production-player-lineup.spec.js --reporter=line 2>&1 | tee production-playwright.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
         env:
           FAST_TRACKER_PRODUCTION_URL: "https://fast-tracker-public-production.up.railway.app"
+
+      - name: Report production acceptance failure on PR
+        if: steps.static_build.outputs.exit_code == '0' && steps.production_acceptance.outputs.exit_code != '0' && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.existsSync('production-playwright.log') ? fs.readFileSync('production-playwright.log', 'utf8') : 'production-playwright.log missing';
+            const tail = raw.slice(-7000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '### Production acceptance diagnostic',
+                '',
+                'Real production acceptance failed on commit `' + context.sha.slice(0, 8) + '`.',
+                '',
+                '```text',
+                tail,
+                '```'
+              ].join('\n')
+            });
 
       - name: Render static preview locally
         if: steps.static_build.outputs.exit_code == '0'
@@ -191,6 +221,6 @@ jobs:
               ].join('\n')
             });
 
-      - name: Fail rendered-flow job when browser assertions failed
-        if: steps.static_build.outputs.exit_code == '0' && steps.rendered_flow.outputs.exit_code != '0'
+      - name: Fail acceptance job when browser assertions failed
+        if: steps.static_build.outputs.exit_code == '0' && (steps.production_acceptance.outputs.exit_code != '0' || steps.rendered_flow.outputs.exit_code != '0')
         run: exit 1
