@@ -1037,3 +1037,41 @@ Safety / boundary:
 - Missing remains unknown; no synthetic prices or fixtures were inserted. Strict unique canonical identity remains required.
 - Fresh prices remain MODEL_VALIDATION_GAP while model qualification is TRAINING_CUTOFF_UNVERIFIED; no unvalidated price becomes an actionable betting recommendation.
 - The broader fixture audit / multi-cycle ingestion milestone was not started.
+
+
+## FT-20261009-012 — close remaining real-production match rendering checks without manufacturing controls
+
+Starting reconciliation:
+- PR #44 started this assignment at exact head cd949276b1120d6d95a8d06b174c730d48c8eabf; no CI run existed after #518.
+- CI #518 / run 37870513408 was the last settled run at start, with the four FT-011 residual failures reported as one live-homepage render failure plus three predicted-XI controls.
+
+Current production evidence:
+- Fresh live canonical rows existed in public.live_score_feed_current and joined exactly to public.canonical_fixture_current.
+- Representative live control during the repair: FB6350 Palmeiras v Bahia, canonical match_id FB6350, source FOOTBALL_LIVE_API_SELF_HOSTED, source_match_id 5103647, confidence 1.0. During acceptance it was LIVE with fresh source timestamps and score 1-0; FB6352 was a second concurrent canonical live control.
+- Root live rendering defect: app-phase1-feed is future-only (kickoff >= now), while homepage mergeLiveOverlay previously overlaid live evidence only onto fixture IDs already present in that future authority list. Therefore an exact canonical fixture disappeared from the homepage immediately after kickoff despite remaining fresh in app-live-feed.
+- Predicted lineup control search is fail-closed. Repeated current queries of phase2_lineup_coverage_current found zero future fixtures more than two hours out with home_starters=11 and away_starters=11. The broader future coverage set was MISSING/0 starters; phase2_lineup_display_current had no eligible future complete rows. No confirmed fixture was relabelled as predicted and no unknown player data was invented.
+
+Repair:
+- bcbce690e294ce0628e5fb95cdbab83be93d66f1: homepage can append live-only rows after kickoff instead of requiring presence in the future authority feed.
+- 09a03caf6b110b81c5ae6b28794c0498fe2ed851: mocked browser regression uses a live fixture absent from the authority list.
+- Safety gate initially rejected a broad live union on CI #519 / run 37871625976. The implementation was tightened instead of weakening evidence rules.
+- 4eb3c4cc3176d389faa4f81d70259791adb4ab1e: app-live-feed now rejects any fresh live score whose match_id does not resolve to canonical_fixture_current before publishing it.
+- 784d78d0b1481df227d55ff6bf8aec59c62878c3: safety contract requires the canonical live-only union and exact canonical rejection path.
+- The live-score production assertion also contained a pre-existing over-escaped whitespace regex. A first edit corrupted the test file and CI #521 / run 37872876454 was not valid production acceptance evidence. 939d7c84331ffcf9bd9f5faad53bb82426a873fb restored the last known parsable file and implemented the score regex without template-literal escape ambiguity.
+
+Deployments required by the evidenced live defect:
+- Supabase app-live-feed deployed from this repair as version 19, verify_jwt unchanged false.
+- Railway public frontend deployment b8de3d7a-d10b-49aa-be70-3c111cb9bbef SUCCESS on application commit 784d78d0b1481df227d55ff6bf8aec59c62878c3.
+- No migration, provider addition, scraping expansion, credential change, or ingestion-cycle work was performed.
+
+CI progression:
+- #519 / run 37871625976: failed early at real-evidence safety; build/production/render skipped. This prevented unsafe deployment.
+- #520 / run 37871823365 before deployment: build and real-evidence safety PASS; mocked public-flow 35/35 PASS; production still used old live rendering and remained red. After deploying app-live-feed v19 and Railway frontend b8de3d7a..., the failed jobs were rerun on the same exact head. On rerun the live fixture row was visible and live-tag passed; the only live-test failure was the over-escaped score-text regex. Predicted-XI remained absent.
+- #521 / run 37872876454: invalid for production acceptance because the one-line regex edit physically corrupted production-player-lineup.spec.js. Mocked public-flow still passed 35/35. This run is recorded but not used as acceptance evidence.
+- #522 / run 37873076667 on code/test head 939d7c84331ffcf9bd9f5faad53bb82426a873fb: build/static/provider/safety/evidence/player-identity checks PASS; mocked public-flow 35/35 PASS including the new live-only canonical union regression. Real production live rendering PASS; scheduled Bet365 ingest PASS; confirmed XI + player stats PASS desktop/tablet/mobile. Predicted XI FAIL desktop/tablet/mobile because no real complete predicted control exists.
+- During #522 the previously settled HDA control also became unavailable: current phase4_value_api returned no complete BET365 HAD_1X2 rows, while FLASHSCORE_BET365 cloud_ingest remained OK (02:00Z health: 192 staged, 186 verified, 6 unresolved, 0 ambiguous, 558 market legs). Therefore HDA API and desktop/tablet/mobile HDA board checks failed closed. No MODEL_VALIDATION_GAP or TRAINING_CUTOFF_UNVERIFIED gate was bypassed.
+
+Current unresolved blockers / next action:
+- Predicted-XI blocker: provider/data availability. Need a genuinely future fixture with 22 persisted starters, explicitly predicted/unconfirmed, zero confirmed starters, and zero player-match stats. Until such data exists, the three predicted acceptance assertions must remain red.
+- Current HDA blocker is data/model qualification surface availability, not homepage live rendering: ingestion is healthy but phase4_value_api currently exposes no complete BET365 HDA rows. Missing HDA remains unknown and no stale/synthetic row is promoted.
+- The broader fixture audit and three-cycle ingestion milestone were not started.
