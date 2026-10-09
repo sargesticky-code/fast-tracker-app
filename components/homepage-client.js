@@ -327,8 +327,9 @@ function livePairLabel(pair, digits = 0) {
 }
 
 function LiveStatStrip({ match }) {
-  if (!match?.liveNow) return null;
-  const stats = match?.live?.stats;
+  const observed = match?.sourceContext?.observedStats;
+  const liveVerified = Boolean(match?.liveNow && match?.live?.stats);
+  const stats = liveVerified ? match.live.stats : observed?.stats;
   if (!stats) return null;
   const items = [
     ["xG", livePairLabel(stats.xg, 2)],
@@ -340,6 +341,11 @@ function LiveStatStrip({ match }) {
   if (!items.length) return null;
   return (
     <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:4}}>
+      {observed && !liveVerified ? (
+        <span title={observed.semantics} style={{fontSize:8,background:"#eff5fb",padding:"2px 4px",borderRadius:5}}>
+          Flashscore snapshot · {shortTime(observed.capturedAt)}
+        </span>
+      ) : null}
       {items.map(([label,value]) => (
         <span key={label} style={{fontSize:8,padding:"2px 4px",borderRadius:5,background:"#edf3f8",color:"#355773",fontWeight:800,whiteSpace:"nowrap"}}>
           {label} {value}{label === "Poss" ? "%" : ""}
@@ -826,7 +832,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
           <div role="status" className="ft-form-note" style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:12}}>
             <span>Flashscore H/D/A <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
-            <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.live?.stats).length}/{matches.length}</strong></span>
+            <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.sourceContext?.observedStats || m?.live?.stats).length}/{matches.length}</strong></span>
             <span>Independent model <strong>{matches.filter((m) => normalizedTriplet(m)).length}/{matches.length}</strong></span>
             <span>Unknown values stay blank; H/D/A odds are not model predictions</span>
           </div>
