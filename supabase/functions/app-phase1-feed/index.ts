@@ -594,7 +594,11 @@ Deno.serve(async (req: Request) => {
             ? "STALE"
             : String(bet365Heartbeat.status||"OK").toUpperCase();
 
-      const bookmakerHealthy=bet365HeartbeatStatus==="OK";
+      // The global ingest heartbeat describes job health, not whether each
+      // individual verified price snapshot is recent. A failed retry must not
+      // hide still-fresh, correctly identified bookmaker odds in the table.
+      // directAuthoritySummaryRow independently enforces the 20-minute
+      // per-quote freshness gate before any value reaches the UI.
       const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.match_id),r]));
       const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
       const coverageById=new Map((coverageResult.data??[]).map((r:any)=>[String(r.match_id),r]));
@@ -602,7 +606,7 @@ Deno.serve(async (req: Request) => {
       const rows:any[]=[];
       for(const fixture of fixtureResult.data??[]){
         const id=String(fixture.match_id||""); if(!id) continue;
-        const b:any=bookmakerHealthy ? (bet365ById.get(id)||null) : null;
+        const b:any=bet365ById.get(id)||null;
         const l:any=liveById.get(id)||null;
         const row={
           match_id:id,
