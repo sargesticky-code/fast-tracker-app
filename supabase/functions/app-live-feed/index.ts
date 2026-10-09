@@ -149,11 +149,12 @@ Deno.serve(async (req: Request) => {
     const referenceById = new Map((referenceOddsResult.data ?? []).map((r:any)=>[String(r.match_id),r]));
     const scoreSeedById = new Map(liveScores.map((r:any)=>[String(r.match_id),r]));
 
-    marketRows = liveScores.map((s:any)=>{
+    marketRows = liveScores.flatMap((s:any)=>{
       const id=String(s.match_id||"");
-      const canonical:any=matchById.get(id)||{};
+      const canonical:any=matchById.get(id)||null;
+      if (!canonical) return [];
       const ref:any=referenceById.get(id)||null;
-      return {
+      return [{
         match_id:id,
         provider_match_id:s.source_match_id??null,
         fetched_at:s.updated_at_source??s.source_updated_at??null,
@@ -178,7 +179,7 @@ Deno.serve(async (req: Request) => {
         bet365_minute:null,
         reference_odds_source:ref?.source??null,
         live_score_source:s.source??null,
-      };
+      }];
     });
 
     const ids = (marketRows ?? []).map((r: any) => r.match_id).filter(Boolean);
