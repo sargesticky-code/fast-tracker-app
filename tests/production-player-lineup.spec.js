@@ -387,8 +387,8 @@ for (const device of devices) {
 
 
 const FT014_AUDIT_FIXTURES = [
-  { id: "FB6350", window: "recent", home: "Palmeiras", away: "Bahia", expectedLineup: "CONFIRMED" },
-  { id: "FB6352", window: "recent", home: "Fluminense", away: "Coritiba", expectedLineup: "CONFIRMED" },
+  { id: "FB6350", window: "recent", home: "Palmeiras", away: "Bahia", expectedLineup: "SOURCE_CONFIRMED_UNRESOLVED" },
+  { id: "FB6352", window: "recent", home: "Fluminense", away: "Coritiba", expectedLineup: "SOURCE_CONFIRMED_UNRESOLVED" },
   { id: "FB6351", window: "recent", home: "Santos", away: "Flamengo", expectedLineup: "CONFIRMED" },
   { id: "FS:0CAcmHeT", window: "upcoming", home: "Cheongju FC", away: "Seongnam", expectedLineup: "UNKNOWN" },
   { id: "FB6342", window: "upcoming", home: "Arsenal", away: "Leeds", expectedLineup: "UNKNOWN" },
@@ -437,9 +437,15 @@ for (const fixture of FT014_AUDIT_FIXTURES) {
         expect(summary.confirmedStarters).toHaveLength(22);
         expect(summary.unresolvedConfirmed).toHaveLength(0);
         for (const row of summary.starters) {
-          expect(row?.canonical_player_key || row?.player_key).toBeTruthy();
-          expect(row?.canonical_player_name || row?.player_name).toBeTruthy();
+          expect(row?.canonical_player_key).toBeTruthy();
+          expect(row?.canonical_player_name).toBeTruthy();
         }
+      } else if (fixture.expectedLineup === "SOURCE_CONFIRMED_UNRESOLVED") {
+        expect(summary.starters).toHaveLength(22);
+        expect(summary.confirmedStarters).toHaveLength(0);
+        expect(summary.unresolvedConfirmed).toHaveLength(22);
+        expect(summary.starters.filter((row) => row?.confirmed === true)).toHaveLength(22);
+        expect(summary.starters.filter((row) => row?.canonical_player_key)).toHaveLength(0);
       } else {
         expect(summary.lineup).toHaveLength(0);
         expect(summary.stats).toHaveLength(0);
@@ -491,6 +497,14 @@ for (const fixture of FT014_AUDIT_FIXTURES) {
         } else {
           await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible({ timeout: 15000 });
         }
+      } else if (fixture.expectedLineup === "SOURCE_CONFIRMED_UNRESOLVED") {
+        await ensureVisibleAfterReloads(
+          page,
+          () => page.getByRole("region", { name: "Professional lineup module" }).getByText("Source starting XI exists, but starter identity is unresolved", { exact: true })
+        );
+        await expect(module.getByText(/source-confirmed row\(s\) await identity/).first()).toBeVisible({ timeout: 15000 });
+        await expect(module.getByText("PREDICTED 11v11", { exact: true })).toHaveCount(0);
+        await expect(module.getByText("CONFIRMED 11v11", { exact: true })).toHaveCount(0);
       } else {
         await ensureVisibleAfterReloads(
           page,
