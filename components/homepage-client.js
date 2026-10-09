@@ -238,28 +238,11 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   const prematchOdds = completeHda(match?.odds) ? match.odds : null;
   const currentOdds = verifiedLiveOdds || prematchOdds;
   const referenceOnly = Boolean(match?.liveNow && !verifiedLiveOdds && prematchOdds);
-  if (marketKey === "GOALS") {
-    return (
-      <div className="ft-market-odds">
-        <small>{match?.liveNow ? "LIVE " : ""}Goals {currentGoals?.line ?? "—"}</small>
-        <div>
-          <span><b>O</b>{formatOdds(currentGoals?.over)}</span>
-          <span><b>U</b>{formatOdds(currentGoals?.under)}</span>
-        </div>
-      </div>
-    );
-  }
-  if (marketKey === "CORNERS") {
-    return (
-      <div className="ft-market-odds">
-        <small>{match?.liveNow ? "LIVE " : ""}Corners {currentCorners?.line ?? "—"}</small>
-        <div>
-          <span><b>O</b>{formatOdds(currentCorners?.over)}</span>
-          <span><b>U</b>{formatOdds(currentCorners?.under)}</span>
-        </div>
-      </div>
-    );
-  }
+  // All-in-One contract: HDA remains visible in every market tab. Goals and
+  // corners are additional independent evidence lanes, never HDA replacements.
+  // The current collector supplies verified HDA only: do not invent O/U prices.
+  const alternate = marketKey === "GOALS" ? { name: "Goals", odds: currentGoals }
+    : marketKey === "CORNERS" ? { name: "Corners", odds: currentCorners } : null;
   const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
@@ -273,6 +256,15 @@ function MarketOdds({ match, marketKey = "HDA" }) {
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
         ))}
       </div>
+      {alternate && (
+        <div className="ft-secondary-market" style={{marginTop:3,paddingTop:3,borderTop:"1px solid #dce4ec"}}>
+          <small>{alternate.name} {alternate.odds?.line ?? "—"} · {alternate.odds?.over != null && alternate.odds?.under != null ? "source evidence" : "not available"}</small>
+          <div style={{display:"flex",gap:8}}>
+            <span><b>O</b>{formatOdds(alternate.odds?.over)}</span>
+            <span><b>U</b>{formatOdds(alternate.odds?.under)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -830,6 +822,13 @@ export default function HomepageClient({ initialFeed, nowMs }) {
                 ? (matches.length ? " cached matches · feed unavailable" : " feed unavailable")
                 : " matches shown"}
             </div>
+          </div>
+
+          <div role="status" className="ft-form-note" style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:12}}>
+            <span>Flashscore H/D/A <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
+            <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.live?.stats).length}/{matches.length}</strong></span>
+            <span>Independent model <strong>{matches.filter((m) => normalizedTriplet(m)).length}/{matches.length}</strong></span>
+            <span>Unknown values stay blank; H/D/A odds are not model predictions</span>
           </div>
 
           {feedState.status === "error" && matches.length > 0 ? (
