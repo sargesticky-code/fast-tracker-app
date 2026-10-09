@@ -647,7 +647,7 @@ Deno.serve(async (req: Request) => {
           match_id:id,
           fetched_at:b?.fetched_at??null,
           kickoff_hkt:fixture.kickoff_hkt,
-          status:l?.period??fixture.status??null,
+          status:l?.period??(new Date(String(fixture.kickoff_hkt)).getTime()<=Date.now() && String(fixture.status).toUpperCase()==="PREEVENT"?"STATUS_UNVERIFIED":fixture.status)??null,
           tournament:fixture.tournament??b?.league??null,
           home_en:fixture.home_en??b?.home??null,
           away_en:fixture.away_en??b?.away??null,
@@ -675,7 +675,7 @@ Deno.serve(async (req: Request) => {
           sourceContext:{
             ...(stats?{observedStats:stats}:{}),
             source:stats?"FLASHSCORE":(coverage?.detail_source||coverage?.lineup_source||null),
-            lineupAvailable:Number(coverage?.starters||0)>=22||Boolean(coverage.source_lineup_available),
+            lineupAvailable:Number(coverage?.starters||0)>=22||Boolean(coverage?.source_lineup_available),
             statsAvailable:Boolean(stats)||Boolean(coverage?.stats_available),
             xgAvailable:Boolean(stats?.stats?.xg)||Boolean(coverage?.xg_available),
             detailAvailable:Boolean(stats)||Boolean(coverage?.detail_available),
