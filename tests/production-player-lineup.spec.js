@@ -384,3 +384,127 @@ for (const device of devices) {
     });
   });
 }
+
+
+const FT014_AUDIT_FIXTURES = [
+  { id: "FB6350", window: "recent", home: "Palmeiras", away: "Bahia", expectedLineup: "CONFIRMED" },
+  { id: "FB6352", window: "recent", home: "Fluminense", away: "Coritiba", expectedLineup: "CONFIRMED" },
+  { id: "FB6351", window: "recent", home: "Santos", away: "Flamengo", expectedLineup: "CONFIRMED" },
+  { id: "FS:0CAcmHeT", window: "upcoming", home: "Cheongju FC", away: "Seongnam", expectedLineup: "UNKNOWN" },
+  { id: "FB6342", window: "upcoming", home: "Arsenal", away: "Leeds", expectedLineup: "UNKNOWN" },
+  { id: "FS:U5MTgNEi", window: "upcoming", home: "Al Kholood", away: "Al Qadsiah", expectedLineup: "UNKNOWN" },
+];
+
+function publicLineupSummary(body) {
+  const lineup = Array.isArray(body?.humanFactors?.lineup) ? body.humanFactors.lineup : [];
+  const starters = lineup.filter((row) => row?.starter === true);
+  const confirmedStarters = starters.filter((row) => row?.confirmed === true || row?.fact_status === "CONFIRMED");
+  const unresolvedConfirmed = starters.filter((row) => row?.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
+  const stats = Array.isArray(body?.humanFactors?.playerMatchStats) ? body.humanFactors.playerMatchStats : [];
+  const starterKeys = starters.map((row) => [
+    row?.team_side || "",
+    row?.canonical_player_key || row?.player_key || "",
+  ].join(":"));
+  const sources = [...new Set(lineup.map((row) => row?.source_name).filter(Boolean))].sort();
+  const freshness = lineup.map((row) => row?.source_updated_at).filter(Boolean).sort().at(-1) || null;
+  return {
+    lineup,
+    starters,
+    confirmedStarters,
+    unresolvedConfirmed,
+    stats,
+    starterKeys,
+    sources,
+    freshness,
+  };
+}
+
+for (const fixture of FT014_AUDIT_FIXTURES) {
+  for (const device of devices) {
+    test(`FT014 fixture audit · ${fixture.window} · ${fixture.id} · ${device.name}`, async ({ page, request }) => {
+      const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(fixture.id)}`, { timeout: 45000 });
+      expect(response.ok()).toBeTruthy();
+      const body = await response.json();
+      expect(body?.fixture?.match_id).toBe(fixture.id);
+      expect(body?.fixture?.home_en).toBe(fixture.home);
+      expect(body?.fixture?.away_en).toBe(fixture.away);
+
+      const summary = publicLineupSummary(body);
+      expect(new Set(summary.starterKeys).size).toBe(summary.starterKeys.length);
+
+      if (fixture.expectedLineup === "CONFIRMED") {
+        expect(summary.starters).toHaveLength(22);
+        expect(summary.confirmedStarters).toHaveLength(22);
+        expect(summary.unresolvedConfirmed).toHaveLength(0);
+        for (const row of summary.starters) {
+          expect(row?.canonical_player_key || row?.player_key).toBeTruthy();
+          expect(row?.canonical_player_name || row?.player_name).toBeTruthy();
+        }
+      } else {
+        expect(summary.lineup).toHaveLength(0);
+        expect(summary.stats).toHaveLength(0);
+      }
+
+      if (device.name === "desktop") {
+        console.log("FT014_AUDIT_EVIDENCE", JSON.stringify({
+          id: fixture.id,
+          window: fixture.window,
+          fixture: {
+            match_id: body?.fixture?.match_id,
+            home_en: body?.fixture?.home_en,
+            away_en: body?.fixture?.away_en,
+            kickoff_hkt: body?.fixture?.kickoff_hkt,
+            tournament: body?.fixture?.tournament,
+          },
+          public_api: {
+            lineup_rows: summary.lineup.length,
+            starter_rows: summary.starters.length,
+            confirmed_starters: summary.confirmedStarters.length,
+            unresolved_confirmed_starters: summary.unresolvedConfirmed.length,
+            player_match_stats: summary.stats.length,
+            lineup_sources: summary.sources,
+            latest_lineup_source_updated_at: summary.freshness,
+            starter_duplicate_count: summary.starterKeys.length - new Set(summary.starterKeys).size,
+          },
+          source_match_detail: body?.sourceMatchDetail ? {
+            source_key: body.sourceMatchDetail?.source_key,
+            external_event_id: body.sourceMatchDetail?.external_event_id,
+            detail_fetched_at: body.sourceMatchDetail?.detail_fetched_at,
+          } : null,
+        }));
+      }
+
+      await page.setViewportSize({ width: device.width, height: device.height });
+      await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(fixture.id)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
+      const module = page.getByRole("region", { name: "Professional lineup module" });
+      await expect(module).toBeVisible({ timeout: 20000 });
+
+      if (fixture.expectedLineup === "CONFIRMED") {
+        await ensureVisibleAfterReloads(
+          page,
+          () => page.getByRole("region", { name: "Professional lineup module" }).getByText("CONFIRMED 11v11", { exact: true }).first()
+        );
+        await expect(module.getByText(/11\/11 home · 11\/11 away/).first()).toBeVisible({ timeout: 15000 });
+        await module.getByRole("button", { name: "Match stats", exact: true }).click();
+        if (summary.stats.length > 0) {
+          await expect(module.getByText("Top performers", { exact: true })).toBeVisible({ timeout: 15000 });
+        } else {
+          await expect(module.getByText("Match player stats not available yet", { exact: true })).toBeVisible({ timeout: 15000 });
+        }
+      } else {
+        await ensureVisibleAfterReloads(
+          page,
+          () => page.getByRole("region", { name: "Professional lineup module" }).getByText("Waiting for reliable 11v11 lineups", { exact: true })
+        );
+        await expect(module.getByText(/—\/11 home · —\/11 away · lineup pending/).first()).toBeVisible({ timeout: 15000 });
+        await expect(module.getByText("PREDICTED 11v11", { exact: true })).toHaveCount(0);
+        await expect(module.getByText("CONFIRMED 11v11", { exact: true })).toHaveCount(0);
+      }
+
+      await page.screenshot({
+        path: `test-results/ft014-${fixture.window}-${fixture.id.replace(/[^a-z0-9]+/gi, "-")}-${device.name}.png`,
+        fullPage: true,
+      });
+    });
+  }
+}
