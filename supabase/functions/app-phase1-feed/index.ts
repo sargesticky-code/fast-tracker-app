@@ -677,6 +677,21 @@ Deno.serve(async (req: Request) => {
       },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
     }
 
+    // FT-20261009 P0: the generic RPC currently delegates to the removed
+    // ft_internal_app_phase1_feed(integer) function (Postgres 42883).
+    // Avoid that deterministic failure/timeout while preserving real canonical
+    // evidence and explicit unknowns through the existing safe recovery path.
+    // Re-enable this legacy RPC branch only after its SQL dependency is repaired
+    // and an end-to-end production contract has been verified.
+    if (Deno.env.get("FT_PHASE1_USE_GENERIC_RPC") !== "1") {
+      const recovered = await lightweightFullRecovery(
+        supabaseUrl, serverKey, createReadClientWithTimeout(supabaseUrl, serverKey, 8_000), hours
+      );
+      return Response.json(recovered, {
+        headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
+      });
+    }
+
     const { data, error } = await fullRpcDb.rpc("ft_internal_app_phase1_feed_generic", {
       window_hours: hours,
     });
