@@ -186,11 +186,11 @@ test("production scheduled live score provenance reaches public rendering", asyn
   const allMatches = page.getByRole("button", { name: "All matches", exact: true });
   if (await allMatches.isVisible().catch(() => false)) await allMatches.click();
   const encodedMatchId = encodeURIComponent(liveMatch.id);
-  const row = page.locator(\`a[href*="\${encodedMatchId}"]:visible\`).first();
+  const row = page.locator(`a[href*="${encodedMatchId}"]:visible`).first();
   await expect(row).toBeVisible({ timeout: 20000 });
   await expect(row.locator(".ft-live-tag")).toBeVisible({ timeout: 10000 });
   if (Number.isFinite(Number(score.home)) && Number.isFinite(Number(score.away))) {
-    await expect(row.getByText(new RegExp(\`^\${Number(score.home)}\\\\s*-\\\\s*\${Number(score.away)}$\`))).toBeVisible();
+    await expect(row.getByText(new RegExp(`^${Number(score.home)}\\\\s*-\\\\s*${Number(score.away)}$`))).toBeVisible();
   }
 });
 
