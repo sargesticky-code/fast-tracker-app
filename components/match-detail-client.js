@@ -1322,6 +1322,12 @@ export default function MatchDetailClient() {
     : formHomeUsable || formAwayUsable ? "PARTIAL"
       : "EMPTY";
 
+  // Exact fixture-scoped, source-verified stats live in the detail response,
+  // not the lightweight homepage/summary match representation.
+  const flashscoreObservedStats = deep?.flashscoreStats?.source === "FLASHSCORE"
+    && (deep?.requestedId === id || deep?.id === id)
+    ? deep.flashscoreStats : null;
+
   return (
     <main className="shell detail-shell">
       <div className="detail-top">
@@ -1892,22 +1898,22 @@ export default function MatchDetailClient() {
         </section>
       )}
 
-      {match.flashscoreStats?.stats ? (
+      {flashscoreObservedStats?.stats ? (
         <section className="panel" id="flashscore-stats">
           <div className="panel-title"><div><p>FLASHSCORE OBSERVED DATA</p><h2>Match statistics</h2></div></div>
           <div className="live-stats-detail-grid">
-            <div><span>xG</span><b>{pairText(match.flashscoreStats.stats.xg, 2)}</b></div>
-            <div><span>xGOT</span><b>{pairText(match.flashscoreStats.stats.xgot, 2)}</b></div>
-            <div><span>Total shots</span><b>{pairText(match.flashscoreStats.stats.shots)}</b></div>
-            <div><span>Shots on target</span><b>{pairText(match.flashscoreStats.stats.shotsOnTarget)}</b></div>
-            <div><span>Possession</span><b>{pairText(match.flashscoreStats.stats.possession, 0, "%")}</b></div>
-            <div><span>Big chances</span><b>{pairText(match.flashscoreStats.stats.bigChances)}</b></div>
-            <div><span>Corners</span><b>{pairText(match.flashscoreStats.stats.corners)}</b></div>
-            <div><span>Shots inside box</span><b>{pairText(match.flashscoreStats.stats.shotsInsideBox)}</b></div>
+            <div><span>xG</span><b>{pairText(flashscoreObservedStats.stats.xg, 2)}</b></div>
+            <div><span>xGOT</span><b>{pairText(flashscoreObservedStats.stats.xgot, 2)}</b></div>
+            <div><span>Total shots</span><b>{pairText(flashscoreObservedStats.stats.shots)}</b></div>
+            <div><span>Shots on target</span><b>{pairText(flashscoreObservedStats.stats.shotsOnTarget)}</b></div>
+            <div><span>Possession</span><b>{pairText(flashscoreObservedStats.stats.possession, 0, "%")}</b></div>
+            <div><span>Big chances</span><b>{pairText(flashscoreObservedStats.stats.bigChances)}</b></div>
+            <div><span>Corners</span><b>{pairText(flashscoreObservedStats.stats.corners)}</b></div>
+            <div><span>Shots inside box</span><b>{pairText(flashscoreObservedStats.stats.shotsInsideBox)}</b></div>
           </div>
           <p className="fineprint">
-            Source: Flashscore · Capture: {new Date(match.flashscoreStats.capturedAt).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong"})} HKT
-            · {match.flashscoreStats.freshness === "FRESH" ? "recent source snapshot" : "historical source snapshot"}
+            Source: Flashscore · Capture: {new Date(flashscoreObservedStats.capturedAt).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong"})} HKT
+            · {flashscoreObservedStats.freshness === "FRESH" ? "recent source snapshot" : "historical source snapshot"}
             · Match score and live status require separate verification
           </p>
         </section>
