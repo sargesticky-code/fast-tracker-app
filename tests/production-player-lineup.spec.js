@@ -52,6 +52,30 @@ async function findPredictedControl(request) {
   return null;
 }
 
+async function findMissingLineupControl(request) {
+  const feedResponse = await request.get(`${PHASE1_API_URL}?hours=48&view=summary`, { timeout: 45000 });
+  expect(feedResponse.ok()).toBeTruthy();
+  const feed = await feedResponse.json();
+  const candidates = (Array.isArray(feed?.matches) ? feed.matches : [])
+    .filter((row) => {
+      const kickoff = Date.parse(row?.kickoff || "");
+      return row?.id && Number.isFinite(kickoff) && kickoff - Date.now() > 2 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))
+    .slice(0, 24);
+
+  for (const candidate of candidates) {
+    const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(candidate.id)}`, { timeout: 45000 });
+    if (!response.ok()) continue;
+    const body = await response.json();
+    const lineup = Array.isArray(body?.humanFactors?.lineup) ? body.humanFactors.lineup : [];
+    const playerMatchStats = Array.isArray(body?.humanFactors?.playerMatchStats) ? body.humanFactors.playerMatchStats : [];
+    if (lineup.length !== 0 || playerMatchStats.length !== 0) continue;
+    return { id: candidate.id, candidate, body };
+  }
+  return null;
+}
+
 async function findFreshHdaControl(request) {
   const response = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(HDA_TRACE_MATCH_ID)}`, { timeout: 45000 });
   expect(response.ok()).toBeTruthy();
@@ -298,6 +322,29 @@ for (const device of devices) {
 
     await page.screenshot({
       path: `test-results/production-confirmed-${device.name}.png`,
+      fullPage: true,
+    });
+  });
+
+  test(`production missing future lineup remains unknown · ${device.name}`, async ({ page, request }) => {
+    const missingControl = await findMissingLineupControl(request);
+    expect(missingControl).toBeTruthy();
+    const detailBody = missingControl.body;
+    expect(Array.isArray(detailBody?.humanFactors?.lineup) ? detailBody.humanFactors.lineup : []).toHaveLength(0);
+    expect(Array.isArray(detailBody?.humanFactors?.playerMatchStats) ? detailBody.humanFactors.playerMatchStats : []).toHaveLength(0);
+
+    await page.setViewportSize({ width: device.width, height: device.height });
+    await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(missingControl.id)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
+
+    const module = page.getByRole("region", { name: "Professional lineup module" });
+    await expect(module).toBeVisible({ timeout: 20000 });
+    await expect(module.getByText("Waiting for reliable 11v11 lineups", { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(module.getByText(/0 home · 0 away · lineup pending/).first()).toBeVisible({ timeout: 15000 });
+    await expect(module.getByText("PREDICTED 11v11", { exact: true })).toHaveCount(0);
+    await expect(module.getByText("CONFIRMED 11v11", { exact: true })).toHaveCount(0);
+
+    await page.screenshot({
+      path: `test-results/production-lineup-pending-${device.name}.png`,
       fullPage: true,
     });
   });
