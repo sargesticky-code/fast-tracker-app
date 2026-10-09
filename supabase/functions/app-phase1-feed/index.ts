@@ -601,10 +601,11 @@ Deno.serve(async (req: Request) => {
           .eq("source","FLASHSCORE_BET365")
           .eq("metric","cloud_ingest")
           .maybeSingle(),
-        db.from("match_public_coverage_current")
-          .select("match_id,lineup_source,starters,home_starters,away_starters,confirmed_starters,profile_count,lineup_updated_at,detail_source,detail_available,source_lineup_available,stats_available,xg_available,detail_fetched_at")
-          .gte("kickoff_hkt", recentStart)
-          .lt("kickoff_hkt", end.toISOString()),
+        // The legacy public coverage view joins every lineup to the full
+        // player profile table, creating multi-second PostgREST fanout and
+        // blank SSR feeds. Detailed lineup/profile coverage is returned by
+        // the optional full enrichment lane, never allowed to block HDA.
+        Promise.resolve({data:[],error:null}),
         db.from("source_match_detail_current")
           .select("match_id,source_key,detail_raw,detail_fetched_at")
           .eq("source_key","FLASHSCORE")
