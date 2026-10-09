@@ -475,12 +475,23 @@ Deno.serve(async(req:Request)=>{
   );
   const lineupsWithMatchStats=annotatedLineups.map((row:any)=>{
     const source=String(row?.source_name||"").toUpperCase();
-    if(!source.startsWith("FOTMOB"))return row;
-    const key=String(row?.canonical_player_key||row?.player_key||"");
-    const matchStats=playerMatchStatsById.get(key)||null;
+    const canonicalKey=String(row?.canonical_player_key||"").trim();
+    const providerKey=String(row?.player_key||"").trim();
+    const statKey=canonicalKey || (source.startsWith("FOTMOB")?providerKey:"");
+    const matchStats=statKey?playerMatchStatsById.get(statKey)||null:null;
     return matchStats?{...row,match_stats:matchStats}:row;
   });
   const publicLineups=(()=>{
+    const confirmedStarterCounts={H:0,A:0};
+    for(const row of eligibleLineups){
+      if(row?.starter!==true || row?.confirmed!==true || row?.fact_status!=="CONFIRMED")continue;
+      if(row?.team_side==="H")confirmedStarterCounts.H++;
+      if(row?.team_side==="A")confirmedStarterCounts.A++;
+    }
+    const hasCompleteConfirmedXI=confirmedStarterCounts.H>=11&&confirmedStarterCounts.A>=11;
+    const eligibleLineups=hasCompleteConfirmedXI
+      ? lineupsWithMatchStats.filter((row:any)=>row?.confirmed===true)
+      : lineupsWithMatchStats;
     const byIdentity=new Map<string,any>();
     const norm=(value:any)=>String(value||"")
       .normalize("NFD").replace(/\p{M}+/gu,"").toLowerCase().replace(/[^a-z0-9]+/g,"");
