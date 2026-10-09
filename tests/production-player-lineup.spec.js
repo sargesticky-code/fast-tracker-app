@@ -38,7 +38,8 @@ async function findPredictedControl(request) {
     const body = await response.json();
     const lineup = Array.isArray(body?.humanFactors?.lineup) ? body.humanFactors.lineup : [];
     const starters = lineup.filter((row) => row?.starter === true);
-    const confirmedStarters = starters.filter((row) => row?.confirmed === true || row?.fact_status === "CONFIRMED");
+    const confirmedStarters = starters.filter((row) => row?.fact_status === "CONFIRMED");
+  const sourceConfirmedStarters = starters.filter((row) => row?.confirmed === true);
     const playerMatchStats = Array.isArray(body?.humanFactors?.playerMatchStats) ? body.humanFactors.playerMatchStats : [];
     if (starters.length !== 22 || confirmedStarters.length !== 0 || playerMatchStats.length !== 0) continue;
     const samplePlayer = starters.find((row) => row?.canonical_player_name || row?.player_name);
@@ -411,6 +412,7 @@ function publicLineupSummary(body) {
     lineup,
     starters,
     confirmedStarters,
+    sourceConfirmedStarters,
     unresolvedConfirmed,
     stats,
     starterKeys,
@@ -444,7 +446,7 @@ for (const fixture of FT014_AUDIT_FIXTURES) {
         expect(summary.starters).toHaveLength(22);
         expect(summary.confirmedStarters).toHaveLength(0);
         expect(summary.unresolvedConfirmed).toHaveLength(22);
-        expect(summary.starters.filter((row) => row?.confirmed === true)).toHaveLength(22);
+        expect(summary.sourceConfirmedStarters).toHaveLength(22);
         expect(summary.starters.filter((row) => row?.canonical_player_key)).toHaveLength(0);
       } else {
         expect(summary.lineup).toHaveLength(0);
@@ -465,7 +467,8 @@ for (const fixture of FT014_AUDIT_FIXTURES) {
           public_api: {
             lineup_rows: summary.lineup.length,
             starter_rows: summary.starters.length,
-            confirmed_starters: summary.confirmedStarters.length,
+            canonical_confirmed_starters: summary.confirmedStarters.length,
+            source_confirmed_starters: summary.sourceConfirmedStarters.length,
             unresolved_confirmed_starters: summary.unresolvedConfirmed.length,
             player_match_stats: summary.stats.length,
             lineup_sources: summary.sources,
