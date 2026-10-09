@@ -502,13 +502,12 @@ Deno.serve(async () => {
 
   // Commit all database writes, stale-row reconciliation, market refreshes and health
   // evidence in one transaction to avoid a long chain of PostgREST round trips.
-  const {data:commitResult,error:commitError}=await db.rpc("ft_commit_flashscore_bet365_ingest",{
-    p_fixture_stage:fixtureStage,
-    p_canonical_creates:genericRows,
-    p_redirects:redirects,
-    p_stage:stage,
-    p_bookmaker_rows:bookmakerRows,
-    p_snapshots:snapshots,
+  // Publish verified HDA prices in a small independent transaction first.
+  // The legacy monolithic ingestion bundled raw fixtures, snapshots and
+  // expensive analytics, causing PostgREST statement timeouts and leaving the
+  // entire homepage without current odds even when the collector was fresh.
+  const {data:commitResult,error:commitError}=await db.rpc("ft_publish_flashscore_hda_current",{
+    p_rows:bookmakerRows,
     p_health:healthRaw
   });
   if(commitError){
@@ -520,6 +519,6 @@ Deno.serve(async () => {
     return Response.json({error:"ingest_commit_failed",detail:commitError.message},{status:500});
   }
 
-  return Response.json({ ok: true, source: SOURCE, ...healthRaw, commit:commitResult });
+  return Response.json({ ok: true, source: SOURCE, publicationMode: "FAST_VERIFIED_HDA", auxiliaryStatus: "DEFERRED", ...healthRaw, commit:commitResult });
 
 });
