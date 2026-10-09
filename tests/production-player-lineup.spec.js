@@ -200,7 +200,17 @@ test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepa
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
 
-  expect(body?.source).toBe("canonical-fixtures-flashscore-bet365");
+  // Both deployed canonical summary lanes preserve exact fixture identity and
+  // the independent, source-observed Flashscore/Bet365 1X2 freshness contract.
+  const expectedSource = ["flashscore-single-rpc-canonical", "canonical-fixtures-flashscore-bet365"];
+  expect(expectedSource, "summary must use an approved canonical Flashscore source lane").toContain(body?.source);
+  if (body?.source === "flashscore-single-rpc-canonical") {
+    expect(body?.systemHealth?.authorityMode?.value).toBe("EXACT_CANONICAL_WITH_SOURCE_PROVENANCE");
+    expect(body?.systemHealth?.authorityMode?.status).toBe("OK");
+    expect(Number(body?.systemHealth?.authorityMode?.raw?.matches)).toBe(body?.count);
+  } else {
+    expect(body?.systemHealth?.authorityMode?.value).toBe("CANONICAL_FIXTURES_FLASHSCORE_BET365");
+  }
   expect(body?.systemHealth?.FLASHSCORE_BET365?.status).toBe("OK");
   const observedAt = Date.parse(body?.systemHealth?.FLASHSCORE_BET365?.observedAt || "");
   expect(Number.isFinite(observedAt)).toBe(true);
