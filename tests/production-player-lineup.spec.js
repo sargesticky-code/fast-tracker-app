@@ -108,6 +108,30 @@ async function findFreshHdaControl(request) {
   };
 }
 
+test("Flashscore full-match statistics are source-observed in API and rendered detail", async ({ page, request }) => {
+  test.setTimeout(90000);
+  const matchId = "FS:KQgeW0tJ"; // Vejle v Hvidovre: exact canonical Flashscore identity
+  const res = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(matchId)}`, { timeout: 45000 });
+  expect(res.ok()).toBeTruthy();
+  const detail = await res.json();
+  const evidence = detail.flashscoreStats;
+  expect(evidence?.source).toBe("FLASHSCORE");
+  expect(evidence?.semantics).toBe("SOURCE_OBSERVED_STATS_NOT_VERIFIED_LIVE_STATUS");
+  expect(Number.isFinite(Date.parse(evidence?.capturedAt))).toBe(true);
+  for (const key of ["xg","shots","shotsOnTarget","possession","corners"]) {
+    const metric = evidence?.stats?.[key];
+    expect(Number.isFinite(metric?.home)).toBe(true);
+    expect(Number.isFinite(metric?.away)).toBe(true);
+  }
+  await page.goto(`${BASE_URL}/details?id=${encodeURIComponent(matchId)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
+  const statsPanel = page.locator("#flashscore-stats");
+  await expect(statsPanel.getByRole("heading", { name: "Match statistics" })).toBeVisible({ timeout: 45000 });
+  await expect(statsPanel.getByText("Source: Flashscore", { exact: false })).toBeVisible();
+  await expect(statsPanel).toContainText("xG");
+  await expect(statsPanel).toContainText("Total shots");
+  await page.screenshot({ path: "test-results/production-flashscore-match-stats.png", fullPage: true });
+});
+
 test("production exact Flashscore player identity remains fail-closed", async ({ request }) => {
   const response = await request.get(`${DETAIL_API_URL}?id=FB6287`, { timeout: 45000 });
   expect(response.ok()).toBeTruthy();
