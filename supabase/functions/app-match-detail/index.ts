@@ -494,14 +494,17 @@ Deno.serve(async(req:Request)=>{
     return matchStats?{...row,match_stats:matchStats}:row;
   });
   const publicLineups=(()=>{
-    const confirmedStarterCounts={H:0,A:0};
+    const officialStarterCounts=new Map<string,{H:number,A:number}>();
     for(const row of lineupsWithMatchStats){
-      if(row?.starter!==true || row?.confirmed!==true || row?.fact_status!=="CONFIRMED")continue;
-      if(row?.team_side==="H")confirmedStarterCounts.H++;
-      if(row?.team_side==="A")confirmedStarterCounts.A++;
+      const source=String(row?.source_name||"").toUpperCase();
+      if(row?.starter!==true || row?.confirmed!==true || !["FOTMOB_OFFICIAL","FLASHSCORE_OFFICIAL"].includes(source))continue;
+      if(!officialStarterCounts.has(source))officialStarterCounts.set(source,{H:0,A:0});
+      const counts=officialStarterCounts.get(source)!;
+      if(row?.team_side==="H")counts.H++;
+      if(row?.team_side==="A")counts.A++;
     }
-    const hasCompleteConfirmedXI=confirmedStarterCounts.H>=11&&confirmedStarterCounts.A>=11;
-    const eligibleLineups=hasCompleteConfirmedXI
+    const hasCompleteOfficialSourceXI=[...officialStarterCounts.values()].some((counts)=>counts.H>=11&&counts.A>=11);
+    const eligibleLineups=hasCompleteOfficialSourceXI
       ? lineupsWithMatchStats.filter((row:any)=>row?.confirmed===true)
       : lineupsWithMatchStats;
     const byIdentity=new Map<string,any>();
