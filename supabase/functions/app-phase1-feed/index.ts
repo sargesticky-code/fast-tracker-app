@@ -637,6 +637,7 @@ Deno.serve(async (req: Request) => {
           return stats ? {
             ...base,
             sourceContext:{
+              ...(base.sourceContext??{}),
               source:"FLASHSCORE",
               observedStats:stats,statsAvailable:true,
               xgAvailable:Boolean(stats.stats.xg),
