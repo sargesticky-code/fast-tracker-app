@@ -23,6 +23,12 @@ permissions:
   issues: write
   pull-requests: write
 
+# Superseded PR heads must not keep hammering the same live PostgREST.
+# Every new push cancels the previous live acceptance workload.
+concurrency:
+  group: fast-tracker-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -134,7 +140,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test tests/production-player-lineup.spec.js --reporter=line 2>&1 | tee production-playwright.log
+          npx playwright test tests/production-player-lineup.spec.js --reporter=line --workers=1 2>&1 | tee production-playwright.log
           code=${PIPESTATUS[0]}
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
