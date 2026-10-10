@@ -8,12 +8,16 @@ const KICKOFF_TOLERANCE_MS = 120 * 60 * 1000;
 const MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 function norm(v: unknown): string {
-  return String(v ?? "")
+  const value = String(v ?? "")
     .normalize("NFKC")
     .trim()
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+  // Exact Flashscore AD epoch and source-scout canonical identity confirmed
+  // that "Man Utd" and "Manchester Utd" refer to the same club (FB6344).
+  // This single scoped abbreviation is never a broad fuzzy team merge.
+  return value === "man utd" ? "manchester utd" : value;
 }
 
 function kickoffUtc(row: any): string | null {
