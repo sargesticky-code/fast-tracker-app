@@ -1,0 +1,23 @@
+name: FT500 limited frontend source-label QA
+on:
+  push:
+    branches: [release/ft500-spf-label-20261010]
+    paths: [components/homepage-client.js, .github/workflows/ft500-label-qa.yml]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check:ui
+      - run: npm run check:real-evidence
+      - run: npm run build
+        env:
+          CF_PAGES: '1'
