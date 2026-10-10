@@ -463,7 +463,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       form,
       forebetDetail:{
         predictedScore:fbHda?.predicted_score??null,
-        ou25:{over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),avgGoals:num(fbOu?.avg_goals)},
+        ou25:{over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),avgGoals:num(fbOu?.avg_goals ?? fbHda?.avg_goals)},
         corners95:{over:num(fbCorners?.prob_over),under:num(fbCorners?.prob_under),avgCorners:num(fbCorners?.avg_corners)},
         goalsCurrentLine:lineModel(m?.goals?.line,fbOu?.avg_goals,2.5,fbOu?.prob_over,0.5,6.5),
         cornersCurrentLine:lineModel(m?.corners?.line,fbCorners?.avg_corners,9.5,fbCorners?.prob_over,4.5,16.5),
