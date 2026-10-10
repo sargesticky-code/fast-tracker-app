@@ -290,6 +290,16 @@ test("production scheduled Bet365 ingest reaches Phase 1 API and rendered homepa
     }
     await expect(row.locator(".ft-secondary-market")).toContainText(secondary);
   }
+
+  // A match that the public table shows MUST remain usable when clicked.
+  // The detail read/lineup enrichment is optional and can fail independently:
+  // the exact Flashscore teams should still render from click-time evidence.
+  await row.click();
+  await expect(page).toHaveURL(/\/details[/?]/);
+  await expect(page.getByText(pricedMatch.home, { exact: true }).first()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(pricedMatch.away, { exact: true }).first()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("region", { name: "Professional lineup module" })).toContainText(pricedMatch.home);
+  await page.screenshot({ path: "test-results/production-all-in-one-to-match-detail.png", fullPage: true });
 });
 
 
