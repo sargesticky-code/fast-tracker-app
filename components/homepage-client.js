@@ -22,6 +22,7 @@ import {
   leagueDisplayName,
   matchDetailHref,
   preferredModel,
+  sanitizeFallbackMatch,
   valueEdge,
 } from "@/lib/fast-tracker";
 
@@ -661,6 +662,31 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   const [selectedDate, setSelectedDate] = useState(new Date(nowMs || Date.now()));
 
   useEffect(() => {
+    // Keep a modest browser-side copy of already verified Flashscore fixture
+    // identities. A gateway schema-cache failure must not erase the entire
+    // board when this browser recently loaded the canonical source.
+    if (!Array.isArray(initialFeed?.matches) || !initialFeed.matches.length) {
+      try {
+        const raw = window.localStorage.getItem("ft-verified-homepage-snapshot");
+        const previous = raw ? JSON.parse(raw) : null;
+        const fetchedMs = Date.parse(String(previous?.generatedAt || ""));
+        if (previous && Array.isArray(previous.matches) && previous.matches.length &&
+          Number.isFinite(fetchedMs) && Date.now() - fetchedMs < 4 * 3600000) {
+          const now = Date.now();
+          const safeMatches = previous.matches.map((match) => {
+            const capturedAt = Date.parse(String(match?.health?.authorityFetchedAt || match?.oddsUpdatedAt || ""));
+            const kickoffAt = Date.parse(String(match?.kickoff || ""));
+            return Number.isFinite(capturedAt) && capturedAt <= now + 60000 &&
+              now - capturedAt <= 20 * 60000 && kickoffAt > now &&
+              ["home","draw","away"].every((k) => Number(match?.odds?.[k]) > 1)
+              ? match : sanitizeFallbackMatch(match);
+          });
+          setFeed({ ...previous, source: "cached-client-verified-fixtures",
+            count: safeMatches.length, matches: safeMatches });
+          setFeedState({ status: "error", message: "Using last verified Flashscore fixtures while live source is unavailable; expired odds are hidden." });
+        }
+      } catch {}
+    }
     let cancelled = false;
     let refreshInFlight = false;
     let enrichmentInFlight = false;
@@ -689,6 +715,11 @@ export default function HomepageClient({ initialFeed, nowMs }) {
         }
         if (!cancelled) {
           setFeed((current) => mergeAuthorityWithEnrichment(next, current));
+          if (next.matches.length && String(next.source || "").includes("flashscore")) {
+            try {
+              window.localStorage.setItem("ft-verified-homepage-snapshot", JSON.stringify(next));
+            } catch {}
+          }
           setFeedState({ status: "ready", message: null });
         }
       } catch {
