@@ -27,6 +27,10 @@ jobs:
                      date_time="11/10/2026 18:00",prob_home="42%",prob_draw="38",
                      prob_away="20",predicted_score="2 - 1",avg_goals="2.95")
           out = mod.normalize_row(row)
+          # Source reports US-style month/day and AM/PM in 2026.
+          us = mod.normalize_row({**row,"date_time":"10/11/2026 6:00 PM"})
+          assert us["source_kickoff_local_text"] == "10/11/2026 6:00 PM"
+          assert us["source_kickoff_timezone"] is None
           assert out["canonical_match_id"] is None
           assert out["identity_status"] == "UNVERIFIED"
           assert out["predicted_score"] == "2 - 1"
