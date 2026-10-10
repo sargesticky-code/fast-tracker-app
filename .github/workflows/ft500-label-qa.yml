@@ -2,7 +2,7 @@ name: FT500 limited frontend source-label QA
 on:
   push:
     branches: [release/ft500-spf-label-20261010]
-    paths: [components/homepage-client.js, supabase/functions/app-phase1-feed/index.ts, .github/workflows/ft500-label-qa.yml]
+    paths: [components/homepage-client.js, supabase/functions/app-phase1-feed/index.ts, scripts/check-real-evidence-safety.mjs, .github/workflows/ft500-label-qa.yml]
 permissions:
   contents: read
 jobs:
@@ -17,6 +17,11 @@ jobs:
       - run: npm install
       - run: npm run check:ui
       - run: npm run check:real-evidence
+      - name: Assert dated 500 SPF provenance survives observed stats and UI
+        run: |
+          grep -F -q '...(base.sourceContext??{})' supabase/functions/app-phase1-feed/index.ts
+          grep -F -q 'China Sports Lottery SPF · reference only' components/homepage-client.js
+          grep -F -q 'HDA prices unavailable' components/homepage-client.js
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
