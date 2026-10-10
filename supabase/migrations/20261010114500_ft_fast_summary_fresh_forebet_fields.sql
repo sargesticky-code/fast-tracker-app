@@ -1,6 +1,8 @@
 -- FT: expose fresh Forebet score/average goals/HDA in the existing single
 -- canonical summary RPC. No new view/table/crawler or extra PostgREST request.
 -- Historical Forebet records stay stored but cannot be promoted as current.
+-- 500.com SPF is a separately sourced, limited-age reference, not Bet365 and
+-- not a source for automated EV/value decisions.
 CREATE OR REPLACE FUNCTION public.ft_fast_flashscore_summary(p_window_hours integer DEFAULT 24)
  RETURNS jsonb
  LANGUAGE sql
@@ -20,7 +22,9 @@ AS $function$
    'forebet_draw',fb.prob_draw / 100.0,
    'forebet_away',fb.prob_away / 100.0,
    'forebet_predicted_score',fb.predicted_score,
-   'forebet_avg_goals',fb.avg_goals
+   'forebet_avg_goals',fb.avg_goals,
+   'china500_home',c.home,'china500_draw',c.draw,'china500_away',c.away,
+   'china500_captured_at',c.captured_at,'china500_source_updated_at',c.source_updated_at
   ) order by f.kickoff_hkt,f.match_id
  ),'[]'::jsonb)
  from public.active_canonical_fixture_current f
@@ -43,6 +47,11 @@ AS $function$
    and fb.prob_home+fb.prob_draw+fb.prob_away between 98 and 102
    and fb.predicted_score ~ '^[0-9]{1,2} *- *[0-9]{1,2}$'
    and fb.avg_goals > 0 and fb.avg_goals <= 12
+ left join public.ft_500_spf_current c on c.match_id=f.match_id
+   and c.league='EPL'
+   and c.captured_at >= now()-interval '40 minutes'
+   and c.source_updated_at >= now()-interval '2 hours'
+   and c.source_updated_at <= now()+interval '5 minutes'
  where f.kickoff_hkt >= now()-interval '6 hours'
    and f.kickoff_hkt < now() + make_interval(hours => greatest(1,least(48,p_window_hours)));
 $function$;
