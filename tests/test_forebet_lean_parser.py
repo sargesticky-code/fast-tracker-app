@@ -39,6 +39,13 @@ class TestForebetParser(unittest.TestCase):
     def test_nested_and_duplicate_rows(self):
         self.assertEqual(p.parse_forebet_html(fixture(duplicate=True))["parsed_count"], 1)
 
+    def test_league_tag_on_single_fixture_parent(self):
+        row = fixture().replace('<div class="shortTag">Eng1</div>', "")
+        markup = '<section><span class="shortTag">Eng1</span>' + row + '</section>'
+        parsed = p.parse_forebet_html(markup)
+        self.assertEqual(parsed["parsed_count"], 1)
+        self.assertEqual(parsed["parsed_rows"][0]["league"], "Eng1")
+
     def test_fake_probability_trio_is_not_accepted(self):
         html = fixture().replace("<span>20</span>", "<span>99</span>")
         parsed = p.parse_forebet_html(html)
