@@ -250,9 +250,10 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
   const chinaAge=Date.now()-chinaSourceMs;
   const chinaCaptureAge=Date.now()-chinaCaptureMs;
   const chinaHad={home:num(r.china500_home),draw:num(r.china500_draw),away:num(r.china500_away)};
+  // SPF remains reference-only even when source_updated_at is <=24h; no EV or live claim.
   const chinaFresh=!liveNow && Date.parse(String(r.kickoff_hkt??""))>Date.now() &&
     Number.isFinite(chinaAge) && chinaAge>=0 && chinaAge<=24*60*60*1000 &&
-    Number.isFinite(chinaCaptureAge) && chinaCaptureAge>=0 && chinaCaptureAge<=40*60*1000 &&
+    Number.isFinite(chinaCaptureAge) && chinaCaptureAge>=0 && chinaCaptureAge<=75*60*1000 &&
     Object.values(chinaHad).every(x=>x!=null && x>=1.01 && x<=100);
   const had = pricesFresh
     ? { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) }
