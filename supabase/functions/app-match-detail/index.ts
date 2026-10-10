@@ -323,9 +323,11 @@ Deno.serve(async(req:Request)=>{
   // service-role RPC that has independently passed All-in-One acceptance.
   // The old triple PostgREST fan-out timed out even on valid upcoming FS IDs.
   if (requestedId.startsWith("FS:")) {
-    const fast=await criticalDb.rpc("ft_fast_flashscore_summary",{p_window_hours:48});
-    const row=!fast.error&&Array.isArray(fast.data)
-      ? fast.data.find((r:any)=>String(r?.match_id||"")===requestedId)
+    // One exact provider-ID lookup uses the fixture PK and indexed bookmaker
+    // identity. Never load 48 hours of every fixture for a single detail view.
+    const fast=await criticalDb.rpc("ft_fast_flashscore_fixture_by_id",{p_match_id:requestedId});
+    const row=!fast.error && fast.data && String(fast.data.match_id||"")===requestedId
+      ? fast.data
       : null;
     if(row) {
       const quoteAt=row.odds_updated_at||row.fetched_at||null;
