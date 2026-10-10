@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounded Forebet capture pilot. Read-only, no database writes or access-control bypass.
 
-Adapted from the public MIT-licensed mantaslv/forebet-scraper parser layout.
+Uses current-day selectors observed in Alm77ar/Forebet-Scraper (Sep 2026).\nNo access-control clearance tools or per-match requests.
 Only captures Forebet 1X2 predictions; odds are deliberately not opened.
 Do not schedule until access, source terms, and real coverage are confirmed.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 BASE = "https://www.forebet.com/en/football-predictions/predictions-1x2/"
 SCORE = re.compile(r"^(\d{1,2})\s*-\s*(\d{1,2})$")
-DATE = re.compile(r"^\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}$")
+DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?$")
 
 
 def normalize_row(raw):
@@ -22,6 +22,8 @@ def normalize_row(raw):
     match_date = str(raw["date_time"]).strip()
     if not DATE.fullmatch(match_date):
         raise ValueError("INVALID_SOURCE_KICKOFF")
+    # The upstream 2026 scraper reports MM/DD/YYYY AM/PM; keep raw text
+    # rather than guessing a timezone or silently swapping month/day.
     home, away = str(raw["home"]).strip(), str(raw["away"]).strip()
     league = str(raw["league"]).strip()
     if not home or not away or not league or home == away:
@@ -93,6 +95,8 @@ def capture(day, max_rows):
                 def value(css):
                     return row.find_element(By.CSS_SELECTOR, css).text.strip()
                 probs = row.find_elements(By.CSS_SELECTOR, ".fprc span")
+                if len(probs) < 3:
+                    probs = row.find_elements(By.CSS_SELECTOR, ".fprt")
                 if len(probs) < 3:
                     raise ValueError("MISSING_HDA")
                 raw = {
