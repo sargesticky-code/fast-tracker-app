@@ -1,7 +1,7 @@
 "use client";
 
 const MODEL_NAME = {
-  HKJC: "HKJC",
+  BET365: "Bet365",
   FOREBET: "Forebet",
   DC: "Dixon-Coles",
   PI: "Pi Rating",
@@ -32,7 +32,7 @@ export default function ModelScoreboard({ rows = [], targetSide, market }) {
   const marketTarget = targetKey ? pct(market?.[targetKey]) : null;
 
   const models = rows
-    .filter((row) => row?.key !== "HKJC")
+    .filter((row) => row?.key !== "BET365")
     .map((row) => {
       const available = ["home","draw","away"].every((key) => Number.isFinite(Number(row.values?.[key])));
       const targetProbability = targetKey ? pct(row.values?.[targetKey]) : null;

@@ -22,6 +22,7 @@ import {
   leagueDisplayName,
   matchDetailHref,
   preferredModel,
+  sanitizeFallbackMatch,
   valueEdge,
 } from "@/lib/fast-tracker";
 
@@ -43,24 +44,49 @@ const AUTHORITY_KEYS = new Set([
 function mergeLiveOverlay(authorityFeed, liveFeed) {
   const authorityMatches = Array.isArray(authorityFeed?.matches) ? authorityFeed.matches : [];
   const liveMatches = Array.isArray(liveFeed?.matches) ? liveFeed.matches : [];
-  if (!authorityMatches.length || !liveMatches.length) return authorityFeed;
-  const liveById = new Map(liveMatches.filter((m) => m?.id).map((m) => [String(m.id), m]));
+  if (!liveMatches.length) return authorityFeed;
+
+  const liveById = new Map(liveMatches.filter((m) => m?.id && m?.live).map((m) => [String(m.id), m]));
+  const authorityIds = new Set(authorityMatches.map((m) => String(m?.id ?? "")).filter(Boolean));
   const matches = authorityMatches.map((authority) => {
-    if (!authority?.liveNow) return authority;
     const liveRow = liveById.get(String(authority.id ?? ""));
-    if (!liveRow?.live) return authority;
+    if (!liveRow) return authority;
     return {
       ...authority,
-      status: liveRow.status ?? authority.status,
+      status: liveRow.status ?? liveRow?.live?.status ?? authority.status,
       inPlay: true,
       liveNow: true,
       liveEligible: true,
       live: liveRow.live,
     };
   });
+
+  // The Phase 1 authority feed is future-only, so a canonical fixture naturally
+  // drops out at kickoff. Keep genuinely current live fixtures visible by adding
+  // only fresh live-feed rows with exact canonical IDs; missing fields stay null.
+  for (const liveRow of liveMatches) {
+    const id = String(liveRow?.id ?? "");
+    if (!id || !liveRow?.live || authorityIds.has(id)) continue;
+    matches.push({
+      id,
+      kickoff: liveRow.kickoff ?? null,
+      status: liveRow.status ?? liveRow?.live?.status ?? null,
+      league: liveRow.league ?? null,
+      home: liveRow.home ?? null,
+      away: liveRow.away ?? null,
+      homeZh: liveRow.homeZh ?? liveRow.home ?? null,
+      awayZh: liveRow.awayZh ?? liveRow.away ?? null,
+      inPlay: true,
+      liveNow: true,
+      liveEligible: true,
+      live: liveRow.live,
+    });
+  }
+
   return {
     ...authorityFeed,
     matches,
+    count: matches.length,
     liveOverlayGeneratedAt: liveFeed?.generatedAt ?? null,
   };
 }
@@ -78,6 +104,28 @@ function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
     for (const [key, value] of Object.entries(rich)) {
       if (AUTHORITY_KEYS.has(key)) continue;
       if (value !== null && value !== undefined) merged[key] = value;
+    }
+    // The lightweight Flashscore summary is the real source authority for
+    // observed match stats. Enrichment may add lineup/model context, but must
+    // not relabel Flashscore xG/shots as FotMob (or replace a verified snapshot).
+    if (authority?.sourceContext || rich?.sourceContext) {
+      const authorityContext = authority?.sourceContext || {};
+      const richContext = rich?.sourceContext || {};
+      const observed = authorityContext?.observedStats?.source === "FLASHSCORE"
+        ? authorityContext.observedStats
+        : null;
+      merged.sourceContext = {
+        ...richContext,
+        ...authorityContext,
+        lineupCoverage: authorityContext?.lineupCoverage ?? richContext?.lineupCoverage ?? null,
+        ...(observed ? {
+          source: "FLASHSCORE",
+          observedStats: observed,
+          statsAvailable: true,
+          xgAvailable: Boolean(observed.stats?.xg),
+          detailFetchedAt: observed.capturedAt,
+        } : {}),
+      };
     }
     if (rich.health) merged.health = rich.health;
     return merged;
@@ -203,38 +251,46 @@ function oddsTriplet(match) {
 function MarketOdds({ match, marketKey = "HDA" }) {
   const currentGoals = match?.liveNow && match?.live?.goals ? match.live.goals : match?.goals;
   const currentCorners = match?.liveNow && match?.live?.corners ? match.live.corners : match?.corners;
-  const currentOdds = match?.liveNow && match?.live?.odds ? match.live.odds : match?.odds;
-  if (marketKey === "GOALS") {
-    return (
-      <div className="ft-market-odds">
-        <small>{match?.liveNow ? "LIVE " : ""}Goals {currentGoals?.line ?? "—"}</small>
-        <div>
-          <span><b>O</b>{formatOdds(currentGoals?.over)}</span>
-          <span><b>U</b>{formatOdds(currentGoals?.under)}</span>
-        </div>
-      </div>
-    );
-  }
-  if (marketKey === "CORNERS") {
-    return (
-      <div className="ft-market-odds">
-        <small>{match?.liveNow ? "LIVE " : ""}Corners {currentCorners?.line ?? "—"}</small>
-        <div>
-          <span><b>O</b>{formatOdds(currentCorners?.over)}</span>
-          <span><b>U</b>{formatOdds(currentCorners?.under)}</span>
-        </div>
-      </div>
-    );
-  }
+  // Live payloads may contain an empty odds object. Do not let that
+  // truthy-but-null object erase a real, fresh prematch Flashscore quote.
+  // Never label a prematch reference as an in-play market.
+  const completeHda = (v) => ["home", "draw", "away"].every((k) => Number(v?.[k]) > 1);
+  const verifiedLiveOdds = match?.liveNow &&
+    match?.live?.oddsSemantics === "VERIFIED_IN_PLAY_BOOKMAKER_ODDS" &&
+    completeHda(match?.live?.odds) ? match.live.odds : null;
+  const prematchOdds = completeHda(match?.odds) ? match.odds : null;
+  const currentOdds = verifiedLiveOdds || prematchOdds;
+  const referenceOnly = Boolean(match?.liveNow && !verifiedLiveOdds && prematchOdds);
+  const china500Reference = match?.sourceContext?.marketAuthority === "CHINA_500_SPF";
+  // All-in-One contract: HDA remains visible in every market tab. Goals and
+  // corners are additional independent evidence lanes, never HDA replacements.
+  // The current collector supplies verified HDA only: do not invent O/U prices.
+  const alternate = marketKey === "GOALS" ? { name: "Goals", odds: currentGoals }
+    : marketKey === "CORNERS" ? { name: "Corners", odds: currentCorners } : null;
   const currentMatch = { ...match, odds: currentOdds };
   return (
     <div className="ft-market-odds">
-      <small>{match?.liveNow ? "LIVE HKJC HDA" : "HKJC HDA"}</small>
+      <small>{verifiedLiveOdds
+        ? "Flashscore · LIVE Bet365 HDA"
+        : china500Reference
+          ? "500.com · China Sports Lottery SPF (prematch reference)"
+          : referenceOnly
+          ? "Flashscore · Bet365 HDA (prematch reference)"
+          : "Flashscore · Bet365 HDA"}</small>
       <div>
         {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
         ))}
       </div>
+      {alternate && (
+        <div className="ft-secondary-market" style={{marginTop:3,paddingTop:3,borderTop:"1px solid #dce4ec"}}>
+          <small>{alternate.name} {alternate.odds?.line ?? "—"} · {alternate.odds?.over != null && alternate.odds?.under != null ? "source evidence" : "not available"}</small>
+          <div style={{display:"flex",gap:8}}>
+            <span><b>O</b>{formatOdds(alternate.odds?.over)}</span>
+            <span><b>U</b>{formatOdds(alternate.odds?.under)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -286,6 +342,43 @@ function liveLabel(match) {
   if (!match?.liveNow) return "";
   const minute = match?.live?.score?.minute ?? match?.live?.minute ?? match?.minute;
   return Number.isFinite(Number(minute)) ? `${minute}'` : "LIVE";
+}
+
+function livePairLabel(pair, digits = 0) {
+  if (!pair) return null;
+  const h = Number(pair.home), a = Number(pair.away);
+  if (!Number.isFinite(h) && !Number.isFinite(a)) return null;
+  const fmt = (v) => Number.isFinite(v) ? (digits ? v.toFixed(digits) : String(Math.round(v))) : "—";
+  return `${fmt(h)}-${fmt(a)}`;
+}
+
+function LiveStatStrip({ match }) {
+  const observed = match?.sourceContext?.observedStats;
+  const liveVerified = Boolean(match?.liveNow && match?.live?.stats);
+  const stats = liveVerified ? match.live.stats : observed?.stats;
+  if (!stats) return null;
+  const items = [
+    ["xG", livePairLabel(stats.xg, 2)],
+    ["Shots", livePairLabel(stats.shots)],
+    ["SOT", livePairLabel(stats.shotsOnTarget)],
+    ["Corners", livePairLabel(stats.corners)],
+    ["Poss", livePairLabel(stats.possession)],
+  ].filter(([, value]) => value);
+  if (!items.length) return null;
+  return (
+    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:4}}>
+      {observed && !liveVerified ? (
+        <span title={observed.semantics} style={{fontSize:8,background:"#eff5fb",padding:"2px 4px",borderRadius:5}}>
+          Flashscore snapshot · {shortTime(observed.capturedAt)}
+        </span>
+      ) : null}
+      {items.map(([label,value]) => (
+        <span key={label} style={{fontSize:8,padding:"2px 4px",borderRadius:5,background:"#edf3f8",color:"#355773",fontWeight:800,whiteSpace:"nowrap"}}>
+          {label} {value}{label === "Poss" ? "%" : ""}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function AdvertSlot({ variant = "wide" }) {
@@ -388,10 +481,19 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
       <div className="ft-table-body">
         {matches.length ? matches.map((match) => {
           const model = normalizedTriplet(match);
+          // Real bookmaker-implied probability is useful when no independent
+          // model exists; display it as market evidence, never as a prediction.
+          const marketImplied = !model && !match.liveNow ? fairMarket(match.odds) : null;
+          const displayProb = model;
           const edge = match.liveNow ? null : valueEdge(match);
           const market = match.market || fairMarket(match.odds);
-          const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
-          const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
+          // Source-specific Forebet columns: never substitute bookmaker/model goals.
+          // Null is unknown, not a 0.00 goal forecast.
+          const forebetRawAvg = match?.forebetDetail?.ou25?.avgGoals
+            ?? match?.forebetDetail?.avgGoals ?? match?.forebet?.avgGoals ?? null;
+          const avgGoals = forebetRawAvg === null || forebetRawAvg === "" ? null : Number(forebetRawAvg);
+          const predictedScore = match?.forebetDetail?.predictedScore
+            || match?.forebet?.score || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
           const rowClasses = [
@@ -400,16 +502,37 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
             Number(edge?.expectedValue) >= 0.04 ? "is-value" : "",
           ].filter(Boolean).join(" ");
           return (
-            <a className={rowClasses} href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
+            <a className={rowClasses} href={matchDetailHref(match.id, "homepage-v1")} key={match.id}
+              onClick={() => {
+                // Carry the exact verified fixture/HDA into its detail route.
+                // The detail API may be unavailable during PostgREST pressure;
+                // a clicked live match must not become an empty placeholder.
+                try {
+                  const payload = JSON.stringify(match);
+                  window.sessionStorage.setItem(`ft-match-${match.id}`, payload);
+                  window.localStorage.setItem(`ft-match-${match.id}`, payload);
+                } catch {}
+              }}>
               <div className="ft-team-cell">
                 <div className="ft-league-tag">{englishLeagueName(match)}</div>
                 <div className="ft-team-names">
                   <strong>{match.home || match.homeZh || "Home"}</strong>
                   <span>{match.away || match.awayZh || "Away"}</span>
-                  <small>{shortTime(match.kickoff)} · {dateKey(match.kickoff)}</small>
+                  <small>
+                    {shortTime(match.kickoff)} · {dateKey(match.kickoff)}
+                    {match?.sourceContext?.lineupCoverage?.starters === 22
+                      ? (Number(match?.sourceContext?.lineupCoverage?.confirmedStarters) >= 22 ? " · Confirmed XI 22/22" : " · Predicted XI 22/22")
+                      : ""}
+                    {Number(match?.sourceContext?.lineupCoverage?.profileCount) > 0 ? " · " + match.sourceContext.lineupCoverage.profileCount + " player profiles" : ""}
+                    {match?.sourceContext?.statsAvailable ? " · Match stats" : ""}
+                    {match?.sourceContext?.xgAvailable ? " · xG" : ""}
+                  </small>
                 </div>
               </div>
-              <div className="ft-probs"><ProbabilityStrip model={model} /></div>
+              <div className="ft-probs">
+                <ProbabilityStrip model={displayProb} />
+                {marketImplied && <small title="Bookmaker prices are shown separately; there is no independent prediction" style={{display:"block",fontSize:10,opacity:0.8}}>No model · see odds</small>}
+              </div>
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
@@ -417,6 +540,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
+                <LiveStatStrip match={match} />
               </div>
               <MarketOdds match={match} marketKey={activeMarket} />
             </a>
@@ -459,6 +583,8 @@ function CalendarPanel({ selectedDate, onSelectDate }) {
 function FeaturedMatch({ match }) {
   if (!match) return null;
   const model = normalizedTriplet(match);
+  const marketImplied = !model && !match.liveNow ? fairMarket(match.odds) : null;
+  const displayProb = model;
   const edge = valueEdge(match);
   return (
     <section className="ft-right-card">
@@ -468,7 +594,8 @@ function FeaturedMatch({ match }) {
           <small>{englishLeagueName(match)} · {formatKickoff(match.kickoff)}</small>
           <strong>{match.home || match.homeZh}</strong>
           <span>{match.away || match.awayZh}</span>
-          <ProbabilityStrip model={model} />
+          <ProbabilityStrip model={displayProb} />
+          {marketImplied && <small title="Bookmaker price is not an independent prediction">No model · see odds</small>}
           <div className="ft-featured-meta">
             <span>Pick <b>{sideFromTriplet(model)}</b></span>
             <span>Edge <b>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</b></span>
@@ -543,10 +670,44 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   const [selectedDate, setSelectedDate] = useState(new Date(nowMs || Date.now()));
 
   useEffect(() => {
+    // Keep a modest browser-side copy of already verified Flashscore fixture
+    // identities. A gateway schema-cache failure must not erase the entire
+    // board when this browser recently loaded the canonical source.
+    if (!Array.isArray(initialFeed?.matches) || !initialFeed.matches.length) {
+      try {
+        const raw = window.localStorage.getItem("ft-verified-homepage-snapshot");
+        const previous = raw ? JSON.parse(raw) : null;
+        const fetchedMs = Date.parse(String(previous?.generatedAt || ""));
+        if (previous && Array.isArray(previous.matches) && previous.matches.length &&
+          Number.isFinite(fetchedMs) && Date.now() - fetchedMs < 4 * 3600000) {
+          const now = Date.now();
+          const safeMatches = previous.matches.map((match) => {
+            const capturedAt = Date.parse(String(match?.health?.authorityFetchedAt || match?.oddsUpdatedAt || ""));
+            const kickoffAt = Date.parse(String(match?.kickoff || ""));
+            return Number.isFinite(capturedAt) && capturedAt <= now + 60000 &&
+              now - capturedAt <= 20 * 60000 && kickoffAt > now &&
+              ["home","draw","away"].every((k) => Number(match?.odds?.[k]) > 1)
+              ? match : sanitizeFallbackMatch(match);
+          });
+          setFeed({ ...previous, source: "cached-client-verified-fixtures",
+            count: safeMatches.length, matches: safeMatches });
+          setFeedState({ status: "error", message: "Using last verified Flashscore fixtures while live source is unavailable; expired odds are hidden." });
+        }
+      } catch {}
+    }
     let cancelled = false;
     let refreshInFlight = false;
     let enrichmentInFlight = false;
     let liveInFlight = false;
+    let hasAuthority = Array.isArray(initialFeed?.matches) && initialFeed.matches.length > 0;
+    const canonicalHealthy = (payload) => Boolean(
+      Array.isArray(payload?.matches) && payload.matches.length > 0 &&
+      !String(payload?.source || "").includes("degraded") &&
+      !String(payload?.source || "").includes("fallback") &&
+      payload?.systemHealth?.authorityMode?.status !== "DEGRADED"
+    );
+    let enrichmentAllowed = canonicalHealthy(initialFeed);
+    let lastKnownFixtures = initialFeed?.matches || [];
 
     async function refreshAuthority() {
       if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
@@ -570,7 +731,20 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           return;
         }
         if (!cancelled) {
+          hasAuthority = next.matches.length > 0;
+          lastKnownFixtures = next.matches;
+          const previousEnrichmentAllowed = enrichmentAllowed;
+          enrichmentAllowed = canonicalHealthy(next);
           setFeed((current) => mergeAuthorityWithEnrichment(next, current));
+          if (!previousEnrichmentAllowed && enrichmentAllowed) {
+            // Restore Forebet/model enrichment once real canonical reads recover.
+            setTimeout(refreshEnrichment, 1500);
+          }
+          if (next.matches.length && String(next.source || "").includes("flashscore")) {
+            try {
+              window.localStorage.setItem("ft-verified-homepage-snapshot", JSON.stringify(next));
+            } catch {}
+          }
           setFeedState({ status: "ready", message: null });
         }
       } catch {
@@ -581,7 +755,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     }
 
     async function refreshEnrichment() {
-      if (cancelled || enrichmentInFlight || document.visibilityState === "hidden") return;
+      if (cancelled || enrichmentInFlight || !hasAuthority || !enrichmentAllowed || document.visibilityState === "hidden") return;
       enrichmentInFlight = true;
       try {
         const res = await fetch(ENRICHMENT_FEED_URL, {
@@ -600,7 +774,13 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     }
 
     async function refreshLiveOverlay() {
-      if (cancelled || liveInFlight || document.visibilityState === "hidden") return;
+      if (cancelled || liveInFlight || !hasAuthority || !enrichmentAllowed || document.visibilityState === "hidden") return;
+      const now = Date.now();
+      const nearKickoff = lastKnownFixtures.some((m) => {
+        const t = Date.parse(String(m?.kickoff || ""));
+        return Boolean(m?.liveNow) || (Number.isFinite(t) && t >= now-4*3600000 && t <= now+5*60000);
+      });
+      if (!nearKickoff) return;
       liveInFlight = true;
       try {
         const res = await fetch(LIVE_FEED_URL + (LIVE_FEED_URL.includes("?") ? "&" : "?") + "_=" + Date.now(), {
@@ -619,12 +799,20 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       }
     }
 
-    refreshAuthority();
-    const warmLive = setTimeout(refreshLiveOverlay, 800);
-    const warmEnrichment = setTimeout(refreshEnrichment, 1500);
-    const authorityTimer = setInterval(refreshAuthority, 60000);
-    const liveTimer = setInterval(refreshLiveOverlay, 30000);
-    const enrichmentTimer = setInterval(refreshEnrichment, 300000);
+    // The SSR canonical seed already contains the exact bookmaker rows.
+    // Avoid launching 3 duplicate data reads at once on every first paint.
+    const seedTime = Date.parse(String(initialFeed?.generatedAt || ""));
+    const serverSeedRecent = hasAuthority &&
+      String(initialFeed?.source || "").startsWith("flashscore-") &&
+      Number.isFinite(seedTime) && Date.now() - seedTime < 10000;
+    if (!serverSeedRecent) refreshAuthority();
+    const warmLive = setTimeout(refreshLiveOverlay, 5000);
+    const warmEnrichment = setTimeout(refreshEnrichment, 12000);
+    // Less duplicated polling. Independent prediction evidence does not need
+    // a full expensive refresh from every open browser every five minutes.
+    const authorityTimer = setInterval(refreshAuthority, 180000);
+    const liveTimer = setInterval(refreshLiveOverlay, 60000);
+    const enrichmentTimer = setInterval(refreshEnrichment, 1200000);
 
     return () => {
       cancelled = true;
@@ -673,6 +861,31 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     });
 
     rows = rows.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    // The All-in-One first screen must not be swallowed by recent fixtures
+    // with no current price. Reserve space for real upcoming odds AND
+    // independently observed Flashscore stats, without assuming live status.
+    if ((activeMode === "today" || activeMode === "all") && !q) {
+      const live = rows.filter(m => m.liveNow);
+      const priced = rows.filter(m => !m.liveNow &&
+        new Date(m.kickoff).getTime() > Date.now() &&
+        ["home","draw","away"].every(k => Number(m?.odds?.[k]) > 1));
+      const observed = rows.filter(m => m?.sourceContext?.observedStats?.stats);
+      const selected = [];
+      const seen = new Set();
+      const add = (items, limit) => {
+        let n = 0;
+        for (const m of items) {
+          if (n >= limit) break;
+          if (seen.has(m.id)) continue;
+          selected.push(m); seen.add(m.id); n++;
+        }
+      };
+      add(live, 8);
+      add(priced, 20);
+      add(observed, 8);
+      add(rows, 30 - selected.length);
+      return selected.slice(0, 30);
+    }
     return rows.slice(0, 30);
   }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey]);
 
@@ -742,6 +955,13 @@ export default function HomepageClient({ initialFeed, nowMs }) {
                 ? (matches.length ? " cached matches · feed unavailable" : " feed unavailable")
                 : " matches shown"}
             </div>
+          </div>
+
+          <div role="status" className="ft-form-note" style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:12}}>
+            <span>Legacy H/D/A (OddsPortal pending) <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
+            <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.sourceContext?.observedStats || m?.live?.stats).length}/{matches.length}</strong></span>
+            <span>Independent model <strong>{matches.filter((m) => normalizedTriplet(m)).length}/{matches.length}</strong></span>
+            <span>Unknown values stay blank; H/D/A odds are not model predictions</span>
           </div>
 
           {feedState.status === "error" && matches.length > 0 ? (

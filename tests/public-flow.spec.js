@@ -21,10 +21,10 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
     goalsAgainst: side === "home" ? 11 : 13
   });
   const formDetail = dataCase === "populated"
-    ? { quality: "FORM_MODELED", source: "HKJC_RESULTS", home: richSide("home"), away: richSide("away") }
+    ? { quality: "FORM_MODELED", source: "VERIFIED_RESULTS", home: richSide("home"), away: richSide("away") }
     : dataCase === "partial"
-      ? { quality: "INSUFFICIENT_PARTIAL_HISTORY", source: "HKJC_RESULTS", home: richSide("home"), away: null }
-      : { quality: "INSUFFICIENT_HISTORY", source: "HKJC_RESULTS", home: null, away: null };
+      ? { quality: "INSUFFICIENT_PARTIAL_HISTORY", source: "VERIFIED_RESULTS", home: richSide("home"), away: null }
+      : { quality: "INSUFFICIENT_HISTORY", source: "VERIFIED_RESULTS", home: null, away: null };
   const totals = totalsCase === "empty"
     ? { goals: { line: null, over: null, under: null }, corners: { line: null, over: null, under: null } }
     : { goals: { line: 2.5, over: 1.88, under: 1.92 }, corners: { line: 9.5, over: 1.90, under: 1.90 } };
@@ -41,7 +41,8 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       liveNow: false,
       odds: { home: 2.2, draw: 3.3, away: 3.1 },
       market: { home: 0.421, draw: 0.281, away: 0.298 },
-      forebet: { home: 0.48, draw: 0.27, away: 0.25, score: "2-1", avgGoals: 2.7 },
+      forebet: { home: 0.48, draw: 0.27, away: 0.25, score: "2-1", predictedScore: "2-1", avgGoals: 2.7 },
+      predictedScore: "2-1",
       dc: { home: 0.46, draw: 0.28, away: 0.26 },
       pi: { home: 0.45, draw: 0.29, away: 0.26 },
       form: { home: 0.47, draw: 0.27, away: 0.26 },
@@ -49,7 +50,7 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
       goals: totals.goals,
       corners: totals.corners,
       updatedAt: new Date(Date.now() - (totalsStale ? 8 : 0.1) * 60 * 60 * 1000).toISOString(),
-      health: { hkjcFreshness: totalsStale ? "STALE" : "FRESH" },
+      health: { authorityFreshness: totalsStale ? "STALE" : "FRESH" },
       storySummary: {
         matchScript: { predictedScore: "2-1", shapeKey: "BALANCED" },
         editorialAlignment: { support: 1, contradict: 0 }
@@ -60,12 +61,12 @@ function fixtureFeed(dataCase = "empty", totalsCase = "partial", totalsStale = f
   };
 }
 
-function detailPayload({ confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historical = false, dataCase = "empty" } = {}) {
+function detailPayload({ confirmedLineup = false, unresolvedLineup = false, mixedCanonicalLineup = false, playerCase = "missing", historical = false, dataCase = "empty" } = {}) {
   const marketIntelligence = dataCase === "populated"
     ? {
         mode: "VALUE_DETECT",
         value: [{
-          provider_id: "HKJC",
+          provider_id: "BET365",
           selection_key: "HOME",
           odds_decimal: 2.20,
           expected_roi_pct: 5.6,
@@ -89,7 +90,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
           nearArbitrage: {
             status: "NEAR_ARB_WATCH",
             distance_to_arb_pct: 1.4,
-            best_home_provider: "HKJC",
+            best_home_provider: "BET365",
             best_home_odds: 2.20,
             best_draw_provider: "BOOK_B",
             best_draw_odds: 3.35,
@@ -106,7 +107,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         };
   return {
     fixture: {
-      hkjc_event_id: "FBTEST1",
+      event_id: "FBTEST1",
       home_en: "Northbridge FC",
       away_en: "Riverside United",
       tournament: "Premier League",
@@ -138,7 +139,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         away_venue_games: 4,
         form_xg_home: 1.62,
         form_xg_away: 1.11,
-        model_source: "HKJC_TEAM_FORM"
+        model_source: "VERIFIED_RESULTS_TEAM_FORM"
       },
       internal: {
         training_matches: 240,
@@ -150,7 +151,38 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         match_quality: 0.97,
         lineup_confirmed_at: (confirmedLineup || unresolvedLineup) ? new Date().toISOString() : null
       },
-      lineup: confirmedLineup ? [
+      lineup: mixedCanonicalLineup ? [
+        {
+          id: 9001,
+          team_side: "H",
+          player_key: "FM:9001",
+          player_name: "Canonical Home",
+          starter: true,
+          confirmed: true,
+          shirt_number: 9,
+          source_name: "FOTMOB_OFFICIAL",
+          source_url: "https://www.fotmob.com/match/9001",
+          evidence_sources: ["FOTMOB_OFFICIAL", "FOTMOB_PREDICTED"],
+          identity_status: "CANONICAL",
+          fact_status: "CONFIRMED",
+          record_group: "FBTEST1|H|canonical-home||"
+        },
+        {
+          id: 9002,
+          team_side: "A",
+          player_key: "FS:9002",
+          player_name: "Canonical Away",
+          starter: true,
+          confirmed: true,
+          shirt_number: 10,
+          source_name: "FLASHSCORE_OFFICIAL",
+          source_url: "https://www.flashscore.com/match/test/#/match-summary/lineups",
+          evidence_sources: ["FLASHSCORE_OFFICIAL"],
+          identity_status: "CANONICAL",
+          fact_status: "CONFIRMED",
+          record_group: "FBTEST1|A|canonical-away||"
+        }
+      ] : confirmedLineup ? [
         {
           id: 1001,
           team_side: "H",
@@ -207,7 +239,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
       }],
       playerStatus: playerCase === "confirmed" ? [{
         id: 178,
-        hkjc_event_id: "FB5829",
+        event_id: "FB5829",
         team_side: "A",
         player_key: "APIF:108643",
         status_type: "MISSING FIXTURE",
@@ -224,7 +256,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         raw: { player_name: "G. Segal" }
       }] : playerCase === "unresolved" ? [{
         id: 586,
-        hkjc_event_id: "FB6115",
+        event_id: "FB6115",
         team_side: "A",
         player_key: "1300526",
         status_type: "INJURY",
@@ -241,7 +273,7 @@ function detailPayload({ confirmedLineup = false, unresolvedLineup = false, play
         raw: { player_name: "Nico O'Reilly" }
       }] : playerCase === "ambiguous" ? [{
         id: 32,
-        hkjc_event_id: "FB5749",
+        event_id: "FB5749",
         team_side: "H",
         player_key: "Lukas Provod",
         status_type: "INJURY",
@@ -284,7 +316,7 @@ function analysisPayload(totalsCase = "partial") {
       weight: 0.9,
       sources: 1,
       method: "FORM_XG_POISSON",
-      provenanceGroup: "HKJC_RESULTS",
+      provenanceGroup: "VERIFIED_RESULTS",
       memberKeys: ["FORM"]
     }]
   };
@@ -341,7 +373,7 @@ function analysisPayload(totalsCase = "partial") {
     evidence: {
       phase1Health: {
         sourceMode: "CANONICAL",
-        evidenceKey: "hkjc_odds_current:FBTEST1",
+        evidenceKey: "market_odds_current:FBTEST1",
         sourceUrl: null,
         priceObservedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
         fetchedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString()
@@ -349,7 +381,7 @@ function analysisPayload(totalsCase = "partial") {
       goalsModelContext: {
         teamForm: {
           quality: "FORM_MODELED",
-          source: "martj42/international_results + HKJC recent · recency-weighted Team-Form Poisson",
+          source: "martj42/international_results + verified recent results · recency-weighted Team-Form Poisson",
           fetchedAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
           homeGames: 14,
           awayGames: 25,
@@ -357,7 +389,7 @@ function analysisPayload(totalsCase = "partial") {
           awayVenueGames: 9,
           expectedGoalsHome: 1.09304,
           expectedGoalsAway: 1.65055,
-          provenanceGroup: "HKJC_RESULTS",
+          provenanceGroup: "VERIFIED_RESULTS",
           evidenceKey: "form_predictions:FBTEST1",
           sourceUrl: null,
           method: "FORM_XG_POISSON"
@@ -365,7 +397,7 @@ function analysisPayload(totalsCase = "partial") {
       }
     },
     story: {
-      advice: "Northbridge FC is a value candidate at the current HKJC price.",
+      advice: "Northbridge FC is a value candidate at the current Bet365 price.",
       marketRead: "The HDA price implies a lower fair home probability than the independent model centre.",
       modelRead: "Forebet, Dixon-Coles/Pi and Team Form lean home, with moderate dispersion.",
       humanRead: "The lineup is predicted rather than confirmed.",
@@ -391,7 +423,7 @@ function storyPayload() {
       headline: "Northbridge vs Riverside: home value, but lineup confirmation still matters",
       executiveSummary: "The home case is supported by several independent model families, while the provisional lineup remains an important uncertainty.",
       thesis: "Northbridge FC is a value candidate at 2.20, not a certainty.",
-      marketInterpretation: "The current HKJC HDA price is the observed price used for this recommendation.",
+      marketInterpretation: "The current Bet365 HDA price is the observed price used for this recommendation.",
       modelConsensusInterpretation: "Independent model families lean home without eliminating away-side risk.",
       humanFactorsInterpretation: "The available XI is provisional and is not treated as confirmed.",
       counterCase: "A lineup downgrade or adverse price move would weaken the case."
@@ -401,7 +433,7 @@ function storyPayload() {
   };
 }
 
-async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty", totalsCase = "partial", totalsStale = false } = {}) {
+async function mockApis(page, { withStory = true, stale = false, legacyAnalysis = false, confirmedLineup = false, unresolvedLineup = false, mixedCanonicalLineup = false, playerCase = "missing", historicalDetail = false, dataCase = "empty", totalsCase = "partial", totalsStale = false } = {}) {
   await page.route("**/functions/v1/app-phase1-feed?**", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtureFeed(dataCase, totalsCase, totalsStale)) });
   });
@@ -409,7 +441,7 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generatedAt: new Date().toISOString(), matches: [] }) });
   });
   await page.route("**/functions/v1/app-match-detail?**", async route => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, playerCase, historical: historicalDetail, dataCase })) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailPayload({ confirmedLineup, unresolvedLineup, mixedCanonicalLineup, playerCase, historical: historicalDetail, dataCase })) });
   });
   await page.route("**/functions/v1/app-match-analysis?**", async route => {
     const payload = analysisPayload(totalsCase);
@@ -442,8 +474,82 @@ async function mockApis(page, { withStory = true, stale = false, legacyAnalysis 
   });
 }
 
+function visibleMatchRow(page) {
+  return page.locator('a[href*="FBTEST1"]:visible').first();
+}
+
+test("homepage promotes fresh canonical live fixture even after it leaves future authority feed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  const feed = fixtureFeed();
+  feed.matches[0].liveNow = false;
+  feed.matches[0].inPlay = false;
+
+  await page.route("**/functions/v1/app-phase1-feed?**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(feed) });
+  });
+  await page.route("**/functions/v1/app-live-feed**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        matches: [{
+          id: "FBTESTLIVE",
+          kickoff: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+          league: "EPL",
+          home: "Live Home FC",
+          away: "Live Away FC",
+          status: "LIVE",
+          live: {
+            status: "LIVE",
+            score: { text: "1-0", home: 1, away: 0, minute: 52, status: "LIVE" },
+            stats: {
+              xg: { home: 1.21, away: 0.44 },
+              shots: { home: 8, away: 4 },
+              shotsOnTarget: { home: 4, away: 1 },
+              corners: { home: 5, away: 2 },
+              possession: { home: 57, away: 43 }
+            }
+          }
+        }]
+      })
+    });
+  });
+
+  await page.goto("http://127.0.0.1:4173/");
+  const liveRow = page.locator('a[href*="FBTESTLIVE"]:visible').first();
+  await expect(liveRow).toBeVisible({ timeout: 5000 });
+  await expect(liveRow.getByText("Live Home FC", { exact: true })).toBeVisible();
+  await expect(liveRow.getByText("Live Away FC", { exact: true })).toBeVisible();
+  await expect(page.getByText("52'", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 - 0", { exact: true })).toBeVisible();
+  await expect(page.getByText("xG 1.21-0.44", { exact: true })).toBeVisible();
+  await expect(page.getByText("Shots 8-4", { exact: true })).toBeVisible();
+  await expect(page.getByText("SOT 4-1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Corners 5-2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Poss 57-43%", { exact: true })).toBeVisible();
+});
+
+test("canonical mixed-provider lineup rows remain visible", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await mockApis(page, { mixedCanonicalLineup: true });
+  await page.goto("http://127.0.0.1:4173/details?id=FBTEST1");
+  const lineupTool = page.locator("details.lineup-tool-disclosure");
+  await expect(lineupTool).toBeVisible();
+  if (!(await lineupTool.evaluate(el => el.open))) {
+    await lineupTool.locator(":scope > summary").click();
+  }
+  await page.getByRole("button", { name: "Squad" }).click();
+  await expect(lineupTool.getByText("Canonical Home", { exact: true })).toBeVisible();
+  await expect(lineupTool.getByText("Canonical Away", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Source" }).click();
+  await expect(lineupTool.getByText(/FOTMOB_OFFICIAL/)).toBeVisible();
+  await expect(lineupTool.getByText(/FLASHSCORE_OFFICIAL/)).toBeVisible();
+});
+
 for (const device of [
   { name: "desktop", viewport: { width: 1440, height: 900 } },
+  { name: "tablet", viewport: { width: 820, height: 1180 } },
   { name: "mobile", viewport: { width: 390, height: 844 } }
 ]) {
   test(device.name + " homepage to English evidence article", async ({ page }) => {
@@ -456,23 +562,23 @@ for (const device of [
 
     await page.goto("http://127.0.0.1:4173/");
     await expect(page.getByText("Mathematical Football Predictions and Statistics")).toBeVisible();
-    await expect(page.getByText("Northbridge FC").first()).toBeVisible();
+    await expect(visibleMatchRow(page).getByText("Northbridge FC", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "HDA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Goals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Corners" })).toBeVisible();
-    await expect(page.getByText("HKJC HDA").first()).toBeVisible();
+    await expect(visibleMatchRow(page).getByText("BET365 HDA", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Goals" }).click();
-    await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
+    await expect(visibleMatchRow(page).getByText("Goals 2.5", { exact: true })).toBeVisible();
     await page.screenshot({ path: `test-results/dashboard-${device.name}-home.png`, fullPage: true });
 
-    const matchLink = page.locator('a[href*="FBTEST1"]').first();
+    const matchLink = visibleMatchRow(page);
     await expect(matchLink).toBeVisible();
     await matchLink.click();
 
     await expect(page).toHaveURL(/details.*FBTEST1/);
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
-    await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
+    await expect(page.getByText("Bet365", { exact: true }).first()).toBeVisible();
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
     await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Predicted / provisional lineup", { exact: true })).toBeVisible();
     await expect(page.getByText("Unknown — not zero absences", { exact: true })).toBeVisible();
@@ -487,7 +593,7 @@ for (const device of [
     const lineupTool = page.locator("details.lineup-tool-disclosure");
     const lineupToolSummary = lineupTool.locator(":scope > summary");
     await expect(lineupToolSummary.getByText("FULL LINEUP TOOL", { exact: true })).toBeVisible();
-    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
+    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
     const decisionBeforeLineup = await page.evaluate(() => {
       const decision = document.querySelector(".detail-decision-board");
       const lineup = document.querySelector("details.lineup-tool-disclosure");
@@ -508,7 +614,7 @@ for (const device of [
     await expect(page.getByText("Source fetch", { exact: true })).toBeVisible();
     await expect(page.getByText("Fetch time is separate from the market-price observation shown above", { exact: true })).toBeVisible();
     await expect(page.getByText("WATCH · Over 2.5", { exact: true })).toBeVisible();
-    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · HKJC_RESULTS)", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team Form expected goals (FORM_XG_POISSON · VERIFIED_RESULTS)", { exact: true })).toBeVisible();
     await expect(page.getByText("Expected goals 1.09 – 1.65", { exact: true })).toBeVisible();
     await expect(page.getByText("Model expected goals are derived estimates, not observed xG.", { exact: true })).toBeVisible();
     await expect(page.getByText("Goals, corners and handicap recommendations use only their own market-specific evidence. HDA consensus is not reused as a substitute.", { exact: true })).toBeVisible();
@@ -550,11 +656,11 @@ for (const device of [
 
     await lineupToolSummary.focus();
     await page.keyboard.press("Enter");
-    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
-    await expect(lineupTool.getByRole("button", { name: "Formation" })).toBeVisible();
+    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
     await lineupToolSummary.focus();
     await page.keyboard.press("Enter");
-    expect(await lineupTool.evaluate(el => el.open)).toBe(false);
+    expect(await lineupTool.evaluate(el => el.open)).toBe(true);
+    await expect(lineupTool.getByRole("button", { name: "Formation" })).toBeVisible();
 
     const renderedText = await page.locator("body").innerText();
     expect(renderedText).not.toMatch(/[\u3400-\u9fff]/);
@@ -577,7 +683,7 @@ for (const totalsCase of ["populated", "partial", "empty"]) {
 
       await page.goto("http://127.0.0.1:4173/");
       await page.getByRole("button", { name: "Corners" }).click();
-      await page.locator('a[href*="FBTEST1"]').first().click();
+      await visibleMatchRow(page).click();
 
       const totals = page.locator("#market-totals");
       await expect(totals.getByText("Goals and corners", { exact: true })).toBeVisible({ timeout: 10000 });
@@ -602,9 +708,9 @@ for (const totalsCase of ["populated", "partial", "empty"]) {
         await expect(details.getByText(/Market: Corners O\/U · Line 9.5/)).toBeVisible();
       } else {
         await expect(totals.locator(".totals-row-compact")).toHaveCount(2);
-        await expect(totals.getByText("No HKJC Goals line", { exact: true })).toBeVisible();
-        await expect(totals.getByText("No HKJC Corners line", { exact: true })).toBeVisible();
-        await expect(totals.getByText("HKJC line is unavailable; no same-line model comparison can be made.", { exact: true })).toHaveCount(2);
+        await expect(totals.getByText("No Bet365 Goals line", { exact: true })).toBeVisible();
+        await expect(totals.getByText("No Bet365 Corners line", { exact: true })).toBeVisible();
+        await expect(totals.getByText("Bet365 line is unavailable; no same-line model comparison can be made.", { exact: true })).toHaveCount(2);
         await expect(totals.getByText("Line —", { exact: true })).toHaveCount(2);
         await expect(totals.getByText(/Over — · —/)).toHaveCount(2);
         await expect(totals.getByText(/Under — · —/)).toHaveCount(2);
@@ -636,8 +742,8 @@ for (const stateCase of ["populated", "partial", "empty"]) {
 
       await page.goto("http://127.0.0.1:4173/");
       await page.getByRole("button", { name: "Goals" }).click();
-      await expect(page.getByText(/Goals 2\.5/).first()).toBeVisible();
-      await page.locator('a[href*="FBTEST1"]').first().click();
+      await expect(visibleMatchRow(page).getByText("Goals 2.5", { exact: true })).toBeVisible();
+      await visibleMatchRow(page).click();
       await expect(page.getByText("Value and price comparison", { exact: true })).toBeVisible({ timeout: 10000 });
       await expect(page.getByText("Recent form comparison", { exact: true })).toBeVisible();
 
@@ -692,10 +798,12 @@ test("article remains readable when English story cache/upstream is unavailable"
   await mockApis(page, { withStory: false, legacyAnalysis: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  const homepageRow = page.locator('a[href*="FBTEST1"]').first();
+  const homepageRow = visibleMatchRow(page);
   await expect(homepageRow.getByText("Northbridge FC", { exact: true })).toBeVisible();
   await expect(homepageRow.getByText("Riverside United", { exact: true })).toBeVisible();
   await expect(homepageRow.getByText("2-1", { exact: true })).toBeVisible();
+  await expect(homepageRow.locator(".ft-pred-pill")).toHaveText("1");
+  await expect(homepageRow.locator(".ft-goal-number")).toHaveText("2.70");
   await homepageRow.click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
@@ -709,7 +817,7 @@ test("stale market data disables an actionable article price", async ({ page }) 
   await mockApis(page, { stale: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Not current")).toBeVisible();
@@ -721,7 +829,7 @@ test("confirmed lineup evidence is honored without event-map timestamp", async (
   await mockApis(page, { confirmedLineup: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
   await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Confirmed lineup with resolved player identities", { exact: true })).toBeVisible();
@@ -734,7 +842,7 @@ test("post-kickoff historical detail overrides cached prematch price", async ({ 
   await mockApis(page, { historicalDetail: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible({ timeout: 10000 });
   await expect(page.locator("#analysis").getByText("Not current")).toBeVisible();
@@ -747,7 +855,7 @@ test("canonical confirmed player status keeps durable source attribution", async
   await mockApis(page, { playerCase: "confirmed" });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   const article = page.locator("#analysis");
   await article.locator("details.ft-article-deep > summary").click();
@@ -763,7 +871,7 @@ test("source-confirmed player with unresolved identity never becomes a confirmed
   await mockApis(page, { playerCase: "unresolved" });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   const article = page.locator("#analysis");
   await article.locator("details.ft-article-deep > summary").click();
@@ -778,7 +886,7 @@ test("ambiguous unconfirmed injury remains explicitly unresolved", async ({ page
   await mockApis(page, { playerCase: "ambiguous" });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   const article = page.locator("#analysis");
   await article.locator("details.ft-article-deep > summary").click();
@@ -792,7 +900,7 @@ test("official source lineup with unresolved player identity remains partial", a
   await mockApis(page, { unresolvedLineup: true });
 
   await page.goto("http://127.0.0.1:4173/");
-  await page.locator('a[href*="FBTEST1"]').first().click();
+  await visibleMatchRow(page).click();
 
   await expect(page.locator("#analysis .ft-article-safety-strip").getByText("Official lineup source confirmed · player identity reconciliation incomplete", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Confirmed lineup with resolved player identities", { exact: true })).toHaveCount(0);

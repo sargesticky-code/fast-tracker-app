@@ -73,14 +73,14 @@ function compactDetail(d: any) {
   const scenario = Array.isArray(d?.scenario) ? d.scenario : [];
   return {
     fixture: d?.fixture ? {
-      id: d.fixture.hkjc_event_id ?? null,
+      id: d.fixture.match_id ?? null,
       status: d.fixture.status ?? null,
       tournament: d.fixture.tournament ?? null,
       kickoff: d.fixture.kickoff_hkt ?? null,
       selling: d.fixture.selling ?? null,
       liveEligible: d.fixture.live_eligible ?? null,
       oddsUpdatedAt: d.fixture.odds_updated_at ?? null,
-      hkjc: {
+      bookmaker: {
         home: num(d.fixture.had_home),
         draw: num(d.fixture.had_draw),
         away: num(d.fixture.had_away),
@@ -356,8 +356,8 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
     : "";
   const goalEnvironment=goals?.selection
     ? (language==="en"
-      ? `Goals value: ${englishOuLabel(goals)}, model ${pctText(goals.analystConsensusProbability,1)} versus HKJC fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
-      : `入球 value：現價偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 HKJC fair ${pctText(goals.marketFairProbability,1)}。${goalValueNote}`)
+      ? `Goals value: ${englishOuLabel(goals)}, model ${pctText(goals.analystConsensusProbability,1)} versus bookmaker fair ${pctText(goals.marketFairProbability,1)}.${goalValueNote}`
+      : `入球 value：現價偏 ${goals.selectionLabel || goals.selection}，盤口 ${goals.line ?? "—"}；模型 ${pctText(goals.analystConsensusProbability,1)} 對 bookmaker fair ${pctText(goals.marketFairProbability,1)}。${goalValueNote}`)
     : (language==="en" ? "Goals market: no reliable Phase 1 direction yet." : "入球環境：Phase 1 暫未有可靠方向。");
 
   const cornerEnvironment=corners?.selection
@@ -366,8 +366,8 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
       : `角球環境：現時偏 ${corners.selectionLabel || corners.selection}，盤口 ${corners.line ?? "—"}；如果仍然只得單一 evidence family，就維持 WATCH 級。`)
     : num(fb?.corners?.avg)!==null
       ? (language==="en"
-        ? `Corners context: Forebet average ${Number(fb?.corners?.avg).toFixed(1)}, reference lean ${fb?.corners?.pick || "—"} 9.5; HKJC-comparable direction is not yet reliable.`
-        : `角球環境：Forebet 平均約 ${Number(fb?.corners?.avg).toFixed(1)} 個，reference 偏 ${fb?.corners?.pick || "—"} 9.5；但同 HKJC 可直接比較嘅方向暫未夠可靠。`)
+        ? `Corners context: Forebet average ${Number(fb?.corners?.avg).toFixed(1)}, reference lean ${fb?.corners?.pick || "—"} 9.5; bookmaker-comparable direction is not yet reliable.`
+        : `角球環境：Forebet 平均約 ${Number(fb?.corners?.avg).toFixed(1)} 個，reference 偏 ${fb?.corners?.pick || "—"} 9.5；但the bookmaker-comparable direction暫未夠可靠。`)
       : (language==="en" ? "Corners market: insufficient comparable evidence." : "角球環境：可比較 evidence 暫時不足。");
 
   const turningPoints:any[]=[];
@@ -388,7 +388,7 @@ function buildMatchScript(a:any, detail:any, language:string, editorialAlignment
     predictedScore,
     avgGoals,
     turningPoints:[...new Set(turningPoints)].slice(0,6),
-    basis:["Phase 1 model consensus","HKJC market","Forebet shape","Editorial alignment"].filter((x)=>x!=="Editorial alignment" || editorialAlignment?.totalSignals),
+    basis:["Phase 1 model consensus","current bookmaker market","Forebet shape","Editorial alignment"].filter((x)=>x!=="Editorial alignment" || editorialAlignment?.totalSignals),
   };
 }
 
@@ -424,10 +424,10 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
 
   if (d.selection && edge !== null && marketP !== null && modelP !== null) {
     zhStory.push(
-      `市場同模型最大分歧暫時落喺${selection}：HKJC fair probability 約 ${pctText(marketP,1)}，模型中心約 ${pctText(modelP,1)}，差距 ${edge >= 0 ? "+" : ""}${edge.toFixed(1)}pp${odds === null ? "" : `，現價 ${odds.toFixed(2)}`}。`
+      `市場同模型最大分歧暫時落喺${selection}：bookmaker fair probability 約 ${pctText(marketP,1)}，模型中心約 ${pctText(modelP,1)}，差距 ${edge >= 0 ? "+" : ""}${edge.toFixed(1)}pp${odds === null ? "" : `，現價 ${odds.toFixed(2)}`}。`
     );
     enStory.push(
-      `The clearest market-model disagreement is currently ${selection}: HKJC fair probability is about ${pctText(marketP,1)} versus a model centre of ${pctText(modelP,1)}, a gap of ${edge >= 0 ? "+" : ""}${edge.toFixed(1)}pp${odds === null ? "" : ` at ${odds.toFixed(2)}`}.`
+      `The clearest market-model disagreement is currently ${selection}: bookmaker fair probability is about ${pctText(marketP,1)} versus a model centre of ${pctText(modelP,1)}, a gap of ${edge >= 0 ? "+" : ""}${edge.toFixed(1)}pp${odds === null ? "" : ` at ${odds.toFixed(2)}`}.`
     );
   } else {
     zhStory.push(`${home} 對 ${away} 暫時未形成足夠穩定嘅可比較 Edge。`);
@@ -463,9 +463,9 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
         : " 呢個係現價下嘅 value 方向，唔代表佢係絕對概率較高嗰邊。")
       : "";
     if (language === "en") {
-      return `${enLabel}: watch ${selectionLabel}${priceText}; model ${pctText(modelP,1)} versus HKJC fair ${pctText(fairP,1)}, Edge ${edgeText}, based on ${families} evidence famil${families === 1 ? "y" : "ies"} (${candidate || action}).${valueVsLikelihood}`;
+      return `${enLabel}: watch ${selectionLabel}${priceText}; model ${pctText(modelP,1)} versus bookmaker fair ${pctText(fairP,1)}, Edge ${edgeText}, based on ${families} evidence famil${families === 1 ? "y" : "ies"} (${candidate || action}).${valueVsLikelihood}`;
     }
-    return `${zhLabel}：建議觀察 ${selectionLabel}${priceText}；模型 ${pctText(modelP,1)} 對 HKJC fair ${pctText(fairP,1)}，Edge ${edgeText}，基於 ${families} 個 evidence family（${candidate || action}）。${valueVsLikelihood}`;
+    return `${zhLabel}：建議觀察 ${selectionLabel}${priceText}；模型 ${pctText(modelP,1)} 對 bookmaker fair ${pctText(fairP,1)}，Edge ${edgeText}，基於 ${families} 個 evidence family（${candidate || action}）。${valueVsLikelihood}`;
   };
   const goalsNarrative = describeMarketAdvice(goalsAdvice, "入球大細", "Goals O/U");
   const cornersNarrative = describeMarketAdvice(cornersAdvice, "角球大細", "Corners O/U");
@@ -582,7 +582,7 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
       interpretation = language === "en"
         ? `Market/model layer: ${d.action || v?.status || "comparison pending"}. ${deepFacts(detail, "en") || "Model detail is incomplete."}`
         : `市場 / 模型層：${s.marketRead || "市場比較待補"} ${s.modelRead || ""}`;
-      evidenceUsed = ["HKJC", "model consensus"];
+      evidenceUsed = ["current bookmaker market", "model consensus"];
     } else if (phase === 2) {
       interpretation = language === "en"
         ? `Human-factor evidence status: ${v?.status || phase2?.quality || "incomplete"}. Official XI ${phase2?.lineupConfirmed ? "confirmed" : "not confirmed"}. Additional player/lineup/manager rows: ${humanRows}.`
@@ -634,7 +634,7 @@ function fallbackStory(a: any, detail: any, language: string, commentary: any[] 
   if (action === "NO_BET" || action === "PASS") englishCaveats.push("Current data gates do not permit an actionable recommendation.");
 
   const englishMarketInterpretation = d.selection && marketP!==null && modelP!==null
-    ? `HKJC fair probability is about ${pctText(marketP,1)} versus a model centre of ${pctText(modelP,1)}${edge===null ? "" : `, a gap of ${edge>=0?"+":""}${edge.toFixed(1)}pp`}.`
+    ? `bookmaker fair probability is about ${pctText(marketP,1)} versus a model centre of ${pctText(modelP,1)}${edge===null ? "" : `, a gap of ${edge>=0?"+":""}${edge.toFixed(1)}pp`}.`
     : "Comparable market evidence is incomplete.";
   const englishModelInterpretation = deepFacts(detail, "en") || "Model evidence is incomplete.";
   const englishHumanInterpretation = `Human-factor evidence status: ${phase2?.status || phase2?.quality || "incomplete"}. Official XI ${phase2?.lineupConfirmed ? "confirmed" : "not confirmed"}.`;
@@ -747,6 +747,28 @@ ${JSON.stringify(evidence)}`;
   }
 }
 
+function sanitizePublicStory(value:any):any{
+  if(typeof value==="string"){
+    return value
+      .replace(/Verified connected history/gi,"Verified connected history")
+      .replace(/bookmaker no-vig fair/gi,"Bet365 no-vig fair")
+      .replace(/bookmaker fair/gi,"Bet365 fair")
+      .replace(/bookmaker market/gi,"Bet365 market")
+      .replace(/current bookmaker price/gi,"Bet365 current price")
+      .replace(/bookmaker price/gi,"Bet365 price")
+      .replace(/verified live market/gi,"verified live market");
+  }
+  if(Array.isArray(value))return value.map(sanitizePublicStory);
+  if(value&&typeof value==="object"){
+    const out:any={};
+    for(const [k,v] of Object.entries(value)){
+      out[k]=sanitizePublicStory(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers:cors });
@@ -757,7 +779,7 @@ Deno.serve(async (req: Request) => {
     const language = "en";
     const styleRaw = String(u.searchParams.get("style") || "professional").toLowerCase();
     const style = ["professional","concise","broadcast"].includes(styleRaw) ? styleRaw : "professional";
-    if (!/^[A-Za-z0-9_-]{2,40}$/.test(id)) {
+    if (!/^[A-Za-z0-9:_-]{2,80}$/.test(id)) {
       return Response.json({ error:"invalid_match_id" }, { status:400, headers:{...cors,"Cache-Control":"no-store"} });
     }
 
@@ -792,9 +814,9 @@ Deno.serve(async (req: Request) => {
     const db = createReadClientWithTimeout(sbUrl,key,OPTIONAL_DB_TIMEOUT_MS);
     let commentaryQuery:any={data:[],error:null};
     try{
-      commentaryQuery = await db.from("match_commentary_evidence")
+      commentaryQuery = await db.from("match_commentary_feed_current")
         .select("source,source_type,source_url,author,published_at,captured_at,language,headline,excerpt,summary,lean_market,lean_selection,confidence,topics,opinion_signals,relevance_score,parser_version")
-        .eq("hkjc_event_id", id)
+        .eq("match_id", id)
         .order("published_at", { ascending:false, nullsFirst:false })
         .limit(8);
     }catch(e){
@@ -841,9 +863,9 @@ Deno.serve(async (req: Request) => {
 
     let cached:any={data:null,error:null};
     try{
-      cached = await db.from("match_interpretations")
+      cached = await db.from("match_interpretation_feed_current")
         .select("analysis_hash,payload,model,framework,generated_at")
-        .eq("hkjc_event_id",id)
+        .eq("match_id",id)
         .eq("language",language)
         .eq("style",style)
         .maybeSingle();
@@ -852,10 +874,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!cached.error && cached.data?.analysis_hash === analysisHash && cached.data?.payload) {
-      return Response.json({
+      return Response.json(sanitizePublicStory({
         ...cached.data.payload,
         cache:{ hit:true, analysisHash, generatedAt:cached.data.generated_at }
-      }, { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
+      }), { headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"} });
     }
 
     const deterministic = fallbackStory(analysis, detail, language, commentary, editorialAlignment);
@@ -929,8 +951,8 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     let saved:any={error:null};
     try{
-      saved = await db.from("match_interpretations").upsert({
-        hkjc_event_id:id,
+      saved = await db.rpc("ft_upsert_match_interpretation_generic",{row_data:{
+        match_id:id,
         language,
         style,
         analysis_hash:analysisHash,
@@ -940,7 +962,7 @@ Deno.serve(async (req: Request) => {
         source_generated_at:analysis.generatedAt ?? null,
         generated_at:now,
         updated_at:now,
-      }, { onConflict:"hkjc_event_id,language,style" });
+      }});
     }catch(e){
       saved={error:{code:null,message:String((e as any)?.message||e)}};
     }
@@ -954,7 +976,7 @@ Deno.serve(async (req: Request) => {
       };
     }
 
-    return Response.json(payload, {
+    return Response.json(sanitizePublicStory(payload), {
       headers:{...cors,"Cache-Control":"public, max-age=30, stale-while-revalidate=60"}
     });
   } catch (e) {

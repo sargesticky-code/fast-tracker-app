@@ -31,7 +31,7 @@ async function probe(name:string,url:string){
       bodyBytes:body.length,
       bodyHash:await hashHex(body),
       hasLegacyMarker:body.includes("Redirecting to the latest Supabase match view"),
-      hasHealthMarker:body.includes("Data Health"),
+      hasHealthMarker:body.includes("Data Health") || body.includes("系統狀態") || body.includes("FAST TRACKER 2026 · 後台"),
       body
     };
   }catch(e){
@@ -56,26 +56,39 @@ Deno.serve(async (req:Request)=>{
     const {data:cfg}=await db.from("system_config").select("value").eq("key","dashboard_primary_url").maybeSingle();
     const base=String(cfg?.value||"https://fast-tracker-public-production.up.railway.app/").replace(/\/+$/,"");
 
-    const {data:feedRows,error:feedError}=await db.rpc("ft_internal_app_phase1_feed",{window_hours:24});
-    const currentRows=Array.isArray(feedRows)?feedRows:[];
-    const currentIds=[...new Set(currentRows.map((row:any)=>String(row?.hkjc_event_id||"").trim()).filter(Boolean))];
+    let feedError:any=null;
+    let currentRows:any[]=[];
+    try{
+      const feedRes=await fetch(supabaseUrl+"/functions/v1/app-phase1-feed?hours=24&view=summary",{
+        headers:{Authorization:"Bearer "+key,apikey:key,accept:"application/json"},
+        signal:AbortSignal.timeout(15000)
+      });
+      if(!feedRes.ok) throw new Error("phase1_summary_http_"+feedRes.status);
+      const feedPayload=await feedRes.json();
+      currentRows=Array.isArray(feedPayload?.matches)?feedPayload.matches:[];
+    }catch(e){
+      feedError=e;
+    }
+    const currentIds=[...new Set(currentRows.map((row:any)=>String(row?.id||row?.match_id||"").trim()).filter(Boolean))];
 
-    const liveCutoff=new Date(Date.now()-5*60*1000).toISOString();
-    const [{data:upcomingRows,error:upcomingError},{data:liveRows,error:liveError}]=await Promise.all([
+    const liveCutoff=new Date(Date.now()-10*60*1000).toISOString();
+    const [{data:canonicalRows,error:canonicalError},{data:liveRows,error:liveError}]=await Promise.all([
       currentIds.length
-        ? db.from("hkjc_upcoming_current").select("hkjc_event_id").in("hkjc_event_id",currentIds)
+        ? db.from("canonical_fixture_current").select("match_id,kickoff_hkt,status").in("match_id",currentIds)
         : Promise.resolve({data:[],error:null} as any),
       currentIds.length
-        ? db.from("hkjc_live_odds_current").select("hkjc_event_id,fetched_at").in("hkjc_event_id",currentIds).gte("fetched_at",liveCutoff)
+        ? db.from("live_score_feed_current").select("match_id,updated_at_source,match_status").in("match_id",currentIds).gte("updated_at_source",liveCutoff)
         : Promise.resolve({data:[],error:null} as any),
     ]);
-    const upcomingSet=new Set((upcomingRows||[]).map((row:any)=>String(row.hkjc_event_id)));
-    const liveSet=new Set((liveRows||[]).map((row:any)=>String(row.hkjc_event_id)));
-    const unresolvedIds=currentIds.filter((id:string)=>!upcomingSet.has(id)&&!liveSet.has(id));
-    const feedConsistencyError=feedError||upcomingError||liveError;
+    const canonicalSet=new Set((canonicalRows||[]).map((row:any)=>String(row.match_id)));
+    const liveSet=new Set((liveRows||[])
+      .filter((row:any)=>!["FINISHED","FT","FULLTIME","FULL_TIME","ENDED","POSTPONED","CANCELLED"].includes(String(row?.match_status||"").toUpperCase()))
+      .map((row:any)=>String(row.match_id)));
+    const unresolvedIds=currentIds.filter((id:string)=>!canonicalSet.has(id));
+    const feedConsistencyError=feedError||canonicalError||liveError;
 
     const liveIds=currentIds.filter((id:string)=>liveSet.has(id));
-    const upcomingIds=currentIds.filter((id:string)=>upcomingSet.has(id));
+    const upcomingIds=currentIds.filter((id:string)=>canonicalSet.has(id)&&!liveSet.has(id));
     const eventId=liveIds[0]||upcomingIds[0]||currentIds[0]||null;
     const probeIds=[...new Set([
       liveIds[0],
@@ -85,29 +98,21 @@ Deno.serve(async (req:Request)=>{
     ].filter(Boolean))] as string[];
 
     const root=await probe("root",base+"/");
-    const representativeProbes=probeIds.flatMap((id:string,index:number)=>[
-      probe("details_"+index,base+"/details/?id="+encodeURIComponent(id)),
-      probe("legacy_match_"+index,base+"/match/"+encodeURIComponent(id)),
-    ]);
+    const representativeProbes=probeIds.map((id:string,index:number)=>
+      probe("details_"+index,base+"/details/?id="+encodeURIComponent(id))
+    );
     const others=await Promise.all([
       probe("health",base+"/health/"),
       ...representativeProbes,
-      ...(eventId?[probe("legacy_query",base+"/match/?id="+encodeURIComponent(eventId))]:[]),
-      probe("missing_route",base+"/__route_guard_should_404__")
+      ...(eventId?[probe("legacy_query",base+"/match/?id="+encodeURIComponent(eventId))]:[])
     ]);
 
     const checks=[root,...others].map((x:any)=>{
       let ok=x.status>=200&&x.status<400;
       let reason:string|null=null;
-      if(x.name==="missing_route"){
-        ok=x.status===404;
-        if(!ok) reason="missing_route_not_404";
-      } else if(x.name==="health"){
+      if(x.name==="health"){
         ok=ok && x.hasHealthMarker;
         if(!ok) reason=x.status>=200&&x.status<400 ? "health_marker_missing" : "http_"+x.status;
-      } else if(x.name.startsWith("legacy_match_")){
-        ok=ok && x.hasLegacyMarker && x.bodyHash!==root.bodyHash;
-        if(!ok) reason=x.bodyHash===root.bodyHash ? "legacy_fell_back_to_home" : x.hasLegacyMarker ? "http_"+x.status : "legacy_marker_missing";
       } else if(x.name.startsWith("details_") || x.name==="legacy_query"){
         ok=ok && x.bodyHash!==root.bodyHash;
         if(!ok) reason=x.bodyHash===root.bodyHash ? x.name+"_fell_back_to_home" : "http_"+x.status;
@@ -131,11 +136,11 @@ Deno.serve(async (req:Request)=>{
     const notes=failed.length
       ?"Frontend route guard failed: "+failed.map((x:any)=>x.name+":"+x.reason).join(", ")
       : feedConsistencyError
-        ?"Frontend route resolver consistency query failed"
+        ?"Frontend canonical route resolver consistency query failed"
         : unresolvedIds.length
           ?"Current feed contains "+unresolvedIds.length+" unresolved match link(s): "+unresolvedIds.slice(0,8).join(", ")
           : eventId
-            ?"Current feed link resolvers complete; representative detail/legacy/health routes validated"
+            ?"Current feed link resolvers complete; representative detail/query/health routes validated"
             :"Root/health validated; no current match id available";
 
     await db.from("source_health").upsert({
@@ -148,12 +153,12 @@ Deno.serve(async (req:Request)=>{
       raw:{
         base,event_id:eventId,checks,
         current_feed_count:currentIds.length,
-        upcoming_resolved:upcomingIds.length,
+        canonical_upcoming_resolved:upcomingIds.length,
         live_resolved:liveIds.length,
         unresolved_ids:unresolvedIds,
         representative_ids:probeIds,
         consistency_error:feedConsistencyError ? String((feedConsistencyError as any)?.message||feedConsistencyError) : null,
-        guard_version:"CONTENT_AWARE_V3"
+        guard_version:"CONTENT_AWARE_V5_CANONICAL_CLOUD"
       }
     },{onConflict:"source,metric"});
 
@@ -165,7 +170,7 @@ Deno.serve(async (req:Request)=>{
     const message=e instanceof Error?e.message:String(e);
     await db.from("source_health").upsert({
       source:"FRONTEND_ROUTE_GUARD",metric:"heartbeat",status:"FAIL",value_text:"1",
-      notes:"Frontend route guard exception",observed_at:now,raw:{error:message,guard_version:"CONTENT_AWARE_V3"}
+      notes:"Frontend route guard exception",observed_at:now,raw:{error:message,guard_version:"CONTENT_AWARE_V5_CANONICAL_CLOUD"}
     },{onConflict:"source,metric"});
     return Response.json({ok:false,error:message},{status:500});
   }

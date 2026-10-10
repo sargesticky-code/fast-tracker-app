@@ -31,7 +31,7 @@ const ANALYSIS_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1
 const STORY_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-story";
 
 const CORE_MODEL_DEFS = [
-  { key: "HKJC", label: "HKJC no-vig" },
+  { key: "BET365", label: "Bet365 no-vig" },
   { key: "FOREBET", label: "Forebet" },
   { key: "DC", label: "Dixon-Coles" },
   { key: "PI", label: "Pi Rating" },
@@ -58,7 +58,7 @@ function probabilityAvailable(values) {
 }
 
 function coreModelValues(match, key, market) {
-  if (key === "HKJC") return market;
+  if (key === "BET365") return market;
   if (key === "FOREBET") return match.forebet;
   if (key === "DC") return match.dc;
   if (key === "PI") return match.pi;
@@ -386,11 +386,31 @@ function readCachedMatch(id) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const sourceTime = parsed.liveNow
-      ? (parsed.live?.fetchedAt || parsed.live?.score?.capturedAt || parsed.health?.hkjcFetchedAt)
-      : parsed.health?.hkjcFetchedAt;
+      ? (parsed.live?.fetchedAt || parsed.live?.score?.capturedAt || parsed.health?.authorityFetchedAt || parsed.updatedAt)
+      : parsed.health?.authorityFetchedAt || parsed.updatedAt;
     const ageMinutes = sourceTime ? (Date.now() - new Date(sourceTime).getTime()) / 60000 : Infinity;
-    const maxAge = parsed.liveNow ? 2 : 10;
-    return Number.isFinite(ageMinutes) && ageMinutes <= maxAge ? parsed : null;
+    if (!Number.isFinite(ageMinutes) || ageMinutes < -2 || ageMinutes > 24 * 60) return null;
+    const kickoffMs = Date.parse(String(parsed.kickoff || ""));
+    const beforeKickoff = Number.isFinite(kickoffMs) && kickoffMs > Date.now();
+    const verifiedPriceIsFresh = !parsed.liveNow && beforeKickoff && ageMinutes <= 20;
+    if (parsed.liveNow && ageMinutes <= 2) return parsed;
+    // Fixture identity remains useful even after price freshness expires.
+    // Strip every expired/unverified price lane rather than throwing away the
+    // known teams or pretending prematch odds are a live quote.
+    return verifiedPriceIsFresh ? parsed : {
+      ...parsed,
+      liveNow: false,
+      inPlay: false,
+      liveEligible: false,
+      live: null,
+      odds: { home: null, draw: null, away: null },
+      market: null,
+      handicap: { line: null, home: null, away: null },
+      goals: { line: null, over: null, under: null },
+      corners: { line: null, over: null, under: null },
+      health: { ...parsed.health, status: "ATTENTION", authorityFreshness: "STALE",
+        diagnostics: ["CACHED_FIXTURE_PRICE_NOT_CURRENT"] },
+    };
   } catch {
     return null;
   }
@@ -412,17 +432,21 @@ function matchFromDetailPayload(payload, matchId) {
   const kickoffStarted = Number.isFinite(kickoffMs) && kickoffMs <= Date.now() + 2 * 60 * 1000;
   const terminalStatus = ["FULLTIME","FINISHED","FT","ENDED","MATCHENDED","INPLAYMATCHENDED","AET","PEN","CANCELLED","CANCELED","VOID","ABANDONED"]
     .includes(String(fixture.status || "").toUpperCase().replace(/[\s_-]+/g, ""));
+  // Match detail must enforce the SAME individual 20-minute HDA cutoff as
+  // the All-in-One summary. Never resurrect a six-hour-old bookmaker price
+  // just because a separate fixture record was updated recently.
+  const completeHda = ["had_home","had_draw","had_away"].every((key) => n(fixture[key]) > 1);
+  const verifiedQuote = completeHda && Boolean(fixture.odds_updated_at)
+    && Number.isFinite(priceAgeMinutes) && priceAgeMinutes >= -1 && priceAgeMinutes <= 20;
   const fixtureFreshness =
-    terminalStatus || kickoffStarted || !Number.isFinite(priceAgeMinutes) || priceAgeMinutes > 360
+    terminalStatus || kickoffStarted || !verifiedQuote
       ? "STALE"
       : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 90
         ? "FRESH"
-        : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 360
-          ? "AGING"
-          : "STALE";
-  const allowCurrentPrice = fixtureFreshness === "FRESH";
+        : "AGING";
+  const allowCurrentPrice = fixtureFreshness === "FRESH" && verifiedQuote;
   return {
-    id: String(fixture.hkjc_event_id || matchId),
+    id: String(fixture.event_id || fixture.fixture_id || matchId),
     kickoff: fixture.kickoff_hkt || null,
     status: fixture.status || null,
     oddsUpdatedAt: priceObservedAt,
@@ -457,12 +481,12 @@ function matchFromDetailPayload(payload, matchId) {
     },
     health: {
       status: fixtureFreshness === "FRESH" ? "DETAIL_FALLBACK" : "DETAIL_FALLBACK_STALE",
-      hkjcFreshness: fixtureFreshness,
-      hkjcFetchedAt: fixtureFetchedAt,
-      hkjcPriceChangedAt: priceObservedAt,
-      hkjcPriceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
+      authorityFreshness: fixtureFreshness,
+      authorityFetchedAt: fixtureFetchedAt,
+      priceChangedAt: priceObservedAt,
+      priceAgeMinutes: Number.isFinite(priceAgeMinutes) ? priceAgeMinutes : null,
       evidenceChannelCount: 0,
-      unifiedCoverageStatus: "HKJC_ONLY",
+      unifiedCoverageStatus: "FLASHSCORE_BET365",
     },
     updatedAt: fixtureFetchedAt,
   };
@@ -479,7 +503,7 @@ function mergeLiveMatch(base, payload, matchId) {
       market: null,
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      health: { hkjcFreshness: "LIVE", unifiedCoverageStatus: "HKJC_ONLY" },
+      health: { authorityFreshness: "LIVE", unifiedCoverageStatus: "FLASHSCORE_BET365" },
       updatedAt: live.live?.fetchedAt || payload.generatedAt || null,
     };
   }
@@ -502,7 +526,7 @@ function mergeLiveMatch(base, payload, matchId) {
   return base;
 }
 
-export default function MatchDetailClient() {
+export default function MatchDetailClient({ initialFeed = null }) {
   const [id, setId] = useState("");
   const [match, setMatch] = useState(null);
   const [source, setSource] = useState("LOADING");
@@ -524,16 +548,22 @@ export default function MatchDetailClient() {
       return;
     }
 
-    const cached = readCachedMatch(matchId);
+    const serverRow = (Array.isArray(initialFeed?.matches) ? initialFeed.matches : [])
+      .find((row) => String(row?.id ?? "") === String(matchId));
+    const cached = serverRow ? null : readCachedMatch(matchId);
 
-    if (cached) {
+    if (serverRow) {
+      setMatch(serverRow);
+      setSource("FLASHSCORE · server-backed match");
+      setReady(true);
+    } else if (cached) {
       setMatch(cached);
       setSource("CACHE · loading latest");
       setReady(true);
     }
 
     let cancelled = false;
-    let resolvedFresh = false;
+    let resolvedFresh = Boolean(serverRow);
     let canonicalMissing = false;
     let authoritativeDetailBlocksFeed = false;
     let liveApplied = false;
@@ -558,10 +588,13 @@ export default function MatchDetailClient() {
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           resolvedFresh = true;
+          // A verified fixture can render immediately; do not block the
+          // entire match route behind optional live/model/detail calls.
+          setReady(true);
           setMatch((previous) => {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
-            const previousAuthoritativeStale = previous?.health?.hkjcFreshness === "STALE";
+            const previousAuthoritativeStale = previous?.health?.authorityFreshness === "STALE";
             if (previousAuthoritativeStale || previousStarted) return previous;
             if (liveApplied && previous?.live) {
               return {
@@ -608,7 +641,7 @@ export default function MatchDetailClient() {
         }
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
-          const fallbackStale = fixtureFallback?.health?.hkjcFreshness === "STALE";
+          const fallbackStale = fixtureFallback?.health?.authorityFreshness === "STALE";
           if (fallbackStale) authoritativeDetailBlocksFeed = true;
           setMatch((previous) => {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
@@ -621,6 +654,7 @@ export default function MatchDetailClient() {
           });
           if (!resolvedFresh) setSource("SUPABASE DETAIL · fixture fallback");
           resolvedFresh = true;
+          setReady(true);
         }
       } catch {}
       finally { requestsInFlight.detail = false; }
@@ -782,7 +816,7 @@ export default function MatchDetailClient() {
           {canonicalFixtureMissing ? (
             <>
               <p className="fineprint">
-                Supporting records exist for this event ID, but no current canonical HKJC fixture was resolved.
+                Supporting records exist for this event ID, but no current canonical fixture was resolved.
                 Those records are not promoted into a match card, current prices, recommendation or confirmed lineup claim.
               </p>
               <p className="fineprint">
@@ -852,17 +886,30 @@ export default function MatchDetailClient() {
   const liveControlLabel = controlSideLabel(match, liveControlSide);
   const liveSignalRows = liveStats ? [
     { key: "xg", label: "xG", pair: liveStats.xg, digits: 2 },
+    { key: "xgot", label: "xGOT", pair: liveStats.xgot, digits: 2 },
     { key: "sot", label: "Shots on target", pair: liveStats.shotsOnTarget, digits: 0 },
-    { key: "shots", label: "Shots", pair: liveStats.shots, digits: 0 },
+    { key: "shots", label: "Total shots", pair: liveStats.shots, digits: 0 },
+    { key: "inside", label: "Shots inside box", pair: liveStats.shotsInsideBox, digits: 0 },
+    { key: "big", label: "Big chances", pair: liveStats.bigChances, digits: 0 },
     { key: "box", label: "Box touches", pair: liveStats.boxTouches, digits: 0 },
     { key: "possession", label: "Possession", pair: liveStats.possession, digits: 0, suffix: "%" },
+    { key: "passes", label: "Accurate passes", pair: liveStats.accuratePasses, digits: 0 },
     { key: "corners", label: "Corners", pair: liveStats.corners, digits: 0 },
+    { key: "tackles", label: "Tackles", pair: liveStats.tackles, digits: 0 },
+    { key: "interceptions", label: "Interceptions", pair: liveStats.interceptions, digits: 0 },
+    { key: "clearances", label: "Clearances", pair: liveStats.clearances, digits: 0 },
+    { key: "saves", label: "Keeper saves", pair: liveStats.keeperSaves, digits: 0 },
+    { key: "duels", label: "Duels won", pair: liveStats.duelsWon, digits: 0 },
+    { key: "dribbles", label: "Successful dribbles", pair: liveStats.dribblesSucceeded, digits: 0 },
+    { key: "fouls", label: "Fouls", pair: liveStats.fouls, digits: 0 },
+    { key: "yc", label: "Yellow cards", pair: liveStats.yellowCards, digits: 0 },
+    { key: "rc", label: "Red cards", pair: liveStats.redCards, digits: 0 },
   ].map((row) => ({ ...row, share: pairShare(row.pair) })).filter((row) => row.share) : [];
   const liveLanes = match.live ? (() => {
     const statsLane = liveLaneStatus(liveStats?.capturedAt, 180, 600);
     const detailStatus = String(match.live?.detail?.detailStatus || liveStats?.detailStatus || "").toUpperCase();
     if (!Number.isFinite(statsLane.age)) {
-      if (detailStatus === "NOT_APPLICABLE" || (!detailStatus && liveScore.source === "HKJC_RUNNING_RESULT")) {
+      if (detailStatus === "NOT_APPLICABLE" || (!detailStatus && liveScore.source)) {
         Object.assign(statsLane, { state: "unavailable", label: "score-only" });
       }
       else if (detailStatus === "CAPTURED_NO_METRICS") Object.assign(statsLane, { state: "unavailable", label: "no metrics" });
@@ -930,8 +977,8 @@ export default function MatchDetailClient() {
     return Array.isArray(advice?.models) && advice.models.some((row) => row?.over != null && row?.under != null);
   };
   const totalMarketHasPrice = (marketRow) => marketRow?.over != null || marketRow?.under != null;
-  const totalQuoteObservedAt = match.oddsUpdatedAt || match.health?.hkjcPriceChangedAt || match.health?.hkjcFetchedAt || match.updatedAt || null;
-  const totalQuoteState = String(match.health?.hkjcFreshness || "").toUpperCase() === "STALE"
+  const totalQuoteObservedAt = match.oddsUpdatedAt || match.health?.priceChangedAt || match.health?.authorityFetchedAt || match.updatedAt || null;
+  const totalQuoteState = String(match.health?.authorityFreshness || "").toUpperCase() === "STALE"
     ? "STALE / REFERENCE ONLY"
     : totalQuoteObservedAt
       ? "CURRENT OBSERVATION"
@@ -948,12 +995,12 @@ export default function MatchDetailClient() {
     : "Observed time unavailable";
   const totalMissingReason = (marketName, compare, advice, marketRow) => {
     const candidate = String(advice?.candidateClass || "").toUpperCase();
-    if (!marketRow?.line) return "HKJC line is unavailable; no same-line model comparison can be made.";
-    if (!totalMarketHasPrice(marketRow)) return "HKJC Over/Under prices are unavailable for this line.";
+    if (!marketRow?.line) return "Bet365 line is unavailable; no same-line model comparison can be made.";
+    if (!totalMarketHasPrice(marketRow)) return "Bet365 Over/Under prices are unavailable for this line.";
     if (candidate === "NO_MODEL") return marketName + " model gate: NO_MODEL — no supported probability evidence is available.";
-    if (compare?.key === "mismatch") return "Model line does not match the current HKJC line; probabilities are not transferred across lines.";
-    if (compare?.key === "unmodelled-line") return "HKJC line is priced, but no same-line model probability is stored.";
-    if (compare?.key === "no-market") return "HKJC line is unavailable; model comparison is disabled.";
+    if (compare?.key === "mismatch") return "Model line does not match the current Bet365 line; probabilities are not transferred across lines.";
+    if (compare?.key === "unmodelled-line") return "Bet365 line is priced, but no same-line model probability is stored.";
+    if (compare?.key === "no-market") return "Bet365 line is unavailable; model comparison is disabled.";
     return (compare?.label && compare.label !== "NO DATA")
       ? String(compare.label).replace("未有同線模型", "no same-line model")
       : marketName + " model gate: probability evidence unavailable.";
@@ -1266,8 +1313,24 @@ export default function MatchDetailClient() {
   const phase4QuoteAge = Number(bestValue?.quote_age_seconds);
   const phase4BackendStatus = String(bestValue?.status || "").toUpperCase();
   const phase4Fresh = bestValue ? phase4BackendStatus !== "STALE" : false;
+  const phase4ValidationStatus = String(bestValue?.details?.release_validation_status || bestValue?.details?.predictive_calibration_status || "").toUpperCase();
+  const phase4ValidationKnown = Boolean(phase4ValidationStatus);
+  const phase4ValidationReason = String(bestValue?.details?.validation_gate_reason || "");
+  const phase4CalculationVersion = String(bestValue?.details?.calculation_version || "");
+  const phase4QuoteSourceAt = bestValue?.details?.quote_lineage?.source_ts || null;
+  const phase4ModelCalculatedAt = bestValue?.details?.model_lineage?.consensus_calculated_at || null;
+  const phase4Evaluation = bestValue?.details?.model_lineage?.evaluation_evidence?.internal_blend || null;
+  const phase4EvaluationMatches = Number(phase4Evaluation?.settled_matches || 0);
+  const phase4EvaluationVersion = String(phase4Evaluation?.evaluation_version || "");
+  const phase4TrainingCutoff = String(phase4Evaluation?.training_cutoff_status || "");
   const phase4Status = bestValue
-    ? (!phase4Fresh ? "STALE QUOTE" : phase4Sources < 2 ? "WATCH · LOW COVERAGE" : phase4BackendStatus || "WATCH")
+    ? (!phase4Fresh
+      ? "STALE QUOTE"
+      : phase4BackendStatus === "MODEL_VALIDATION_GAP"
+        ? "WATCH · MODEL VALIDATION GAP"
+        : phase4Sources < 2
+          ? "WATCH · LOW COVERAGE"
+          : phase4BackendStatus || "WATCH")
     : "NO VALUE SIGNAL";
   const nearArb = marketIntel.nearArbitrage || null;
   const nearArbInverse = Number(nearArb?.inverse_sum);
@@ -1292,6 +1355,12 @@ export default function MatchDetailClient() {
   const formCoverageState = formHomeUsable && formAwayUsable ? "FULL"
     : formHomeUsable || formAwayUsable ? "PARTIAL"
       : "EMPTY";
+
+  // Exact fixture-scoped, source-verified stats live in the detail response,
+  // not the lightweight homepage/summary match representation.
+  const flashscoreObservedStats = deep?.flashscoreStats?.source === "FLASHSCORE"
+    && (deep?.requestedId === id || deep?.id === id)
+    ? deep.flashscoreStats : null;
 
   return (
     <main className="shell detail-shell">
@@ -1366,7 +1435,7 @@ export default function MatchDetailClient() {
           ) : null}
           <p className="fineprint" style={{ margin:"7px 0 0" }}>
             {sourceContextVerified
-              ? "This layer confirms fixture, lineup and context coverage only; it does not alter model probabilities, HKJC fair probability or edge."
+              ? "This layer confirms fixture, lineup and context coverage only; it does not alter model probabilities, Bet365 fair probability or edge."
                : "The route is healthy but data coverage is incomplete; missing model evidence is not filled with invented values."}
           </p>
         </section>
@@ -1397,7 +1466,7 @@ export default function MatchDetailClient() {
                 : (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp"}</strong>
             <small style={{ display:"block", marginTop:4, color:"#6f8177", fontSize:8, fontWeight:850 }}>
               {Number.isFinite(primaryModelProbability) && Number.isFinite(primaryMarketProbability)
-                ? `Model ${(primaryModelProbability * 100).toFixed(1)}% · HKJC fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · Probability gap " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
+                ? `Model ${(primaryModelProbability * 100).toFixed(1)}% · Bet365 fair ${(primaryMarketProbability * 100).toFixed(1)}%${Number.isFinite(primaryEdgePp) ? " · Probability gap " + (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : ""}`
                 : "Comparable probabilities unavailable"}
             </small>
           </div>
@@ -1696,7 +1765,7 @@ export default function MatchDetailClient() {
             <div className="live-score-centre">
               <small>{liveMinute}</small>
               <b>{liveScoreText}</b>
-              <em>{liveStats ? "FULL LIVE DATA" : liveScore.source ? "SCORE FEED" : "HKJC LIVE"}</em>
+              <em>{liveStats ? "FULL LIVE DATA" : liveScore.source ? "SCORE FEED" : "BET365 LIVE"}</em>
             </div>
             <div className="live-team-block away">
               <span>AWAY</span>
@@ -1775,7 +1844,7 @@ export default function MatchDetailClient() {
               </strong>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6,fontSize:10,fontWeight:850,color:"#53685c"}}>
                 <span>Model {Number.isFinite(primaryModelProbability) ? (primaryModelProbability * 100).toFixed(1) + "%" : "—"}</span>
-                <span>HKJC fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
+                <span>Bet365 fair {Number.isFinite(primaryMarketProbability) ? (primaryMarketProbability * 100).toFixed(1) + "%" : "—"}</span>
                 <span>Edge {Number.isFinite(primaryEdgePp) ? (primaryEdgePp >= 0 ? "+" : "") + primaryEdgePp.toFixed(1) + "pp" : "—"}</span>
                 {analysisDecision.confidenceLabel ? <span>Confidence {analysisDecision.confidenceLabel} · {analysisDecision.confidenceScore ?? "—"}/100</span> : null}
                 <span>{analysisDecision.liveScore || liveScoreText} · {analysisDecision.liveMinute ?? liveMinute}</span>
@@ -1812,14 +1881,14 @@ export default function MatchDetailClient() {
             </div>
           ) : (
             <div className="live-score-only-state">
-              <strong>{liveScore.source === "HKJC_RUNNING_RESULT" ? "HKJC running result connected" : "Market / score layer only"}</strong>
+              <strong>{liveScore.source ? "Score feed connected" : "Market / score layer only"}</strong>
               <p>When reliable xG, shooting or possession detail is unavailable, missing values remain blank rather than creating false signals. The pressure board appears only when stats exist.</p>
             </div>
           )}
 
           <div className="live-market-board">
             <div className="live-1x2-market">
-              <span>HKJC LIVE 1X2</span>
+              <span>BET365 LIVE 1X2</span>
               <div>
                 <b>H <strong>{formatOdds(match.live.odds?.home)}</strong></b>
                 <b>D <strong>{formatOdds(match.live.odds?.draw)}</strong></b>
@@ -1856,15 +1925,36 @@ export default function MatchDetailClient() {
           ) : null}
 
           <p className="fineprint">
-            Live market：HKJC freshness gate · Score source：{liveScore.source || "—"}
+            Live market: Bet365 freshness gate · Score source：{liveScore.source || "—"}
             {liveScore.confidence == null ? "" : ` · match confidence ${Number(liveScore.confidence).toFixed(2)}`}
             {liveStats?.source ? ` · Stats source：${liveStats.source}` : ""}
           </p>
         </section>
       )}
 
+      {flashscoreObservedStats?.stats ? (
+        <section className="panel" id="flashscore-stats">
+          <div className="panel-title"><div><p>FLASHSCORE OBSERVED DATA</p><h2>Match statistics</h2></div></div>
+          <div className="live-stats-detail-grid">
+            <div><span>xG</span><b>{pairText(flashscoreObservedStats.stats.xg, 2)}</b></div>
+            <div><span>xGOT</span><b>{pairText(flashscoreObservedStats.stats.xgot, 2)}</b></div>
+            <div><span>Total shots</span><b>{pairText(flashscoreObservedStats.stats.shots)}</b></div>
+            <div><span>Shots on target</span><b>{pairText(flashscoreObservedStats.stats.shotsOnTarget)}</b></div>
+            <div><span>Possession</span><b>{pairText(flashscoreObservedStats.stats.possession, 0, "%")}</b></div>
+            <div><span>Big chances</span><b>{pairText(flashscoreObservedStats.stats.bigChances)}</b></div>
+            <div><span>Corners</span><b>{pairText(flashscoreObservedStats.stats.corners)}</b></div>
+            <div><span>Shots inside box</span><b>{pairText(flashscoreObservedStats.stats.shotsInsideBox)}</b></div>
+          </div>
+          <p className="fineprint">
+            Source: Flashscore · Capture: {new Date(flashscoreObservedStats.capturedAt).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong"})} HKT
+            · {flashscoreObservedStats.freshness === "FRESH" ? "recent source snapshot" : "historical source snapshot"}
+            · Match score and live status require separate verification
+          </p>
+        </section>
+      ) : null}
+
       <section className="panel totals-board-panel" id="market-totals">
-        <div className="panel-title"><div><p>HKJC MARKETS</p><h2>Goals and corners</h2></div></div>
+        <div className="panel-title"><div><p>BET365 MARKETS</p><h2>Goals and corners</h2></div></div>
         <div className="totals-board">
           <div className={"totals-row " + (!goalsModelSupported ? "totals-row-compact" : "")}>
             <div className="totals-name"><span>Goals O/U</span><b>Line {match.goals?.line || "—"}</b></div>
@@ -1888,7 +1978,7 @@ export default function MatchDetailClient() {
               <div className="totals-compact-state">
                 <div>
                   <span>MODEL GATE</span>
-                  <strong>{match.goals?.line ? "No supported Goals probability" : "No HKJC Goals line"}</strong>
+                  <strong>{match.goals?.line ? "No supported Goals probability" : "No Bet365 Goals line"}</strong>
                   <small>{totalMissingReason("Goals", goalsCompare, goalsAdvice, match.goals)}</small>
                 </div>
                 <div className="totals-quote-state">
@@ -1925,7 +2015,7 @@ export default function MatchDetailClient() {
               <div className="totals-compact-state">
                 <div>
                   <span>MODEL GATE</span>
-                  <strong>{match.corners?.line ? "No supported Corners probability" : "No HKJC Corners line"}</strong>
+                  <strong>{match.corners?.line ? "No supported Corners probability" : "No Bet365 Corners line"}</strong>
                   <small>{totalMissingReason("Corners", cornersCompare, cornersAdvice, match.corners)}</small>
                 </div>
                 <div className="totals-quote-state">
@@ -1995,9 +2085,17 @@ export default function MatchDetailClient() {
           </div>
 
           <div className="phase4-metric-cell">
-            <span>COVERAGE</span>
-            <strong>{bestValue ? phase4Coverage : "NO MODEL"}</strong>
-            <small>{Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —"}</small>
+            <span>{phase4ValidationKnown ? "VALIDATION" : "COVERAGE"}</span>
+            <strong>{bestValue
+              ? (phase4ValidationKnown
+                ? (phase4ValidationStatus === "ESTABLISHED" ? "ESTABLISHED" : "NOT ESTABLISHED")
+                : phase4Coverage)
+              : "NO MODEL"}</strong>
+            <small>{bestValue
+              ? (phase4ValidationKnown
+                ? phase4Coverage + " · " + (Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —")
+                : (Number.isFinite(phase4QuoteAge) ? Math.round(phase4QuoteAge) + "s quote" : "quote age —"))
+              : "validation unavailable"}</small>
           </div>
 
           <div className="phase4-metric-cell">
@@ -2025,7 +2123,7 @@ export default function MatchDetailClient() {
                   <div key={(row.provider_id || "provider") + "-" + (row.selection_key || index)}>
                     <span>{row.provider_id || "—"} · {phase4SelectionLabel(row.selection_key)}</span>
                     <b>@ {formatOdds(row.odds_decimal)} · EV {Number(row.expected_roi_pct) >= 0 ? "+" : ""}{numText(row.expected_roi_pct, 1)}%</b>
-                    <small>Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source</small>
+                    <small>Model {pct(row.model_prob, 1)} · Market {pct(row.market_prob_devig, 1)} · Edge {Number(row.probability_edge_pct) >= 0 ? "+" : ""}{numText(row.probability_edge_pct, 1)}% · {row.model_source_count || 0} source · {String(row.status || "").replaceAll("_", " ")}</small>
                   </div>
                 ))}
               </div>
@@ -2044,7 +2142,18 @@ export default function MatchDetailClient() {
           </details>
         ) : null}
 
-        <p className="fineprint">Value signals depend on model probabilities. Arbitrage requires simultaneously available, settlement-compatible prices across distinct providers. Automatic execution remains off and fail-closed.</p>
+        <p className="fineprint">
+          Value calculations use stored model probabilities and compatibility-verified sourced prices. {phase4HasValue && phase4ValidationStatus !== "ESTABLISHED"
+            ? "Predictive release validation is not established, so calculated fair price and edge remain analysis-only and cannot become a VALUE recommendation."
+            : "Validated value release still requires all backend gates."}
+          {phase4CalculationVersion ? " Calculation " + phase4CalculationVersion + "." : ""}
+          {phase4QuoteSourceAt ? " Quote captured " + formatUpdated(phase4QuoteSourceAt) + "." : ""}
+          {phase4ModelCalculatedAt ? " Model consensus calculated " + formatUpdated(phase4ModelCalculatedAt) + "." : ""}
+          {phase4ValidationReason ? " " + phase4ValidationReason : ""}
+          {phase4EvaluationVersion ? " Evaluation " + phase4EvaluationVersion + ": " + phase4EvaluationMatches + " settled internal-blend matches." : ""}
+          {phase4TrainingCutoff ? " Training cutoff " + phase4TrainingCutoff.replaceAll("_", " ") + "." : ""}
+          {" "}Arbitrage requires simultaneously available, settlement-compatible prices across distinct providers. Automatic execution remains off and fail-closed.
+        </p>
       </section>
 
 
@@ -2085,7 +2194,7 @@ export default function MatchDetailClient() {
               />
             </div>
             <p className="fineprint">
-              Recent results use confirmed HKJC match results only. W = win, D = draw, L = loss. Missing side history remains unknown rather than zero.
+              Recent results use confirmed match results only. W = win, D = draw, L = loss. Missing side history remains unknown rather than zero.
               {match.formDetail?.source ? " · Source: " + match.formDetail.source : ""}
             </p>
           </>
@@ -2132,7 +2241,7 @@ export default function MatchDetailClient() {
 
                 <div className="h2h-list">
                   {h2hMeetings.map((row, index) => (
-                    <div className="h2h-row" key={(row.match_id || row.hkjc_event_id || "h2h") + "-" + index}>
+                    <div className="h2h-row" key={(row.match_id || row.event_id || "h2h") + "-" + index}>
                       <span className={"h2h-result h2h-" + String(row.result || "D").toLowerCase()}>{row.result || "—"}</span>
                       <span className="h2h-date">{formatFormDate(row.kickoff_hkt)}</span>
                       <b>{row.home || "—"} <strong>{row.home_goals ?? "—"}-{row.away_goals ?? "—"}</strong> {row.away || "—"}</b>
@@ -2147,9 +2256,9 @@ export default function MatchDetailClient() {
           <div className="h2h-empty">
             <strong>
               {h2hQuality === "HISTORY_PARTIAL"
-                ? "HKJC history coverage is still partial"
+                ? "Historical result coverage is still partial"
                 : h2hQuality === "NO_PREVIOUS_H2H_IN_AVAILABLE_HISTORY"
-                  ? "No direct meeting found in the available HKJC history"
+                  ? "No direct meeting found in the available verified history"
                    : "H2H data is pending"}
             </strong>
             <span>
@@ -2161,7 +2270,7 @@ export default function MatchDetailClient() {
         )}
 
         <p className="fineprint">
-          Only confirmed results joined through stable HKJC team IDs are used. H / D / A is expressed from the current home team perspective. Up to five recent direct meetings are shown.
+          Only confirmed results joined through stable canonical team IDs are used. H / D / A is expressed from the current home team perspective. Up to five recent direct meetings are shown.
           {h2h?.source ? " · Source: " + h2h.source : ""}
         </p>
       </section>
@@ -2281,7 +2390,7 @@ export default function MatchDetailClient() {
       {hasMovement && (
         <section className="panel odds-signal-panel">
           <div className="panel-title">
-            <div><p>ODDS MOVEMENT</p><h2>HKJC price signal</h2></div>
+            <div><p>ODDS MOVEMENT</p><h2>Bet365 price signal</h2></div>
             <span>{movement.signal || "COLLECTING"}</span>
           </div>
 

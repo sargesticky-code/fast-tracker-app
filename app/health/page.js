@@ -123,8 +123,8 @@ export default async function HealthPage(){
     <section className="health-strip"><div><b>🗓 {upcoming.length}</b><span>未開賽</span></div><div><b>● {live.length}</b><span>即場</span></div><div><b>✓ {stats.modeled}</b><span>有預測</span></div><div><b>{stats.missing>0?"🟡":"🟢"} {stats.missing}</b><span>需留意</span></div></section>
     <section className="panel"><div className="panel-title"><div><p>資料更新</p><h2>主要資料來源</h2></div><span>自動更新</span></div>
       <div className="health-list">
-        <div><span>HKJC 賽前賠率<small style={{display:"block"}}>15-min direct official snapshot</small></span><b>{heartbeatAge("HKJC_UPCOMING_EDGE")}</b></div>
-        <div><span>HKJC 即場賠率<small style={{display:"block"}}>1-min direct official capture</small></span><b>{heartbeatAge("HKJC_LIVE_EDGE")}</b></div>
+        <div><span>Bet365 feed<small style={{display:"block"}}>Cloud Flashscore/Bet365 ingest heartbeat</small></span><b>{heartbeatAge("FLASHSCORE_BET365")}</b></div>
+        <div><span>Bet365 reference odds<small style={{display:"block"}}>Cloud Bet365 prematch/reference prices · not verified in-play</small></span><b>{heartbeatAge("FLASHSCORE_BET365")}</b></div>
         <div><span>即場比分及數據<small style={{display:"block"}}>1-min score sync · detail stats last-good preserved</small></span><b>{heartbeatAge("LIVE_SCORE_EDGE")}</b></div>
         <div><span>即場資料檢查<small style={{display:"block"}}>odds/score 3m · stats/shadow 10m</small></span><b>{statusIcon(heartbeats.LIVE_LAYER_GUARD?.status)} {heartbeats.LIVE_LAYER_GUARD?.status || "—"} · {heartbeatAge("LIVE_LAYER_GUARD")}</b></div>
         <div><span>即場資料服務<small style={{display:"block"}}>expected build vs production host</small></span><b>{statusIcon(heartbeats.LIVE_UPSTREAM_DEPLOY?.status)} {heartbeats.LIVE_UPSTREAM_DEPLOY?.status || "—"} · {heartbeats.LIVE_UPSTREAM_DEPLOY?.value || "—"}</b></div>
@@ -152,6 +152,6 @@ export default async function HealthPage(){
     {gapRows.length>0&&<section className="panel"><div className="panel-title"><div><p>待處理</p><h2>資料未完整賽事</h2></div><span>{gapRows.length}</span></div>
       <div className="health-list">{gapRows.map(m=><div key={m.id}><span>{m.homeZh||m.home} vs {m.awayZh||m.away}<small style={{display:"block"}}>{m.id} · FB {m.health?.forebetCoverageStatus||"—"} · DC/PI {m.health?.dcPiCoverageStatus||"—"} · FORM {m.health?.formCoverageStatus||"—"} · MULTI {m.health?.multisourceCoverageStatus||"—"}{m.sourceContext ? ` · CTX ${m.sourceContext.source} ${Math.round(Number(m.sourceContext.matchConfidence||0)*100)}%` : ""}</small></span><b>{unifiedCoverageStatus(m)}</b></div>)}</div>
     </section>}
-    <section className="panel"><div className="panel-title"><div><p>系統原則</p><h2>資料保護</h2></div></div><p className="fineprint">HKJC 賽事作為主要投注範圍。資料不足會清楚標示，不會用舊資料扮最新資料；來源未確認時亦不會自行補假數據。詳細技術狀態保留喺後台供排錯使用。</p></section>
+    <section className="panel"><div className="panel-title"><div><p>系統原則</p><h2>資料保護</h2></div></div><p className="fineprint">Bet365 is the active bookmaker feed. 資料不足會清楚標示，不會用舊資料扮最新資料；來源未確認時亦不會自行補假數據。詳細技術狀態保留喺後台供排錯使用。</p></section>
   </main>;
 }

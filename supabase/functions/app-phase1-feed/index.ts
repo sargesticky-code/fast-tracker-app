@@ -199,8 +199,7 @@ function authorityFreshness(fetchedAt: unknown) {
   if (!fetchedAt) return { status: "MISSING", ageMinutes: null };
   const ageMinutes = Math.max(0, (Date.now() - new Date(String(fetchedAt)).getTime()) / 60000);
   if (!Number.isFinite(ageMinutes)) return { status: "UNKNOWN", ageMinutes: null };
-  if (ageMinutes > 60) return { status: "STALE", ageMinutes };
-  if (ageMinutes > 30) return { status: "AGING", ageMinutes };
+  if (ageMinutes > 20) return { status: "STALE", ageMinutes };
   return { status: "FRESH", ageMinutes };
 }
 
@@ -214,127 +213,73 @@ function noVig(home: unknown, draw: unknown, away: unknown) {
 }
 
 
-const LEGACY_HKJC_AUTHORITY_URL =
-  "https://raw.githubusercontent.com/sargesticky-code/football-fast-tracker/main/data/hkjc_current.csv";
-
-function parseCsvRecords(text: string) {
-  const src = String(text ?? "").replace(/^\uFEFF/, "");
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (quoted) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else {
-          quoted = false;
-        }
-      } else {
-        cell += ch;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      quoted = true;
-    } else if (ch === ",") {
-      row.push(cell);
-      cell = "";
-    } else if (ch === "\n") {
-      row.push(cell.replace(/\r$/, ""));
-      if (row.some((value) => value !== "")) rows.push(row);
-      row = [];
-      cell = "";
-    } else {
-      cell += ch;
-    }
+// Parse only full-match Flashscore SG/SH/SI triplets; preserve provenance.
+function observedFlashscoreStats(detail:any,kickoff:any){
+  const raw=detail?.detail_raw?.statistics_raw;
+  const observedAt=detail?.detail_fetched_at;
+  if(typeof raw!=="string"||!raw.startsWith("SE÷Match"))return null;
+  const capturedMs=Date.parse(String(observedAt||""));
+  const kickoffMs=Date.parse(String(kickoff||""));
+  if(!Number.isFinite(capturedMs)||!Number.isFinite(kickoffMs)
+     ||capturedMs<kickoffMs||capturedMs>Date.now()+60_000)return null;
+  const section=raw.split("¬~SE÷")[0];
+  const labels:any={"Expected goals (xG)":"xg","xG on target (xGOT)":"xgot",
+    "Ball possession":"possession","Total shots":"shots","Shots on target":"shotsOnTarget",
+    "Big chances":"bigChances","Corner kicks":"corners"};
+  const stats:any={};
+  for(const item of section.split("¬~")){
+    const m=item.match(/(?:^|¬)SG÷([^¬~]+)¬SH÷([^¬~]+)¬SI÷([^¬~]+)/);
+    if(!m||!labels[m[1]])continue;
+    const read=(v:string)=>{const x=String(v).match(/^-?(?:\d+(?:\.\d+)?|\.\d+)/);return x?Number(x[0]):null;};
+    const home=read(m[2]),away=read(m[3]);
+    if(home!==null&&away!==null&&!stats[labels[m[1]]])stats[labels[m[1]]]={home,away};
   }
-  if (cell.length || row.length) {
-    row.push(cell.replace(/\r$/, ""));
-    if (row.some((value) => value !== "")) rows.push(row);
-  }
-  if (rows.length < 2) return [];
-  const header = rows[0].map((value) => value.trim());
-  return rows.slice(1).map((values) =>
-    Object.fromEntries(header.map((key, i) => [key, values[i] ?? ""]))
-  );
-}
-
-function csvBool(value: unknown) {
-  return ["1", "true", "yes", "y"].includes(String(value ?? "").trim().toLowerCase());
-}
-
-async function legacyGithubAuthorityFallback(hours: number) {
-  const res = await fetch(LEGACY_HKJC_AUTHORITY_URL, {
-    headers: { Accept: "text/csv" },
-    signal: AbortSignal.timeout(6_000),
-  });
-  if (!res.ok) throw new Error(`github_authority_http_${res.status}`);
-  const parsed = parseCsvRecords(await res.text());
-  const nowMs = Date.now();
-  const endMs = nowMs + hours * 60 * 60 * 1000;
-  const rows: any[] = [];
-  let newestFetchedAt: string | null = null;
-
-  for (const raw of parsed) {
-    const eventId = String(raw.hkjc_event_id ?? "").trim();
-    const kickoff = String(raw.kickoff_hkt ?? "").trim();
-    const kickoffMs = Date.parse(kickoff);
-    if (!eventId || !Number.isFinite(kickoffMs)) continue;
-    if (kickoffMs < nowMs || kickoffMs >= endMs) continue;
-    const ended = ["MATCHENDED", "INPLAYMATCHENDED"].includes(String(raw.status ?? "").toUpperCase());
-    const selling = csvBool(raw.selling) || String(raw.pool_status ?? "").toUpperCase() === "SELLINGSTARTED";
-    if (ended || !selling) continue;
-
-    const fetchedAt = String(raw.fetched_at_hkt ?? "").trim() || null;
-    if (fetchedAt && (!newestFetchedAt || Date.parse(fetchedAt) > Date.parse(newestFetchedAt))) {
-      newestFetchedAt = fetchedAt;
-    }
-    rows.push({
-      ...raw,
-      fetched_at: fetchedAt,
-      live_eligible: false,
-      hdc_line: raw.hdc_line || null,
-      hdc_home: raw.hdc_home || null,
-      hdc_away: raw.hdc_away || null,
-      updated_at: fetchedAt,
-    });
-  }
-
-  if (!rows.length) throw new Error("github_authority_empty");
-  return {
-    source: "github-hkjc-authority-fallback",
-    rows: rows.map((row) => ({ row, liveNow: false })),
-    diagnostics: {
-      upstream: "UNAVAILABLE",
-      snapshot: "UNAVAILABLE",
-      github: "OK",
-      fetchedAt: newestFetchedAt,
-      rowCount: rows.length,
-    },
-  };
+  if(!stats.shots||!stats.corners||!stats.possession)return null;
+  return {source:"FLASHSCORE",capturedAt:observedAt,
+    freshness:(Date.now()-capturedMs)<=20*60000?"FRESH":"HISTORICAL_SNAPSHOT",
+    semantics:"OBSERVED_MATCH_STATS_NOT_VERIFIED_LIVE_STATUS",stats};
 }
 
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
-  const pricesFresh = freshness.status === "FRESH";
+  const pricesFresh = freshness.status === "FRESH" && new Date(String(r.kickoff_hkt||0)).getTime()>Date.now();
+  // Distinct China Sports Lottery SPF evidence. Never claim Bet365 provenance,
+  // never treat upstream source-updated time as equal to retrieval time.
+  const chinaSourceMs=Date.parse(String(r.china500_source_updated_at??""));
+  const chinaCaptureMs=Date.parse(String(r.china500_captured_at??""));
+  const chinaAge=Date.now()-chinaSourceMs;
+  const chinaCaptureAge=Date.now()-chinaCaptureMs;
+  const chinaHad={home:num(r.china500_home),draw:num(r.china500_draw),away:num(r.china500_away)};
+  const chinaFresh=!liveNow && Date.parse(String(r.kickoff_hkt??""))>Date.now() &&
+    Number.isFinite(chinaAge) && chinaAge>=0 && chinaAge<=2*60*60*1000 &&
+    Number.isFinite(chinaCaptureAge) && chinaCaptureAge>=0 && chinaCaptureAge<=40*60*1000 &&
+    Object.values(chinaHad).every(x=>x!=null && x>=1.01 && x<=100);
   const had = pricesFresh
     ? { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) }
     : { home: null, draw: null, away: null };
-  const handicap = pricesFresh
+  const handicap = pricesFresh && !chinaFresh
     ? { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) }
     : { line: null, home: null, away: null };
-  const goals = pricesFresh
+  const goals = pricesFresh && !chinaFresh
     ? { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) }
     : { line: null, over: null, under: null };
-  const corners = pricesFresh
+  const corners = pricesFresh && !chinaFresh
     ? { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) }
     : { line: null, over: null, under: null };
+  // The single indexed summary RPC carries optional Forebet evidence as well.
+  // Never reuse stale historical rows as a current prediction.
+  const forebetTime=Date.parse(String(r.forebet_captured_at??""));
+  const modelAge=Date.now()-forebetTime;
+  const fh=num(r.forebet_home),fd=num(r.forebet_draw),fa=num(r.forebet_away);
+  const modelSum=(fh??0)+(fd??0)+(fa??0);
+  const validForebet=Number.isFinite(modelAge) && modelAge>=0 &&
+    modelAge<=72*60*60*1000 && fh!=null && fd!=null && fa!=null &&
+    [fh,fd,fa].every(p=>p>=0&&p<=1) && modelSum>=0.98 && modelSum<=1.02 &&
+    typeof r.forebet_predicted_score==="string" &&
+    /^\d{1,2}\s*-\s*\d{1,2}$/.test(r.forebet_predicted_score.trim()) &&
+    num(r.forebet_avg_goals)!=null && num(r.forebet_avg_goals)>0;
   return {
-    id: r.hkjc_event_id,
+    id: r.match_id,
     kickoff: r.kickoff_hkt,
     status: r.status ?? null,
     league: r.tournament ?? null,
@@ -350,30 +295,48 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       status: r.status ?? null,
       fetchedAt: r.fetched_at ?? null,
       poolStatus: r.pool_status ?? null,
-      oddsUpdatedAt: r.odds_updated_at ?? null,
-      odds: had,
-      handicap,
-      goals,
-      corners,
+      oddsUpdatedAt: null,
+      odds: { home: null, draw: null, away: null },
+      oddsSemantics: "NO_VERIFIED_IN_PLAY_BOOKMAKER_ODDS",
+      referenceOdds: {
+        ...had,
+        capturedAt: r.fetched_at ?? null,
+        source: r.source ?? "FLASHSCORE_BET365",
+        semantics: "PREMATCH_OR_NON_LIVE_REFERENCE_ONLY"
+      },
+      handicap: { line: null, home: null, away: null },
+      goals: { line: null, over: null, under: null },
+      corners: { line: null, over: null, under: null },
       score: null,
       stats: null,
       shadow: null,
     } : null,
-    odds: had,
-    market: pricesFresh ? noVig(r.had_home, r.had_draw, r.had_away) : null,
+    odds: chinaFresh ? chinaHad : had,
+    // Only observed reference prices; the decision/value engine remains null.
+    market: pricesFresh ? noVig(
+      chinaFresh ? chinaHad.home : r.had_home,
+      chinaFresh ? chinaHad.draw : r.had_draw,
+      chinaFresh ? chinaHad.away : r.had_away
+    ) : (chinaFresh ? noVig(chinaHad.home,chinaHad.draw,chinaHad.away) : null),
     handicap,
     handicapAdvice: {
       status: "NO_MODEL",
       line: handicap.line,
       reason: pricesFresh
         ? "Model enrichment unavailable in summary recovery mode"
-        : "HKJC price snapshot is stale; fixture identity only"
+        : chinaFresh ? "China Sports Lottery SPF reference prices; no independent value model" : "Bet365 price snapshot is stale or unavailable; fixture identity only"
     },
     goals,
     corners,
-    forebetDetail: null,
+    forebetDetail:validForebet?{
+      predictedScore:r.forebet_predicted_score.trim(),
+      ou25:{over:null,under:null,avgGoals:num(r.forebet_avg_goals)},
+      corners95:{over:null,under:null,avgCorners:null},
+      goalsCurrentLine:null,cornersCurrentLine:null,
+      fetchedAt:r.forebet_captured_at,source:"FOREBET",
+    }:null,
     multisourceDetail: null,
-    forebet: null,
+    forebet:validForebet?{home:fh,draw:fd,away:fa}:null,
     dc: null,
     dcDetail: null,
     pi: null,
@@ -382,21 +345,23 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     formDetail: null,
     multi: null,
     health: {
-      status: freshness.status === "FRESH" ? "OK" : "ATTENTION",
+      status: chinaFresh ? "REFERENCE" : (freshness.status === "FRESH" ? "OK" : "ATTENTION"),
       primaryMissingReason: "SUMMARY_AUTHORITY_ONLY",
-      diagnostics: freshness.status === "FRESH" ? [] : ["HKJC_AUTHORITY_" + freshness.status],
-      hkjcFetchedAt: r.fetched_at ?? null,
-      hkjcPriceChangedAt: r.odds_updated_at ?? null,
-      hkjcMarketCapturedAt: r.fetched_at ?? null,
-      hkjcFetchAgeMinutes: freshness.ageMinutes,
-      hkjcFreshness: freshness.status,
+      diagnostics: freshness.status === "FRESH" ? [] : ["BET365_AUTHORITY_" + freshness.status],
+      authorityFetchedAt: chinaFresh ? r.china500_captured_at : (r.fetched_at ?? null),
+      priceChangedAt: chinaFresh ? r.china500_source_updated_at : (r.odds_updated_at ?? null),
+      marketCapturedAt: r.fetched_at ?? null,
+      authorityFetchAgeMinutes: freshness.ageMinutes,
+      authorityFreshness: chinaFresh ? "REFERENCE_ONLY" : freshness.status,
       evidenceChannelCount: 0,
       multisourceMemberCount: 0,
-      missingCanonical1x2: !pricesFresh || had.home == null || had.draw == null || had.away == null,
-      unifiedCoverageStatus: "HKJC_ONLY",
-      coverageExplanation: pricesFresh
-        ? "HKJC fixture authority is available; model enrichment is temporarily unavailable."
-        : "HKJC fixture identity is available, but the price snapshot is stale; odds and model actionability are suppressed.",
+      missingCanonical1x2: (!pricesFresh && !chinaFresh) || (!chinaFresh && (had.home == null || had.draw == null || had.away == null)),
+      unifiedCoverageStatus: chinaFresh ? "CHINA_500_SPF_REFERENCE" : "FLASHSCORE_BET365",
+      coverageExplanation: chinaFresh
+        ? "Canonical fixture identity and dated China 500 Sports Lottery SPF reference quotes; not live bookmaker prices or verified value evidence."
+        : pricesFresh
+        ? "Canonical fixture identity and fresh Bet365 prices are available; model enrichment is temporarily unavailable."
+        : "Canonical fixture identity is available, but Bet365 prices are stale or missing; odds and model actionability are suppressed.",
     },
     decision: null,
     decisionMarket: null,
@@ -406,8 +371,10 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     oddsMovement: null,
     power: null,
     storySummary: null,
-    sourceContext: null,
-    updatedAt: r.updated_at ?? r.fetched_at ?? null,
+    sourceContext: chinaFresh ? {marketAuthority:"CHINA_500_SPF",
+      quoteSemantics:"PREMATCH_REFERENCE_ONLY",sourceUpdatedAt:r.china500_source_updated_at,
+      capturedAt:r.china500_captured_at} : null,
+    updatedAt: chinaFresh ? r.china500_captured_at : (r.updated_at ?? r.fetched_at ?? null),
   };
 }
 
@@ -431,27 +398,78 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
     return {...summary,source:"supabase-lightweight-enrichment-recovery",view:"full",recoveryMode:"AUTHORITY_ONLY"};
   }
 
-  const [evidenceResult,modelResult]=await Promise.all([
-    db.schema("private")
-      .from("prediction_evidence_current")
-      .select("hkjc_event_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
-      .in("hkjc_event_id",ids),
-    db.from("model_predictions")
-      .select("hkjc_event_id,fetched_at,quality,model_source,model_league,training_matches,team_match_quality,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff")
-      .in("hkjc_event_id",ids),
+  const [evidenceResult,modelResult,lineupResult,sourceDetailResult]=await Promise.all([
+    db
+      .from("prediction_evidence_feed_current")
+      .select("match_id,source_key,market_key,source_updated_at,status,pick,predicted_score,prob_home,prob_draw,prob_away,prob_over,prob_under,avg_goals,avg_corners,confidence,updated_at")
+      .in("match_id",ids),
+    db.from("model_prediction_current")
+      .select("match_id,fetched_at,quality,model_source,model_league,training_matches,team_match_quality,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff")
+      .in("match_id",ids),
+    db.from("lineup_evidence_current")
+      .select("match_id,player_key,team_side,starter,confirmed,source_name,source_updated_at")
+      .in("match_id",ids)
+      .in("source_name",["FOTMOB_OFFICIAL","FOTMOB_PREDICTED","FLASHSCORE_OFFICIAL","SOFASCORE"])
+      .eq("starter",true),
+    db.from("source_match_detail_current")
+      .select("match_id,source_key,detail_raw,detail_fetched_at,updated_at")
+      .in("match_id",ids)
+      .eq("source_key","FOTMOB"),
   ]);
 
   const evidenceRows=Array.isArray(evidenceResult.data)?evidenceResult.data:[];
   const modelRows=Array.isArray(modelResult.data)?modelResult.data:[];
   const evidenceById=new Map<string,any[]>();
   for(const row of evidenceRows){
-    const id=String(row?.hkjc_event_id||"");
+    const id=String(row?.match_id||"");
     if(!id) continue;
     const bucket=evidenceById.get(id)||[];
     bucket.push(row);
     evidenceById.set(id,bucket);
   }
-  const modelById=new Map(modelRows.map((row:any)=>[String(row?.hkjc_event_id||""),row]));
+  const modelById=new Map(modelRows.map((row:any)=>[String(row?.match_id||""),row]));
+
+  const sourceDetailRows=Array.isArray(sourceDetailResult.data)?sourceDetailResult.data:[];
+  const sourceDetailById=new Map<string,any>();
+  for(const row of sourceDetailRows){
+    const id=String(row?.match_id||"");
+    if(!id)continue;
+    const current=sourceDetailById.get(id);
+    const ts=new Date(row?.detail_fetched_at||row?.updated_at||0).getTime();
+    const currentTs=new Date(current?.detail_fetched_at||current?.updated_at||0).getTime();
+    if(!current||ts>=currentTs)sourceDetailById.set(id,row);
+  }
+
+  const lineupRows=Array.isArray(lineupResult.data)?lineupResult.data:[];
+  const lineupByEventSource=new Map<string,any>();
+  const allLineupPlayerKeys=new Set<string>();
+  for(const row of lineupRows){
+    const id=String(row?.match_id||"");
+    const source=String(row?.source_name||"UNKNOWN");
+    if(!id)continue;
+    const key=id+"|"+source;
+    const state=lineupByEventSource.get(key)||{id,source,home:0,away:0,confirmed:0,playerKeys:new Set<string>(),updatedAt:null};
+    if(row?.team_side==="H")state.home++;
+    if(row?.team_side==="A")state.away++;
+    if(row?.confirmed)state.confirmed++;
+    if(row?.player_key){state.playerKeys.add(String(row.player_key));allLineupPlayerKeys.add(String(row.player_key));}
+    if(!state.updatedAt || new Date(row?.source_updated_at||0).getTime()>new Date(state.updatedAt||0).getTime())state.updatedAt=row?.source_updated_at||null;
+    lineupByEventSource.set(key,state);
+  }
+  let profileKeys=new Set<string>();
+  if(allLineupPlayerKeys.size){
+    const profileResult=await db.from("phase2_players").select("player_key,profile").in("player_key",[...allLineupPlayerKeys].slice(0,1000));
+    if(!profileResult.error){
+      profileKeys=new Set((profileResult.data??[]).filter((r:any)=>r.profile!=null).map((r:any)=>String(r.player_key)));
+    }
+  }
+  const lineupSourceRank=(source:string)=>source==="FOTMOB_OFFICIAL"?4:source==="FLASHSCORE_OFFICIAL"?3:source==="SOFASCORE"?2:source==="FOTMOB_PREDICTED"?1:0;
+  const lineupBestByEvent=new Map<string,any>();
+  for(const state of lineupByEventSource.values()){
+    if(state.home!==11||state.away!==11)continue;
+    const current=lineupBestByEvent.get(state.id);
+    if(!current||lineupSourceRank(state.source)>lineupSourceRank(current.source))lineupBestByEvent.set(state.id,state);
+  }
 
   const recovered=matches.map((m:any)=>{
     const id=String(m?.id||"");
@@ -483,7 +501,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       form,
       forebetDetail:{
         predictedScore:fbHda?.predicted_score??null,
-        ou25:{over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),avgGoals:num(fbOu?.avg_goals)},
+        ou25:{over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),avgGoals:num(fbOu?.avg_goals ?? fbHda?.avg_goals)},
         corners95:{over:num(fbCorners?.prob_over),under:num(fbCorners?.prob_under),avgCorners:num(fbCorners?.avg_corners)},
         goalsCurrentLine:lineModel(m?.goals?.line,fbOu?.avg_goals,2.5,fbOu?.prob_over,0.5,6.5),
         cornersCurrentLine:lineModel(m?.corners?.line,fbCorners?.avg_corners,9.5,fbCorners?.prob_over,4.5,16.5),
@@ -513,14 +531,44 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
         available:Boolean(pi),
         missingReason:pi?null:(model?.quality??"NO_MODEL_ROW"),
       }:null,
+      sourceContext:(()=>{
+        const lineup=lineupBestByEvent.get(id);
+        const detail=sourceDetailById.get(id);
+        const content=detail?.detail_raw?.content||{};
+        const playerStats=content?.playerStats;
+        const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
+        const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
+        const shotRows=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
+        const xgAvailable=shotRows.some((shot:any)=>Number.isFinite(Number(shot?.expectedGoals)))
+          || JSON.stringify(content?.stats||{}).toLowerCase().includes("expected_goals");
+        if(!lineup&&!detail)return m?.sourceContext??null;
+        return {
+          ...(m?.sourceContext||{}),
+          source:"FOTMOB",
+          lineupAvailable:Boolean(lineup)||Boolean(m?.sourceContext?.lineupAvailable),
+          statsAvailable:matchStatsAvailable||Boolean(m?.sourceContext?.statsAvailable),
+          xgAvailable:xgAvailable||Boolean(m?.sourceContext?.xgAvailable),
+          detailFetchedAt:detail?.detail_fetched_at??m?.sourceContext?.detailFetchedAt??null,
+          lineupCoverage:lineup?{
+            source:lineup.source,
+            starters:lineup.home+lineup.away,
+            homeStarters:lineup.home,
+            awayStarters:lineup.away,
+            confirmedStarters:lineup.confirmed,
+            profileCount:[...lineup.playerKeys].filter((key:string)=>profileKeys.has(key)).length,
+            updatedAt:lineup.updatedAt
+          }:(m?.sourceContext?.lineupCoverage??null)
+        };
+      })(),
       health:{
         ...(m?.health||{}),
         evidenceChannelCount:evidenceCount,
-        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"HKJC_ONLY"),
+        unifiedCoverageStatus:evidenceCount>=3?"DATA_RICH":evidenceCount>=1?"PARTIAL_MODEL_COVERAGE":(m?.health?.unifiedCoverageStatus||"FLASHSCORE_BET365"),
         recoveryMode:"LIGHTWEIGHT_CANONICAL_EVIDENCE",
         enrichmentErrors:{
           predictionEvidence:evidenceResult.error?String(evidenceResult.error.message||evidenceResult.error):null,
           modelPredictions:modelResult.error?String(modelResult.error.message||modelResult.error):null,
+          sourceDetail:sourceDetailResult.error?String(sourceDetailResult.error.message||sourceDetailResult.error):null,
         },
       },
     };
@@ -572,135 +620,222 @@ Deno.serve(async (req: Request) => {
     const fullRpcDb = createReadClientWithTimeout(supabaseUrl,serverKey,8_000);
 
     if (summaryOnly) {
+      // One indexed, read-only RPC replaces repeated PostgREST fanout across
+      // fixture, bookmaker, detail, profile and lineup views. This is the
+      // critical All-in-One lane. Legacy queries remain only as fallback.
+      const [fast,heartbeat]=await Promise.all([
+        db.rpc("ft_fast_flashscore_summary",{p_window_hours:hours}),
+        db.from("source_health")
+          .select("status,value_text,observed_at,notes,raw")
+          .eq("source","FLASHSCORE_BET365").eq("metric","cloud_ingest")
+          .maybeSingle(),
+      ]);
+      if(!fast.error && Array.isArray(fast.data)){
+        const matches=fast.data.map((r:any)=>{
+          const base=directAuthoritySummaryRow(r,false);
+          const stats=observedFlashscoreStats(
+            {detail_raw:r.detail_raw,detail_fetched_at:r.detail_fetched_at},
+            r.kickoff_hkt
+          );
+          return stats ? {
+            ...base,
+            sourceContext:{
+              source:"FLASHSCORE",
+              observedStats:stats,statsAvailable:true,
+              xgAvailable:Boolean(stats.stats.xg),
+              detailFetchedAt:stats.capturedAt,
+              lineupAvailable:false,lineupCoverage:null
+            }
+          } : base;
+        });
+        const source=heartbeat.data??null;
+        // A successful ingest heartbeat is not evidence of a currently usable
+        // board. Assess freshness on the published match prices, without
+        // triggering a second database fetch or claiming missing = zero.
+        const freshHdaMatches=matches.filter((m:any)=>m.odds &&
+          ["home","draw","away"].every(k=>typeof m.odds[k]==="number" && Number.isFinite(m.odds[k]) && m.odds[k]>1)
+        ).length;
+        const publishedPriceStatus=freshHdaMatches>0
+          ? (source?.status??"UNKNOWN")
+          : (matches.length>0?"NO_FRESH_PRICES":"NO_FIXTURES");
+        return Response.json({
+          generatedAt:new Date().toISOString(),
+          source:"flashscore-single-rpc-canonical",
+          view:"summary",windowHours:hours,
+          count:matches.length,matches,
+          systemHealth:{
+            FLASHSCORE_BET365:{
+              status:publishedPriceStatus,
+              value:source?.value_text??null,
+              observedAt:source?.observed_at??null,
+              notes:freshHdaMatches>0
+                ? (source?.notes??null)
+                : "Ingest heartbeat alone does not establish fresh current HDA; prices unavailable or outside freshness gate.",
+              raw:{...(source?.raw && typeof source.raw==="object" && !Array.isArray(source.raw) ? source.raw : {}),freshHdaMatches,summaryMatches:matches.length}
+            },
+            authorityMode:{
+              status:"OK",value:"EXACT_CANONICAL_WITH_SOURCE_PROVENANCE",
+              notes:"Fast Flashscore fixture/Bet365 HDA and observed-match-stat summary. Independent model and lineups load separately.",
+              observedAt:new Date().toISOString(),
+              raw:{matches:matches.length,observedStats:matches.filter((m:any)=>m.sourceContext?.observedStats).length}
+            }
+          },
+        },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
+      }
+      console.error("fast_flashscore_summary_fallback",fast.error);
       const now = new Date();
       const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
       const liveCutoff = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+      const recentStart = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
 
-      const upstreamPromise = (async () => {
-        const headers = { Authorization: `Bearer ${serverKey}`, apikey: serverKey };
-        const [upcomingFetch, liveFetch] = await Promise.allSettled([
-          fetch(`${supabaseUrl}/functions/v1/hkjc-upcoming-direct?mode=summary&hours=${hours}`, {
-            headers,
-            signal: AbortSignal.timeout(10_000),
-          }),
-          fetch(`${supabaseUrl}/functions/v1/hkjc-live-direct?mode=summary`, {
-            headers,
-            signal: AbortSignal.timeout(10_000),
-          }),
-        ]);
+      const [fixtureResult, bet365Result, liveResult, bet365HealthResult, coverageResult, flashscoreDetailResult] = await Promise.all([
+        db.from("active_canonical_fixture_current")
+          .select("match_id,fetched_at,kickoff_hkt,status,tournament:league,home_en,away_en,updated_at")
+          .gte("kickoff_hkt", recentStart)
+          .lt("kickoff_hkt", end.toISOString())
+          .order("kickoff_hkt", { ascending:true }),
+        db.from("bookmaker_odds_current")
+          .select("match_id,fetched_at,kickoff_hkt,league,home,away,bet365_home,bet365_draw,bet365_away,bet365_fixture_id,source,updated_at"),
+        Promise.resolve({ data: [], error: null }),
+        db.from("source_health")
+          .select("source,status,value_text,observed_at,notes,raw")
+          .eq("source","FLASHSCORE_BET365")
+          .eq("metric","cloud_ingest")
+          .maybeSingle(),
+        // The legacy public coverage view joins every lineup to the full
+        // player profile table, creating multi-second PostgREST fanout and
+        // blank SSR feeds. Detailed lineup/profile coverage is returned by
+        // the optional full enrichment lane, never allowed to block HDA.
+        Promise.resolve({data:[],error:null}),
+        db.from("source_match_detail_current")
+          .select("match_id,source_key,detail_raw,detail_fetched_at")
+          .eq("source_key","FLASHSCORE")
+          .gte("detail_fetched_at",new Date(now.getTime()-24*60*60*1000).toISOString())
+          .limit(180),
+      ]);
+      if (fixtureResult.error) throw fixtureResult.error;
+      if (bet365Result.error) console.error("summary_bookmaker_odds_current_unavailable",bet365Result.error);
+      if (liveResult.error) console.error("summary_bet365_live_unavailable",liveResult.error);
 
-        const rows:any[] = [];
-        const diagnostics:any = { upcoming:null, live:null };
-        if (upcomingFetch.status === "fulfilled") {
-          diagnostics.upcoming = upcomingFetch.value.status;
-          if (upcomingFetch.value.ok) {
-            const body = await upcomingFetch.value.json();
-            for (const row of body?.data ?? []) rows.push({ row, liveNow:false });
-          }
-        } else {
-          diagnostics.upcoming = "FETCH_FAILED";
-        }
-        if (liveFetch.status === "fulfilled") {
-          diagnostics.live = liveFetch.value.status;
-          if (liveFetch.value.ok) {
-            const body = await liveFetch.value.json();
-            for (const row of body?.data ?? []) rows.push({ row, liveNow:true });
-          }
-        } else {
-          diagnostics.live = "FETCH_FAILED";
-        }
-        if (!rows.length) throw new Error("direct_hkjc_upstream_empty");
-        return { source:"hkjc-official-direct", rows, diagnostics };
-      })();
+      const bet365Heartbeat=bet365HealthResult.data??null;
+      const bet365HeartbeatAgeSeconds=bet365Heartbeat?.observed_at
+        ? Math.max(0,(Date.now()-new Date(bet365Heartbeat.observed_at).getTime())/1000)
+        : null;
+      const bet365HeartbeatStatus=bet365HealthResult.error
+        ? "UNAVAILABLE"
+        : !bet365Heartbeat
+          ? "MISSING"
+          : !Number.isFinite(bet365HeartbeatAgeSeconds)||bet365HeartbeatAgeSeconds>1200
+            ? "STALE"
+            : String(bet365Heartbeat.status||"OK").toUpperCase();
 
-      const snapshotPromise = (async () => {
-        const [upcomingResult, liveResult] = await Promise.all([
-          db.from("hkjc_upcoming_current")
-            .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,live_eligible,selling,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
-            .eq("selling", true)
-            .gte("kickoff_hkt", now.toISOString())
-            .lt("kickoff_hkt", end.toISOString())
-            .order("kickoff_hkt", { ascending: true }),
-          db.from("hkjc_live_odds_current")
-            .select("hkjc_event_id,fetched_at,kickoff_hkt,status,tournament,tournament_zh,home_en,away_en,home_zh,away_zh,pool_status,had_home,had_draw,had_away,hdc_line,hdc_home,hdc_away,hil_line,hil_over,hil_under,chl_line,chl_over,chl_under,odds_updated_at,updated_at")
-            .gte("fetched_at", liveCutoff)
-            .eq("pool_status", "SELLINGSTARTED"),
-        ]);
-        if (upcomingResult.error && liveResult.error) throw new Error("authority_snapshot_unavailable");
-        const rows:any[] = [];
-        for (const row of upcomingResult.data ?? []) rows.push({ row, liveNow:false });
-        for (const row of liveResult.data ?? []) rows.push({ row, liveNow:true });
-        if (!rows.length) throw new Error("authority_snapshot_empty");
-        return {
-          source:"hkjc-authority-snapshot",
-          rows,
-          diagnostics:{
-            upcoming: upcomingResult.error ? "ERROR" : "OK",
-            live: liveResult.error ? "ERROR" : "OK",
-          },
+      // The global ingest heartbeat describes job health, not whether each
+      // individual verified price snapshot is recent. A failed retry must not
+      // hide still-fresh, correctly identified bookmaker odds in the table.
+      // directAuthoritySummaryRow independently enforces the 20-minute
+      // per-quote freshness gate before any value reaches the UI.
+      const bet365ById=new Map((bet365Result.data??[]).map((r:any)=>[String(r.match_id),r]));
+      const liveById=new Map((liveResult.data??[]).map((r:any)=>[String(r.canonical_match_id),r]));
+      const coverageById=new Map((coverageResult.data??[]).map((r:any)=>[String(r.match_id),r]));
+      const flashscoreDetailById=new Map((flashscoreDetailResult.data??[]).map((r:any)=>[String(r.match_id),r]));
+      if(flashscoreDetailResult.error)console.error("summary_flashscore_details_unavailable",flashscoreDetailResult.error);
+      if(coverageResult.error)console.error("summary_public_coverage_unavailable",coverageResult.error);
+      const rows:any[]=[];
+      for(const fixture of fixtureResult.data??[]){
+        const id=String(fixture.match_id||""); if(!id) continue;
+        const b:any=bet365ById.get(id)||null;
+        const l:any=liveById.get(id)||null;
+        const row={
+          match_id:id,
+          fetched_at:b?.fetched_at??null,
+          kickoff_hkt:fixture.kickoff_hkt,
+          status:l?.period??(new Date(String(fixture.kickoff_hkt)).getTime()<=Date.now() && String(fixture.status).toUpperCase()==="PREEVENT"?"STATUS_UNVERIFIED":fixture.status)??null,
+          tournament:fixture.tournament??b?.league??null,
+          home_en:fixture.home_en??b?.home??null,
+          away_en:fixture.away_en??b?.away??null,
+          had_home:b?.bet365_home??null,
+          had_draw:b?.bet365_draw??null,
+          had_away:b?.bet365_away??null,
+          hdc_line:null,hdc_home:null,hdc_away:null,
+          hil_line:null,hil_over:null,hil_under:null,
+          chl_line:null,chl_over:null,chl_under:null,
+          pool_status:l?"SELLINGSTARTED":"UNKNOWN",
+          odds_updated_at:b?.fetched_at??null,
+          updated_at:b?.updated_at??fixture.updated_at??null,
+          live_eligible:Boolean(l),
         };
-      })();
-
-      try {
-        let winner:any;
-        try {
-          winner = await upstreamPromise;
-        } catch (upstreamError) {
-          console.error("summary_direct_hkjc_failed_using_snapshot", upstreamError);
-          try {
-            winner = await snapshotPromise;
-          } catch (snapshotError) {
-            console.error("summary_snapshot_failed_using_github_authority", snapshotError);
-            winner = await legacyGithubAuthorityFallback(hours);
-          }
-        }
-        const byId = new Map<string, any>();
-        for (const item of winner.rows ?? []) {
-          const row=item?.row;
-          if (!row?.hkjc_event_id) continue;
-          byId.set(String(row.hkjc_event_id), directAuthoritySummaryRow(row, Boolean(item.liveNow)));
-        }
-        const directMatches = [...byId.values()].sort((a, b) => String(a.kickoff ?? "").localeCompare(String(b.kickoff ?? "")));
-        if (!directMatches.length) throw new Error("authority_summary_empty");
-        return Response.json({
-          generatedAt: new Date().toISOString(),
-          source: winner.source,
-          view: "summary",
-          windowHours: hours,
-          count: directMatches.length,
-          systemHealth: {
-            authorityMode: {
-              status: "OK",
-              value: winner.source === "hkjc-official-direct"
-                ? "HKJC_DIRECT_UPSTREAM"
-                : winner.source === "hkjc-authority-snapshot"
-                  ? "LAST_GOOD_AUTHORITY_SNAPSHOT"
-                  : "LEGACY_GITHUB_AUTHORITY_FALLBACK",
-              notes: winner.source === "github-hkjc-authority-fallback"
-                ? "Homepage fixture identity is using the read-only legacy HKJC artifact because direct and DB authority lanes are unavailable; stale prices remain suppressed."
-                : "Homepage fixtures are served independently of model/story enrichment.",
-              observedAt: new Date().toISOString(),
-              raw: winner.diagnostics,
-            },
-          },
-          matches: directMatches,
-        }, {
-          headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
-        });
-      } catch (summaryError) {
-        console.error("summary_authority_unavailable", summaryError);
-        return Response.json({
-          error: "feed_unavailable",
-          semantics: "read_failure_not_fixture_absence",
-          view: "summary",
-        }, {
-          status: 503,
-          headers: { ...corsHeaders, "Cache-Control": "no-store" },
-        });
+        rows.push({row,liveNow:Boolean(l)});
       }
+
+      const directMatches=rows.map((item:any)=>{
+        const match=directAuthoritySummaryRow(item.row,item.liveNow);
+        const coverage:any=coverageById.get(String(match.id||""))||null;
+        const stats=observedFlashscoreStats(flashscoreDetailById.get(String(match.id||"")),match.kickoff);
+        if(!coverage && !stats)return match;
+        return {
+          ...match,
+          sourceContext:{
+            ...(stats?{observedStats:stats}:{}),
+            source:stats?"FLASHSCORE":(coverage?.detail_source||coverage?.lineup_source||null),
+            lineupAvailable:Number(coverage?.starters||0)>=22||Boolean(coverage?.source_lineup_available),
+            statsAvailable:Boolean(stats)||Boolean(coverage?.stats_available),
+            xgAvailable:Boolean(stats?.stats?.xg)||Boolean(coverage?.xg_available),
+            detailAvailable:Boolean(stats)||Boolean(coverage?.detail_available),
+            detailFetchedAt:stats?.capturedAt??coverage?.detail_fetched_at??null,
+            lineupCoverage:{
+              source:coverage?.lineup_source??null,
+              starters:Number(coverage?.starters||0),
+              homeStarters:Number(coverage?.home_starters||0),
+              awayStarters:Number(coverage?.away_starters||0),
+              confirmedStarters:Number(coverage?.confirmed_starters||0),
+              profileCount:Number(coverage?.profile_count||0),
+              updatedAt:coverage?.lineup_updated_at??null
+            }
+          }
+        };
+      }).sort((a:any,b:any)=>String(a.kickoff??"").localeCompare(String(b.kickoff??"")));
+      return Response.json({
+        generatedAt:new Date().toISOString(),
+        source:"canonical-fixtures-flashscore-bet365",
+        view:"summary",
+        windowHours:hours,
+        count:directMatches.length,
+        systemHealth:{
+          authorityMode:{
+            status:bet365HeartbeatStatus==="OK"||bet365HeartbeatStatus==="EMPTY" ? "OK" : "ATTENTION",
+            value:"CANONICAL_FIXTURES_FLASHSCORE_BET365",
+            notes:"Fixture identity is served from the canonical registry; current bookmaker prices come from the cloud Flashscore/Bet365 collector. Missing bookmaker data stays unknown.",
+            observedAt:new Date().toISOString(),
+            raw:{fixtures:directMatches.length,bet365Rows:(bet365Result.data??[]).length,liveRows:(liveResult.data??[]).length,bet365HeartbeatStatus,bet365HeartbeatAgeSeconds}
+          },
+          FLASHSCORE_BET365:{
+            status:bet365HeartbeatStatus,
+            value:bet365Heartbeat?.value_text??null,
+            notes:bet365Heartbeat?.notes??"No cloud Flashscore/Bet365 ingest has been observed yet.",
+            observedAt:bet365Heartbeat?.observed_at??null,
+            raw:bet365Heartbeat?.raw??{}
+          }
+        },
+        matches:directMatches,
+      },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
     }
 
-    const { data, error } = await fullRpcDb.rpc("ft_internal_app_phase1_feed", {
+    // FT-20261009 P0: the generic RPC currently delegates to the removed
+    // ft_internal_app_phase1_feed(integer) function (Postgres 42883).
+    // Avoid that deterministic failure/timeout while preserving real canonical
+    // evidence and explicit unknowns through the existing safe recovery path.
+    // Re-enable this legacy RPC branch only after its SQL dependency is repaired
+    // and an end-to-end production contract has been verified.
+    if (Deno.env.get("FT_PHASE1_USE_GENERIC_RPC") !== "1") {
+      const recovered = await lightweightFullRecovery(
+        supabaseUrl, serverKey, createReadClientWithTimeout(supabaseUrl, serverKey, 8_000), hours
+      );
+      return Response.json(recovered, {
+        headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
+      });
+    }
+
+    const { data, error } = await fullRpcDb.rpc("ft_internal_app_phase1_feed_generic", {
       window_hours: hours,
     });
     if (error) {
@@ -712,9 +847,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) {
+      const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,createReadClientWithTimeout(supabaseUrl,serverKey,8_000),hours);
+      return Response.json(recovered,{
+        headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"},
+      });
+    }
 
-    const eventIds = rows.map((r: any) => r.hkjc_event_id).filter(Boolean);
-    const liveEventIds = rows.filter((r: any) => Boolean(r.live_now)).map((r: any) => r.hkjc_event_id).filter(Boolean);
+    const eventIds = rows.map((r: any) => r.match_id).filter(Boolean);
+    const liveEventIds = rows.filter((r: any) => Boolean(r.live_now)).map((r: any) => r.match_id).filter(Boolean);
     const movementMap = new Map<string, any>();
     const liveStatsMap = new Map<string, any>();
     const shadowMap = new Map<string, any>();
@@ -735,53 +876,65 @@ Deno.serve(async (req: Request) => {
       // These enrichment reads are independent. Start them together so network
       // round trips do not accumulate before the homepage can render.
       const authorityPromise = Promise.all([
-        db.from("hkjc_upcoming_current")
-          .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
-          .in("hkjc_event_id", eventIds),
-        db.from("hkjc_live_odds_current")
-          .select("hkjc_event_id,tournament_zh,hdc_line,hdc_home,hdc_away")
-          .in("hkjc_event_id", eventIds),
+        db.from("bookmaker_odds_current")
+          .select("match_id,league,fetched_at")
+          .in("match_id", eventIds),
+        Promise.resolve({ data: [], error: null }),
       ]);
       const identityPromise = currentNameKeys.length
-        ? db.from("team_name_master")
+        ? db.from("team_identity_current")
             .select("source_key")
-            .eq("source", "HKJC_EN")
+            .in("source", ["FLASHSCORE","FOTMOB","BET365","FOOTBALL_DATA","OPTA","FORM","FOREBET","FOOTBALL_LIVE_API_SELF_HOSTED"])
             .eq("status", "VERIFIED")
             .in("source_key", currentNameKeys)
         : Promise.resolve({ data: [], error: null });
       const formDetailPromise = db.rpc("ft_internal_team_form_details", { event_ids: eventIds });
-      const modelDetailPromise = db.from("model_predictions")
-        .select("hkjc_event_id,fetched_at,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,model_source,model_league")
-        .in("hkjc_event_id", eventIds);
-      const formMetaPromise = db.from("form_predictions")
-        .select("hkjc_event_id,fetched_at,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,model_source")
-        .in("hkjc_event_id", eventIds);
-      const storyPromise = db.from("match_interpretations")
-        .select("hkjc_event_id,match_script:payload->matchScript,editorial_alignment:payload->editorialAlignment")
-        .in("hkjc_event_id", eventIds)
+      const modelDetailPromise = db.from("model_prediction_current")
+        .select("match_id,fetched_at,dc_prob_home,dc_prob_draw,dc_prob_away,dc_xg_home,dc_xg_away,dc_prob_over25,pi_prob_home,pi_prob_draw,pi_prob_away,pi_home_rating,pi_away_rating,pi_diff,training_matches,team_match_quality,quality,model_source,model_league")
+        .in("match_id", eventIds);
+      const formMetaPromise = db.from("form_prediction_current")
+        .select("match_id,fetched_at,form_xg_home,form_xg_away,home_games,away_games,home_venue_games,away_venue_games,quality,model_source")
+        .in("match_id", eventIds);
+      const storyPromise = db.from("match_interpretation_feed_current")
+        .select("match_id,match_script:payload->matchScript,editorial_alignment:payload->editorialAlignment")
+        .in("match_id", eventIds)
         .eq("language", "en")
         .eq("style", "professional");
-      const sourceContextPromise = db.from("phase15_source_shadow_current")
-        .select("source_key,external_event_id,matched_hkjc_event_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")
+      const sourceContextPromise = db.from("source_shadow_current")
+        .select("source_key,external_event_id,match_id,league_name,home_name,away_name,match_confidence,identity_status,detail_available,lineup_available,xg_available,stats_available,detail_fetched_at,updated_at")
         .eq("source_key", "FOTMOB")
-        .in("matched_hkjc_event_id", eventIds);
-      const movementPromise = db.from("odds_movement_current")
-        .select("hkjc_event_id,captured_at,movement_side,now_odds,odds_24h,move_24h_pp,odds_2h,move_2h_pp,odds_1h,move_1h_pp,vol_24h_pp,signal,model_side,model_prob,model_alignment,match_confidence,alert_score")
-        .in("hkjc_event_id", eventIds);
-      const powerPromise = db.from("hkjc_power_current")
-        .select("hkjc_event_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
-        .in("hkjc_event_id", eventIds);
+        .in("match_id", eventIds);
+      const sourceDetailPromise = db.from("source_match_detail_current")
+        .select("match_id,source_key,external_event_id,detail_raw,detail_fetched_at,updated_at")
+        .eq("source_key","FOTMOB")
+        .in("match_id",eventIds);
+      const lineupCoveragePromise = db.from("lineup_evidence_current")
+        .select("match_id,player_key,team_side,starter,confirmed,source_name,source_updated_at")
+        .in("match_id", eventIds)
+        .in("source_name", ["FOTMOB_OFFICIAL","FOTMOB_PREDICTED","FLASHSCORE_OFFICIAL","SOFASCORE"])
+        .eq("starter", true);
+      const movementPromise = db.from("odds_movement_feed_current")
+        .select("match_id,captured_at,movement_side,now_odds,odds_24h,move_24h_pp,odds_2h,move_2h_pp,odds_1h,move_1h_pp,vol_24h_pp,signal,model_side,model_prob,model_alignment,match_confidence,alert_score")
+        .in("match_id", eventIds);
+      const powerPromise = db.from("team_power_current")
+        .select("match_id,fetched_at,home_rating,away_rating,home_opta_name,away_opta_name,home_match_confidence,away_match_confidence,home_rank,away_rank,coverage,source,power_updated")
+        .in("match_id", eventIds);
 
       const [{ data: upcomingAuthorityRows, error: upcomingAuthorityError }, { data: liveAuthorityRows, error: liveAuthorityError }] = await authorityPromise;
       if (upcomingAuthorityError) {
-        console.error("upcoming_display_authority_query_failed", upcomingAuthorityError);
+        console.error("bet365_display_authority_query_failed", upcomingAuthorityError);
       } else {
-        for (const row of upcomingAuthorityRows ?? []) upcomingAuthorityMap.set(row.hkjc_event_id, row);
+        for (const row of upcomingAuthorityRows ?? []) {
+          upcomingAuthorityMap.set(row.match_id, { tournament:row.league, hdc_line:null, hdc_home:null, hdc_away:null });
+        }
       }
       if (liveAuthorityError) {
-        console.error("live_display_authority_query_failed", liveAuthorityError);
+        console.error("bet365_live_display_authority_query_failed", liveAuthorityError);
       } else {
-        for (const row of liveAuthorityRows ?? []) liveAuthorityMap.set(row.hkjc_event_id, row);
+        for (const row of liveAuthorityRows ?? []) {
+          if (!row.canonical_match_id) continue;
+          liveAuthorityMap.set(row.canonical_match_id, { tournament:row.league, hdc_line:null, hdc_home:null, hdc_away:null });
+        }
       }
 
       if (currentNameKeys.length) {
@@ -809,14 +962,14 @@ Deno.serve(async (req: Request) => {
       if (modelDetailError) {
         console.error("model_detail_query_failed", modelDetailError);
       } else {
-        for (const row of modelDetailRows ?? []) modelDetailMap.set(row.hkjc_event_id, row);
+        for (const row of modelDetailRows ?? []) modelDetailMap.set(row.match_id, row);
       }
 
       const { data: formRows, error: formMetaError } = await formMetaPromise;
       if (formMetaError) {
         console.error("team_form_meta_query_failed", formMetaError);
       } else {
-        for (const row of formRows ?? []) formMetaMap.set(row.hkjc_event_id, row);
+        for (const row of formRows ?? []) formMetaMap.set(row.match_id, row);
       }
 
       const { data: storyRows, error: storyError } = await storyPromise;
@@ -824,7 +977,7 @@ Deno.serve(async (req: Request) => {
         console.error("story_summary_query_failed", storyError);
       } else {
         for (const row of storyRows ?? []) {
-          storySummaryMap.set(row.hkjc_event_id, {
+          storySummaryMap.set(row.match_id, {
             matchScript: row.match_script ?? null,
             editorialAlignment: row.editorial_alignment ?? null,
           });
@@ -836,7 +989,7 @@ Deno.serve(async (req: Request) => {
         console.error("source_context_query_failed", sourceContextError);
       } else {
         for (const row of sourceContextRows ?? []) {
-          const id = String(row.matched_hkjc_event_id ?? "");
+          const id = String(row.match_id ?? "");
           if (!id) continue;
           const previous = sourceContextMap.get(id);
           const previousConfidence = Number(previous?.matchConfidence ?? -1);
@@ -857,6 +1010,93 @@ Deno.serve(async (req: Request) => {
             detailFetchedAt: row.detail_fetched_at,
             updatedAt: row.updated_at,
             mode: "SHADOW_CONTEXT_ONLY",
+          });
+        }
+      }
+
+      const { data: sourceDetailRows, error: sourceDetailError } = await sourceDetailPromise;
+      if (sourceDetailError) {
+        console.error("source_detail_query_failed", sourceDetailError);
+      } else {
+        const newestByMatch=new Map<string,any>();
+        for(const row of sourceDetailRows ?? []){
+          const id=String(row?.match_id||"");
+          if(!id)continue;
+          const current=newestByMatch.get(id);
+          const ts=new Date(row?.detail_fetched_at||row?.updated_at||0).getTime();
+          const currentTs=new Date(current?.detail_fetched_at||current?.updated_at||0).getTime();
+          if(!current||ts>=currentTs)newestByMatch.set(id,row);
+        }
+        for(const [id,row] of newestByMatch.entries()){
+          const content=row?.detail_raw?.content||{};
+          const playerStats=content?.playerStats;
+          const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
+          const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
+          const shots=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
+          const xgAvailable=shots.some((shot:any)=>Number.isFinite(Number(shot?.expectedGoals)))
+            || JSON.stringify(content?.stats||{}).toLowerCase().includes("expected_goals");
+          const existing=sourceContextMap.get(id)||{};
+          sourceContextMap.set(id,{
+            ...existing,
+            source:existing.source||"FOTMOB",
+            externalEventId:existing.externalEventId||row?.external_event_id||null,
+            detailAvailable:true,
+            statsAvailable:matchStatsAvailable||Boolean(existing.statsAvailable),
+            xgAvailable:xgAvailable||Boolean(existing.xgAvailable),
+            detailFetchedAt:row?.detail_fetched_at??row?.updated_at??existing.detailFetchedAt??null,
+          });
+        }
+      }
+
+      const { data: lineupCoverageRows, error: lineupCoverageError } = await lineupCoveragePromise;
+      if (lineupCoverageError) {
+        console.error("lineup_coverage_query_failed", lineupCoverageError);
+      } else {
+        const byEventSource = new Map<string, any>();
+        const playerKeys = new Set<string>();
+        for (const row of lineupCoverageRows ?? []) {
+          const id=String(row.match_id||"");
+          const source=String(row.source_name||"UNKNOWN");
+          const key=id+"|"+source;
+          const state=byEventSource.get(key)||{id,source,home:0,away:0,confirmed:0,playerKeys:new Set<string>(),updatedAt:null};
+          if(row.team_side==="H")state.home++;
+          if(row.team_side==="A")state.away++;
+          if(row.confirmed)state.confirmed++;
+          if(row.player_key){state.playerKeys.add(String(row.player_key));playerKeys.add(String(row.player_key));}
+          if(!state.updatedAt || new Date(row.source_updated_at||0).getTime()>new Date(state.updatedAt||0).getTime())state.updatedAt=row.source_updated_at||null;
+          byEventSource.set(key,state);
+        }
+        let profileKeys=new Set<string>();
+        if(playerKeys.size){
+          const {data:profileRows,error:profileError}=await db.from("phase2_players")
+            .select("player_key,profile")
+            .in("player_key",[...playerKeys].slice(0,1000));
+          if(profileError)console.error("lineup_profile_coverage_query_failed",profileError);
+          else profileKeys=new Set((profileRows??[]).filter((r:any)=>r.profile!=null).map((r:any)=>String(r.player_key)));
+        }
+        const sourceRank=(source:string)=>source==="FOTMOB_OFFICIAL"?4:source==="FLASHSCORE_OFFICIAL"?3:source==="SOFASCORE"?2:source==="FOTMOB_PREDICTED"?1:0;
+        const bestByEvent=new Map<string,any>();
+        for(const state of byEventSource.values()){
+          const complete=state.home===11&&state.away===11;
+          if(!complete)continue;
+          const current=bestByEvent.get(state.id);
+          if(!current || sourceRank(state.source)>sourceRank(current.source))bestByEvent.set(state.id,state);
+        }
+        for(const [id,state] of bestByEvent.entries()){
+          const existing=sourceContextMap.get(id)||{};
+          const profileCount=[...state.playerKeys].filter((key:string)=>profileKeys.has(key)).length;
+          sourceContextMap.set(id,{
+            ...existing,
+            lineupAvailable:true,
+            lineupCoverage:{
+              source:state.source,
+              starters:state.home+state.away,
+              homeStarters:state.home,
+              awayStarters:state.away,
+              confirmedStarters:state.confirmed,
+              profileCount,
+              updatedAt:state.updatedAt
+            }
           });
         }
       }
@@ -883,7 +1123,7 @@ Deno.serve(async (req: Request) => {
               ? ((nowOdds / baselineOdds) - 1) * 100
               : null;
 
-          movementMap.set(m.hkjc_event_id, {
+          movementMap.set(m.match_id, {
             capturedAt: m.captured_at ?? null,
             side: m.movement_side ?? null,
             nowOdds,
@@ -907,9 +1147,9 @@ Deno.serve(async (req: Request) => {
       const liveCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const detailHistoryCutoff = new Date(Date.now() - 20 * 60 * 1000).toISOString();
       const { data: liveStatRows, error: liveStatsError } = await db
-        .from("live_stats_current")
-        .select("hkjc_event_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
-        .in("hkjc_event_id", liveEventIds)
+        .from("live_stats_feed_current")
+        .select("match_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
+        .in("match_id", liveEventIds)
         .gte("captured_at_hkt", liveCutoff);
 
       const currentStatRows = new Map<string, any>();
@@ -920,9 +1160,9 @@ Deno.serve(async (req: Request) => {
           if (String(row.source ?? "") === "SOURCE_GAP") continue;
           const confidence = num(row.match_confidence);
           if (confidence != null && confidence < 0.74) continue;
-          currentStatRows.set(row.hkjc_event_id, row);
+          currentStatRows.set(row.match_id, row);
           if (Array.isArray(row.team_stats) && row.team_stats.length > 0) {
-            liveStatsMap.set(row.hkjc_event_id, {
+            liveStatsMap.set(row.match_id, {
               ...compactLiveStats(row),
               snapshotMode: "CURRENT_CAPTURED",
             });
@@ -933,19 +1173,19 @@ Deno.serve(async (req: Request) => {
       const missingDetailIds = liveEventIds.filter((id: string) => !liveStatsMap.has(id));
       if (missingDetailIds.length) {
         const { data: historyRows, error: historyError } = await db
-          .from("live_stats_history")
-          .select("hkjc_event_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
-          .in("hkjc_event_id", missingDetailIds)
+          .from("live_stats_history_feed")
+          .select("match_id,captured_at_hkt,detail_status,source,match_confidence,team_stats")
+          .in("match_id", missingDetailIds)
           .gte("captured_at_hkt", detailHistoryCutoff)
           .order("captured_at_hkt", { ascending: false })
           .limit(1000);
 
         if (historyError) {
-          console.error("live_stats_history_query_failed", historyError);
+          console.error("live_stats_history_feed_query_failed", historyError);
         } else {
           const seenHistory = new Set<string>();
           for (const row of historyRows ?? []) {
-            const id = String(row.hkjc_event_id ?? "");
+            const id = String(row.match_id ?? "");
             if (!id || seenHistory.has(id) || liveStatsMap.has(id)) continue;
             if (String(row.source ?? "") === "SOURCE_GAP") continue;
             const confidence = num(row.match_confidence);
@@ -962,8 +1202,8 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const shadowSelect = "hkjc_event_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,model_hda_consensus,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt";
-      const shadowHistorySelect = "hkjc_event_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt";
+      const shadowSelect = "match_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,model_hda_consensus,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt";
+      const shadowHistorySelect = "match_id,segment,match_minute,expected_control_side,actual_control_side,actual_control_score,live_metric_count,control_basis,context_coverage_score,shadow_status,shadow_reason,xg_home,xg_away,shots_home,shots_away,sot_home,sot_away,possession_home,possession_away,box_touches_home,box_touches_away,big_chances_home,big_chances_away,corners_home,corners_away,captured_at_hkt";
       const shadowObject = (row: any, snapshotMode: string) => ({
         segment: row.segment ?? null,
         minute: num(row.match_minute),
@@ -990,9 +1230,9 @@ Deno.serve(async (req: Request) => {
       });
 
       const { data: shadowRows, error: shadowError } = await db
-        .from("live_expected_actual_current")
+        .from("live_expected_actual_feed_current")
         .select(shadowSelect)
-        .in("hkjc_event_id", liveEventIds);
+        .in("match_id", liveEventIds);
 
       const missingShadowIds: string[] = [];
       if (shadowError) {
@@ -1001,22 +1241,22 @@ Deno.serve(async (req: Request) => {
       } else {
         for (const row of shadowRows ?? []) {
           if (Number(row.live_metric_count ?? 0) > 0) {
-            shadowMap.set(row.hkjc_event_id, shadowObject(row, "CURRENT_CAPTURED"));
+            shadowMap.set(row.match_id, shadowObject(row, "CURRENT_CAPTURED"));
           } else {
-            missingShadowIds.push(row.hkjc_event_id);
+            missingShadowIds.push(row.match_id);
           }
         }
         for (const id of liveEventIds) {
-          if (!(shadowRows ?? []).some((row: any) => row.hkjc_event_id === id)) missingShadowIds.push(id);
+          if (!(shadowRows ?? []).some((row: any) => row.match_id === id)) missingShadowIds.push(id);
         }
       }
 
       if (missingShadowIds.length) {
         const shadowHistoryCutoff = new Date(Date.now() - 20 * 60 * 1000).toISOString();
         const { data: shadowHistoryRows, error: shadowHistoryError } = await db
-          .from("live_expected_actual_history")
+          .from("live_expected_actual_history_feed")
           .select(shadowHistorySelect)
-          .in("hkjc_event_id", [...new Set(missingShadowIds)])
+          .in("match_id", [...new Set(missingShadowIds)])
           .gte("captured_at_hkt", shadowHistoryCutoff)
           .gt("live_metric_count", 0)
           .order("captured_at_hkt", { ascending: false })
@@ -1027,7 +1267,7 @@ Deno.serve(async (req: Request) => {
         } else {
           const seen = new Set<string>();
           for (const row of shadowHistoryRows ?? []) {
-            const id = String(row.hkjc_event_id ?? "");
+            const id = String(row.match_id ?? "");
             if (!id || seen.has(id) || shadowMap.has(id)) continue;
             seen.add(id);
             shadowMap.set(id, shadowObject(row, "LAST_GOOD_CAPTURE"));
@@ -1041,7 +1281,7 @@ Deno.serve(async (req: Request) => {
         console.error("power_query_failed", powerError);
       } else {
         for (const row of powerRows ?? []) {
-          powerMap.set(row.hkjc_event_id, {
+          powerMap.set(row.match_id, {
             fetchedAt: row.fetched_at ?? null,
             home: num(row.home_rating),
             away: num(row.away_rating),
@@ -1064,7 +1304,7 @@ Deno.serve(async (req: Request) => {
       : await db
           .from("source_health")
           .select("source,status,value_text,notes,observed_at,raw")
-          .in("source", ["HKJC_UPCOMING_EDGE", "HKJC_LIVE_EDGE", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
+          .in("source", ["FLASHSCORE_BET365", "LIVE_SCORE_EDGE", "LIVE_LAYER_GUARD", "LIVE_UPSTREAM_DEPLOY", "LIVE_SOURCE_SHADOW", "LIVE_SHADOW_COMPARE", "PHASE3_IDENTITY_REGISTRY", "FRONTEND_ROUTE_GUARD"])
           .eq("metric", "heartbeat");
 
     if (heartbeatError) console.error("heartbeat_query_failed", heartbeatError);
@@ -1087,10 +1327,10 @@ Deno.serve(async (req: Request) => {
 
     const matches = rows.map((r: any) => {
       const displayAuthority = Boolean(r.live_now)
-        ? (liveAuthorityMap.get(r.hkjc_event_id) ?? upcomingAuthorityMap.get(r.hkjc_event_id) ?? null)
-        : (upcomingAuthorityMap.get(r.hkjc_event_id) ?? liveAuthorityMap.get(r.hkjc_event_id) ?? null);
+        ? (liveAuthorityMap.get(r.match_id) ?? upcomingAuthorityMap.get(r.match_id) ?? null)
+        : (upcomingAuthorityMap.get(r.match_id) ?? liveAuthorityMap.get(r.match_id) ?? null);
       return {
-      id: r.hkjc_event_id,
+      id: r.match_id,
       kickoff: r.kickoff_hkt,
       status: r.status,
       league: r.tournament,
@@ -1108,10 +1348,11 @@ Deno.serve(async (req: Request) => {
         poolStatus: r.live_pool_status ?? null,
         oddsUpdatedAt: r.live_odds_updated_at ?? null,
         odds: {
-          home: num(r.live_had_home),
-          draw: num(r.live_had_draw),
-          away: num(r.live_had_away),
+          home: null,
+          draw: null,
+          away: null,
         },
+        oddsSemantics: "NO_VERIFIED_IN_PLAY_BOOKMAKER_ODDS",
         handicap: {
           line: displayAuthority?.hdc_line ?? null,
           home: num(displayAuthority?.hdc_home),
@@ -1141,18 +1382,18 @@ Deno.serve(async (req: Request) => {
           awayCorners: num(r.live_away_corners),
           totalCorners: num(r.live_total_corners),
         },
-        stats: liveStatsMap.get(r.hkjc_event_id) ?? null,
-        shadow: shadowMap.get(r.hkjc_event_id) ?? null,
+        stats: liveStatsMap.get(r.match_id) ?? null,
+        shadow: shadowMap.get(r.match_id) ?? null,
       } : null,
       odds: {
-        home: num(r.hkjc_home_odds),
-        draw: num(r.hkjc_draw_odds),
-        away: num(r.hkjc_away_odds),
+        home: num(r.bookmaker_home_odds),
+        draw: num(r.bookmaker_draw_odds),
+        away: num(r.bookmaker_away_odds),
       },
       market: {
-        home: num(r.hkjc_novig_home),
-        draw: num(r.hkjc_novig_draw),
-        away: num(r.hkjc_novig_away),
+        home: num(r.bookmaker_novig_home),
+        draw: num(r.bookmaker_novig_draw),
+        away: num(r.bookmaker_novig_away),
       },
       handicap: {
         line: displayAuthority?.hdc_line ?? null,
@@ -1160,7 +1401,7 @@ Deno.serve(async (req: Request) => {
         away: num(displayAuthority?.hdc_away),
       },
       handicapAdvice: (() => {
-        const m:any=modelDetailMap.get(r.hkjc_event_id) ?? null;
+        const m:any=modelDetailMap.get(r.match_id) ?? null;
         const line=displayAuthority?.hdc_line ?? null, homeOdds=num(displayAuthority?.hdc_home), awayOdds=num(displayAuthority?.hdc_away);
         const home=asianEv(m?.dc_xg_home,m?.dc_xg_away,line,homeOdds,"HOME");
         const away=asianEv(m?.dc_xg_home,m?.dc_xg_away,line,awayOdds,"AWAY");
@@ -1180,21 +1421,21 @@ Deno.serve(async (req: Request) => {
         };
       })(),
       goals: {
-        line: r.hkjc_goals_line ?? null,
-        over: num(r.hkjc_goals_over),
-        under: num(r.hkjc_goals_under),
+        line: r.bookmaker_goals_line ?? null,
+        over: num(r.bookmaker_goals_over),
+        under: num(r.bookmaker_goals_under),
       },
       corners: {
-        line: r.hkjc_corners_line ?? null,
-        over: num(r.hkjc_corners_over),
-        under: num(r.hkjc_corners_under),
+        line: r.bookmaker_corners_line ?? null,
+        over: num(r.bookmaker_corners_over),
+        under: num(r.bookmaker_corners_under),
       },
       forebetDetail: {
         predictedScore: r.forebet_predicted_score ?? null,
         ou25: { over: num(r.forebet_ou_over), under: num(r.forebet_ou_under), avgGoals: num(r.forebet_avg_goals) },
         corners95: { over: num(r.forebet_corners_over), under: num(r.forebet_corners_under), avgCorners: num(r.forebet_avg_corners) },
         goalsCurrentLine: lineModel(
-          r.hkjc_goals_line,
+          r.bookmaker_goals_line,
           r.forebet_avg_goals,
           2.5,
           r.forebet_ou_over,
@@ -1202,7 +1443,7 @@ Deno.serve(async (req: Request) => {
           6.5,
         ),
         cornersCurrentLine: lineModel(
-          r.hkjc_corners_line,
+          r.bookmaker_corners_line,
           r.forebet_avg_corners,
           9.5,
           r.forebet_corners_over,
@@ -1221,7 +1462,7 @@ Deno.serve(async (req: Request) => {
         home: num(r.dc_home), draw: num(r.dc_draw), away: num(r.dc_away),
       },
       dcDetail: (() => {
-        const m: any = modelDetailMap.get(r.hkjc_event_id) ?? null;
+        const m: any = modelDetailMap.get(r.match_id) ?? null;
         if (!m) return null;
         return {
           quality: m.quality ?? null,
@@ -1248,7 +1489,7 @@ Deno.serve(async (req: Request) => {
         home: num(r.pi_home), draw: num(r.pi_draw), away: num(r.pi_away),
       },
       piDetail: (() => {
-        const m: any = modelDetailMap.get(r.hkjc_event_id) ?? null;
+        const m: any = modelDetailMap.get(r.match_id) ?? null;
         if (!m) return null;
         return {
           quality: m.quality ?? null,
@@ -1275,14 +1516,14 @@ Deno.serve(async (req: Request) => {
         home: num(r.form_home), draw: num(r.form_draw), away: num(r.form_away),
       },
       formDetail: (() => {
-        const detail: any = formDetailMap.get(r.hkjc_event_id) ?? null;
-        const meta: any = formMetaMap.get(r.hkjc_event_id) ?? null;
+        const detail: any = formDetailMap.get(r.match_id) ?? null;
+        const meta: any = formMetaMap.get(r.match_id) ?? null;
         if (!detail && !meta) return null;
         const homeDetail = detail?.home ?? {};
         const awayDetail = detail?.away ?? {};
         return {
           quality: meta?.quality ?? null,
-          source: meta?.model_source ?? "HKJC confirmed results",
+          source: meta?.model_source ?? "Verified results history",
           fetchedAt: meta?.fetched_at ?? null,
           home: {
             ...homeDetail,
@@ -1313,11 +1554,11 @@ Deno.serve(async (req: Request) => {
           if (code === "AWAY_ALIAS_NOT_REGISTERED" && identityPresent(r.away_alias_present, r.away_en)) return false;
           return true;
         }),
-        hkjcFetchedAt: r.hkjc_fetched_at,
-        hkjcPriceChangedAt: r.hkjc_price_changed_at,
-        hkjcMarketCapturedAt: r.hkjc_market_captured_at,
-        hkjcFetchAgeMinutes: num(r.hkjc_fetch_age_minutes),
-        hkjcFreshness: r.hkjc_freshness,
+        authorityFetchedAt: r.authority_fetched_at,
+        priceChangedAt: r.price_changed_at,
+        marketCapturedAt: r.market_captured_at,
+        authorityFetchAgeMinutes: num(r.authority_fetch_age_minutes),
+        authorityFreshness: r.authority_freshness,
         forebetCheckedAt: r.forebet_checked_at,
         forebetState: r.forebet_state,
         forebetReason: r.forebet_reason,
@@ -1391,13 +1632,13 @@ Deno.serve(async (req: Request) => {
       decisionEdge: num(r.decision_edge),
       engineVersion: r.decision_engine_version,
       oddsMovement: (() => {
-        const movement = movementMap.get(r.hkjc_event_id);
+        const movement = movementMap.get(r.match_id);
         if (!movement) return null;
         const side = movement.side;
         const freshNow =
-          side === "H" ? num(r.hkjc_home_odds) :
-          side === "D" ? num(r.hkjc_draw_odds) :
-          side === "A" ? num(r.hkjc_away_odds) :
+          side === "H" ? num(r.bookmaker_home_odds) :
+          side === "D" ? num(r.bookmaker_draw_odds) :
+          side === "A" ? num(r.bookmaker_away_odds) :
           null;
         const baseline = num(movement.baselineOdds);
         if (freshNow == null || baseline == null || baseline <= 0) return null;
@@ -1407,9 +1648,9 @@ Deno.serve(async (req: Request) => {
           rawOddsChangePct: ((freshNow / baseline) - 1) * 100,
         };
       })(),
-      power: powerMap.get(r.hkjc_event_id) ?? null,
-      storySummary: storySummaryMap.get(r.hkjc_event_id) ?? null,
-      sourceContext: sourceContextMap.get(r.hkjc_event_id) ?? null,
+      power: powerMap.get(r.match_id) ?? null,
+      storySummary: storySummaryMap.get(r.match_id) ?? null,
+      sourceContext: sourceContextMap.get(r.match_id) ?? null,
       updatedAt: r.data_updated_at,
       };
     });
