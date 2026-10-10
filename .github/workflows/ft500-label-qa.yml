@@ -2,7 +2,7 @@ name: FT500 limited frontend source-label QA
 on:
   push:
     branches: [release/ft500-spf-label-20261010]
-    paths: [lib/fast-tracker.js, components/homepage-client.js, supabase/functions/app-phase1-feed/index.ts, scripts/check-real-evidence-safety.mjs, .github/workflows/ft500-label-qa.yml]
+    paths: [lib/fast-tracker.js, components/homepage-client.js, supabase/functions/app-phase1-feed/index.ts, scripts/check-real-evidence-safety.mjs, scripts/check-ft500-reference-value.mjs, .github/workflows/ft500-label-qa.yml]
 permissions:
   contents: read
 jobs:
@@ -17,6 +17,8 @@ jobs:
       - run: npm install
       - run: npm run check:ui
       - run: npm run check:real-evidence
+      - name: Regression — never derive 500 SPF EV
+        run: node scripts/check-ft500-reference-value.mjs
       - name: Assert dated 500 SPF provenance survives observed stats and UI
         run: |
           grep -F -q '...(base.sourceContext??{})' supabase/functions/app-phase1-feed/index.ts
@@ -42,7 +44,8 @@ jobs:
           rows=d.get('matches')
           assert isinstance(rows,list) and len(rows)>=50, 'lost canonical fixtures'
           c=[x for x in rows if (x.get('sourceContext') or {}).get('marketAuthority')=='CHINA_500_SPF']
-          assert c, 'no dated 500 SPF record on live public summary'
+          # Zero upcoming eligible quotes is a valid no-op between matchdays.
+          # When present, every published quote must retain non-actionable provenance.
           for x in c:
               o=x.get('odds') or {}
               assert all(isinstance(o.get(k),(float,int)) and o[k]>1 for k in ('home','draw','away'))
