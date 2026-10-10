@@ -25,4 +25,5 @@ const ui=fs.readFileSync("components/homepage-client.js","utf8");
 assert.ok(ui.includes('authority?.sourceContext?.marketAuthority === "CHINA_500_SPF"'),"reference authority is held across enrichment");
 assert.ok(ui.includes("merged.decision = null;")&&ui.includes("merged.decisionEdge = null;")&&ui.includes("merged.oddsMovement = null;"),"rich betting advice is removed on 500 reference");
 assert.ok(ui.includes("...(authority.health || {})"),"canonical source health outranks enriched health");
-console.log("FT500_REFERENCE_ONLY_EV_GATES_OK 8 assertions");
+assert.ok(ui.includes('className="ft-spf-implied"') && ui.includes('not a prediction') && ui.includes('china500Implied = china500Reference && prematchOdds && !verifiedLiveOdds ? fairMarket(prematchOdds) : null'),"SPF implied percentages remain clearly separate from Forebet/model");
+console.log("FT500_REFERENCE_ONLY_EV_GATES_OK 9 assertions");
