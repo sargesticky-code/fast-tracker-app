@@ -17,16 +17,28 @@ SCORE = re.compile(r"^(\d{1,2})\s*-\s*(\d{1,2})$")
 DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?$")
 
 
+def _calendar_valid(value, fmt):
+    try:
+        datetime.strptime(value, fmt)
+        return True
+    except ValueError:
+        return False
+
+
 def normalize_row(raw):
     """Require all essential fields; do not guess provider kickoff timezone or fixture ID."""
     match_date = str(raw["date_time"]).strip()
     if not DATE.fullmatch(match_date):
         raise ValueError("INVALID_SOURCE_KICKOFF")
-    # The upstream 2026 scraper reports MM/DD/YYYY AM/PM; keep raw text
-    # rather than guessing a timezone or silently swapping month/day.
+    # Validate real calendar values while preserving uncertain date ordering.
+    # A date like 10/11 can mean Oct 11 or Nov 10; never silently swap it.
+    valid_formats = [fmt for fmt in ("%m/%d/%Y %I:%M %p", "%d/%m/%Y %H:%M", "%m/%d/%Y %H:%M")
+                     if _calendar_valid(match_date, fmt)]
+    if not valid_formats:
+        raise ValueError("INVALID_CALENDAR_DATE")
     home, away = str(raw["home"]).strip(), str(raw["away"]).strip()
     league = str(raw["league"]).strip()
-    if not home or not away or not league or home == away:
+    if not home or not away or not league or home.casefold() == away.casefold():
         raise ValueError("MISSING_IDENTITY")
     p = [int(str(raw[k]).replace("%", "").strip()) for k in ("prob_home", "prob_draw", "prob_away")]
     if any(v < 0 or v > 100 for v in p) or not 98 <= sum(p) <= 102:
@@ -41,7 +53,7 @@ def normalize_row(raw):
         "source": "FOREBET", "source_competition": league,
         "source_home_team": home, "source_away_team": away,
         "source_kickoff_local_text": match_date,
-        "source_kickoff_timezone": None,
+        "source_kickoff_timezone": None, "source_date_formats_possible": valid_formats,
         "canonical_match_id": None, "identity_status": "UNVERIFIED",
         "prob_home": p[0], "prob_draw": p[1], "prob_away": p[2],
         "predicted_score": f"{int(score.group(1))} - {int(score.group(2))}",
