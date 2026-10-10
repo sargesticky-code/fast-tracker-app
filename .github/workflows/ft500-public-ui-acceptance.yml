@@ -34,7 +34,16 @@ jobs:
             const resp=await page.goto(url,{waitUntil:'domcontentloaded',timeout:35000});
             if(!resp||resp.status()>=400) throw new Error(name+': homepage HTTP '+resp?.status());
             const labels=page.locator('.ft-market-odds small').filter({hasText:'500.com · China Sports Lottery SPF'});
-            await labels.first().waitFor({state:'visible',timeout:40000});
+            try {
+              await labels.first().waitFor({state:'visible',timeout:16000});
+            } catch (error) {
+              const captions=await page.locator('.ft-market-odds small').allTextContents();
+              const status=await page.locator('.ft-result-count').allTextContents();
+              const body=(await page.locator('body').innerText()).slice(0,1500);
+              console.log('FT500_RENDER_DIAG',JSON.stringify({viewport:name,captions:captions.slice(0,40),matchStatus:status,body,errors}));
+              await page.screenshot({path:'/tmp/ft500-'+name+'.png',fullPage:false});
+              throw error;
+            }
             const found=await labels.count();
             const label=await labels.first().innerText();
             if(!label.includes('reference only')||!label.includes('Source updated'))
