@@ -1,0 +1,39 @@
+name: Forebet 48h model visibility release gate
+on:
+  push:
+    branches: [release/ft-forebet-horizon-20261010]
+    paths:
+      - 'lib/fast-tracker.js'
+      - 'components/homepage-client.js'
+      - '.github/workflows/ft-forebet-horizon-release-qa.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install
+      - run: npm run check:real-evidence
+      - run: npm run check:ui
+      - name: Assert no extra Forebet capture or server polling
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const client=fs.readFileSync('components/homepage-client.js','utf8');
+          const server=fs.readFileSync('lib/fast-tracker.js','utf8');
+          assert.ok(client.includes('url.searchParams.set("hours", "48")'));
+          assert.ok(server.includes('url.searchParams.set("hours", "48")'));
+          assert.ok(client.includes('setRowLimit(n => Math.min(150, n + 30))'));
+          assert.ok(client.includes('return rows.slice(0, rowLimit)'));
+          assert.ok(client.includes('const ENRICHMENT_FEED_URL = FEED_URL;'));
+          console.log('FOREBET_48H_INDEXED_ONLY_AND_LOCAL_MORE_OK');
+          JS
+      - run: npm run build
+        env:
+          CF_PAGES: '1'
