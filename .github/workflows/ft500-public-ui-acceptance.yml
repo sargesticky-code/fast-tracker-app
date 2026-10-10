@@ -1,0 +1,57 @@
+name: FT500 public UI browser acceptance (one-shot)
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/ft500-spf-label-20261010]
+    paths:
+      - '.github/workflows/ft500-public-ui-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  rendered-source-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: Observe production HTML and real responsive render
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import { chromium } from '@playwright/test';
+          const url='https://fast-tracker-public-production.up.railway.app';
+          const browser=await chromium.launch({headless:true});
+          const sizes=[['desktop',1440,900],['tablet',820,1180],['mobile',390,844]];
+          let checked=0;
+          for (const [name,width,height] of sizes) {
+            const page=await browser.newPage({viewport:{width,height}});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e.message).slice(0,100)));
+            const resp=await page.goto(url,{waitUntil:'domcontentloaded',timeout:35000});
+            if(!resp||resp.status()>=400) throw new Error(name+': homepage HTTP '+resp?.status());
+            const labels=page.locator('.ft-market-odds small').filter({hasText:'500.com · China Sports Lottery SPF'});
+            await labels.first().waitFor({state:'visible',timeout:40000});
+            const found=await labels.count();
+            const label=await labels.first().innerText();
+            if(!label.includes('reference only')||!label.includes('Source updated'))
+              throw new Error(name+': missing source/time/reference semantics: '+label);
+            if(errors.length) console.log('JS_ERRORS',name,errors.slice(0,3));
+            await page.screenshot({path:'/tmp/ft500-'+name+'.png',fullPage:false});
+            console.log('FT500_PUBLIC_RENDER_OK',JSON.stringify({viewport:name,width,height,count:found,label:label.slice(0,175)}));
+            checked++;
+            await page.close();
+          }
+          await browser.close();
+          if(checked!==3) throw new Error('missing responsive coverage');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ft500-responsive-ui-evidence
+          path: /tmp/ft500-*.png
+          if-no-files-found: ignore
+          retention-days: 7
