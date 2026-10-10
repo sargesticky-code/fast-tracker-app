@@ -1,0 +1,3 @@
+# Optional read-only Forebet pilot; no service or scheduled capture.
+beautifulsoup4==4.14.3
+selenium==4.32.0
