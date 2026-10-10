@@ -493,7 +493,17 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
             Number(edge?.expectedValue) >= 0.04 ? "is-value" : "",
           ].filter(Boolean).join(" ");
           return (
-            <a className={rowClasses} href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
+            <a className={rowClasses} href={matchDetailHref(match.id, "homepage-v1")} key={match.id}
+              onClick={() => {
+                // Carry the exact verified fixture/HDA into its detail route.
+                // The detail API may be unavailable during PostgREST pressure;
+                // a clicked live match must not become an empty placeholder.
+                try {
+                  const payload = JSON.stringify(match);
+                  window.sessionStorage.setItem(`ft-match-${match.id}`, payload);
+                  window.localStorage.setItem(`ft-match-${match.id}`, payload);
+                } catch {}
+              }}>
               <div className="ft-team-cell">
                 <div className="ft-league-tag">{englishLeagueName(match)}</div>
                 <div className="ft-team-names">
