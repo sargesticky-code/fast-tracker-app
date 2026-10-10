@@ -9,10 +9,9 @@ import argparse
 import json
 import re
 import sys
-from datetime import date, timedelta, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = "https://www.forebet.com/en/football-predictions/predictions-1x2/"
 SCORE = re.compile(r"^(\d{1,2})\s*-\s*(\d{1,2})$")
 DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?$")
 
@@ -61,88 +60,96 @@ def normalize_row(raw):
     }
 
 
+SOURCE_PAGES = {
+    "today": "https://www.forebet.com/en/football-tips-and-predictions-for-today",
+    "tomorrow": "https://www.forebet.com/en/football-tips-and-predictions-for-tomorrow",
+}
+
+
 def capture(day, max_rows):
+    """Read the live Today/Tomorrow 1X2 surface, never the legacy date path."""
+    from forebet_lean_parser import parse_forebet_html
     try:
         from selenium import webdriver
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
     except ImportError as exc:
-        raise RuntimeError("Install selenium and a compatible Chrome/Chromium driver") from exc
+        raise RuntimeError("Install selenium and Chrome/Chromium driver to run an approved source pilot") from exc
 
+    if day not in SOURCE_PAGES:
+        raise ValueError("UNSUPPORTED_SOURCE_DAY")
+    url = SOURCE_PAGES[day]
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--window-size=1440,1000")
     driver = webdriver.Chrome(options=options)
     try:
-        url = BASE + day.isoformat()
         driver.set_page_load_timeout(30)
         driver.get(url)
-        if "403" in driver.title.lower() or "access denied" in driver.page_source.lower():
-            raise RuntimeError("FOREBET_ACCESS_DENIED: stop; do not bypass source restrictions")
+        page_source = driver.page_source
+        title = driver.title.lower()
+        if any(term in (title + " " + page_source[:4000].lower())
+               for term in ("403 forbidden", "access denied", "just a moment", "captcha")):
+            raise RuntimeError("FOREBET_ACCESS_RESTRICTED: no access-control bypass permitted")
         try:
             WebDriverWait(driver, 15).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")) > 0
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, ".homeTeam")) > 0
             )
         except Exception as exc:
-            raise RuntimeError("NO_FOREBET_ROWS: source layout/access unavailable") from exc
-        # One optional MORE interaction only; bounded rows and no per-match detail/odds requests.
-        more = driver.find_elements(By.CSS_SELECTOR, "#mrows span")
-        before_more = len(driver.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt"))
+            raise RuntimeError("NO_FOREBET_ROWS: access, layout or source may be unavailable") from exc
+
+        visible_before = len(driver.find_elements(By.CSS_SELECTOR, ".homeTeam"))
         pagination_state = "NO_MORE_CONTROL"
-        if more:
-            pagination_state = "MORE_NOT_CONFIRMED"
+        controls = driver.find_elements(
+            By.CSS_SELECTOR,
+            "#mrows span, #btn_more, .schema-more, span[onclick*='ltodrows']"
+        )
+        for button in controls:
+            if not button.is_displayed():
+                continue
+            pagination_state = "MORE_LOAD_UNCONFIRMED"
             try:
-                more[0].click()
+                button.click()
                 WebDriverWait(driver, 8).until(
-                    lambda d: len(d.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")) > before_more
+                    lambda d: len(d.find_elements(By.CSS_SELECTOR, ".homeTeam")) > visible_before
                 )
                 pagination_state = "ONE_MORE_BATCH_LOADED"
             except Exception:
-                # Never describe a timed-out MORE click as complete coverage.
-                pagination_state = "MORE_LOAD_UNCONFIRMED"
-        visible_rows = driver.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")
-        entries, rejected = [], {}
-        for row in visible_rows[:max_rows]:
+                pass
+            break
+
+        parsed = parse_forebet_html(driver.page_source)
+        if parsed["detected_home_nodes"] == 0:
+            raise RuntimeError("NO_FOREBET_ROWS: zero team nodes on source page")
+        rows, rejected = [], dict(parsed["rejected_by_reason"])
+        for raw in parsed["parsed_rows"][:max_rows]:
             try:
-                def value(css):
-                    return row.find_element(By.CSS_SELECTOR, css).text.strip()
-                probs = row.find_elements(By.CSS_SELECTOR, ".fprc span")
-                if len(probs) < 3:
-                    probs = row.find_elements(By.CSS_SELECTOR, ".fprt")
-                if len(probs) < 3:
-                    raise ValueError("MISSING_HDA")
-                raw = {
-                    "league": value(".shortTag"), "home": value(".homeTeam span"),
-                    "away": value(".awayTeam span"), "date_time": value(".date_bah"),
-                    "prob_home": probs[0].text, "prob_draw": probs[1].text,
-                    "prob_away": probs[2].text, "predicted_score": value(".ex_sc"),
-                    "avg_goals": value(".avg_sc"),
-                }
-                entries.append(normalize_row(raw))
-            except Exception as exc:
-                key = str(exc)[:100]
-                rejected[key] = rejected.get(key, 0) + 1
-        return {"requested_date": day.isoformat(), "source_url": url,
+                item = normalize_row(raw)
+                item["source_detail_url"] = raw.get("source_detail_url")
+                rows.append(item)
+            except (KeyError, ValueError, TypeError) as exc:
+                reason = str(exc)[:100]
+                rejected[reason] = rejected.get(reason, 0) + 1
+
+        return {"requested_surface": day, "source_url": url,
                 "captured_at": datetime.now(timezone.utc).isoformat(),
-                "rows": entries, "rejected_by_reason": rejected,
-                "visible_rows": len(visible_rows), "pagination_state": pagination_state,
-                "coverage_complete": False,
-                "truncated_at_limit": len(visible_rows) > max_rows}
+                "rows": rows, "detected_home_nodes": parsed["detected_home_nodes"],
+                "parsed_source_rows": parsed["parsed_count"],
+                "rejected_by_reason": rejected,
+                "pagination_state": pagination_state, "coverage_complete": False,
+                "truncated_at_limit": parsed["parsed_count"] > max_rows}
     finally:
         driver.quit()
 
-
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--date", help="Source date YYYY-MM-DD; defaults to UTC today")
     ap.add_argument("--days", type=int, default=2, choices=(1, 2))
-    ap.add_argument("--max-rows-per-day", type=int, default=350)
+    ap.add_argument("--max-rows-per-day", type=int, default=900)
     ap.add_argument("--out", default="forebet-candidates.json")
     args = ap.parse_args()
-    if not 1 <= args.max_rows_per_day <= 500:
-        ap.error("--max-rows-per-day must be 1..500")
-    start = date.fromisoformat(args.date) if args.date else datetime.now(timezone.utc).date()
-    batches = [capture(start + timedelta(days=i), args.max_rows_per_day) for i in range(args.days)]
+    if not 1 <= args.max_rows_per_day <= 1200:
+        ap.error("--max-rows-per-day must be 1..1200")
+    batches = [capture(day, args.max_rows_per_day) for day in ("today", "tomorrow")[:args.days]]
     rows, seen = [], set()
     for batch in batches:
         for row in batch["rows"]:
