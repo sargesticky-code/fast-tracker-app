@@ -158,6 +158,7 @@ DECLARE
   v_previous_status integer;
   v_previous_timed_out boolean;
   v_payload jsonb;
+  v_body text;
   v_result jsonb := jsonb_build_object('status','NO_PRIOR_REQUEST');
   v_new bigint;
 BEGIN
@@ -165,9 +166,19 @@ BEGIN
   FROM private.ft_flashscore_direct_request_state WHERE singleton=true;
 
   IF v_previous IS NOT NULL THEN
-    SELECT status_code,timed_out,content::jsonb
-      INTO v_previous_status,v_previous_timed_out,v_payload
+    SELECT status_code,timed_out,content
+      INTO v_previous_status,v_previous_timed_out,v_body
       FROM net._http_response WHERE id=v_previous;
+    -- A gateway 502/HTML response must not poison the next cron run.
+    v_payload:=null;
+    IF v_previous_status=200 AND NOT coalesce(v_previous_timed_out,false)
+      AND v_body IS NOT NULL THEN
+      BEGIN
+        v_payload:=v_body::jsonb;
+      EXCEPTION WHEN OTHERS THEN
+        v_payload:=null;
+      END;
+    END IF;
     IF v_previous_status=200 AND NOT coalesce(v_previous_timed_out,false)
       AND v_payload IS NOT NULL THEN
       BEGIN
