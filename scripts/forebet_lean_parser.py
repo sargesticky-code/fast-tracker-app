@@ -43,7 +43,9 @@ def _candidate_containers(soup):
             if current is None or current.name in ("body", "html"):
                 break
             if len(current.select(".homeTeam")) == 1 and len(current.select(".awayTeam")) == 1:
-                if current.select_one(".date_bah") and current.select_one(".ex_sc") and current.select_one(".avg_sc") and _probabilities(current):
+                if (current.select_one(".shortTag") and current.select_one(".date_bah")
+                        and current.select_one(".ex_sc") and current.select_one(".avg_sc")
+                        and _probabilities(current)):
                     if id(current) not in seen:
                         seen.add(id(current))
                         yield current
