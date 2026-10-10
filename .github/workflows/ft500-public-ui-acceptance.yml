@@ -52,9 +52,9 @@ jobs:
             await implied.waitFor({state:'visible',timeout:10000});
             const impliedText=(await implied.innerText()).toLowerCase();
             if(!impliedText.includes('not a prediction')||
-               !/h\\s+\\d+%/.test(impliedText)||
-               !/d\\s+\\d+%/.test(impliedText)||
-               !/a\\s+\\d+%/.test(impliedText))
+               !/h\s+\d+%/.test(impliedText)||
+               !/d\s+\d+%/.test(impliedText)||
+               !/a\s+\d+%/.test(impliedText))
               throw new Error(name+': 500 implied HDA not properly labelled: '+impliedText);
             if(errors.length) console.log('JS_ERRORS',name,errors.slice(0,3));
             await page.screenshot({path:'/tmp/ft500-'+name+'.png',fullPage:false});
