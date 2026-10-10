@@ -1,0 +1,26 @@
+name: FT bookmaker tomorrow-budget regression
+on:
+  push:
+    branches: [fix/ft-collector-tomorrow-quota-20261010]
+    paths:
+      - services/flashscore-odds-collector/app.py
+      - services/flashscore-odds-collector/day_budget.py
+      - services/flashscore-odds-collector/test_day_budget.py
+      - services/flashscore-odds-collector/Dockerfile
+      - .github/workflows/ft-bookmaker-tomorrow-budget-qa.yml
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test quota without source traffic
+        run: |
+          python -m py_compile services/flashscore-odds-collector/app.py services/flashscore-odds-collector/day_budget.py
+          python -m unittest discover -s services/flashscore-odds-collector -p test_day_budget.py -v
+      - name: Verify Docker deployment includes module
+        run: |
+          grep -Fq 'COPY app.py day_budget.py ./' services/flashscore-odds-collector/Dockerfile
+          grep -Fq 'for offset, quota in day_plan(DAYS_AHEAD, MAX_FIXTURES)' services/flashscore-odds-collector/app.py
