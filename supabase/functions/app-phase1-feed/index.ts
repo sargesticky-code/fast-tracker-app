@@ -611,6 +611,15 @@ Deno.serve(async (req: Request) => {
           } : base;
         });
         const source=heartbeat.data??null;
+        // A successful ingest heartbeat is not evidence of a currently usable
+        // board. Assess freshness on the published match prices, without
+        // triggering a second database fetch or claiming missing = zero.
+        const freshHdaMatches=matches.filter((m:any)=>m.odds &&
+          ["home","draw","away"].every(k=>typeof m.odds[k]==="number" && Number.isFinite(m.odds[k]) && m.odds[k]>1)
+        ).length;
+        const publishedPriceStatus=freshHdaMatches>0
+          ? (source?.status??"UNKNOWN")
+          : (matches.length>0?"NO_FRESH_PRICES":"NO_FIXTURES");
         return Response.json({
           generatedAt:new Date().toISOString(),
           source:"flashscore-single-rpc-canonical",
@@ -618,10 +627,13 @@ Deno.serve(async (req: Request) => {
           count:matches.length,matches,
           systemHealth:{
             FLASHSCORE_BET365:{
-              status:source?.status??"UNKNOWN",
+              status:publishedPriceStatus,
               value:source?.value_text??null,
               observedAt:source?.observed_at??null,
-              notes:source?.notes??null,raw:source?.raw??{}
+              notes:freshHdaMatches>0
+                ? (source?.notes??null)
+                : "Ingest heartbeat alone does not establish fresh current HDA; prices unavailable or outside freshness gate.",
+              raw:{...(source?.raw && typeof source.raw==="object" && !Array.isArray(source.raw) ? source.raw : {}),freshHdaMatches,summaryMatches:matches.length}
             },
             authorityMode:{
               status:"OK",value:"EXACT_CANONICAL_WITH_SOURCE_PROVENANCE",
