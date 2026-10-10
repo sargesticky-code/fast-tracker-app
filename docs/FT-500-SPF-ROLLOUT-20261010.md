@@ -21,11 +21,21 @@
 ## Frontend release and recovery
 - Release branch: `release/ft500-spf-label-20261010`, based on last confirmed Railway production source `eccc62af728afda8bb037b9ba9d934829aaada98` rather than merging unfinished PR #44.
 - Railway `fast-tracker-public`, project `496c4795-e8f6-4f54-9ab0-406981b41669`, service `3621679c-9fbf-4e61-b46f-82d153b4b697`.
-- Deploy input pinned to `8be83c727643c59281090a1a3fcbffe08dfb77bd`; isolated public frontend service only, Flashscore collector unchanged.
+- Deploy input pinned to `3d58073107830e397373c3f35cf64ca0d7e618dd`; isolated public frontend service only, Flashscore collector unchanged.
 - Prior production Railway deployment `ec95f869-30b7-4aa5-b551-b0590f2b547d`; previous source branch `phase0/international-authority` at `eccc62af728afda8bb037b9ba9d934829aaada98`.
 - On regression, redeploy prior successful Railway image and use previous v90 Supabase Edge revision. No database table or migration destructive rollback required: old readers ignore new 500-specific columns/table. 
 - ***Do not*** merge unfinished PR #44 or PR #40 just to make this release work.
 
-## Remaining acceptance
-- Verify Railway deployment id `23840ae1-d0ee-4e3f-ba97-2dc9c50aa8bc` reaches SUCCESS with /api/health green.
-- Verify rendered public odds label (desktop/tablet/mobile) reflects `500.com · China Sports Lottery SPF`; only then call public UI fully accepted.
+## Completed public release acceptance
+- Backend deployed `app-phase1-feed` v91; SQL and source age gates verified, 3 upcoming priced EPL rows on the public source-backed API (259 canonical fixtures retained).
+- Browser fallback root cause fixed: degraded collector SSR seed was treated as fresh canonical and deferred refresh for 3 minutes. Revised SSR hedging, canonical-only seed gate and cache source-time expiry are in the pinned Railway release.
+- Railway deployment `2779f040-3657-4e92-946b-dd315f729aa3` SUCCESS. Earlier `23840ae1-d0ee-4e3f-ba97-2dc9c50aa8bc` now retired.
+- End-to-end CI `38053727086` green: source provenance, TypeScript, full Next build and live public Edge response.
+- Public browser acceptance [38053965869](https://github.com/sargesticky-code/fast-tracker-app/actions/runs/38053965869) green on desktop 1440x900, tablet 820x1180, mobile 390x844; all rendered exact `500.COM · CHINA SPORTS LOTTERY SPF · REFERENCE ONLY · SOURCE UPDATED 10 OCT, 20:12 HKT` label.
+- [Three real browser screenshots](https://github.com/sargesticky-code/fast-tracker-app/actions/runs/38053965869/artifacts/11670627782) retained with acceptance run.
+- Legacy 30-minute HKJC/CSV watchdog was shown to falsely flag 266/266 fixtures, dispatch retired workflows, and has been changed to manual-only diagnostics by merged [PR #42](https://github.com/sargesticky-code/football-fast-tracker/pull/42).
+
+## Remaining honest gaps
+- China 500 SPF initial curated team map covers only verified EPL fixtures; no all-league/multi-bookmaker claim.
+- Forebet source is still 403 from GitHub runner and no fresh predictions met validation. Avoid showing any historical model as fresh.
+- Next routine 500 capture is scheduled by GitHub, not by a new Supabase cron; availability and quote timestamps determine whether public odds remain visible.
