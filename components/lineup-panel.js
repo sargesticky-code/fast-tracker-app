@@ -699,7 +699,7 @@ function StrengthBar({ team, data }) {
   );
 }
 
-export default function LineupPanel() {
+export default function LineupPanel({ initialFeed = null }) {
   const [payload, setPayload] = useState(null);
   const [id, setId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -728,10 +728,19 @@ export default function LineupPanel() {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
+  const serverMatch = (Array.isArray(initialFeed?.matches) ? initialFeed.matches : [])
+    .find((m) => String(m?.id || "") === String(id || ""));
   const view = useMemo(() => {
     const hf = getHumanFactors(payload);
     const sourceRows = findLineup(payload);
-    const fixture = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
+    const detailFixture = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
+    const fixture = {
+      home_en: serverMatch?.home || null,
+      away_en: serverMatch?.away || null,
+      kickoff_hkt: serverMatch?.kickoff || null,
+      league: serverMatch?.league || null,
+      ...detailFixture,
+    };
     const meta = hf?.lineupMeta || hf?.lineup_meta || payload?.lineupMeta || payload?.lineup_meta || {};
     const identityAnnotated = sourceRows.some((r) => Boolean(r?.fact_status));
     const unresolvedIdentityRows = identityAnnotated
@@ -802,7 +811,7 @@ export default function LineupPanel() {
       tournament: fixture.league || fixture.tournament || null,
       updatedAt: sourceUpdated(sourceRows),
     };
-  }, [payload]);
+  }, [payload,serverMatch]);
 
   if (!id) return null;
 
