@@ -273,6 +273,7 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   const currentOdds = verifiedLiveOdds || prematchOdds;
   const referenceOnly = Boolean(match?.liveNow && !verifiedLiveOdds && prematchOdds);
   const china500Reference = match?.sourceContext?.marketAuthority === "CHINA_500_SPF";
+  const china500Implied = china500Reference && prematchOdds && !verifiedLiveOdds ? fairMarket(prematchOdds) : null;
   const china500AsOf = china500Reference && !Number.isNaN(Date.parse(String(match?.sourceContext?.sourceUpdatedAt ?? "")))
     ? new Date(match.sourceContext.sourceUpdatedAt).toLocaleString("en-GB", {timeZone:"Asia/Hong_Kong",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+" HKT"
     : null;
@@ -296,6 +297,11 @@ function MarketOdds({ match, marketKey = "HDA" }) {
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
         ))}
       </div>
+      {china500Implied && (
+        <small className="ft-spf-implied" title="Normalized implied share from China Sports Lottery 1X2 reference odds, not a Forebet prediction or actionable value signal" style={{display:"block",fontSize:10,letterSpacing:0}}>
+          SPF implied · H {Math.round(china500Implied.home*100)}% · D {Math.round(china500Implied.draw*100)}% · A {Math.round(china500Implied.away*100)}% · not a prediction
+        </small>
+      )}
       {alternate && (
         <div className="ft-secondary-market" style={{marginTop:3,paddingTop:3,borderTop:"1px solid #dce4ec"}}>
           <small>{alternate.name} {alternate.odds?.line ?? "—"} · {alternate.odds?.over != null && alternate.odds?.under != null ? "source evidence" : "not available"}</small>
