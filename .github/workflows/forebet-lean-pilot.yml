@@ -31,12 +31,16 @@ jobs:
           us = mod.normalize_row({**row,"date_time":"10/11/2026 6:00 PM"})
           assert us["source_kickoff_local_text"] == "10/11/2026 6:00 PM"
           assert us["source_kickoff_timezone"] is None
+          assert "%m/%d/%Y %I:%M %p" in us["source_date_formats_possible"]
           assert out["canonical_match_id"] is None
           assert out["identity_status"] == "UNVERIFIED"
           assert out["predicted_score"] == "2 - 1"
           assert out["avg_goals"] == 2.95
           for bad in ({**row,"prob_home":"99"}, {**row,"date_time":"not a date"},
-                      {**row,"avg_goals":"0"}, {**row,"predicted_score":"pending"}):
+                      {**row,"avg_goals":"0"}, {**row,"predicted_score":"pending"},
+                      {**row,"date_time":"99/99/2026 18:00"},
+                      {**row,"date_time":"02/30/2026 6:00 PM"},
+                      {**row,"away":"team a"}):
               try: mod.normalize_row(bad)
               except ValueError: pass
               else: raise AssertionError("invalid source promoted")
