@@ -255,6 +255,18 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
   const corners = pricesFresh
     ? { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) }
     : { line: null, over: null, under: null };
+  // The single indexed summary RPC carries optional Forebet evidence as well.
+  // Never reuse stale historical rows as a current prediction.
+  const forebetTime=Date.parse(String(r.forebet_captured_at??""));
+  const modelAge=Date.now()-forebetTime;
+  const fh=num(r.forebet_home),fd=num(r.forebet_draw),fa=num(r.forebet_away);
+  const modelSum=(fh??0)+(fd??0)+(fa??0);
+  const validForebet=Number.isFinite(modelAge) && modelAge>=0 &&
+    modelAge<=72*60*60*1000 && fh!=null && fd!=null && fa!=null &&
+    [fh,fd,fa].every(p=>p>=0&&p<=1) && modelSum>=0.98 && modelSum<=1.02 &&
+    typeof r.forebet_predicted_score==="string" &&
+    /^\d{1,2}\s*-\s*\d{1,2}$/.test(r.forebet_predicted_score.trim()) &&
+    num(r.forebet_avg_goals)!=null && num(r.forebet_avg_goals)>0;
   return {
     id: r.match_id,
     kickoff: r.kickoff_hkt,
@@ -300,9 +312,15 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     },
     goals,
     corners,
-    forebetDetail: null,
+    forebetDetail:validForebet?{
+      predictedScore:r.forebet_predicted_score.trim(),
+      ou25:{over:null,under:null,avgGoals:num(r.forebet_avg_goals)},
+      corners95:{over:null,under:null,avgCorners:null},
+      goalsCurrentLine:null,cornersCurrentLine:null,
+      fetchedAt:r.forebet_captured_at,source:"FOREBET",
+    }:null,
     multisourceDetail: null,
-    forebet: null,
+    forebet:validForebet?{home:fh,draw:fd,away:fa}:null,
     dc: null,
     dcDetail: null,
     pi: null,
