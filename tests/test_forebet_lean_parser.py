@@ -15,12 +15,12 @@ def fixture(cls="fprc", duplicate=False):
         probabilities = '<span class="fprt">42%</span><span class="fprt">38%</span><span class="fprt">20%</span>'
     else:
         probabilities = '<span class="forebet_p1">42</span><span class="forebet_p2">38</span><span class="forebet_p3">20</span>'
-    row = f\'''<div class="rcnt"><div class="shortTag">Eng1</div>
+    row = f'''<div class="rcnt"><div class="shortTag">Eng1</div>
       <a class="tnmscn" href="/en/football/match/abc">fixture</a>
       <div class="homeTeam"><span>Liverpool</span></div><div class="awayTeam"><span>Arsenal</span></div>
       <span class="date_bah">10/11/2026 6:00 PM</span>{probabilities}
       <span class="ex_sc">2 - 1</span><span class="avg_sc">2.95</span>
-    </div>\'''
+    </div>'''
     return row + row if duplicate else row
 
 
