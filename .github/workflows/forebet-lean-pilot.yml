@@ -1,0 +1,40 @@
+name: Forebet Lean Pilot QA
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/forebet-lean-collector-20261011]
+    paths:
+      - scripts/forebet-lean-capture.py
+      - .github/workflows/forebet-lean-pilot.yml
+jobs:
+  normalize-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax and deterministic data contract (no network)
+        run: |
+          python -m py_compile scripts/forebet-lean-capture.py
+          python - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location("fb", "scripts/forebet-lean-capture.py")
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          row = dict(league="Premier League",home="Team A",away="Team B",
+                     date_time="11/10/2026 18:00",prob_home="42%",prob_draw="38",
+                     prob_away="20",predicted_score="2 - 1",avg_goals="2.95")
+          out = mod.normalize_row(row)
+          assert out["canonical_match_id"] is None
+          assert out["identity_status"] == "UNVERIFIED"
+          assert out["predicted_score"] == "2 - 1"
+          assert out["avg_goals"] == 2.95
+          for bad in ({**row,"prob_home":"99"}, {**row,"date_time":"not a date"},
+                      {**row,"avg_goals":"0"}, {**row,"predicted_score":"pending"}):
+              try: mod.normalize_row(bad)
+              except ValueError: pass
+              else: raise AssertionError("invalid source promoted")
+          print("SAFE_FOREBET_NORMALIZATION_PASS")
+          PY
