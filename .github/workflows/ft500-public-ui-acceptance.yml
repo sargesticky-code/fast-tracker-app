@@ -48,6 +48,14 @@ jobs:
             const label=await labels.first().innerText();
             if(!label.toLowerCase().includes('reference only')||!label.toLowerCase().includes('source updated'))
               throw new Error(name+': missing source/time/reference semantics: '+label);
+            const implied=page.locator('.ft-spf-implied').first();
+            await implied.waitFor({state:'visible',timeout:10000});
+            const impliedText=(await implied.innerText()).toLowerCase();
+            if(!impliedText.includes('not a prediction')||
+               !/h\\s+\\d+%/.test(impliedText)||
+               !/d\\s+\\d+%/.test(impliedText)||
+               !/a\\s+\\d+%/.test(impliedText))
+              throw new Error(name+': 500 implied HDA not properly labelled: '+impliedText);
             if(errors.length) console.log('JS_ERRORS',name,errors.slice(0,3));
             await page.screenshot({path:'/tmp/ft500-'+name+'.png',fullPage:false});
             console.log('FT500_PUBLIC_RENDER_OK',JSON.stringify({viewport:name,width,height,count:found,label:label.slice(0,175)}));
