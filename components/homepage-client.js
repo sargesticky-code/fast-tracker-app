@@ -104,6 +104,28 @@ function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
       if (AUTHORITY_KEYS.has(key)) continue;
       if (value !== null && value !== undefined) merged[key] = value;
     }
+    // The lightweight Flashscore summary is the real source authority for
+    // observed match stats. Enrichment may add lineup/model context, but must
+    // not relabel Flashscore xG/shots as FotMob (or replace a verified snapshot).
+    if (authority?.sourceContext || rich?.sourceContext) {
+      const authorityContext = authority?.sourceContext || {};
+      const richContext = rich?.sourceContext || {};
+      const observed = authorityContext?.observedStats?.source === "FLASHSCORE"
+        ? authorityContext.observedStats
+        : null;
+      merged.sourceContext = {
+        ...richContext,
+        ...authorityContext,
+        lineupCoverage: authorityContext?.lineupCoverage ?? richContext?.lineupCoverage ?? null,
+        ...(observed ? {
+          source: "FLASHSCORE",
+          observedStats: observed,
+          statsAvailable: true,
+          xgAvailable: Boolean(observed.stats?.xg),
+          detailFetchedAt: observed.capturedAt,
+        } : {}),
+      };
+    }
     if (rich.health) merged.health = rich.health;
     return merged;
   });
