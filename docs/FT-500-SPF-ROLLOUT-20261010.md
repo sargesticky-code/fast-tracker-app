@@ -39,3 +39,16 @@
 - China 500 SPF initial curated team map covers only verified EPL fixtures; no all-league/multi-bookmaker claim.
 - Forebet source is still 403 from GitHub runner and no fresh predictions met validation. Avoid showing any historical model as fresh.
 - Next routine 500 capture is scheduled by GitHub, not by a new Supabase cron; availability and quote timestamps determine whether public odds remain visible.
+
+## 2026-10-10 holistic continuation — five leagues live and no-reference-EV guard
+- Fast Tracker public frontend final code pin `f4f1bc539de7a7128755af4577466ba4da586eda`, Railway `fast-tracker-public` deployment `a5fc1ebf-3e73-4eb1-af00-c50e3f904910` SUCCESS.
+- Existing `valueEdge(match)` now refuses `CHINA_500_SPF`, `PREMATCH_REFERENCE_ONLY`, `CHINA_500_SPF_REFERENCE` or `REFERENCE_ONLY` in every source lane; model enrichment cannot override this and cannot inject decision/decisionEdge/oddsMovement.
+- UI separately renders transparent, normalized bookmaker-implied H/D/A shares labelled `SPF implied · not a prediction`; it does not fill Forebet prediction/score/average-goals fields.
+- Runtime regression script `scripts/check-ft500-reference-value.mjs` verifies genuine bookmaker quote path still works and 500 source cannot produce EV even with valid independent model. CI run [38054869845](https://github.com/sargesticky-code/fast-tracker-app/actions/runs/38054869845) green, nine assertions plus Edge types and Next build.
+- Five-league strict source+league+team+kickoff mapping was published on `football-fast-tracker` PR43 merge `92ab2520134f50fba62ffbacfe167f101a3e445f`.
+- OIDC GitHub release run [38055671689](https://github.com/sargesticky-code/football-fast-tracker/actions/runs/38055671689): 36/54 official quote rows verified and 36/36 published. Supabase migration `20261010132309` extends invoker RPC without new table/cron; DB joins confirm 36 distinct event and fixture IDs, 0 kickoff/league mismatches.
+- Fast RPC sampled 258 canonical fixtures, 21 rows with dated SPF reference. Upstream 24-hour updated, unstarted quotes were 18 (different time criteria).
+- Real public browser acceptance rerun [38055113285](https://github.com/sargesticky-code/fast-tracker-app/actions/runs/38055113285) succeeded on desktop 1440×900, tablet 820×1180, mobile 390×844; each view displayed 6 500 source-labelled prematch references and visible SPF implied H/D/A shares. Not all 21 backend references must appear in the date-filtered homepage.
+- Existing live/Flashscore/Supabase jobs were left intact after a read-only two-hour run-duration audit; no assumptions that cron scheduling success proves provider freshness.
+- Forebet: `forebet_predictions` historical 525 rows, latest `2026-09-28T15:30:17Z`, zero fresh valid current models. GitHub runner direct capture previously HTTP 403; Apify actor requires an account/token and usage; redistribution permission is a separate issue. No unsupported substitute is labelled Forebet.
+
