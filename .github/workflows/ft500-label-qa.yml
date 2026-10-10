@@ -25,7 +25,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check supabase/functions/app-phase1-feed/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/app-phase1-feed/index.ts
       - run: npm run build
         env:
           CF_PAGES: '1'
