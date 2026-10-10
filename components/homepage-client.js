@@ -481,11 +481,16 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           // Real bookmaker-implied probability is useful when no independent
           // model exists; display it as market evidence, never as a prediction.
           const marketImplied = !model && !match.liveNow ? fairMarket(match.odds) : null;
-          const displayProb = model || marketImplied;
+          const displayProb = model;
           const edge = match.liveNow ? null : valueEdge(match);
           const market = match.market || fairMarket(match.odds);
-          const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
-          const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
+          // Source-specific Forebet columns: never substitute bookmaker/model goals.
+          // Null is unknown, not a 0.00 goal forecast.
+          const forebetRawAvg = match?.forebetDetail?.ou25?.avgGoals
+            ?? match?.forebetDetail?.avgGoals ?? match?.forebet?.avgGoals ?? null;
+          const avgGoals = forebetRawAvg === null || forebetRawAvg === "" ? null : Number(forebetRawAvg);
+          const predictedScore = match?.forebetDetail?.predictedScore
+            || match?.forebet?.score || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
           const rowClasses = [
@@ -523,7 +528,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               </div>
               <div className="ft-probs">
                 <ProbabilityStrip model={displayProb} />
-                {marketImplied && <small title="Derived from current Bet365 H/D/A odds, not an independent model prediction" style={{display:"block",fontSize:10,opacity:0.8}}>Market implied · no model</small>}
+                {marketImplied && <small title="Bookmaker prices are shown separately; there is no independent prediction" style={{display:"block",fontSize:10,opacity:0.8}}>No model · see odds</small>}
               </div>
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
@@ -576,7 +581,7 @@ function FeaturedMatch({ match }) {
   if (!match) return null;
   const model = normalizedTriplet(match);
   const marketImplied = !model && !match.liveNow ? fairMarket(match.odds) : null;
-  const displayProb = model || marketImplied;
+  const displayProb = model;
   const edge = valueEdge(match);
   return (
     <section className="ft-right-card">
@@ -587,7 +592,7 @@ function FeaturedMatch({ match }) {
           <strong>{match.home || match.homeZh}</strong>
           <span>{match.away || match.awayZh}</span>
           <ProbabilityStrip model={displayProb} />
-          {marketImplied && <small title="Current bookmaker-implied probability, not a model forecast">Market implied · no model</small>}
+          {marketImplied && <small title="Bookmaker price is not an independent prediction">No model · see odds</small>}
           <div className="ft-featured-meta">
             <span>Pick <b>{sideFromTriplet(model)}</b></span>
             <span>Edge <b>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</b></span>
@@ -779,9 +784,11 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     if (!serverSeedRecent) refreshAuthority();
     const warmLive = setTimeout(refreshLiveOverlay, 5000);
     const warmEnrichment = setTimeout(refreshEnrichment, 12000);
-    const authorityTimer = setInterval(refreshAuthority, 60000);
-    const liveTimer = setInterval(refreshLiveOverlay, 30000);
-    const enrichmentTimer = setInterval(refreshEnrichment, 300000);
+    // Less duplicated polling. Independent prediction evidence does not need
+    // a full expensive refresh from every open browser every five minutes.
+    const authorityTimer = setInterval(refreshAuthority, 180000);
+    const liveTimer = setInterval(refreshLiveOverlay, 60000);
+    const enrichmentTimer = setInterval(refreshEnrichment, 1200000);
 
     return () => {
       cancelled = true;
@@ -927,7 +934,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           </div>
 
           <div role="status" className="ft-form-note" style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:12}}>
-            <span>Flashscore H/D/A <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
+            <span>Legacy H/D/A (OddsPortal pending) <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
             <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.sourceContext?.observedStats || m?.live?.stats).length}/{matches.length}</strong></span>
             <span>Independent model <strong>{matches.filter((m) => normalizedTriplet(m)).length}/{matches.length}</strong></span>
             <span>Unknown values stay blank; H/D/A odds are not model predictions</span>
