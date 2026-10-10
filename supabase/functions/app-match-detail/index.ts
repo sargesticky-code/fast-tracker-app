@@ -370,7 +370,16 @@ Deno.serve(async(req:Request)=>{
           quoteCapturedAt:quoteAt,statsCapturedAt:stats?.capturedAt||null}
       }),{headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}});
     }
-    if(fast.error)console.error("fast_flashscore_fixture_unavailable",cleanError(fast.error));
+    if(fast.error){
+      console.error("fast_flashscore_fixture_unavailable",cleanError(fast.error));
+      // Do not amplify a PostgREST outage with a 20-query optional cascade.
+      // A 503 is temporary failure, NEVER proof that a fixture does not exist.
+      return Response.json({
+        error:"flashscore_detail_temporarily_unavailable",
+        requestedId,retryable:true,
+        message:"Canonical fixture detail source is unavailable; retain any previously verified match evidence."
+      },{status:503,headers:{...cors,"Cache-Control":"no-store"}});
+    }
   }
 
   let id=requestedId;
