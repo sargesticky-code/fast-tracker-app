@@ -2,7 +2,7 @@ name: FT500 limited frontend source-label QA
 on:
   push:
     branches: [release/ft500-spf-label-20261010]
-    paths: [components/homepage-client.js, supabase/functions/app-phase1-feed/index.ts, scripts/check-real-evidence-safety.mjs, .github/workflows/ft500-label-qa.yml]
+    paths: [lib/fast-tracker.js, components/homepage-client.js, supabase/functions/app-phase1-feed/index.ts, scripts/check-real-evidence-safety.mjs, .github/workflows/ft500-label-qa.yml]
 permissions:
   contents: read
 jobs:
@@ -22,6 +22,9 @@ jobs:
           grep -F -q '...(base.sourceContext??{})' supabase/functions/app-phase1-feed/index.ts
           grep -F -q 'China Sports Lottery SPF · reference only' components/homepage-client.js
           grep -F -q 'HDA prices unavailable' components/homepage-client.js
+          grep -F -q 'canonicalHealthy(initialFeed)' components/homepage-client.js
+          grep -F -q 'hedgeTimer = setTimeout(resolve, 1800)' lib/fast-tracker.js
+          grep -F -q 'china ? datedReference : withinFreshness' lib/fast-tracker.js
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
