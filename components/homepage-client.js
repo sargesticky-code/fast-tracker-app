@@ -279,7 +279,7 @@ function MarketOdds({ match, marketKey = "HDA" }) {
           ? "500.com · China Sports Lottery SPF · reference only" + (china500AsOf ? " · Source updated " + china500AsOf : "")
           : referenceOnly
           ? "Flashscore · Bet365 HDA (prematch reference)"
-          : "Flashscore · Bet365 HDA"}</small>
+          : prematchOdds ? "Flashscore · Bet365 HDA" : "HDA prices unavailable"}</small>
       <div>
         {oddsTriplet(currentMatch).map(([label, value]) => (
           <span key={label}><b>{label}</b>{formatOdds(value)}</span>
