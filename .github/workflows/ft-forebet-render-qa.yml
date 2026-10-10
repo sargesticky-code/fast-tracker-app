@@ -30,6 +30,7 @@ jobs:
                {waitUntil:'domcontentloaded',timeout:40000});
              if(!response||response.status()>=400)throw Error(size+' homepage HTTP '+response?.status());
              await page.locator('nav[aria-label="Primary match filters"]').getByRole('button',{name:'Tomorrow'}).click();
+             await page.getByPlaceholder('Search team, league or match...').fill('Liverpool');
              const target=page.locator('a.ft-match-row').filter({hasText:'Liverpool'}).filter({hasText:'Manchester City'});
              try {await target.first().waitFor({state:'visible',timeout:38000});}
              catch(e){ console.log('FOREBET_RENDER_DIAG',size,JSON.stringify({
