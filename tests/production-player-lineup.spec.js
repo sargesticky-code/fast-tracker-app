@@ -110,7 +110,22 @@ async function findFreshHdaControl(request) {
 
 test("Flashscore full-match statistics are source-observed in API and rendered detail", async ({ page, request }) => {
   test.setTimeout(90000);
-  const matchId = "FS:8bQaZET8"; // source-backed exact Flashscore fixture; full-match stats captured 2026-10-09T20:42:14.549Z
+  // An October 9 fixture is not a durable October 10 source check.
+  // Choose a CURRENT source-backed match, not a stale hard-coded match ID.
+  const feedRes = await request.get(`${PHASE1_API_URL}?hours=24&view=summary`, { timeout: 45000 });
+  expect(feedRes.ok()).toBeTruthy();
+  const feed = await feedRes.json();
+  const fixture = (Array.isArray(feed?.matches) ? feed.matches : []).find((row) => {
+    const stats = row?.sourceContext?.observedStats;
+    return String(row?.id || "").startsWith("FS:") &&
+      stats?.source === "FLASHSCORE" &&
+      Number.isFinite(Date.parse(stats.capturedAt)) &&
+      ["xg", "shots", "shotsOnTarget", "possession", "corners"].every((key) =>
+        ["home", "away"].every((side) => Number.isFinite(stats?.stats?.[key]?.[side]))
+      );
+  });
+  expect(fixture, "At least one recent exact Flashscore fixture with complete observed stats must exist").toBeTruthy();
+  const matchId = fixture.id;
   const res = await request.get(`${DETAIL_API_URL}?id=${encodeURIComponent(matchId)}`, { timeout: 45000 });
   expect(res.ok()).toBeTruthy();
   const detail = await res.json();
