@@ -691,6 +691,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     let refreshInFlight = false;
     let enrichmentInFlight = false;
     let liveInFlight = false;
+    let hasAuthority = Array.isArray(initialFeed?.matches) && initialFeed.matches.length > 0;
 
     async function refreshAuthority() {
       if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
@@ -714,6 +715,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           return;
         }
         if (!cancelled) {
+          hasAuthority = next.matches.length > 0;
           setFeed((current) => mergeAuthorityWithEnrichment(next, current));
           if (next.matches.length && String(next.source || "").includes("flashscore")) {
             try {
@@ -730,7 +732,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     }
 
     async function refreshEnrichment() {
-      if (cancelled || enrichmentInFlight || document.visibilityState === "hidden") return;
+      if (cancelled || enrichmentInFlight || !hasAuthority || document.visibilityState === "hidden") return;
       enrichmentInFlight = true;
       try {
         const res = await fetch(ENRICHMENT_FEED_URL, {
@@ -749,7 +751,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     }
 
     async function refreshLiveOverlay() {
-      if (cancelled || liveInFlight || document.visibilityState === "hidden") return;
+      if (cancelled || liveInFlight || !hasAuthority || document.visibilityState === "hidden") return;
       liveInFlight = true;
       try {
         const res = await fetch(LIVE_FEED_URL + (LIVE_FEED_URL.includes("?") ? "&" : "?") + "_=" + Date.now(), {
@@ -768,9 +770,15 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       }
     }
 
-    refreshAuthority();
-    const warmLive = setTimeout(refreshLiveOverlay, 800);
-    const warmEnrichment = setTimeout(refreshEnrichment, 1500);
+    // The SSR canonical seed already contains the exact bookmaker rows.
+    // Avoid launching 3 duplicate data reads at once on every first paint.
+    const seedTime = Date.parse(String(initialFeed?.generatedAt || ""));
+    const serverSeedRecent = hasAuthority &&
+      String(initialFeed?.source || "").startsWith("flashscore-") &&
+      Number.isFinite(seedTime) && Date.now() - seedTime < 10000;
+    if (!serverSeedRecent) refreshAuthority();
+    const warmLive = setTimeout(refreshLiveOverlay, 5000);
+    const warmEnrichment = setTimeout(refreshEnrichment, 12000);
     const authorityTimer = setInterval(refreshAuthority, 60000);
     const liveTimer = setInterval(refreshLiveOverlay, 30000);
     const enrichmentTimer = setInterval(refreshEnrichment, 300000);
