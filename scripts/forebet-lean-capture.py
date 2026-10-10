@@ -73,16 +73,22 @@ def capture(day, max_rows):
             raise RuntimeError("NO_FOREBET_ROWS: source layout/access unavailable") from exc
         # One optional MORE interaction only; bounded rows and no per-match detail/odds requests.
         more = driver.find_elements(By.CSS_SELECTOR, "#mrows span")
+        before_more = len(driver.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt"))
+        pagination_state = "NO_MORE_CONTROL"
         if more:
+            pagination_state = "MORE_NOT_CONFIRMED"
             try:
                 more[0].click()
-                WebDriverWait(driver, 5).until(
-                    lambda d: len(d.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")) >= 10
+                WebDriverWait(driver, 8).until(
+                    lambda d: len(d.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")) > before_more
                 )
+                pagination_state = "ONE_MORE_BATCH_LOADED"
             except Exception:
-                pass
+                # Never describe a timed-out MORE click as complete coverage.
+                pagination_state = "MORE_LOAD_UNCONFIRMED"
+        visible_rows = driver.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")
         entries, rejected = [], {}
-        for row in driver.find_elements(By.CSS_SELECTOR, "div.schema div.rcnt")[:max_rows]:
+        for row in visible_rows[:max_rows]:
             try:
                 def value(css):
                     return row.find_element(By.CSS_SELECTOR, css).text.strip()
@@ -102,7 +108,10 @@ def capture(day, max_rows):
                 rejected[key] = rejected.get(key, 0) + 1
         return {"requested_date": day.isoformat(), "source_url": url,
                 "captured_at": datetime.now(timezone.utc).isoformat(),
-                "rows": entries, "rejected_by_reason": rejected}
+                "rows": entries, "rejected_by_reason": rejected,
+                "visible_rows": len(visible_rows), "pagination_state": pagination_state,
+                "coverage_complete": False,
+                "truncated_at_limit": len(visible_rows) > max_rows}
     finally:
         driver.quit()
 
@@ -127,7 +136,8 @@ def main():
                 seen.add(key)
                 rows.append(row)
     result = {"schema_version": 1, "production_writes": False,
-              "identity_verified": False, "batches": batches, "candidates": rows}
+              "identity_verified": False, "coverage_complete": False,
+              "batches": batches, "candidates": rows}
     Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"candidates": len(rows), "output": args.out,
                       "rejected": [b["rejected_by_reason"] for b in batches]}))
