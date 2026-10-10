@@ -261,6 +261,10 @@ function MarketOdds({ match, marketKey = "HDA" }) {
   const prematchOdds = completeHda(match?.odds) ? match.odds : null;
   const currentOdds = verifiedLiveOdds || prematchOdds;
   const referenceOnly = Boolean(match?.liveNow && !verifiedLiveOdds && prematchOdds);
+  const china500Reference = match?.sourceContext?.marketAuthority === "CHINA_500_SPF";
+  const china500AsOf = china500Reference && !Number.isNaN(Date.parse(String(match?.sourceContext?.sourceUpdatedAt ?? "")))
+    ? new Date(match.sourceContext.sourceUpdatedAt).toLocaleString("en-GB", {timeZone:"Asia/Hong_Kong",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+" HKT"
+    : null;
   // All-in-One contract: HDA remains visible in every market tab. Goals and
   // corners are additional independent evidence lanes, never HDA replacements.
   // The current collector supplies verified HDA only: do not invent O/U prices.
@@ -271,7 +275,9 @@ function MarketOdds({ match, marketKey = "HDA" }) {
     <div className="ft-market-odds">
       <small>{verifiedLiveOdds
         ? "Flashscore · LIVE Bet365 HDA"
-        : referenceOnly
+        : china500Reference
+          ? "500.com · China Sports Lottery SPF · reference only" + (china500AsOf ? " · Source updated " + china500AsOf : "")
+          : referenceOnly
           ? "Flashscore · Bet365 HDA (prematch reference)"
           : "Flashscore · Bet365 HDA"}</small>
       <div>
