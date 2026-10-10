@@ -705,11 +705,22 @@ export default function LineupPanel({ initialFeed = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("formation");
+  const [cachedFixture, setCachedFixture] = useState(null);
 
   useEffect(() => {
     const matchId = new URLSearchParams(window.location.search).get("id");
     setId(matchId);
     if (!matchId) { setLoading(false); return; }
+    try {
+      const value = window.sessionStorage.getItem(`ft-match-${matchId}`)
+        || window.localStorage.getItem(`ft-match-${matchId}`);
+      const fixture = value ? JSON.parse(value) : null;
+      const captured = Date.parse(String(fixture?.health?.authorityFetchedAt || fixture?.updatedAt || ""));
+      if(fixture && String(fixture.id)===String(matchId) &&
+         Number.isFinite(captured) && Date.now()-captured <= 24*3600000) {
+        setCachedFixture(fixture);
+      }
+    } catch {}
     let cancelled = false;
     const load = async () => {
       try {
@@ -729,7 +740,7 @@ export default function LineupPanel({ initialFeed = null }) {
   }, []);
 
   const serverMatch = (Array.isArray(initialFeed?.matches) ? initialFeed.matches : [])
-    .find((m) => String(m?.id || "") === String(id || ""));
+    .find((m) => String(m?.id || "") === String(id || "")) || cachedFixture;
   const view = useMemo(() => {
     const hf = getHumanFactors(payload);
     const sourceRows = findLineup(payload);
