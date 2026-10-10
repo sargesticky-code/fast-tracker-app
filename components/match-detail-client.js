@@ -558,6 +558,9 @@ export default function MatchDetailClient() {
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           resolvedFresh = true;
+          // A verified fixture can render immediately; do not block the
+          // entire match route behind optional live/model/detail calls.
+          setReady(true);
           setMatch((previous) => {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
@@ -621,6 +624,7 @@ export default function MatchDetailClient() {
           });
           if (!resolvedFresh) setSource("SUPABASE DETAIL · fixture fallback");
           resolvedFresh = true;
+          setReady(true);
         }
       } catch {}
       finally { requestsInFlight.detail = false; }
