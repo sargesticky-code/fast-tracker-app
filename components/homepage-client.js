@@ -127,7 +127,18 @@ function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
         } : {}),
       };
     }
-    if (rich.health) merged.health = rich.health;
+    if (authority?.sourceContext?.marketAuthority === "CHINA_500_SPF") {
+      // Enrichment may add actual models and player evidence, but cannot
+      // upgrade a dated national-lottery reference to bookmaker EV/value.
+      merged.health = { ...(rich.health || {}), ...(authority.health || {}) };
+      merged.decision = null;
+      merged.decisionEdge = null;
+      merged.oddsMovement = null;
+      merged.handicapAdvice = {
+        status: "REFERENCE_ONLY",
+        reason: "China Sports Lottery SPF is not verified actionable bookmaker odds",
+      };
+    } else if (rich.health) merged.health = rich.health;
     return merged;
   });
 
