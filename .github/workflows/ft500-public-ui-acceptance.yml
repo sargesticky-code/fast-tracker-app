@@ -46,7 +46,7 @@ jobs:
             }
             const found=await labels.count();
             const label=await labels.first().innerText();
-            if(!label.includes('reference only')||!label.includes('Source updated'))
+            if(!label.toLowerCase().includes('reference only')||!label.toLowerCase().includes('source updated'))
               throw new Error(name+': missing source/time/reference semantics: '+label);
             if(errors.length) console.log('JS_ERRORS',name,errors.slice(0,3));
             await page.screenshot({path:'/tmp/ft500-'+name+'.png',fullPage:false});
