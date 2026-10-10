@@ -389,8 +389,28 @@ function readCachedMatch(id) {
       ? (parsed.live?.fetchedAt || parsed.live?.score?.capturedAt || parsed.health?.authorityFetchedAt || parsed.updatedAt)
       : parsed.health?.authorityFetchedAt || parsed.updatedAt;
     const ageMinutes = sourceTime ? (Date.now() - new Date(sourceTime).getTime()) / 60000 : Infinity;
-    const maxAge = parsed.liveNow ? 2 : 10;
-    return Number.isFinite(ageMinutes) && ageMinutes <= maxAge ? parsed : null;
+    if (!Number.isFinite(ageMinutes) || ageMinutes < -2 || ageMinutes > 24 * 60) return null;
+    const kickoffMs = Date.parse(String(parsed.kickoff || ""));
+    const beforeKickoff = Number.isFinite(kickoffMs) && kickoffMs > Date.now();
+    const verifiedPriceIsFresh = !parsed.liveNow && beforeKickoff && ageMinutes <= 20;
+    if (parsed.liveNow && ageMinutes <= 2) return parsed;
+    // Fixture identity remains useful even after price freshness expires.
+    // Strip every expired/unverified price lane rather than throwing away the
+    // known teams or pretending prematch odds are a live quote.
+    return verifiedPriceIsFresh ? parsed : {
+      ...parsed,
+      liveNow: false,
+      inPlay: false,
+      liveEligible: false,
+      live: null,
+      odds: { home: null, draw: null, away: null },
+      market: null,
+      handicap: { line: null, home: null, away: null },
+      goals: { line: null, over: null, under: null },
+      corners: { line: null, over: null, under: null },
+      health: { ...parsed.health, status: "ATTENTION", authorityFreshness: "STALE",
+        diagnostics: ["CACHED_FIXTURE_PRICE_NOT_CURRENT"] },
+    };
   } catch {
     return null;
   }
