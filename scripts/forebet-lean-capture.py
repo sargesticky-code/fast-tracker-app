@@ -13,8 +13,8 @@ from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 
 BASE = "https://www.forebet.com/en/football-predictions/predictions-1x2/"
-SCORE = re.compile(r"^(\\d{1,2})\\s*-\\s*(\\d{1,2})$")
-DATE = re.compile(r"^\\d{2}/\\d{2}/\\d{4}\\s+\\d{2}:\\d{2}$")
+SCORE = re.compile(r"^(\d{1,2})\s*-\s*(\d{1,2})$")
+DATE = re.compile(r"^\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}$")
 
 
 def normalize_row(raw):
@@ -97,7 +97,7 @@ def capture(day, max_rows):
                     "avg_goals": value(".avg_sc"),
                 }
                 entries.append(normalize_row(raw))
-            except (ValueError, KeyError, IndexError, Exception) as exc:
+            except Exception as exc:
                 key = str(exc)[:100]
                 rejected[key] = rejected.get(key, 0) + 1
         return {"requested_date": day.isoformat(), "source_url": url,
@@ -132,7 +132,7 @@ def main():
     print(json.dumps({"candidates": len(rows), "output": args.out,
                       "rejected": [b["rejected_by_reason"] for b in batches]}))
     if not rows:
-        raise RuntimeError("Zero verified source candidates; no publication permitted")
+        raise RuntimeError("Zero source candidates; no publication permitted")
 
 
 if __name__ == "__main__":
