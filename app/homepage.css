@@ -534,3 +534,17 @@ button,input{font:inherit}
   .ft-footer-banner{display:none}
   .ft-home{padding-bottom:14px}
 }
+
+/* FT Forebet: searchable fixtures must stay accessible on responsive layouts. */
+@media(max-width:900px){
+  .ft-top{gap:10px}
+  .ft-search{display:flex;min-width:0;flex:1 1 140px;width:auto;max-width:320px;margin-left:auto}
+  .ft-icon-button{display:none}
+}
+@media(max-width:560px){
+  .ft-top{gap:6px}
+  .ft-brand strong{font-size:clamp(13px,4.1vw,18px)}
+  .ft-brand small{display:none}
+  .ft-search{max-width:none;height:33px;padding:0 8px}
+  .ft-search input{font-size:11px}
+}
