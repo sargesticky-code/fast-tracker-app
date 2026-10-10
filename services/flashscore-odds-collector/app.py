@@ -267,10 +267,10 @@ def run_refresh():
         # Publish the completed real capture immediately. The independent
         # 5-minute pg_cron remains a recovery mechanism; a cron startup timeout
         # must not hide newly captured prices for the next quarter-hour.
-        callback = os.getenv(
-            "FLASHSCORE_INGEST_CALLBACK_URL",
-            "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/flashscore-bet365-ingest",
-        )
+        # The verified database-only #38 pipeline polls this finished snapshot.
+        # Old Edge callback is a DUPLICATE ingest that repeatedly times out
+        # and contributes to PostgREST saturation. Opt-in only for rollback.
+        callback = os.getenv("FLASHSCORE_INGEST_CALLBACK_URL", "").strip()
         if snapshot and callback.startswith("https://"):
             try:
                 with httpx.Client(timeout=15.0, follow_redirects=False) as client:
