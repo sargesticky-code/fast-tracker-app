@@ -502,7 +502,7 @@ function mergeLiveMatch(base, payload, matchId) {
   return base;
 }
 
-export default function MatchDetailClient() {
+export default function MatchDetailClient({ initialFeed = null }) {
   const [id, setId] = useState("");
   const [match, setMatch] = useState(null);
   const [source, setSource] = useState("LOADING");
@@ -524,16 +524,22 @@ export default function MatchDetailClient() {
       return;
     }
 
-    const cached = readCachedMatch(matchId);
+    const serverRow = (Array.isArray(initialFeed?.matches) ? initialFeed.matches : [])
+      .find((row) => String(row?.id ?? "") === String(matchId));
+    const cached = serverRow ? null : readCachedMatch(matchId);
 
-    if (cached) {
+    if (serverRow) {
+      setMatch(serverRow);
+      setSource("FLASHSCORE · server-backed match");
+      setReady(true);
+    } else if (cached) {
       setMatch(cached);
       setSource("CACHE · loading latest");
       setReady(true);
     }
 
     let cancelled = false;
-    let resolvedFresh = false;
+    let resolvedFresh = Boolean(serverRow);
     let canonicalMissing = false;
     let authoritativeDetailBlocksFeed = false;
     let liveApplied = false;
