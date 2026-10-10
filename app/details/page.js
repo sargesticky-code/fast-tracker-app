@@ -10,7 +10,7 @@ export default async function DetailsPage() {
   return (
     <>
       <MatchDetailClient initialFeed={feed} />
-      <LineupPanel />
+      <LineupPanel initialFeed={feed} />
     </>
   );
 }
