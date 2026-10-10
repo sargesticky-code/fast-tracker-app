@@ -67,3 +67,35 @@ or relax event ID, provider epoch or model freshness gates merely to
 boost counts. If the next publication fails, compare next snapshot's
 source epoch, upcoming cohort and strict 50+ / 65% quality gate;
 rollback the exact collector commit only if the issue is demonstrated.
+
+## Verified production publication (same 2026-10-10 source snapshot)
+- Exact precondition: cached Railway HTTP 200, capture timestamp
+  `2026-10-10T15:45:59.782117Z` newer than existing bookmaker source and
+  <20 minutes old, sole current request ID; called existing production
+  `private.ft_publish_flashscore_collector_snapshot` **one time** via
+  Supabase SQL. No additional provider capture, no extra cron/job.
+- Publisher returned `CURRENT_HDA_COMMITTED`,
+  `total_provider_rows=202`, `verified_upcoming_rows=110`,
+  `eligible_upcoming_provider_rows=110`,
+  `published_bookmaker_rows=110`.
+- Post-publication source date breakdown:
+  **2026-10-10: 25** canonical future bookmaker prices;
+  **2026-10-11: 85** canonical future bookmaker prices.
+  All bookmaker rows retain source capture timestamp
+  `2026-10-10T15:45:59.782117Z`; freshness should expire normally.
+- Real `ft_fast_flashscore_summary(48)` after publishing: **256** total
+  canonical rows (recent+upcoming), **110** 1X2 price rows, **20**
+  Forebet 1X2 models, and **20** matches having both a source-backed
+  Forebet model and source-backed bookmaker prices. Date-scoped check
+  shows **84** priced on/after 2026-10-11 UTC inside the 48h API
+  window, versus **85** stored for 2026-10-11, because response-window
+  filtering is narrower than raw source storage; do not infer a mismatch.
+- `public.source_health` reports
+  `FLASHSCORE_BET365/cloud_ingest OK`, value `110`, observed
+  `2026-10-10T15:51:19Z`.
+- Explicit remaining gate: **natural** pg_cron job 38 following the
+  next collector refresh must be checked independently. This one
+  controlled publish demonstrates real publisher/DB/API functionality,
+  not an automatic cron publication proof. Existing strict fixture
+  ID, league, source time, source age, 50+ and 65% cohort gates remained
+  enabled throughout.
