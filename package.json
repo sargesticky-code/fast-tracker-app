@@ -8,7 +8,7 @@
     "start": "next start",
     "check:ui": "node scripts/check-visible-escapes.mjs",
     "check:story": "node scripts/check-english-story-contract.mjs",
-    "check:market-contract": "node scripts/check-market-provider-contract.mjs",
+    "check:market-contract": "node scripts/check-market-provider-contract.mjs && node scripts/check-oddsportal-candidate.mjs",
     "check:openfootball": "node scripts/check-openfootball.mjs",
     "check:international-authority": "node scripts/check-international-authority.mjs",
     "check:real-evidence": "node scripts/check-real-evidence-safety.mjs",
