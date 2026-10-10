@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from flask import Flask, jsonify
 from playwright.async_api import async_playwright
+from day_budget import day_plan, allocate
 
 FLASH_URL = os.getenv("FLASH_URL", "https://www.flashscore.co.uk/")
 ODDS_URL = os.getenv("ODDS_URL", "https://global.ds.lsapp.eu/odds/pq_graphql")
@@ -166,34 +167,34 @@ async def refresh_once():
         try:
             today = datetime.now().date()
             seen = set()
-            for offset in range(DAYS_AHEAD + 1):
+            # At most today's and tomorrow's board. Yesterday's first 360
+            # rows used to consume the entire quote budget (552 today alone).
+            # Reserve 2/3 for tomorrow, 1/3 today; total requests stay capped.
+            for offset, quota in day_plan(DAYS_AHEAD, MAX_FIXTURES):
+                target_date=today+timedelta(days=offset)
                 try:
-                    rows = await collect_fixture_rows(page, today + timedelta(days=offset))
+                    rows=await collect_fixture_rows(page,target_date)
                 except Exception as exc:
                     if offset == 0:
                         raise
-                    # Optional future-day discovery must not discard the real
-                    # current-day prices already captured on this run.
+                    # Do not repurpose the reserved budget into more today's
+                    # prices: preserves bounded source load and honest coverage.
                     print(
                         f"[flashscore-odds] optional day +{offset} failed "
-                        f"{type(exc).__name__}: {exc}; preserving {len(fixtures)} earlier fixtures",
+                        f"{type(exc).__name__}: {exc}; retaining {len(fixtures)} day-0 fixtures",
                         flush=True,
                     )
                     break
-                for row in rows:
-                    if row["event_id"] in seen:
-                        continue
-                    seen.add(row["event_id"])
-                    row["date"] = (today + timedelta(days=offset)).isoformat()
-                    if not row.get("home") or not row.get("away"):
-                        continue
-                    if is_virtual(row.get("league"), row.get("home"), row.get("away")):
-                        continue
-                    fixtures.append(row)
-                    if len(fixtures) >= MAX_FIXTURES:
-                        break
-                if len(fixtures) >= MAX_FIXTURES:
-                    break
+                added=allocate(rows,quota,seen,target_date.isoformat(),is_virtual)
+                fixtures.extend(added)
+                print(
+                    f"[flashscore-odds] day_allocation day={target_date.isoformat()} "
+                    f"available={len(rows)} quota={quota} selected={len(added)} "
+                    f"running_total={len(fixtures)} max={MAX_FIXTURES}",
+                    flush=True,
+                )
+            if len(fixtures)>MAX_FIXTURES:
+                raise ValueError("BOOKMAKER_QUOTE_BUDGET_EXCEEDED")
         finally:
             await browser.close()
 
