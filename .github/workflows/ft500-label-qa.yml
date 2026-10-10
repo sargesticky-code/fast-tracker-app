@@ -26,6 +26,30 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check --node-modules-dir=auto supabase/functions/app-phase1-feed/index.ts
+      - name: Verify public production summary contains dated 500 SPF reference, not value
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -sS --connect-timeout 10 --max-time 30 \
+            'https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?view=summary&hours=48' -o /tmp/ft500-public-summary.json
+          python - <<'PY'
+          import datetime, json
+          d=json.load(open('/tmp/ft500-public-summary.json'))
+          assert d.get('source')=='flashscore-single-rpc-canonical', 'wrong API provenance'
+          rows=d.get('matches')
+          assert isinstance(rows,list) and len(rows)>=50, 'lost canonical fixtures'
+          c=[x for x in rows if (x.get('sourceContext') or {}).get('marketAuthority')=='CHINA_500_SPF']
+          assert c, 'no dated 500 SPF record on live public summary'
+          for x in c:
+              o=x.get('odds') or {}
+              assert all(isinstance(o.get(k),(float,int)) and o[k]>1 for k in ('home','draw','away'))
+              assert x.get('decision') is None and x.get('decisionEdge') is None and x.get('market') is None
+              ctx=x['sourceContext']
+              assert ctx.get('quoteSemantics')=='PREMATCH_REFERENCE_ONLY'
+              assert ctx.get('sourceUpdatedAt') and ctx.get('capturedAt')
+              assert datetime.datetime.fromisoformat(x['kickoff'].replace('Z','+00:00'))>datetime.datetime.now(datetime.timezone.utc)
+          print('FT500_PUBLIC_API_OK matches',len(rows),'dated_references',len(c),'ids',[x['id'] for x in c][:12])
+          PY
       - run: npm run build
         env:
           CF_PAGES: '1'
