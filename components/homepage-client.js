@@ -697,6 +697,14 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     let enrichmentInFlight = false;
     let liveInFlight = false;
     let hasAuthority = Array.isArray(initialFeed?.matches) && initialFeed.matches.length > 0;
+    const canonicalHealthy = (payload) => Boolean(
+      Array.isArray(payload?.matches) && payload.matches.length > 0 &&
+      !String(payload?.source || "").includes("degraded") &&
+      !String(payload?.source || "").includes("fallback") &&
+      payload?.systemHealth?.authorityMode?.status !== "DEGRADED"
+    );
+    let enrichmentAllowed = canonicalHealthy(initialFeed);
+    let lastKnownFixtures = initialFeed?.matches || [];
 
     async function refreshAuthority() {
       if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
@@ -721,7 +729,14 @@ export default function HomepageClient({ initialFeed, nowMs }) {
         }
         if (!cancelled) {
           hasAuthority = next.matches.length > 0;
+          lastKnownFixtures = next.matches;
+          const previousEnrichmentAllowed = enrichmentAllowed;
+          enrichmentAllowed = canonicalHealthy(next);
           setFeed((current) => mergeAuthorityWithEnrichment(next, current));
+          if (!previousEnrichmentAllowed && enrichmentAllowed) {
+            // Restore Forebet/model enrichment once real canonical reads recover.
+            setTimeout(refreshEnrichment, 1500);
+          }
           if (next.matches.length && String(next.source || "").includes("flashscore")) {
             try {
               window.localStorage.setItem("ft-verified-homepage-snapshot", JSON.stringify(next));
@@ -737,7 +752,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     }
 
     async function refreshEnrichment() {
-      if (cancelled || enrichmentInFlight || !hasAuthority || document.visibilityState === "hidden") return;
+      if (cancelled || enrichmentInFlight || !hasAuthority || !enrichmentAllowed || document.visibilityState === "hidden") return;
       enrichmentInFlight = true;
       try {
         const res = await fetch(ENRICHMENT_FEED_URL, {
@@ -756,7 +771,13 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     }
 
     async function refreshLiveOverlay() {
-      if (cancelled || liveInFlight || !hasAuthority || document.visibilityState === "hidden") return;
+      if (cancelled || liveInFlight || !hasAuthority || !enrichmentAllowed || document.visibilityState === "hidden") return;
+      const now = Date.now();
+      const nearKickoff = lastKnownFixtures.some((m) => {
+        const t = Date.parse(String(m?.kickoff || ""));
+        return Boolean(m?.liveNow) || (Number.isFinite(t) && t >= now-4*3600000 && t <= now+5*60000);
+      });
+      if (!nearKickoff) return;
       liveInFlight = true;
       try {
         const res = await fetch(LIVE_FEED_URL + (LIVE_FEED_URL.includes("?") ? "&" : "?") + "_=" + Date.now(), {
