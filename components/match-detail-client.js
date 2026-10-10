@@ -432,15 +432,19 @@ function matchFromDetailPayload(payload, matchId) {
   const kickoffStarted = Number.isFinite(kickoffMs) && kickoffMs <= Date.now() + 2 * 60 * 1000;
   const terminalStatus = ["FULLTIME","FINISHED","FT","ENDED","MATCHENDED","INPLAYMATCHENDED","AET","PEN","CANCELLED","CANCELED","VOID","ABANDONED"]
     .includes(String(fixture.status || "").toUpperCase().replace(/[\s_-]+/g, ""));
+  // Match detail must enforce the SAME individual 20-minute HDA cutoff as
+  // the All-in-One summary. Never resurrect a six-hour-old bookmaker price
+  // just because a separate fixture record was updated recently.
+  const completeHda = ["had_home","had_draw","had_away"].every((key) => n(fixture[key]) > 1);
+  const verifiedQuote = completeHda && Boolean(fixture.odds_updated_at)
+    && Number.isFinite(priceAgeMinutes) && priceAgeMinutes >= -1 && priceAgeMinutes <= 20;
   const fixtureFreshness =
-    terminalStatus || kickoffStarted || !Number.isFinite(priceAgeMinutes) || priceAgeMinutes > 360
+    terminalStatus || kickoffStarted || !verifiedQuote
       ? "STALE"
       : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 90
         ? "FRESH"
-        : Number.isFinite(fixtureAgeMinutes) && fixtureAgeMinutes <= 360
-          ? "AGING"
-          : "STALE";
-  const allowCurrentPrice = fixtureFreshness === "FRESH";
+        : "AGING";
+  const allowCurrentPrice = fixtureFreshness === "FRESH" && verifiedQuote;
   return {
     id: String(fixture.event_id || fixture.fixture_id || matchId),
     kickoff: fixture.kickoff_hkt || null,
