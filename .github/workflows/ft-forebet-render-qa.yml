@@ -1,0 +1,56 @@
+name: Forebet release public UI one-shot
+on:
+  push:
+    branches: [probe/ft-forebet-render-20261010]
+    paths:
+      - '.github/workflows/ft-forebet-render-qa.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: Verify real public dashboard Forebet figures on 3 viewports
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium} from '@playwright/test';
+          const browser=await chromium.launch({headless:true});
+          for(const [size,w,h] of [['desktop',1440,900],['tablet',820,1180],['mobile',390,844]]) {
+             const page=await browser.newPage({viewport:{width:w,height:h}});
+             const errors=[];page.on('pageerror',e=>errors.push(e.message.slice(0,90)));
+             const response=await page.goto('https://fast-tracker-public-production.up.railway.app',
+               {waitUntil:'domcontentloaded',timeout:40000});
+             if(!response||response.status()>=400)throw Error(size+' homepage HTTP '+response?.status());
+             await page.locator('nav[aria-label="Primary match filters"]').getByRole('button',{name:'Tomorrow'}).click();
+             const target=page.locator('a.ft-match-row').filter({hasText:'Liverpool'}).filter({hasText:'Manchester City'});
+             try {await target.first().waitFor({state:'visible',timeout:38000});}
+             catch(e){ console.log('FOREBET_RENDER_DIAG',size,JSON.stringify({
+                count:await page.locator('a.ft-match-row').count(),
+                matches:(await page.locator('a.ft-match-row').allTextContents()).slice(0,15),
+                body:(await page.locator('body').innerText()).slice(0,1500),errors}));throw e; }
+             const rowText=await target.first().innerText();
+             if(!rowText.includes('1 - 2')||!rowText.includes('2.71'))throw Error(size+' predicted score/avg goals absent: '+rowText.slice(0,450));
+             const prob=await target.first().locator('.ft-probs').innerText();
+             if(!prob.includes('16')||!prob.includes('34')||!prob.includes('50'))
+                 throw Error(size+' original Forebet HDA missing: '+prob);
+             console.log('FOREBET_PUBLIC_UI_OK',JSON.stringify({size,score:'1 - 2',avgGoals:2.71,probability:prob.slice(0,130)}));
+             await page.screenshot({path:'/tmp/forebet-'+size+'.png',fullPage:false});
+             await page.close();
+          }
+          await browser.close();
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: forebet-3-responsive-evidence
+          path: /tmp/forebet-*.png
+          if-no-files-found: ignore
+          retention-days: 3
