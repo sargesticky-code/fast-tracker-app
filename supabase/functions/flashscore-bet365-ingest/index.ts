@@ -499,7 +499,8 @@ Deno.serve(async () => {
   // The legacy monolithic ingestion bundled raw fixtures, snapshots and
   // expensive analytics, causing PostgREST statement timeouts and leaving the
   // entire homepage without current odds even when the collector was fresh.
-  const {data:commitResult,error:commitError}=await db.rpc("ft_publish_flashscore_hda_current",{
+  const {data:commitResult,error:commitError}=await db.rpc("ft_publish_flashscore_hda_with_fixtures",{
+    p_new_fixtures:genericRows,
     p_rows:bookmakerRows,
     p_health:healthRaw
   });
