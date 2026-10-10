@@ -243,16 +243,27 @@ function observedFlashscoreStats(detail:any,kickoff:any){
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
   const pricesFresh = freshness.status === "FRESH" && new Date(String(r.kickoff_hkt||0)).getTime()>Date.now();
+  // Distinct China Sports Lottery SPF evidence. Never claim Bet365 provenance,
+  // never treat upstream source-updated time as equal to retrieval time.
+  const chinaSourceMs=Date.parse(String(r.china500_source_updated_at??""));
+  const chinaCaptureMs=Date.parse(String(r.china500_captured_at??""));
+  const chinaAge=Date.now()-chinaSourceMs;
+  const chinaCaptureAge=Date.now()-chinaCaptureMs;
+  const chinaHad={home:num(r.china500_home),draw:num(r.china500_draw),away:num(r.china500_away)};
+  const chinaFresh=!liveNow && Date.parse(String(r.kickoff_hkt??""))>Date.now() &&
+    Number.isFinite(chinaAge) && chinaAge>=0 && chinaAge<=2*60*60*1000 &&
+    Number.isFinite(chinaCaptureAge) && chinaCaptureAge>=0 && chinaCaptureAge<=40*60*1000 &&
+    Object.values(chinaHad).every(x=>x!=null && x>=1.01 && x<=100);
   const had = pricesFresh
     ? { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) }
     : { home: null, draw: null, away: null };
-  const handicap = pricesFresh
+  const handicap = pricesFresh && !chinaFresh
     ? { line: r.hdc_line ?? null, home: num(r.hdc_home), away: num(r.hdc_away) }
     : { line: null, home: null, away: null };
-  const goals = pricesFresh
+  const goals = pricesFresh && !chinaFresh
     ? { line: r.hil_line ?? null, over: num(r.hil_over), under: num(r.hil_under) }
     : { line: null, over: null, under: null };
-  const corners = pricesFresh
+  const corners = pricesFresh && !chinaFresh
     ? { line: r.chl_line ?? null, over: num(r.chl_over), under: num(r.chl_under) }
     : { line: null, over: null, under: null };
   // The single indexed summary RPC carries optional Forebet evidence as well.
@@ -300,15 +311,20 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       stats: null,
       shadow: null,
     } : null,
-    odds: had,
-    market: pricesFresh ? noVig(r.had_home, r.had_draw, r.had_away) : null,
+    odds: chinaFresh ? chinaHad : had,
+    // Only observed reference prices; the decision/value engine remains null.
+    market: pricesFresh ? noVig(
+      chinaFresh ? chinaHad.home : r.had_home,
+      chinaFresh ? chinaHad.draw : r.had_draw,
+      chinaFresh ? chinaHad.away : r.had_away
+    ) : (chinaFresh ? noVig(chinaHad.home,chinaHad.draw,chinaHad.away) : null),
     handicap,
     handicapAdvice: {
       status: "NO_MODEL",
       line: handicap.line,
       reason: pricesFresh
         ? "Model enrichment unavailable in summary recovery mode"
-        : "Bet365 price snapshot is stale or unavailable; fixture identity only"
+        : chinaFresh ? "China Sports Lottery SPF reference prices; no independent value model" : "Bet365 price snapshot is stale or unavailable; fixture identity only"
     },
     goals,
     corners,
@@ -329,19 +345,21 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     formDetail: null,
     multi: null,
     health: {
-      status: freshness.status === "FRESH" ? "OK" : "ATTENTION",
+      status: chinaFresh ? "REFERENCE" : (freshness.status === "FRESH" ? "OK" : "ATTENTION"),
       primaryMissingReason: "SUMMARY_AUTHORITY_ONLY",
       diagnostics: freshness.status === "FRESH" ? [] : ["BET365_AUTHORITY_" + freshness.status],
-      authorityFetchedAt: r.fetched_at ?? null,
-      priceChangedAt: r.odds_updated_at ?? null,
+      authorityFetchedAt: chinaFresh ? r.china500_captured_at : (r.fetched_at ?? null),
+      priceChangedAt: chinaFresh ? r.china500_source_updated_at : (r.odds_updated_at ?? null),
       marketCapturedAt: r.fetched_at ?? null,
       authorityFetchAgeMinutes: freshness.ageMinutes,
-      authorityFreshness: freshness.status,
+      authorityFreshness: chinaFresh ? "REFERENCE_ONLY" : freshness.status,
       evidenceChannelCount: 0,
       multisourceMemberCount: 0,
-      missingCanonical1x2: !pricesFresh || had.home == null || had.draw == null || had.away == null,
-      unifiedCoverageStatus: "FLASHSCORE_BET365",
-      coverageExplanation: pricesFresh
+      missingCanonical1x2: (!pricesFresh && !chinaFresh) || (!chinaFresh && (had.home == null || had.draw == null || had.away == null)),
+      unifiedCoverageStatus: chinaFresh ? "CHINA_500_SPF_REFERENCE" : "FLASHSCORE_BET365",
+      coverageExplanation: chinaFresh
+        ? "Canonical fixture identity and dated China 500 Sports Lottery SPF reference quotes; not live bookmaker prices or verified value evidence."
+        : pricesFresh
         ? "Canonical fixture identity and fresh Bet365 prices are available; model enrichment is temporarily unavailable."
         : "Canonical fixture identity is available, but Bet365 prices are stale or missing; odds and model actionability are suppressed.",
     },
@@ -353,8 +371,10 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     oddsMovement: null,
     power: null,
     storySummary: null,
-    sourceContext: null,
-    updatedAt: r.updated_at ?? r.fetched_at ?? null,
+    sourceContext: chinaFresh ? {marketAuthority:"CHINA_500_SPF",
+      quoteSemantics:"PREMATCH_REFERENCE_ONLY",sourceUpdatedAt:r.china500_source_updated_at,
+      capturedAt:r.china500_captured_at} : null,
+    updatedAt: chinaFresh ? r.china500_captured_at : (r.updated_at ?? r.fetched_at ?? null),
   };
 }
 
