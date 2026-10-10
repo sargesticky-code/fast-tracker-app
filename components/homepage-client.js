@@ -805,8 +805,11 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     // The SSR canonical seed already contains the exact bookmaker rows.
     // Avoid launching 3 duplicate data reads at once on every first paint.
     const seedTime = Date.parse(String(initialFeed?.generatedAt || ""));
-    const serverSeedRecent = hasAuthority &&
-      String(initialFeed?.source || "").startsWith("flashscore-") &&
+    // The emergency collector is *not* a canonical authority even if its
+    // generatedAt timestamp is recent. Always refresh the verified feed after
+    // a degraded seed; otherwise visitors wait three minutes for real SPF odds.
+    const serverSeedRecent = hasAuthority && canonicalHealthy(initialFeed) &&
+      initialFeed?.source === "flashscore-single-rpc-canonical" &&
       Number.isFinite(seedTime) && Date.now() - seedTime < 10000;
     if (!serverSeedRecent) refreshAuthority();
     const warmLive = setTimeout(refreshLiveOverlay, 5000);
@@ -961,7 +964,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           </div>
 
           <div role="status" className="ft-form-note" style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:12}}>
-            <span>Legacy H/D/A (OddsPortal pending) <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
+            <span>H/D/A observed reference prices <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
             <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.sourceContext?.observedStats || m?.live?.stats).length}/{matches.length}</strong></span>
             <span>Independent model <strong>{matches.filter((m) => normalizedTriplet(m)).length}/{matches.length}</strong></span>
             <span>Unknown values stay blank; H/D/A odds are not model predictions</span>
