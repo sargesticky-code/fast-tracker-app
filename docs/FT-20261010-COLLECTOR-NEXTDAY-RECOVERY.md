@@ -99,3 +99,15 @@ rollback the exact collector commit only if the issue is demonstrated.
   not an automatic cron publication proof. Existing strict fixture
   ID, league, source time, source age, 50+ and 65% cohort gates remained
   enabled throughout.
+
+## Scheduled recovery check (after controlled publish)
+Natural pg_cron #38 run `88987` at 2026-10-10T15:53:00Z
+succeeded. Its previous-response publisher returned
+`UNCHANGED` for source timestamp
+`2026-10-10T15:45:59.782117Z` because the previously verified
+snapshot had already been published. `public.bet365_current`
+remained at **110** rows, source timestamp unchanged,
+last row update `2026-10-10T15:51:19.232925Z`: no duplicate
+write or artificial source-freshness bump.
+This establishes natural job execution + idempotence, not yet a
+fresh automatic publication of the collector's next 15-minute scrape.
