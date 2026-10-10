@@ -1,11 +1,24 @@
 name: Forebet Lean Pilot QA
 on:
+  pull_request:
+    branches: [phase0/international-authority]
+    paths:
+      - scripts/forebet-lean-capture.py
+      - scripts/forebet_lean_parser.py
+      - scripts/requirements-forebet-lean.txt
+      - tests/test_forebet_lean_parser.py
+      - .github/workflows/forebet-lean-pilot.yml
   workflow_dispatch:
   push:
     branches: [fix/forebet-lean-collector-20261011]
     paths:
       - scripts/forebet-lean-capture.py
+      - scripts/forebet_lean_parser.py
+      - scripts/requirements-forebet-lean.txt
+      - tests/test_forebet_lean_parser.py
       - .github/workflows/forebet-lean-pilot.yml
+permissions:
+  contents: read
 jobs:
   normalize-contract:
     runs-on: ubuntu-latest
@@ -15,9 +28,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Syntax and deterministic data contract (no network)
+      - name: Install pinned HTML parsing dependency (offline fixture tests only)
+        run: python -m pip install beautifulsoup4==4.14.3
+      - name: Test source HTML parsing and safe normalization (no provider network)
         run: |
-          python -m py_compile scripts/forebet-lean-capture.py
+          python -m py_compile scripts/forebet-lean-capture.py scripts/forebet_lean_parser.py
+          python -m unittest discover -s tests -p 'test_forebet_lean_parser.py' -v
           python - <<'PY'
           import importlib.util
           spec = importlib.util.spec_from_file_location("fb", "scripts/forebet-lean-capture.py")
@@ -26,6 +42,8 @@ jobs:
           row = dict(league="Premier League",home="Team A",away="Team B",
                      date_time="11/10/2026 18:00",prob_home="42%",prob_draw="38",
                      prob_away="20",predicted_score="2 - 1",avg_goals="2.95")
+          assert mod.SOURCE_PAGES["today"] == "https://www.forebet.com/en/football-tips-and-predictions-for-today"
+          assert mod.SOURCE_PAGES["tomorrow"] == "https://www.forebet.com/en/football-tips-and-predictions-for-tomorrow"
           out = mod.normalize_row(row)
           # Source reports US-style month/day and AM/PM in 2026.
           us = mod.normalize_row({**row,"date_time":"10/11/2026 6:00 PM"})
