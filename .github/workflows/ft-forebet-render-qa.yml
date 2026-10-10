@@ -44,6 +44,17 @@ jobs:
                  throw Error(size+' original Forebet HDA missing: '+prob);
              console.log('FOREBET_PUBLIC_UI_OK',JSON.stringify({size,score:'1 - 2',avgGoals:2.71,probability:prob.slice(0,130)}));
              await page.screenshot({path:'/tmp/forebet-'+size+'.png',fullPage:false});
+             // Newly source-verified Greek league: same API feed, no new scraping.
+             await page.getByPlaceholder('Search team, league or match...').fill('Kifisia');
+             const greek=page.locator('a.ft-match-row').filter({hasText:'Kifisia'}).filter({hasText:'Panetolikos'});
+             await greek.first().waitFor({state:'visible',timeout:20000});
+             const greekRow=await greek.first().innerText();
+             const greekP=await greek.first().locator('.ft-probs').innerText();
+             if(!greekRow.includes('0 - 0')||!greekRow.includes('1.88')||
+                 !['23','40','37'].every(p=>greekP.includes(p)))
+                 throw Error(size+' newly added league models absent: '+JSON.stringify({greekRow,greekP}).slice(0,340));
+             console.log('FOREBET_EXTRA_LEAGUE_UI_OK',JSON.stringify({size,match:'Kifisia-Panetolikos',score:'0 - 0',avg:1.88,probability:greekP.slice(0,110)}));
+
              await page.close();
           }
           await browser.close();
