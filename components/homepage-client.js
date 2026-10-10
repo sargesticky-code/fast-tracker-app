@@ -29,7 +29,7 @@ import {
 const FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
-const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
+const HOMEPAGE_FEED_URL = (() => { const url = new URL(FEED_URL); url.searchParams.set("hours", "48"); url.searchParams.set("view", "summary"); return url.toString(); })();
 const ENRICHMENT_FEED_URL = FEED_URL;
 const LIVE_FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_LIVE_FEED_URL ||
@@ -687,6 +687,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   const [activeMode, setActiveMode] = useState("today");
   const [activeLeague, setActiveLeague] = useState("");
   const [activeMarket, setActiveMarket] = useState("HDA");
+  const [rowLimit, setRowLimit] = useState(30);
   const [selectedDate, setSelectedDate] = useState(new Date(nowMs || Date.now()));
 
   useEffect(() => {
@@ -861,6 +862,9 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     value: matches.filter(m => Number(valueEdge(m)?.expectedValue) >= 0.04).length,
   }), [matches, todayKey, tomorrowKey]);
 
+  // The 48h indexed summary stays one network read; render 30 rows until requested.
+  useEffect(() => setRowLimit(30), [activeMode, activeLeague, query, dayOffset, selectedDate]);
+
   const target = new Date(selectedDate || now);
   target.setDate(target.getDate() + dayOffset);
   const targetKey = dateKey(target);
@@ -906,11 +910,11 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       add(live, 8);
       add(priced, 20);
       add(observed, 8);
-      add(rows, 30 - selected.length);
-      return selected.slice(0, 30);
+      add(rows, Math.max(0, rowLimit - selected.length));
+      return selected.slice(0, rowLimit);
     }
-    return rows.slice(0, 30);
-  }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey]);
+    return rows.slice(0, rowLimit);
+  }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey, rowLimit]);
 
   const groupedVisible = useMemo(() => {
     const groups = new Map();
@@ -1011,6 +1015,15 @@ export default function HomepageClient({ initialFeed, nowMs }) {
               </div>
             )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
           </div>
+
+          {visible.length === rowLimit && matches.length > rowLimit && rowLimit < 150 && (
+            <div style={{textAlign:"center",padding:"14px 0"}}>
+              <button type="button" onClick={() => setRowLimit(n => Math.min(150, n + 30))}
+                style={{padding:"9px 18px",borderRadius:8,border:"1px solid #496278",background:"#102b46",color:"#fff",cursor:"pointer"}}>
+                Show next 30 matches (already loaded)
+              </button>
+            </div>
+          )}
 
           {showForm && (
             <section className="ft-form-note">
