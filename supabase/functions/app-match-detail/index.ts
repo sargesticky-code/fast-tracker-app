@@ -323,28 +323,42 @@ Deno.serve(async(req:Request)=>{
   // no 25-way optional PostgREST fanout. Only exact FS fixture IDs qualify.
   // Preserve all recorded numbers and reject statistics captured pre-kickoff.
   if (requestedId.startsWith("FS:")) {
-    const [fixtureDirect,sourceDirect]=await Promise.all([
+    const [fixtureDirect,sourceDirect,quoteDirect]=await Promise.all([
       criticalDb.from("matches")
         .select("hkjc_event_id,kickoff_hkt,status,tournament,home_en,away_en,home_zh,away_zh,fetched_at,updated_at")
         .eq("hkjc_event_id",requestedId).maybeSingle(),
       criticalDb.from("phase15_source_shadow_current")
         .select("match_id,source_key,detail_raw,detail_fetched_at")
         .eq("match_id",requestedId).eq("source_key","FLASHSCORE").maybeSingle(),
+      criticalDb.from("bet365_current")
+        .select("match_id,fetched_at,bet365_home,bet365_draw,bet365_away,source")
+        .eq("match_id",requestedId).eq("source","FLASHSCORE_BET365").maybeSingle(),
     ]);
-    if(!fixtureDirect.error && !sourceDirect.error && fixtureDirect.data && sourceDirect.data?.detail_raw?.statistics_raw) {
+    if(!fixtureDirect.error && fixtureDirect.data) {
       const f=fixtureDirect.data;
-      const stats=compactFlashscoreMatchStats(
-        sourceDirect.data.detail_raw,sourceDirect.data.detail_fetched_at,f.kickoff_hkt
-      );
-      if(stats){
-        return Response.json(sanitizePublicCompatibility({
+      const stats=!sourceDirect.error && sourceDirect.data?.detail_raw
+        ? compactFlashscoreMatchStats(
+            sourceDirect.data.detail_raw,sourceDirect.data.detail_fetched_at,f.kickoff_hkt
+          )
+        : null;
+      const quote=!quoteDirect.error ? quoteDirect.data : null;
+      const quoteAgeMs=quote?.fetched_at?Date.now()-Date.parse(quote.fetched_at):Infinity;
+      const priceFresh=Boolean(quote && Number.isFinite(quoteAgeMs)
+        && quoteAgeMs>=-60_000 && quoteAgeMs<=20*60_000
+        && Date.parse(String(f.kickoff_hkt))>Date.now());
+      return Response.json(sanitizePublicCompatibility({
           generatedAt:new Date().toISOString(),id:requestedId,requestedId,
           fixtureSource:"CANONICAL_FLASHSCORE",redirect:null,
           fixture:{
             match_id:requestedId,kickoff_hkt:f.kickoff_hkt,status:f.status,
             tournament:f.tournament,home_en:f.home_en,away_en:f.away_en,
             home_zh:f.home_zh,away_zh:f.away_zh,
-            fetched_at:f.fetched_at,updated_at:f.updated_at,
+            fetched_at:priceFresh?quote.fetched_at:f.fetched_at,
+            updated_at:f.updated_at,odds_updated_at:quote?.fetched_at??null,
+            had_home:priceFresh?quote.bet365_home:null,
+            had_draw:priceFresh?quote.bet365_draw:null,
+            had_away:priceFresh?quote.bet365_away:null,
+            bookmaker_source:priceFresh?"FLASHSCORE_BET365":null,
           },
           flashscoreStats:stats,
           models:{internal:null,forebet:null,form:null,opta:null,multisource:null,evidence:[]},
@@ -357,9 +371,10 @@ Deno.serve(async(req:Request)=>{
           h2h:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
           headToHead:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
           marketIntelligence:{bestValue:null,value:[],arbitrage:[],nearArbitrage:null,mode:"DETECT_ONLY"},
-          errors:{},evidenceMode:"EXACT_FLASHSCORE_MATCH_STATISTICS"
+          errors:{},evidenceMode:stats?"EXACT_FLASHSCORE_MATCH_STATISTICS":"EXACT_FLASHSCORE_FIXTURE_HDA",
+          sourceLineage:{fixture:"FLASHSCORE",bookmaker:priceFresh?"FLASHSCORE_BET365":null,
+            quoteCapturedAt:quote?.fetched_at??null,statsCapturedAt:stats?.capturedAt??null}
         }),{headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}});
-      }
     }
   }
 
