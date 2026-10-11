@@ -1,0 +1,1 @@
+update private.team_alias_reference as r set canonical_team_key=v.team_key,identity_status='LINKED_CANONICAL',updated_at=now() from public.team_name_lookup as v where r.source='FOOTBALL_DATA_CSV' and v.source='FOOTBALL_DATA' and r.source_key=v.source_key and r.canonical_team_key is null;
