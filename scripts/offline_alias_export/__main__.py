@@ -88,7 +88,22 @@ def build():
   "Review youth/women/reserve/namesakes; preserve unknown. Complete proposal, confidence, evidence, status.\n"
   "No automatic import to Supabase. Treat league_hint as verified ONLY for exact CC0 season fixture names.\n"
   "05/06 include existing repository canonical/provider snapshots, not all LIVE Supabase aliases.\n"
-  "Hand this ZIP to the next ChatGPT chat for dedicated one-time matching.\n")
+  "Hand this ZIP to the next ChatGPT chat for dedicated one-time matching.\\n")
+ (OUT/"07_NEW_CHAT_MATCHING_PROMPT.txt").write_text(
+  "YOU ARE THE DEDICATED OFFLINE FOOTBALL TEAM IDENTITY MATCHER.\\n"
+  "Read every CSV in this ZIP, especially the full long alias table.\\n"
+  "Goal: a one-time, reviewable source ID and club alias reconciliation, not live scraping.\\n"
+  "Treat each Reep ID as a unique source entity. Prefer exact Wikidata, Flashscore and FotMob IDs.\\n"
+  "Use league+country+event evidence to distinguish identical names, reserve/youth/women.\\n"
+  "05/06 are partial preexisting canonical snapshots; optionally query connected Supabase\\n"
+  "READ-ONLY for a fresh canonical list before proposing identities.\\n"
+  "Deliver APPROVED_CANDIDATES.csv, UNRESOLVED.csv, COLLISIONS.csv, SOURCE_COUNTS.csv.\\n"
+  "Never fabricate Forebet, BetClan, SportyTrader or Football-Data IDs/names.\\n"
+  "Preserve all original source IDs and normalize data without dropping unmatched teams.\\n"
+  "Every proposed mapping must carry proof type, confidence and review status.\\n"
+  "Do NOT write to Supabase; await owner approval and import once using a staging table.\\n"
+ )
+
  path=ROOT/"dist"/"TEAM_ALIAS_OFFLINE_PACKAGE_20261011.zip"
  with zipfile.ZipFile(path,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
   for f in OUT.iterdir():z.write(f,arcname=f.name)
