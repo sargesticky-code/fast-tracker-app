@@ -1,0 +1,39 @@
+name: Complete Reep CC0 Alias Reference — One Time
+on:
+  push:
+    branches: [fix/complete-referenced-team-alias-import-20261011]
+    paths:
+      - scripts/prepare_full_reep_alias_chunks.py
+      - .github/workflows/prepare-full-reep-reference.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch CC0 dataset and validate original rows
+        run: python scripts/build_open_team_name_reference.py --out-dir /tmp/complete-reep
+      - name: Split all original names into bounded SQL-ingestible batches
+        run: |
+          python -m py_compile scripts/prepare_full_reep_alias_chunks.py
+          python scripts/prepare_full_reep_alias_chunks.py --source /tmp/complete-reep/reference_team_names.csv --out ops/reep-full-20261011 --chunk-size 2000
+      - name: Commit immutable reference chunks to this branch (no database action)
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/reep-full-20261011/
+          git commit -m 'data: full CC0 Reep team alias reference as bounded JSON chunks'
+          git push origin HEAD:fix/complete-referenced-team-alias-import-20261011
+      - uses: actions/upload-artifact@v4
+        with:
+          name: complete-reep-cc0-alias-chunks
+          path: ops/reep-full-20261011/
+          retention-days: 7

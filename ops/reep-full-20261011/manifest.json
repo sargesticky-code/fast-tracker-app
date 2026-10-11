@@ -1,0 +1,15 @@
+{
+  "source": "REEP_CC0",
+  "provenance": "https://github.com/withqwerty/reep",
+  "license": "CC0-1.0",
+  "row_count": 47407,
+  "distinct_external_entities": 45337,
+  "chunk_count": 24,
+  "roles": {
+    "ALIAS": 2070,
+    "PRIMARY": 45337
+  },
+  "chunk_content_sha256": "2775541929edcb9e43c0180dcb8d542d3b80a69e22e33ad4f722eb313a906457",
+  "import_mode": "SOURCE_REFERENCE_ONLY_NOT_CANONICAL_VERIFIED",
+  "automatic_schedule": false
+}
