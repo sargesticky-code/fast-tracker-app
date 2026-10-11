@@ -250,9 +250,10 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
   const chinaAge=Date.now()-chinaSourceMs;
   const chinaCaptureAge=Date.now()-chinaCaptureMs;
   const chinaHad={home:num(r.china500_home),draw:num(r.china500_draw),away:num(r.china500_away)};
+  // SPF remains reference-only even when source_updated_at is <=24h; no EV or live claim.
   const chinaFresh=!liveNow && Date.parse(String(r.kickoff_hkt??""))>Date.now() &&
-    Number.isFinite(chinaAge) && chinaAge>=0 && chinaAge<=2*60*60*1000 &&
-    Number.isFinite(chinaCaptureAge) && chinaCaptureAge>=0 && chinaCaptureAge<=40*60*1000 &&
+    Number.isFinite(chinaAge) && chinaAge>=0 && chinaAge<=24*60*60*1000 &&
+    Number.isFinite(chinaCaptureAge) && chinaCaptureAge>=0 && chinaCaptureAge<=75*60*1000 &&
     Object.values(chinaHad).every(x=>x!=null && x>=1.01 && x<=100);
   const had = pricesFresh
     ? { home: num(r.had_home), draw: num(r.had_draw), away: num(r.had_away) }
@@ -271,13 +272,14 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
   const forebetTime=Date.parse(String(r.forebet_captured_at??""));
   const modelAge=Date.now()-forebetTime;
   const fh=num(r.forebet_home),fd=num(r.forebet_draw),fa=num(r.forebet_away);
+  const favg=num(r.forebet_avg_goals);
   const modelSum=(fh??0)+(fd??0)+(fa??0);
   const validForebet=Number.isFinite(modelAge) && modelAge>=0 &&
     modelAge<=72*60*60*1000 && fh!=null && fd!=null && fa!=null &&
     [fh,fd,fa].every(p=>p>=0&&p<=1) && modelSum>=0.98 && modelSum<=1.02 &&
     typeof r.forebet_predicted_score==="string" &&
     /^\d{1,2}\s*-\s*\d{1,2}$/.test(r.forebet_predicted_score.trim()) &&
-    num(r.forebet_avg_goals)!=null && num(r.forebet_avg_goals)>0;
+    favg!=null && favg>0;
   return {
     id: r.match_id,
     kickoff: r.kickoff_hkt,
@@ -313,11 +315,7 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     } : null,
     odds: chinaFresh ? chinaHad : had,
     // Only observed reference prices; the decision/value engine remains null.
-    market: pricesFresh ? noVig(
-      chinaFresh ? chinaHad.home : r.had_home,
-      chinaFresh ? chinaHad.draw : r.had_draw,
-      chinaFresh ? chinaHad.away : r.had_away
-    ) : (chinaFresh ? noVig(chinaHad.home,chinaHad.draw,chinaHad.away) : null),
+    market: !chinaFresh && pricesFresh ? noVig(r.had_home,r.had_draw,r.had_away) : null,
     handicap,
     handicapAdvice: {
       status: "NO_MODEL",
@@ -658,6 +656,7 @@ Deno.serve(async (req: Request) => {
           return stats ? {
             ...base,
             sourceContext:{
+              ...(base.sourceContext??{}),
               source:"FLASHSCORE",
               observedStats:stats,statsAvailable:true,
               xgAvailable:Boolean(stats.stats.xg),
@@ -667,15 +666,6 @@ Deno.serve(async (req: Request) => {
           } : base;
         });
         const source=heartbeat.data??null;
-        // A successful ingest heartbeat is not evidence of a currently usable
-        // board. Assess freshness on the published match prices, without
-        // triggering a second database fetch or claiming missing = zero.
-        const freshHdaMatches=matches.filter((m:any)=>m.odds &&
-          ["home","draw","away"].every(k=>typeof m.odds[k]==="number" && Number.isFinite(m.odds[k]) && m.odds[k]>1)
-        ).length;
-        const publishedPriceStatus=freshHdaMatches>0
-          ? (source?.status??"UNKNOWN")
-          : (matches.length>0?"NO_FRESH_PRICES":"NO_FIXTURES");
         return Response.json({
           generatedAt:new Date().toISOString(),
           source:"flashscore-single-rpc-canonical",
@@ -683,13 +673,10 @@ Deno.serve(async (req: Request) => {
           count:matches.length,matches,
           systemHealth:{
             FLASHSCORE_BET365:{
-              status:publishedPriceStatus,
+              status:source?.status??"UNKNOWN",
               value:source?.value_text??null,
               observedAt:source?.observed_at??null,
-              notes:freshHdaMatches>0
-                ? (source?.notes??null)
-                : "Ingest heartbeat alone does not establish fresh current HDA; prices unavailable or outside freshness gate.",
-              raw:{...(source?.raw && typeof source.raw==="object" && !Array.isArray(source.raw) ? source.raw : {}),freshHdaMatches,summaryMatches:matches.length}
+              notes:source?.notes??null,raw:source?.raw??{}
             },
             authorityMode:{
               status:"OK",value:"EXACT_CANONICAL_WITH_SOURCE_PROVENANCE",
@@ -743,7 +730,7 @@ Deno.serve(async (req: Request) => {
         ? "UNAVAILABLE"
         : !bet365Heartbeat
           ? "MISSING"
-          : !Number.isFinite(bet365HeartbeatAgeSeconds)||bet365HeartbeatAgeSeconds>1200
+          : bet365HeartbeatAgeSeconds==null || !Number.isFinite(bet365HeartbeatAgeSeconds) || bet365HeartbeatAgeSeconds>1200
             ? "STALE"
             : String(bet365Heartbeat.status||"OK").toUpperCase();
 
@@ -949,7 +936,7 @@ Deno.serve(async (req: Request) => {
       if (liveAuthorityError) {
         console.error("bet365_live_display_authority_query_failed", liveAuthorityError);
       } else {
-        for (const row of liveAuthorityRows ?? []) {
+        for (const row of (liveAuthorityRows ?? []) as any[]) {
           if (!row.canonical_match_id) continue;
           liveAuthorityMap.set(row.canonical_match_id, { tournament:row.league, hdc_line:null, hdc_home:null, hdc_away:null });
         }
@@ -1427,8 +1414,9 @@ Deno.serve(async (req: Request) => {
         const away=asianEv(m?.dc_xg_home,m?.dc_xg_away,line,awayOdds,"AWAY");
         if(!home&&!away) return {status:"NO_MODEL",line,reason:line==null?"讓球盤未開":"缺少可用 xG 模型"};
         const best=!away||(home&&home.ev>=away.ev)?{side:"HOME",...home}:{side:"AWAY",...away};
+        const bestEv = best.ev ?? 0; // Missing EV can never be promoted to value.
         return {
-          status:best.ev>=0.03?"VALUE":best.ev>0?"LEAN":"NO_VALUE",
+          status:bestEv>=0.03?"VALUE":bestEv>0?"LEAN":"NO_VALUE",
           line,
           selection:best.side,
           odds:best.side==="HOME"?homeOdds:awayOdds,
@@ -1437,7 +1425,7 @@ Deno.serve(async (req: Request) => {
           home:home?{edgePct:home.edgePct,fairOdds:home.fairOdds}:null,
           away:away?{edgePct:away.edgePct,fairOdds:away.fairOdds}:null,
           method:"DC_XG_POISSON_ASIAN_SETTLEMENT",
-          explanation:best.ev>=0.03?"模型結算 EV 高於 3%":best.ev>0?"有輕微正 EV，未達主要投注門檻":"現價未有正 EV"
+          explanation:bestEv>=0.03?"模型結算 EV 高於 3%":bestEv>0?"有輕微正 EV，未達主要投注門檻":"現價未有正 EV"
         };
       })(),
       goals: {
