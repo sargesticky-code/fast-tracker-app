@@ -4,7 +4,7 @@ export default function manifest() {
   return {
     name: "Fast Tracker 2026",
     short_name: "Fast Tracker",
-    description: "HKJC-first football intelligence",
+    description: "Flashscore raw football fixtures and captured Bet365 prices",
     start_url: "/",
     display: "standalone",
     background_color: "#07110e",

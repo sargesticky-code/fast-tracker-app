@@ -1,11 +1,5 @@
-import DashboardClient from "@/components/dashboard-client";
-import { getFeed } from "@/lib/fast-tracker";
+import FlashscoreSourceStatus from "@/components/flashscore-source-status";
 
-export const metadata = {
-  title: "Fast Tracker 2026 · Internal System",
-};
+export const metadata = { title: "Fast Tracker · Flashscore raw feed" };
 
-export default async function InternalSystemPage() {
-  const feed = await getFeed();
-  return <DashboardClient feed={feed} nowMs={Date.now()} />;
-}
+export default function InternalSystemPage() { return <FlashscoreSourceStatus />; }

@@ -1,16 +1,6 @@
-import LineupPanel from "@/components/lineup-panel";
-import MatchDetailClient from "@/components/match-detail-client";
-import { getFeed } from "@/lib/fast-tracker";
+import { Suspense } from "react";
+import FlashscoreRawMatch from "@/components/flashscore-raw-match";
 
-// Provide real Flashscore identity and HDA from SSR before the optional
-// detail, live, model and lineup requests. No match-specific search parameter
-// is used at build time, so the legacy static export stays compatible.
-export default async function DetailsPage() {
-  const feed = await getFeed();
-  return (
-    <>
-      <MatchDetailClient initialFeed={feed} />
-      <LineupPanel initialFeed={feed} />
-    </>
-  );
+export default function DetailsPage() {
+  return <Suspense fallback={<main className="ft-home"><p>Loading raw fixture…</p></main>}><FlashscoreRawMatch /></Suspense>;
 }

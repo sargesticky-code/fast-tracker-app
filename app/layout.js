@@ -1,14 +1,10 @@
-import LegacyRouteRedirect from "@/components/legacy-route-redirect";
 import "./globals.css";
-import "./forebet-dashboard.css";
-import "./dashboard-polish.css";
-import "./detail-polish.css";
 import "./homepage.css";
 import "react-day-picker/style.css";
 
 export const metadata = {
-  title: "Fast Tracker 2026",
-  description: "Football data, models and value-bet intelligence",
+  title: "Fast Tracker · Flashscore raw fixtures",
+  description: "Flashscore source fixtures and captured Bet365 H/D/A prices",
   manifest: "/manifest.webmanifest",
 };
 
@@ -21,7 +17,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body><LegacyRouteRedirect />{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

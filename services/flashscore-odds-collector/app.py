@@ -5,8 +5,11 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from playwright.async_api import async_playwright
+from day_budget import day_plan, allocate
+from browser_resources import should_abort_browser_resource
+from odds_batch import bounded_map
 
 FLASH_URL = os.getenv("FLASH_URL", "https://www.flashscore.co.uk/")
 ODDS_URL = os.getenv("ODDS_URL", "https://global.ds.lsapp.eu/odds/pq_graphql")
@@ -14,7 +17,8 @@ BOOKMAKER_ID = int(os.getenv("BOOKMAKER_ID", "16"))
 REFRESH_SECONDS = max(300, int(os.getenv("REFRESH_SECONDS", "900")))
 DAYS_AHEAD = max(0, min(3, int(os.getenv("DAYS_AHEAD", "2"))))
 MAX_FIXTURES = max(10, min(600, int(os.getenv("MAX_FIXTURES", "360"))))
-ODDS_CONCURRENCY = max(1, min(16, int(os.getenv("ODDS_CONCURRENCY", "6"))))
+ODDS_CONCURRENCY = max(1, min(2, int(os.getenv("ODDS_CONCURRENCY", "2"))))
+ODDS_PHASE_TIMEOUT_SECONDS = 180
 
 app = Flask(__name__)
 _lock = threading.Lock()
@@ -28,6 +32,17 @@ _state = {
     "snapshot": [],
     "discovered": [],
 }
+
+@app.after_request
+def allow_public_snapshot_read(response):
+    # The dashboard is a static site, so its browser reads the public snapshot
+    # directly. Keep cross-origin access limited to this read-only endpoint.
+    if request.path == "/snapshot" and request.method in ("GET", "OPTIONS"):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 def utcnow():
     return datetime.now(timezone.utc).isoformat()
@@ -100,16 +115,15 @@ async def collect_fixture_rows(page, target_date):
         }).filter(x => x.event_id)"""
     )
 
-async def fetch_bet365_hda(client, sem, fixture):
+async def fetch_bet365_hda(client, fixture):
     event_id = fixture["event_id"]
     url = f"{ODDS_URL}?_hash=oce&eventId={event_id}&projectId=5&geoIpCode=US&geoIpSubdivisionCode=USCA"
-    async with sem:
-        try:
-            r = await client.get(url, timeout=25)
-            r.raise_for_status()
-            data = r.json()
-        except Exception:
-            return None
+    try:
+        r = await client.get(url)
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        return None
 
     entries = (((data or {}).get("data") or {}).get("findOddsByEventId") or {}).get("odds") or []
     candidates = [
@@ -163,48 +177,78 @@ async def refresh_once():
             user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/137 Safari/537.36"
         )
         page = await context.new_page()
+        async def trim_browser_resources(route):
+            if should_abort_browser_resource(route.request.resource_type):
+                await route.abort()
+            else:
+                await route.continue_()
+
+        # Participant names, event IDs and times come from the document DOM;
+        # images, fonts and media do not contribute to the captured data.
+        await page.route("**/*", trim_browser_resources)
         try:
             today = datetime.now().date()
             seen = set()
-            for offset in range(DAYS_AHEAD + 1):
+            # At most today's and tomorrow's board. Yesterday's first 360
+            # rows used to consume the entire quote budget (552 today alone).
+            # Reserve 2/3 for tomorrow, 1/3 today; total requests stay capped.
+            for offset, quota in day_plan(DAYS_AHEAD, MAX_FIXTURES):
+                target_date=today+timedelta(days=offset)
                 try:
-                    rows = await collect_fixture_rows(page, today + timedelta(days=offset))
+                    rows=await collect_fixture_rows(page,target_date)
                 except Exception as exc:
                     if offset == 0:
                         raise
-                    # Optional future-day discovery must not discard the real
-                    # current-day prices already captured on this run.
+                    # Do not repurpose the reserved budget into more today's
+                    # prices: preserves bounded source load and honest coverage.
                     print(
                         f"[flashscore-odds] optional day +{offset} failed "
-                        f"{type(exc).__name__}: {exc}; preserving {len(fixtures)} earlier fixtures",
+                        f"{type(exc).__name__}: {exc}; retaining {len(fixtures)} day-0 fixtures",
                         flush=True,
                     )
                     break
-                for row in rows:
-                    if row["event_id"] in seen:
-                        continue
-                    seen.add(row["event_id"])
-                    row["date"] = (today + timedelta(days=offset)).isoformat()
-                    if not row.get("home") or not row.get("away"):
-                        continue
-                    if is_virtual(row.get("league"), row.get("home"), row.get("away")):
-                        continue
-                    fixtures.append(row)
-                    if len(fixtures) >= MAX_FIXTURES:
-                        break
-                if len(fixtures) >= MAX_FIXTURES:
-                    break
+                added=allocate(rows,quota,seen,target_date.isoformat(),is_virtual)
+                fixtures.extend(added)
+                print(
+                    f"[flashscore-odds] day_allocation day={target_date.isoformat()} "
+                    f"available={len(rows)} quota={quota} selected={len(added)} "
+                    f"running_total={len(fixtures)} max={MAX_FIXTURES}",
+                    flush=True,
+                )
+            if len(fixtures)>MAX_FIXTURES:
+                raise ValueError("BOOKMAKER_QUOTE_BUDGET_EXCEEDED")
         finally:
             await browser.close()
 
-    sem = asyncio.Semaphore(ODDS_CONCURRENCY)
     headers = {
         "accept": "application/json",
         "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/137 Safari/537.36",
         "referer": "https://www.flashscore.co.uk/",
     }
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
-        odds = await asyncio.gather(*(fetch_bet365_hda(client, sem, f) for f in fixtures))
+    async with httpx.AsyncClient(
+        headers=headers,
+        follow_redirects=True,
+        limits=httpx.Limits(
+            max_connections=ODDS_CONCURRENCY,
+            max_keepalive_connections=ODDS_CONCURRENCY,
+        ),
+        timeout=httpx.Timeout(12.0),
+    ) as client:
+        odds, completed_requests, timed_out = await bounded_map(
+            fixtures,
+            lambda fixture: fetch_bet365_hda(client, fixture),
+            concurrency=ODDS_CONCURRENCY,
+            timeout_seconds=ODDS_PHASE_TIMEOUT_SECONDS,
+        )
+    if timed_out:
+        print(
+            f"[flashscore-odds] odds phase deadline reached "
+            f"completed={completed_requests} unfinished={len(fixtures) - completed_requests}",
+            flush=True,
+        )
+        # Do not replace a complete snapshot with an apparently fresh partial
+        # one. Keep the previous published capture and report this refresh failed.
+        raise TimeoutError("ODDS_PHASE_HARD_TIMEOUT")
 
     captured_at = utcnow()
     out = []
@@ -233,19 +277,15 @@ def run_refresh():
         _state["last_started_at"] = utcnow()
         _state["last_error"] = None
     try:
-        fixtures = snapshot = None
-        last_refresh_error = None
-        for attempt in range(2):
-            try:
-                fixtures, snapshot = asyncio.run(refresh_once())
-                break
-            except Exception as exc:
-                last_refresh_error = exc
-                if attempt == 0:
-                    print(f"[flashscore-odds] refresh attempt 1 failed {type(exc).__name__}: {exc}; retrying once", flush=True)
-                    time.sleep(2)
-        if fixtures is None or snapshot is None:
-            raise last_refresh_error or RuntimeError("refresh_failed_without_result")
+        # One original bounded capture, not duplicate attempts. A hung browser
+        # or HTTP odds request dies with its isolated child process at 300s.
+        from bounded_capture import run_bounded_capture
+        fixtures, snapshot = run_bounded_capture(
+            os.path.join(os.path.dirname(__file__), "collector_worker.py"),
+            timeout_seconds=300,
+        )
+        if len(fixtures) > MAX_FIXTURES or len(snapshot) > MAX_FIXTURES:
+            raise ValueError("BOOKMAKER_QUOTE_BUDGET_EXCEEDED")
         completed_at = utcnow()
         discovered = [{
             "source": "FLASHSCORE",
@@ -264,30 +304,7 @@ def run_refresh():
             _state["discovered"] = discovered
             _state["last_completed_at"] = completed_at
         print(f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} complete_hda={len(snapshot)}", flush=True)
-        # Publish the completed real capture immediately. The independent
-        # 5-minute pg_cron remains a recovery mechanism; a cron startup timeout
-        # must not hide newly captured prices for the next quarter-hour.
-        callback = os.getenv(
-            "FLASHSCORE_INGEST_CALLBACK_URL",
-            "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/flashscore-bet365-ingest",
-        )
-        if snapshot and callback.startswith("https://"):
-            try:
-                with httpx.Client(timeout=15.0, follow_redirects=False) as client:
-                    result = client.post(callback, json={})
-                print(
-                    f"[flashscore-odds] publish callback HTTP {result.status_code} "
-                    f"captured_at={completed_at}",
-                    flush=True,
-                )
-            except Exception as publish_error:
-                # Never discard successful collector output because the
-                # callback is unavailable: cron will retry the same snapshot.
-                print(
-                    f"[flashscore-odds] publish callback failed "
-                    f"{type(publish_error).__name__}: {publish_error}",
-                    flush=True,
-                )
+        # Consumers read the completed snapshot; no callback or duplicate ingestion.
     except Exception as e:
         message = f"{type(e).__name__}: {e}"
         with _lock:
@@ -315,6 +332,11 @@ def health():
             "fixtures_seen": _state["fixtures_seen"],
             "complete_hda": _state["complete_hda"],
             "discovered_count": len(_state["discovered"]),
+            "snapshot_stale": (
+                _state["last_completed_at"] is None
+                or (datetime.now(timezone.utc) -
+                    datetime.fromisoformat(_state["last_completed_at"])).total_seconds() > 1200
+            ),
         })
 
 @app.get("/snapshot")
@@ -337,7 +359,9 @@ def refresh():
         threading.Thread(target=run_refresh, daemon=True).start()
     return jsonify({"accepted": not busy, "refreshing": True}), 202
 
-threading.Thread(target=loop, daemon=True).start()
+# The isolated worker imports app.refresh_once; never recurse into a loop.
+if os.getenv("FT_COLLECTOR_CHILD") != "1":
+    threading.Thread(target=loop, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
