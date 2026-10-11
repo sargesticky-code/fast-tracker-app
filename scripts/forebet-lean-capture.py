@@ -61,8 +61,10 @@ def normalize_row(raw):
 
 
 SOURCE_PAGES = {
-    "today": "https://www.forebet.com/en/football-tips-and-predictions-for-today",
-    "tomorrow": "https://www.forebet.com/en/football-tips-and-predictions-for-tomorrow",
+    # Public Forebet 1X2 surface; previous /today path returned 403.
+    # This page can include several days, so downstream windows still filter.
+    "today": "https://www.forebet.com/index.php/en/football-predictions/predictions-1x2",
+    "tomorrow": "https://www.forebet.com/index.php/en/football-tips-and-predictions-for-tomorrow",
 }
 
 
