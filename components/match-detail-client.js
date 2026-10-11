@@ -1169,6 +1169,13 @@ export default function MatchDetailClient({ initialFeed = null }) {
   const eventMap = deep?.humanFactors?.eventMap || null;
   const playerStatusEvidence = Array.isArray(deep?.humanFactors?.playerStatus) ? deep.humanFactors.playerStatus : [];
   const lineupEvidence = Array.isArray(deep?.humanFactors?.lineup) ? deep.humanFactors.lineup : [];
+  const verifiedFotmobStats = Array.isArray(deep?.humanFactors?.playerMatchStats)
+    ? deep.humanFactors.playerMatchStats.filter((p) =>
+        p?.playerId && p?.playerName &&
+        [p.rating,p.minutes,p.goals,p.assists,p.totalShots,p.accuratePasses,p.tackles,p.saves]
+          .some((v) => v !== null && v !== undefined))
+    : [];
+  const fotmobStatsProvenance = deep?.humanFactors?.playerMatchStatsMeta || null;
   const managerEvidence = Array.isArray(deep?.humanFactors?.managers) ? deep.humanFactors.managers : [];
   const scenarioRows = Array.isArray(deep?.scenario) ? deep.scenario : [];
   const confirmedPlayerStatusEvidence = playerStatusEvidence.filter((r) => r.fact_status === "CONFIRMED");
@@ -2626,6 +2633,32 @@ export default function MatchDetailClient({ initialFeed = null }) {
         ) : (
           <div className="human-wait-state">{sourceLineupConfirmed && unresolvedLineupIdentity.length ? "Official lineup source is confirmed, but player identity reconciliation is incomplete; these rows are not treated as confirmed player facts." : "Official lineup is not yet available; only identity-resolved confirmed evidence is shown, and projected XI rows are never presented as confirmed starters."}</div>
         )}
+
+        {verifiedFotmobStats.length > 0 ? (
+          <details className="human-deep-dive" data-testid="verified-fotmob-player-match-stats">
+            <summary>Player match statistics · {verifiedFotmobStats.length} players · FotMob</summary>
+            <p className="fineprint">
+              Match-specific FotMob evidence · {fotmobStatsProvenance?.observedAt || "capture time unknown"}.
+              Player-to-XI joins require exact FotMob player IDs; unsupported values remain unknown.
+            </p>
+            <div className="evidence-rows">
+              {verifiedFotmobStats.map((p) => (
+                <div key={"fotmob-stat-" + p.playerId}>
+                  <span>{p.teamName || "Team unverified"} · {p.minutes == null ? "Minutes —" : p.minutes + " min"}</span>
+                  <b>{p.playerName}</b>
+                  <small>
+                    Rating {p.rating == null ? "—" : Number(p.rating).toFixed(2)}
+                    {" · "}Shots {p.totalShots ?? "—"}
+                    {" · "}On target {p.shotsOnTarget ?? "—"}
+                    {" · "}Passes {p.accuratePasses ?? "—"}{p.passAttempts == null ? "" : "/" + p.passAttempts}
+                    {" · "}Goals {p.goals ?? "—"}
+                    {" · "}Assists {p.assists ?? "—"}
+                  </small>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
 
         {(managerEvidence.length || playerStatusEvidence.length) ? (
           <details className="human-deep-dive">
