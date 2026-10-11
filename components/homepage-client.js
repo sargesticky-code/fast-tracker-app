@@ -35,7 +35,7 @@ const HK_TIME_ZONE = "Asia/Hong_Kong";
 
 const AUTHORITY_KEYS = new Set([
   "id","kickoff","status","league","leagueZh","home","away","homeZh","awayZh",
-  "inPlay","liveEligible","liveNow","live","odds","market","handicap","goals","corners","updatedAt","historicalForm"
+  "inPlay","liveEligible","liveNow","live","scoreHome","scoreAway","scoreCapturedAt","scoreSource","odds","market","handicap","goals","corners","updatedAt","historicalForm"
 ]);
 
 function mergeLiveOverlay(authorityFeed, liveFeed) {
@@ -48,6 +48,14 @@ function mergeLiveOverlay(authorityFeed, liveFeed) {
   const matches = authorityMatches.map((authority) => {
     const liveRow = liveById.get(String(authority.id ?? ""));
     if (!liveRow) return authority;
+    // A separate live-odds overlay must never revert a newer/finished
+    // provider-observed Flashscore score or status.
+    if (authority?.scoreSource === "FLASHSCORE") {
+      const sourceMs = Date.parse(String(authority.scoreCapturedAt || ""));
+      const overlayMs = Date.parse(String(liveRow?.live?.score?.capturedAt || liveRow?.live?.fetchedAt || ""));
+      if (authority.status === "FINISHED" || !Number.isFinite(overlayMs)
+          || (Number.isFinite(sourceMs) && overlayMs <= sourceMs)) return authority;
+    }
     return {
       ...authority,
       status: liveRow.status ?? liveRow?.live?.status ?? authority.status,
@@ -364,7 +372,7 @@ function scoreText(match) {
     [match.scoreHome, match.scoreAway],
   ];
   for (const [h, a] of pairs) {
-    if (Number.isFinite(Number(h)) && Number.isFinite(Number(a))) return `${h} - ${a}`;
+    if (h != null && a != null && h !== "" && a !== "" && Number.isFinite(Number(h)) && Number.isFinite(Number(a))) return `${h} - ${a}`;
   }
   if (typeof live?.score?.text === "string" && live.score.text.trim()) return live.score.text;
   if (typeof live.score === "string" && live.score.trim()) return live.score;
@@ -606,6 +614,10 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               </span></div>
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
+                {!match.liveNow && match.status === "FINISHED" && match.scoreHome != null && match.scoreAway != null
+                  && <small className="ft-live-tag" title="Flashscore source-verified finished result">FT</small>}
+                {!match.liveNow && match.status === "STATUS_UNVERIFIED"
+                  && <small title="Source stage not yet verified">Status —</small>}
                 <strong>{scoreText(match)}</strong>
                 <LiveStatStrip match={match} />
               </div>
