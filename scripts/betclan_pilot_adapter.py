@@ -90,7 +90,7 @@ def main():
     ap.add_argument("--max-details",type=int,default=1)
     ap.add_argument("--output",default="betclan-pilot-candidates.json")
     args=ap.parse_args()
-    if not 1<=args.max_details<=5:ap.error("Pilot 1..5 details, not bulk crawling")
+    if not 1<=args.max_details<=20:ap.error("Pilot 1..20 details, not bulk crawling")
     urls=listing_links(fetch(PAGES[args.day]))
     rows=[]; errors=[]
     for url in urls[:args.max_details]:
@@ -101,7 +101,7 @@ def main():
       "rows":rows,"errors":errors,"production_writes":False,
       "coverage_complete":False,"identity_verified":False}
     Path(args.output).write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n")
-    print("BETCLAN_PILOT",json.dumps({"links":len(urls),"parsed":len(rows),"errors":errors}))
+    print("BETCLAN_PILOT",json.dumps({"links":len(urls),"parsed":len(rows),"errors":errors,\n      "samples":[{"id":r["source_event_id"],"home":r["source_home_team"],"away":r["source_away_team"],"date":r["source_kickoff_local_text"],"hda":[r["prob_home"],r["prob_draw"],r["prob_away"]],"score":r["predicted_score"]} for r in rows[:6]]},ensure_ascii=False))
     if not rows:raise RuntimeError("NO_VALID_BETCLAN_DETAILS")
 if __name__=="__main__":
     main()
