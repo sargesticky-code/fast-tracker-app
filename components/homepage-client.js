@@ -38,7 +38,7 @@ const HK_TIME_ZONE = "Asia/Hong_Kong";
 
 const AUTHORITY_KEYS = new Set([
   "id","kickoff","status","league","leagueZh","home","away","homeZh","awayZh",
-  "inPlay","liveEligible","liveNow","live","odds","market","handicap","goals","corners","updatedAt"
+  "inPlay","liveEligible","liveNow","live","odds","market","handicap","goals","corners","updatedAt","historicalForm"
 ]);
 
 function mergeLiveOverlay(authorityFeed, liveFeed) {
@@ -601,6 +601,16 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                     {match?.sourceContext?.statsAvailable ? " · Match stats" : ""}
                     {match?.sourceContext?.xgAvailable ? " · xG" : ""}
                   </small>
+                  {(match?.historicalForm?.home || match?.historicalForm?.away) ? (
+                    <small className="ft-form-source-note" style={{display:"block",marginTop:4,fontSize:11,lineHeight:1.35}}
+                      title="Football-data.co.uk completed domestic league matches only. Results are newest first, with the last recorded match date shown; missing teams remain unknown.">
+                      <strong>Last 5:</strong>{" "}
+                      {match?.historicalForm?.home ? `H ${match.historicalForm.home.resultsNewestFirst} (to ${match.historicalForm.home.throughDate})` : "H —"}
+                      {" · "}
+                      {match?.historicalForm?.away ? `A ${match.historicalForm.away.resultsNewestFirst} (to ${match.historicalForm.away.throughDate})` : "A —"}
+                      {" · football-data"}
+                    </small>
+                  ) : null}
                 </div>
                 <EvidenceSourceIcons match={match} />
               </div>
@@ -1040,6 +1050,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             <span>H/D/A observed reference prices <strong>{matches.filter((m) => ["home","draw","away"].every((k) => Number(m?.odds?.[k]) > 1)).length}/{matches.length}</strong></span>
             <span>Match-stat evidence <strong>{matches.filter((m) => m?.sourceContext?.statsAvailable || m?.sourceContext?.observedStats || m?.live?.stats).length}/{matches.length}</strong></span>
             <span>Independent model <strong>{matches.filter((m) => normalizedTriplet(m)).length}/{matches.length}</strong></span>
+            <span>Historical form <strong>{matches.filter((m) => m?.historicalForm?.home || m?.historicalForm?.away).length}/{matches.length}</strong></span>
             <span>Unknown values stay blank; H/D/A odds are not model predictions</span>
           </div>
 
