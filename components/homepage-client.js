@@ -9,6 +9,13 @@ function CompactEvidence({ evidence }) {
     {evidence.score && <small>Flashscore score <b>{evidence.score.home}–{evidence.score.away}</b></small>}
     {evidence.prediction && <small>Forebet predicted score <b>{evidence.prediction}</b></small>}
     {evidence.forebet && <small>Forebet H/D/A <b>{[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>(p*100).toFixed(0)+"%").join(" / ")}</b></small>}
+    {evidence.forebetOU25 && <small>Forebet Goals 2.5 <b>
+      {evidence.forebetOU25.pick || "O/U"} · Over {(evidence.forebetOU25.over*100).toFixed(0)}% / Under {(evidence.forebetOU25.under*100).toFixed(0)}%
+    </b></small>}
+    {evidence.forebetCorners95 && <small>Forebet Corners 9.5 <b>
+      {evidence.forebetCorners95.pick || "O/U"} · Over {(evidence.forebetCorners95.over*100).toFixed(0)}% / Under {(evidence.forebetCorners95.under*100).toFixed(0)}%
+      {evidence.forebetCorners95.predictedScore ? " · "+evidence.forebetCorners95.predictedScore : ""}
+    </b></small>}
     {evidence.confirmedXI && <small>Official source XI <b>22 players available</b></small>}
     {evidence.observedStats && <small data-testid="historical-match-stats">
       Recorded Flashscore snapshot
