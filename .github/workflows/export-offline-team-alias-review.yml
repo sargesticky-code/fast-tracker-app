@@ -1,0 +1,55 @@
+name: One-Time Full Offline Team Alias Export
+on:
+  push:
+    branches: [export/complete-offline-team-alias-review-20261011]
+    paths:
+      - scripts/offline_alias_export/**
+      - .github/workflows/export-offline-team-alias-review.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  export-cc0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate scripts
+        run: python -m compileall -q scripts/offline_alias_export/
+      - name: Download all 101 openfootball clubs files and assemble stored 24 Reep chunks
+        run: python -m scripts.offline_alias_export
+      - name: Validate full export manifest and CSV row counts
+        run: |
+          python - <<'PY'
+          import csv,json
+          from pathlib import Path
+          base=Path('dist/TEAM_ALIAS_EXPORT_20261011')
+          m=json.loads((base/'05_MANIFEST.json').read_text())
+          assert m['reep_entities']==45337 and m['reep_names']==47407
+          assert m['club_files']>=80 and m['total_alias_rows']>50000
+          for filename,expected in [('01_TEAM_MATCHING_MASTER.csv',45337),('02_ALL_ALIAS_NAMES_AND_IDS.csv',m['total_alias_rows'])]:
+            with (base/filename).open(encoding='utf-8-sig',newline='') as f:
+              count=sum(1 for _ in csv.DictReader(f))
+            assert count==expected,(filename,count,expected)
+          assert Path('dist/TEAM_ALIAS_OFFLINE_PACKAGE_20261011.zip').stat().st_size>100000
+          print('ALL_TEAM_ROWS_VERIFIED',m)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TEAM_ALIAS_OFFLINE_PACKAGE_20261011
+          path: |
+            dist/TEAM_ALIAS_OFFLINE_PACKAGE_20261011.zip
+            dist/TEAM_ALIAS_EXPORT_20261011/
+          retention-days: 30
+      - name: Commit one-time downloadable ZIP in isolated export branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f dist/TEAM_ALIAS_OFFLINE_PACKAGE_20261011.zip
+          git commit -m 'data: one-time 45k-team alias matching workbook CSV ZIP'
+          git push origin HEAD:export/complete-offline-team-alias-review-20261011
