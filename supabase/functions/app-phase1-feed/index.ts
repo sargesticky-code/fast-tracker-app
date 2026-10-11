@@ -676,7 +676,7 @@ Deno.serve(async (req: Request) => {
       const recentStart = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
 
       const [fixtureResult, bet365Result, liveResult, bet365HealthResult, coverageResult, flashscoreDetailResult] = await Promise.all([
-        db.from("active_canonical_fixture_current")
+        db.from("flashscore_primary_fixture_current")
           .select("match_id,fetched_at,kickoff_hkt,status,tournament:league,home_en,away_en,updated_at")
           .gte("kickoff_hkt", recentStart)
           .lt("kickoff_hkt", end.toISOString())
