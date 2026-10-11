@@ -1175,6 +1175,11 @@ export default function MatchDetailClient({ initialFeed = null }) {
   const unresolvedPlayerStatusEvidence = playerStatusEvidence.filter((r) => r.fact_status !== "CONFIRMED");
   const confirmedLineupEvidence = lineupEvidence.filter((r) => r.fact_status === "CONFIRMED");
   const unresolvedLineupIdentity = lineupEvidence.filter((r) => r.fact_status === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED");
+  const lineupProvenance = deep?.humanFactors?.lineupProvenance || null;
+  const sourceConfirmedHome = unresolvedLineupIdentity.filter((r) => normalizedSide(r.team_side) === "H" && r.starter && r.confirmed).map((r) => r.player_name).filter(Boolean);
+  const sourceConfirmedAway = unresolvedLineupIdentity.filter((r) => normalizedSide(r.team_side) === "A" && r.starter && r.confirmed).map((r) => r.player_name).filter(Boolean);
+  const sourceLineupComplete = Boolean(lineupProvenance?.sourceConfirmed && lineupProvenance?.canonicalIdentitiesVerified === false &&
+    sourceConfirmedHome.length === 11 && sourceConfirmedAway.length === 11);
   const homeStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "H" && r.starter).map((r) => r.player_name).filter(Boolean);
   const awayStarters = confirmedLineupEvidence.filter((r) => normalizedSide(r.team_side) === "A" && r.starter).map((r) => r.player_name).filter(Boolean);
   const humanQuality = humanSummary?.quality || (eventMap ? "MAPPED" : "NO DATA");
@@ -1187,6 +1192,7 @@ export default function MatchDetailClient({ initialFeed = null }) {
   const sourceLineupConfirmed = Boolean(eventMap?.lineup_confirmed_at);
   const lineupConfirmed = sourceLineupConfirmed && confirmedLineupEvidence.length > 0 && unresolvedLineupIdentity.length === 0;
   const lineupState = lineupConfirmed ? "CONFIRMED"
+    : sourceLineupComplete ? "SOURCE_ONLY"
     : sourceLineupConfirmed ? "IDENTITY_PARTIAL"
       : eventMap ? "PENDING" : "UNMAPPED";
   const injuryMax = Math.max(Number(injuriesHome) || 0, Number(injuriesAway) || 0, 1);
@@ -2582,8 +2588,8 @@ export default function MatchDetailClient({ initialFeed = null }) {
 
           <div className={"human-signal-card lineup-signal " + (lineupConfirmed ? "is-confirmed" : "is-pending")}>
             <span>Official XI</span>
-            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
-            <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} resolved · ${unresolvedLineupIdentity.length} identity unresolved`  : "No confirmed lineup rows"}</small>
+            <strong>{lineupConfirmed ? "Confirmed · identities resolved" : sourceLineupComplete ? "Source-confirmed 22-player XI · canonical IDs unresolved" : lineupState === "IDENTITY_PARTIAL" ? "Official source · identity reconciliation incomplete" : lineupState === "PENDING" ? "Awaiting official lineup" : "Not matched"}</strong>
+            <small>{lineupEvidence.length ? `${confirmedLineupEvidence.length} canonically resolved · ${unresolvedLineupIdentity.length} source-confirmed, ID unresolved` : "No confirmed lineup rows"}{lineupProvenance?.source ? ` · ${lineupProvenance.source}` : ""}</small>
           </div>
 
           <div className="human-signal-card">
@@ -2600,19 +2606,20 @@ export default function MatchDetailClient({ initialFeed = null }) {
           <div><span>Manager evidence</span><b>{managerEvidence.length}</b><small>coach rows</small></div>
         </div>
 
-        {(homeStarters.length || awayStarters.length) ? (
-          <details className="human-deep-dive" open={lineupConfirmed}>
-            <summary>Official lineup</summary>
+        {(homeStarters.length || awayStarters.length || sourceLineupComplete) ? (
+          <details className="human-deep-dive" open={lineupConfirmed || sourceLineupComplete}>
+            <summary>{sourceLineupComplete ? "Official source XI · player identities not independently linked" : "Official lineup · canonical player identities verified"}</summary>
+            {sourceLineupComplete && <p className="fineprint">22 starters confirmed by {lineupProvenance?.source || "the source"} at {lineupProvenance?.confirmedAt || "unknown time"}. Display names are source records; individual canonical player ID mapping remains unverified.</p>}
             <div className="lineup-columns">
               <div>
                 <span>HOME XI</span>
                 <b>{match.homeEn || match.home || match.homeZh}</b>
-                <p>{homeStarters.join(" · ") || "—"}</p>
+                <p>{(sourceLineupComplete ? sourceConfirmedHome : homeStarters).join(" · ") || "—"}</p>
               </div>
               <div>
                 <span>AWAY XI</span>
                 <b>{match.awayEn || match.away || match.awayZh}</b>
-                <p>{awayStarters.join(" · ") || "—"}</p>
+                <p>{(sourceLineupComplete ? sourceConfirmedAway : awayStarters).join(" · ") || "—"}</p>
               </div>
             </div>
           </details>
