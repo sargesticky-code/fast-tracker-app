@@ -4,13 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import {
   Search,
-  Star,
-  MoreHorizontal,
   Trophy,
   Activity,
   CalendarDays,
   ChevronRight,
-  CircleDot,
   Goal,
   ChartNoAxesColumnIncreasing,
   ShieldCheck,
@@ -451,18 +448,6 @@ function EvidenceSourceIcons({ match }) {
   );
 }
 
-function AdvertSlot({ variant = "wide" }) {
-  return (
-    <div className={`ft-ad-slot ft-ad-${variant}`} aria-label="Advertisement placeholder">
-      <div>
-        <span>ADVERTISEMENT</span>
-        <strong>{variant === "wide" ? "970 × 90" : "300 × 250"}</strong>
-        <small>Reserved for future advertising</small>
-      </div>
-    </div>
-  );
-}
-
 function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChange }) {
   const sections = [
     ["Predictions for TODAY", counts.today],
@@ -476,12 +461,6 @@ function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChang
   return (
     <aside className="ft-leftbar">
       <section className="ft-side-card">
-        <div className="ft-side-title">MY LEAGUES <Star size={15} /></div>
-        <button className="ft-side-link"><Star size={17} /> Favourites <ChevronRight size={15} /></button>
-        <button className="ft-side-link"><CircleDot size={17} /> World <ChevronRight size={15} /></button>
-      </section>
-
-      <section className="ft-side-card">
         <div className="ft-side-heading">FOOTBALL</div>
         {sections.map(([label, count], index) => {
           const modes = ["today","live","tomorrow","weekend","all","value"];
@@ -494,7 +473,6 @@ function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChang
           );
         })}
         <button className={`ft-side-link ${activeMode === "predictions" ? "active" : ""}`} onClick={() => onModeChange("predictions")}><span>Forecasts available</span><ChevronRight size={15} /></button>
-        <button className="ft-side-link"><span>Lists</span><ChevronRight size={15} /></button>
       </section>
 
       <section className="ft-side-card">
@@ -739,7 +717,6 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
           <div><b>—</b><span>Unknown or unavailable, never assumed zero</span></div>
         </div>
       </section>
-      <AdvertSlot variant="box" />
     </aside>
   );
 }
@@ -996,8 +973,6 @@ export default function HomepageClient({ initialFeed, nowMs }) {
           <small>FOOTBALL DATA · MODELS · PRICE COMPARISON</small>
         </div>
         <label className="ft-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search team, league or match..." /></label>
-        <button className="ft-icon-button"><Star size={22} /></button>
-        <button className="ft-icon-button"><MoreHorizontal size={22} /></button>
       </header>
 
       <nav className="ft-sports" aria-label="Primary match filters">
@@ -1079,7 +1054,6 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
               <div key={league}>
                 <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} />
-                {index === 0 && <AdvertSlot variant="wide" />}
               </div>
             )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
           </div>
