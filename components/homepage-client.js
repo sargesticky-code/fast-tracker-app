@@ -42,7 +42,8 @@ export default function HomepageClient() {
       finally { inFlight = false; }
     }
     refresh();
-    const timer = setInterval(refresh, 60000);
+    // Prematch/reference raw collector refreshes every ~15 min; avoid 1 min client polling.
+    const timer = setInterval(refresh, 120000);
     document.addEventListener("visibilitychange", refresh);
     return () => { cancelled = true; controller.abort(); clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
   }, []);
@@ -60,7 +61,8 @@ export default function HomepageClient() {
       } finally {inFlight=false;}
     }
     refreshVerified();
-    const timer=setInterval(refreshVerified,90000);
+    // Compact summary is a secondary prematch enrichment. Halve+ Supabase invokes.
+    const timer=setInterval(refreshVerified,240000);
     document.addEventListener("visibilitychange",refreshVerified);
     return ()=>{cancelled=true;controller.abort();clearInterval(timer);document.removeEventListener("visibilitychange",refreshVerified);};
   }, []);
