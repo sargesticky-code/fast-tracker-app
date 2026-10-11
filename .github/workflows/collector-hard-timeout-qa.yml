@@ -1,0 +1,30 @@
+name: Flashscore Collector Hard Timeout QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/flashscore-odds-collector/**'
+      - '.github/workflows/collector-hard-timeout-qa.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/flashscore-odds-collector/**'
+      - '.github/workflows/collector-hard-timeout-qa.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check worker and collector syntax
+        run: python -m py_compile services/flashscore-odds-collector/app.py services/flashscore-odds-collector/bounded_capture.py services/flashscore-odds-collector/collector_worker.py
+      - name: Assert Railway Docker image includes watchdog modules
+        run: |
+          grep -F 'COPY app.py day_budget.py bounded_capture.py collector_worker.py odds_batch.py browser_resources.py ./' services/flashscore-odds-collector/Dockerfile
+      - name: Offline child process and timeout tests (zero provider requests)
+        run: python -m unittest discover -s services/flashscore-odds-collector/tests -p test_bounded_capture.py -v

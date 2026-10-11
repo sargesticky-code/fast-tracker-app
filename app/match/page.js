@@ -1,5 +1,2 @@
-import LegacyRouteRedirect from "@/components/legacy-route-redirect";
-
-export default function MatchPage() {
-  return <LegacyRouteRedirect />;
-}
+import { redirect } from "next/navigation";
+export default function LegacyMatchPage(){redirect("/");}
