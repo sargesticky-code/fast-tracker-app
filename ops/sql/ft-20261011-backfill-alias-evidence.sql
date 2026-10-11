@@ -56,5 +56,5 @@ with stored as (
  on conflict do nothing
  returning source
 )
-select count(*) added_evidence,coalesce(jsonb_object_agg(source,n),'{}'::jsonb) sources
+select coalesce(sum(n),0) added_evidence,coalesce(jsonb_object_agg(source,n),'{}'::jsonb) sources
 from (select source,count(*) n from added group by source) sums;
