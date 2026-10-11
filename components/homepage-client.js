@@ -167,6 +167,7 @@ const primaryNav = [
   ["Today", Goal, "today"],
   ["Live", Activity, "live"],
   ["Value", Trophy, "value"],
+  ["Forecasts", ChartNoAxesColumnIncreasing, "predictions"],
   ["Tomorrow", CalendarDays, "tomorrow"],
   ["All matches", ShieldCheck, "all"],
 ];
@@ -237,11 +238,14 @@ function englishLeagueName(match) {
 function normalizedTriplet(match) {
   const model = preferredModel(match);
   if (!model) return null;
-  const vals = [Number(model.home), Number(model.draw), Number(model.away)];
+  const raw = [model.home, model.draw, model.away];
+  if (raw.some((v) => v == null || v === "")) return null;
+  const vals = raw.map(Number);
   if (!vals.every(Number.isFinite)) return null;
   const adjusted = vals.map((v) => (v > 1.5 ? v / 100 : v));
   const total = adjusted.reduce((a, b) => a + b, 0);
-  if (!(total > 0)) return null;
+  // Partial and malformed prediction triples remain unknown; do not silently normalize them.
+  if (adjusted.some((v) => v < 0 || v > 1) || total < 0.97 || total > 1.03) return null;
   return {
     home: adjusted[0] / total,
     draw: adjusted[1] / total,
@@ -489,7 +493,7 @@ function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChang
             </button>
           );
         })}
-        <button className="ft-side-link"><span>Top Predictions</span><ChevronRight size={15} /></button>
+        <button className={`ft-side-link ${activeMode === "predictions" ? "active" : ""}`} onClick={() => onModeChange("predictions")}><span>Forecasts available</span><ChevronRight size={15} /></button>
         <button className="ft-side-link"><span>Lists</span><ChevronRight size={15} /></button>
       </section>
 
@@ -733,7 +737,8 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       : { status: "loading", message: null }
   );
   const [dayOffset, setDayOffset] = useState(0);
-  const [showForm, setShowForm] = useState(false);
+  const [forecastsOnly, setForecastsOnly] = useState(false);
+  const [dataFirst, setDataFirst] = useState(true);
   const [query, setQuery] = useState("");
   const [activeMode, setActiveMode] = useState("today");
   const [activeLeague, setActiveLeague] = useState("");
@@ -914,22 +919,24 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   }), [matches, todayKey, tomorrowKey]);
 
   // The 48h indexed summary stays one network read; render 30 rows until requested.
-  useEffect(() => setRowLimit(30), [activeMode, activeLeague, query, dayOffset, selectedDate]);
+  useEffect(() => setRowLimit(30), [activeMode, activeLeague, query, dayOffset, selectedDate, forecastsOnly, dataFirst]);
 
   const target = new Date(selectedDate || now);
   target.setDate(target.getDate() + dayOffset);
   const targetKey = dateKey(target);
 
-  const visible = useMemo(() => {
+  const selection = useMemo(() => {
     const q = query.trim().toLowerCase();
     let rows = matches.filter((m) => {
       const league = englishLeagueName(m);
       if (activeLeague && league !== activeLeague) return false;
+      if (forecastsOnly && !normalizedTriplet(m)) return false;
       if (q) {
         const haystack = [m.home, m.away, m.homeZh, m.awayZh, league].filter(Boolean).join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
 
+      if (activeMode === "predictions") return Boolean(normalizedTriplet(m));
       if (activeMode === "live") return Boolean(m.liveNow);
       if (activeMode === "tomorrow") return dateKey(m.kickoff) === tomorrowKey;
       if (activeMode === "weekend") return hkWeekend(m.kickoff);
@@ -938,34 +945,23 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       return dayOffset === 0 ? (m.liveNow || dateKey(m.kickoff) === targetKey) : dateKey(m.kickoff) === targetKey;
     });
 
-    rows = rows.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
-    // The All-in-One first screen must not be swallowed by recent fixtures
-    // with no current price. Reserve space for real upcoming odds AND
-    // independently observed Flashscore stats, without assuming live status.
-    if ((activeMode === "today" || activeMode === "all") && !q) {
-      const live = rows.filter(m => m.liveNow);
-      const priced = rows.filter(m => !m.liveNow &&
-        new Date(m.kickoff).getTime() > Date.now() &&
-        ["home","draw","away"].every(k => Number(m?.odds?.[k]) > 1));
-      const observed = rows.filter(m => m?.sourceContext?.observedStats?.stats);
-      const selected = [];
-      const seen = new Set();
-      const add = (items, limit) => {
-        let n = 0;
-        for (const m of items) {
-          if (n >= limit) break;
-          if (seen.has(m.id)) continue;
-          selected.push(m); seen.add(m.id); n++;
-        }
+    // The first screen should surface matches with actual predictions or observed
+    // statistics, not merely the first 20 bookmaker quotations. Keep chronological
+    // ordering one click away, and never hide the other fixtures permanently.
+    const kickoffOrder = (a, b) => new Date(a.kickoff) - new Date(b.kickoff);
+    if (dataFirst && ["today", "all", "predictions"].includes(activeMode) && !q) {
+      const evidenceScore = (m) => {
+        const odds = ["home", "draw", "away"].every((k) => Number(m?.odds?.[k]) > 1);
+        const stats = Boolean(m?.sourceContext?.observedStats?.stats || m?.live?.stats);
+        return (m.liveNow ? 500 : 0) + (normalizedTriplet(m) ? 160 : 0)
+          + (stats ? 75 : 0) + (odds ? 15 : 0);
       };
-      add(live, 8);
-      add(priced, 20);
-      add(observed, 8);
-      add(rows, Math.max(0, rowLimit - selected.length));
-      return selected.slice(0, rowLimit);
-    }
-    return rows.slice(0, rowLimit);
-  }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey, rowLimit]);
+      rows.sort((a, b) => evidenceScore(b) - evidenceScore(a) || kickoffOrder(a, b));
+    } else rows.sort(kickoffOrder);
+    return { rows: rows.slice(0, rowLimit), total: rows.length };
+  }, [matches, activeLeague, activeMode, query, dayOffset, targetKey, tomorrowKey, rowLimit, forecastsOnly, dataFirst]);
+  const visible = selection.rows;
+  const filteredMatchCount = selection.total;
 
   const groupedVisible = useMemo(() => {
     const groups = new Map();
@@ -1017,7 +1013,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
               const label = offset === 0 ? "Today" : d.toLocaleDateString("en-GB", { weekday: "short" });
               return <button key={offset} className={dayOffset === offset && activeMode === "today" ? "active" : ""} onClick={() => { setDayOffset(offset); setActiveMode("today"); }}>{label}</button>;
             })}
-            <label className="ft-form-toggle"><span>Show form</span><input type="checkbox" checked={showForm} onChange={e => setShowForm(e.target.checked)} /><i /></label>
+            <label className="ft-form-toggle"><span>Forecasts only</span><input type="checkbox" checked={forecastsOnly} onChange={e => setForecastsOnly(e.target.checked)} /><i /></label>
           </div>
 
           <div className="ft-filterbar">
@@ -1027,11 +1023,16 @@ export default function HomepageClient({ initialFeed, nowMs }) {
                 <button className={activeMarket === key ? "active" : ""} key={key} onClick={() => setActiveMarket(key)}>{label}</button>
               ))}
             </div>
+            <button type="button" aria-pressed={dataFirst} onClick={() => setDataFirst(v => !v)}
+              style={{marginLeft:8,padding:"6px 10px",borderRadius:6,border:"1px solid #8da5bb",cursor:"pointer"}}
+              title="Switch between matches with verified prediction evidence first and kickoff order">
+              {dataFirst ? "Data first" : "Kickoff order"}
+            </button>
             <div className="ft-result-count">
               <b>{feedState.status === "error" && matches.length === 0 ? "—" : visible.length}</b>
               {feedState.status === "error"
                 ? (matches.length ? " cached matches · feed unavailable" : " feed unavailable")
-                : " matches shown"}
+                : ` of ${filteredMatchCount} matches shown`}
             </div>
           </div>
 
@@ -1067,7 +1068,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
           </div>
 
-          {visible.length === rowLimit && matches.length > rowLimit && rowLimit < 150 && (
+          {visible.length === rowLimit && filteredMatchCount > visible.length && rowLimit < 150 && (
             <div style={{textAlign:"center",padding:"14px 0"}}>
               <button type="button" onClick={() => setRowLimit(n => Math.min(150, n + 30))}
                 style={{padding:"9px 18px",borderRadius:8,border:"1px solid #496278",background:"#102b46",color:"#fff",cursor:"pointer"}}>
@@ -1076,12 +1077,6 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             </div>
           )}
 
-          {showForm && (
-            <section className="ft-form-note">
-              <ChartNoAxesColumnIncreasing size={18} />
-              Form layer is enabled. Detailed team-form evidence remains on each match page.
-            </section>
-          )}
         </section>
 
         <RightRail matches={visible.length ? visible : matches.slice(0, 10)} selectedDate={selectedDate} onSelectDate={(date) => { setSelectedDate(date); setDayOffset(0); setActiveMode("today"); }} />
@@ -1089,7 +1084,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
       <footer className="ft-footer-banner">
         <div><Activity size={21} /><strong>Real-time football intelligence</strong><span>Live data · model comparison · smart alerts</span></div>
-        <button>Explore matches <ChevronRight size={16} /></button>
+        <button onClick={() => { setActiveMode("all"); setForecastsOnly(false); }}>Explore matches <ChevronRight size={16} /></button>
       </footer>
     </main>
   );
