@@ -8,6 +8,7 @@ import { fetchVerifiedMatch } from "@/lib/verified-evidence-feed";
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
 }
+function percentDecimal(v) { return v==null ? "—" : knownNumber(Number(v)*100,1); }
 function scoredPair(h,a) {
   return Number.isInteger(h) && Number.isInteger(a) ? h+"–"+a : null;
 }
@@ -95,9 +96,9 @@ export default function FlashscoreRawMatch() {
         <div><b>Forebet H / D / A</b>
           <small>{knownNumber(forebet.prob_home,1)}% / {knownNumber(forebet.prob_draw,1)}% / {knownNumber(forebet.prob_away,1)}%</small></div>
       </div>: <p>Forebet forecast unavailable for this exact canonical event.</p>}
-      {model && <p>Qualified internal model (DC) · H {knownNumber(Number(model.dc_prob_home)*100,1)}% /
-        D {knownNumber(Number(model.dc_prob_draw)*100,1)}% /
-        A {knownNumber(Number(model.dc_prob_away)*100,1)}% · {model.model_source||"Source unavailable"}</p>}
+      {model && <p>Qualified internal model (DC) · H {percentDecimal(model.dc_prob_home)}% /
+        D {percentDecimal(model.dc_prob_draw)}% /
+        A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
       {!model && <p>Internal model not verified for this match.</p>}
       <p>Goal-line and corner predictions are shown only when real source fields exist. Unknown values remain unknown.</p>
     </section>}
