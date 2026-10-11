@@ -1,7 +1,7 @@
 name: Raw Flashscore dashboard verification
 on:
   pull_request:
-    branches: [main]
+    branches: [main, release/ft-advisors-fotmob-20261011]
   workflow_dispatch:
 permissions:
   contents: read

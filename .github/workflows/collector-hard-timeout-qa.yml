@@ -1,12 +1,12 @@
 name: Flashscore Collector Hard Timeout QA
 on:
   push:
-    branches: [main]
+    branches: [main, release/ft-advisors-fotmob-20261011]
     paths:
       - 'services/flashscore-odds-collector/**'
       - '.github/workflows/collector-hard-timeout-qa.yml'
   pull_request:
-    branches: [main]
+    branches: [main, release/ft-advisors-fotmob-20261011]
     paths:
       - 'services/flashscore-odds-collector/**'
       - '.github/workflows/collector-hard-timeout-qa.yml'
