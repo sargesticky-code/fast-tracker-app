@@ -1,20 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
-Deno.serve((req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  return Response.json({
-    error: "source_retired",
-    source: "hkjc-live-direct",
-    replacement: "FLASHSCORE_BET365",
-    message: "HKJC authority collection was retired on 2026-10-05. Use the cloud Flashscore/Bet365 pipeline.",
-  }, {
-    status: 410,
-    headers: { ...cors, "Cache-Control": "no-store" },
-  });
-});
+Deno.serve(() => new Response(JSON.stringify({
+  error: "RETIRED_SOURCE_ENDPOINT",
+  activeFixtureAuthority: "FLASHSCORE",
+  activePricingAuthority: "INDEPENDENT_BOOKMAKER_ONLY",
+  retriable: false
+}), {
+  status: 410,
+  headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
+}));
