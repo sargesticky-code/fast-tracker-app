@@ -399,9 +399,9 @@ function EvidenceSourceIcons({ match }) {
   const verifiedFotmob = fotmob && (fotmob.detailAvailable || fotmob.lineupAvailable || fotmob.statsAvailable);
   const bcl = match?.advisorPredictions?.BETCLAN || match?.betclan || null;
   const rows = [
-    { id: "BCL", name: "BetClan — primary advisor", available: Boolean(bcl && bcl.home != null && bcl.draw != null && bcl.away != null), tint: "#aa6611" },
+    { id: "BCL", name: "BetClan — primary advisor", available: Boolean(bcl && preferredModel(match) === bcl), tint: "#aa6611" },
     { id: "FB", name: "Forebet — secondary advisor", available: Boolean(match?.forebet || match?.forebetDetail?.predictedScore), tint: "#197148" },
-    { id: "ST", name: "SportyTrader — third advisor (prediction source candidate)", available: Boolean(match?.advisorPredictions?.SPORTYTRADER), tint: "#6f52aa" },
+    { id: "ST", name: "SportyTrader — third advisor (prediction source candidate)", available: Boolean(match?.advisorPredictions?.SPORTYTRADER?.status === "CURRENT" && match?.advisorPredictions?.SPORTYTRADER?.identityStatus === "VERIFIED"), tint: "#6f52aa" },
     { id: "FT", name: "Fast Tracker quantitative model, not an external advisor", available: Boolean(match?.dc || match?.pi || match?.form), tint: "#3659ae" },
     { id: "FM", name: "FotMob — lineup, player and match evidence (not a betting prediction)", available: Boolean(verifiedFotmob), tint: "#be5036" },
     { id: "FS", name: "Flashscore — match/fixture evidence", available: Boolean(ctx.observedStats || ctx.statsAvailable && ctx.source === "FLASHSCORE"), tint: "#2d7292" },
@@ -538,8 +538,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           const forebetRawAvg = match?.forebetDetail?.ou25?.avgGoals
             ?? match?.forebetDetail?.avgGoals ?? match?.forebet?.avgGoals ?? null;
           const avgGoals = forebetRawAvg === null || forebetRawAvg === "" ? null : Number(forebetRawAvg);
-          const predictedScore = match?.forebetDetail?.predictedScore
-            || match?.forebet?.score || "—";
+          const primaryModel = preferredModel(match);
+          const betclanPrimary = match?.advisorPredictions?.BETCLAN &&
+            primaryModel === match.advisorPredictions.BETCLAN;
+          const predictedScore = betclanPrimary && primaryModel?.predictedScore
+            ? primaryModel.predictedScore
+            : match?.forebetDetail?.predictedScore || match?.forebet?.score || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
           const rowClasses = [
