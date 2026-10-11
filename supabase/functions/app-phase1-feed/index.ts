@@ -384,6 +384,22 @@ function evidenceTriplet(row:any){
   return home==null||draw==null||away==null ? null : {home,draw,away};
 }
 
+function fotmobTopRatedPlayers(playerStats:any) {
+  if (!playerStats || typeof playerStats !== "object" || Array.isArray(playerStats)) return [];
+  return Object.values(playerStats).flatMap((player:any) => {
+    const name=String(player?.name??"").trim();
+    const sections=Array.isArray(player?.stats)?player.stats:[];
+    const top=sections.find((section:any)=>section?.key==="top_stats")?.stats??{};
+    const rating=Number(top?.["FotMob rating"]?.stat?.value);
+    if (!name || !Number.isFinite(rating) || rating<=0 || rating>10) return [];
+    const numOrNull=(v:any)=>v===null||v===undefined||v===""
+      ? null : Number.isFinite(Number(v))?Number(v):null;
+    return [{id:String(player?.id??""),name,rating:Math.round(rating*100)/100,
+      goals:numOrNull(top?.Goals?.stat?.value),
+      assists:numOrNull(top?.Assists?.stat?.value)}];
+  }).sort((a:any,b:any)=>b.rating-a.rating||a.name.localeCompare(b.name)).slice(0,3);
+}
+
 async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:any,hours:number){
   const headers={ Authorization:`Bearer ${serverKey}`, apikey:serverKey };
   const summaryRes=await fetch(`${supabaseUrl}/functions/v1/app-phase1-feed?hours=${hours}&view=summary`,{
@@ -536,6 +552,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
         const detail=sourceDetailById.get(id);
         const content=detail?.detail_raw?.content||{};
         const playerStats=content?.playerStats;
+           const fotmobPlayers=fotmobTopRatedPlayers(playerStats);
         const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
         const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
         const shotRows=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
@@ -549,6 +566,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
           statsAvailable:matchStatsAvailable||Boolean(m?.sourceContext?.statsAvailable),
           xgAvailable:xgAvailable||Boolean(m?.sourceContext?.xgAvailable),
           detailFetchedAt:detail?.detail_fetched_at??m?.sourceContext?.detailFetchedAt??null,
+          fotmobPlayers,
           lineupCoverage:lineup?{
             source:lineup.source,
             starters:lineup.home+lineup.away,
@@ -1030,6 +1048,7 @@ Deno.serve(async (req: Request) => {
         for(const [id,row] of newestByMatch.entries()){
           const content=row?.detail_raw?.content||{};
           const playerStats=content?.playerStats;
+           const fotmobPlayers=fotmobTopRatedPlayers(playerStats);
           const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
           const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
           const shots=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
@@ -1044,6 +1063,7 @@ Deno.serve(async (req: Request) => {
             statsAvailable:matchStatsAvailable||Boolean(existing.statsAvailable),
             xgAvailable:xgAvailable||Boolean(existing.xgAvailable),
             detailFetchedAt:row?.detail_fetched_at??row?.updated_at??existing.detailFetchedAt??null,
+          fotmobPlayers,
           });
         }
       }
