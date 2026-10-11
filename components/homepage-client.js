@@ -401,6 +401,7 @@ function EvidenceSourceIcons({ match }) {
   const rows = [
     { id: "BCL", name: "BetClan — primary advisor", available: Boolean(bcl && bcl.home != null && bcl.draw != null && bcl.away != null), tint: "#aa6611" },
     { id: "FB", name: "Forebet — secondary advisor", available: Boolean(match?.forebet || match?.forebetDetail?.predictedScore), tint: "#197148" },
+    { id: "ST", name: "SportyTrader — third advisor (prediction source candidate)", available: Boolean(match?.advisorPredictions?.SPORTYTRADER), tint: "#6f52aa" },
     { id: "FT", name: "Fast Tracker quantitative model, not an external advisor", available: Boolean(match?.dc || match?.pi || match?.form), tint: "#3659ae" },
     { id: "FM", name: "FotMob — lineup, player and match evidence (not a betting prediction)", available: Boolean(verifiedFotmob), tint: "#be5036" },
     { id: "FS", name: "Flashscore — match/fixture evidence", available: Boolean(ctx.observedStats || ctx.statsAvailable && ctx.source === "FLASHSCORE"), tint: "#2d7292" },
