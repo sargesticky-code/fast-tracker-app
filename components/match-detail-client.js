@@ -570,6 +570,11 @@ function mergeLiveMatch(base, payload, matchId) {
   if (!base) return base;
 
   if (live) {
+    const sourceAt = Date.parse(String(base?.scoreCapturedAt || ""));
+    const overlayAt = Date.parse(String(live?.live?.score?.capturedAt || live?.live?.fetchedAt || ""));
+    if (base?.scoreSource === "FLASHSCORE" &&
+       (base.status === "FINISHED" || !Number.isFinite(overlayAt) ||
+        (Number.isFinite(sourceAt) && sourceAt >= overlayAt))) return base;
     return {
       ...base,
       liveNow: true,
@@ -580,6 +585,9 @@ function mergeLiveMatch(base, payload, matchId) {
     };
   }
   if (base.liveNow) {
+    const observedAt = Date.parse(String(base?.scoreCapturedAt || ""));
+    if (base?.scoreSource === "FLASHSCORE" && Number.isFinite(observedAt)
+        && observedAt >= Date.now()-20*60*1000) return base;
     return { ...base, liveNow: false, inPlay: false, liveEligible: false, live: null };
   }
   return base;
@@ -654,6 +662,15 @@ export default function MatchDetailClient({ initialFeed = null }) {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
             const previousAuthoritativeStale = previous?.health?.authorityFreshness === "STALE";
+            // A current source-verified Flashscore score may change after kickoff.
+            // Do not freeze it behind the old prematch price-staleness guard.
+            if (live?.scoreSource === "FLASHSCORE" && live?.scoreCapturedAt) {
+              const incomingAt = Date.parse(String(live.scoreCapturedAt));
+              const previousAt = Date.parse(String(previous?.scoreCapturedAt || ""));
+              if (Number.isFinite(incomingAt) && (!Number.isFinite(previousAt) || incomingAt >= previousAt)) {
+                return { ...live, historicalForm: previous?.historicalForm ?? live.historicalForm ?? null };
+              }
+            }
             if (previousAuthoritativeStale || previousStarted) return previous;
             if (liveApplied && previous?.live) {
               return {
@@ -708,7 +725,13 @@ export default function MatchDetailClient({ initialFeed = null }) {
             // A stale/terminal authoritative detail snapshot must be allowed to
             // replace a cached prematch card so historical odds cannot survive
             // merely because local storage had an older "fresh" representation.
-            if (fallbackStale || previousStarted) return { ...fixtureFallback, historicalForm: previous?.historicalForm ?? fixtureFallback.historicalForm ?? null };
+            if (fallbackStale || previousStarted) {
+              const priorScore = Date.parse(String(previous?.scoreCapturedAt || ""));
+              const sourceFresh = Number.isFinite(priorScore) &&
+                (previous?.status === "FINISHED" || priorScore >= Date.now()-20*60*1000);
+              if (previous?.scoreSource === "FLASHSCORE" && sourceFresh) return previous;
+              return { ...fixtureFallback, historicalForm: previous?.historicalForm ?? fixtureFallback.historicalForm ?? null };
+            }
             return previous || fixtureFallback;
           });
           if (!resolvedFresh) setSource("SUPABASE DETAIL · fixture fallback");
@@ -1464,6 +1487,13 @@ export default function MatchDetailClient({ initialFeed = null }) {
         </div>
 
         <div className="detail-board-status">
+          {(match?.status === "LIVE" || match?.status === "FINISHED")
+            && match?.scoreHome != null && match?.scoreAway != null
+            && match?.scoreSource === "FLASHSCORE" && (
+              <span className="detail-status-chip" title={"Flashscore result captured " + (match?.scoreCapturedAt || "unknown")}>
+                {match.status === "FINISHED" ? "FT" : "LIVE"} {match.scoreHome}–{match.scoreAway} · Flashscore
+              </span>
+            )}
           {detailAgreement.key !== "limited" ? <span className={"detail-status-chip detail-status-" + detailAgreement.key}>{detailAgreement.label}</span> : null}
           <span className={"detail-status-chip detail-review-" + detailPriority.band}>R {detailPriority.score}</span>
           <span className="detail-status-chip">{evidenceCount} inputs</span>
