@@ -7,6 +7,7 @@ on:
       - scripts/forebet_lean_parser.py
       - scripts/requirements-forebet-lean.txt
       - tests/test_forebet_lean_parser.py
+      - tests/test_forebet_lean_capture.py
       - .github/workflows/forebet-lean-pilot.yml
   workflow_dispatch:
   push:
@@ -16,6 +17,7 @@ on:
       - scripts/forebet_lean_parser.py
       - scripts/requirements-forebet-lean.txt
       - tests/test_forebet_lean_parser.py
+      - tests/test_forebet_lean_capture.py
       - .github/workflows/forebet-lean-pilot.yml
 permissions:
   contents: read
@@ -33,7 +35,7 @@ jobs:
       - name: Test source HTML parsing and safe normalization (no provider network)
         run: |
           python -m py_compile scripts/forebet-lean-capture.py scripts/forebet_lean_parser.py
-          python -m unittest discover -s tests -p 'test_forebet_lean_parser.py' -v
+          python -m unittest discover -s tests -p 'test_forebet_lean_*.py' -v
           python - <<'PY'
           import importlib.util
           spec = importlib.util.spec_from_file_location("fb", "scripts/forebet-lean-capture.py")
