@@ -1,0 +1,3 @@
+with agreed as (select r.external_team_id,min(v.team_key) canonical,count(distinct v.team_key) targets,count(distinct v.source) sources from private.team_alias_reference r join public.team_name_lookup v on v.source_key=r.source_key where r.source='OPENFOOTBALL_CLUBS_CC0' group by r.external_team_id)
+update private.team_alias_reference r set canonical_team_key=a.canonical,identity_status='LINKED_CANONICAL',updated_at=now()
+from agreed a where r.source='OPENFOOTBALL_CLUBS_CC0' and r.external_team_id=a.external_team_id and r.canonical_team_key is null and a.targets=1 and a.sources>=2;
