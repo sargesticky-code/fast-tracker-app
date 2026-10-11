@@ -23,7 +23,7 @@ jobs:
           python -m unittest discover -s tests -p test_betclan_pilot_adapter.py -v
       - name: Fetch one live public BetClan page and one detail max
         run: |
-          python scripts/betclan_pilot_adapter.py --day today --max-details 1 --output betclan-pilot-candidates.json
+          python scripts/betclan_pilot_adapter.py --day today --max-details 12 --output betclan-pilot-candidates.json
       - name: Preserve limited candidate evidence, no database or odds writes
         if: always()
         uses: actions/upload-artifact@v4
