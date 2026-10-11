@@ -428,7 +428,7 @@ function EvidenceSourceIcons({ match }) {
     { id: "ST", name: "SportyTrader — third advisor (prediction source candidate)", available: Boolean(match?.advisorPredictions?.SPORTYTRADER?.status === "CURRENT" && match?.advisorPredictions?.SPORTYTRADER?.identityStatus === "VERIFIED"), tint: "#6f52aa" },
     { id: "FT", name: "Fast Tracker quantitative model, not an external advisor", available: Boolean(match?.dc || match?.pi || match?.form), tint: "#3659ae" },
     { id: "FM", name: "FotMob — lineup, player and match evidence (not a betting prediction)", available: Boolean(verifiedFotmob), tint: "#be5036" },
-    { id: "FS", name: "Flashscore — match/fixture evidence", available: Boolean(ctx.observedStats || ctx.statsAvailable && ctx.source === "FLASHSCORE"), tint: "#2d7292" },
+    { id: "FS", name: "Flashscore — verified fixture ID and kickoff (live match statistics are separate)", available: /^FS:[A-Za-z0-9]+$/.test(String(match?.id ?? "")), tint: "#2d7292" },
   ];
   return (
     <div className="ft-source-evidence-icons" aria-label="Source availability" style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>
@@ -569,6 +569,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
             ? primaryModel.predictedScore
             : match?.forebetDetail?.predictedScore || match?.forebet?.score || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
+          const valueSelection = edge?.key === "H" ? "1" : edge?.key === "D" ? "X" : edge?.key === "A" ? "2" : null;
 
           const rowClasses = [
             "ft-match-row",
@@ -621,7 +622,10 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
-              <div><span className={edge?.expectedValue > 0.04 ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span></div>
+              <div><span className={edge?.expectedValue > 0.04 ? "ft-edge strong" : "ft-edge"}
+                title={Number.isFinite(edge?.expectedValue) ? `Value selection ${valueSelection || "unknown"} · decimal odds ${bestOdds ?? "—"} · model-derived expected return, not the predicted winner` : "No comparable model and bookmaker price"}>
+                {Number.isFinite(edge?.expectedValue) ? `${valueSelection || "?"} ${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}
+              </span></div>
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
                 <strong>{scoreText(match)}</strong>
