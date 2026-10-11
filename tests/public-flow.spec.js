@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results",{recursive:true});
 const snapshot = {
-  source:"FLASHSCORE_BET365",captured_at:"2026-10-11T01:00:00Z",
+  source:"FLASHSCORE_BET365",captured_at:new Date().toISOString(),
   discovered:Array.from({length:40},(_,i)=>({
     provider_event_id:"event"+i,home:"Home "+i,away:"Away "+i,
     competition:i%2?"League A":"League B",fixture_date:i<35?"2026-10-11":"2026-10-12",
@@ -14,12 +14,12 @@ const summary = {
   source:"flashscore-single-rpc-canonical",generatedAt:"2026-10-11T01:00:00Z",
   count:2,
   matches:[
-    {id:"FS:event0",forebet:{home:0.45,draw:0.25,away:0.30},
+    {id:"FS:event0",home:"Home 0",away:"Away 0",league:"League B",kickoff:"2026-10-11T15:30:00Z",forebet:{home:0.45,draw:0.25,away:0.30},
       forebetDetail:{predictedScore:"2-1"},
       scoreHome:1,scoreAway:0,scoreSource:"FLASHSCORE",
       sourceContext:{source:"FLASHSCORE",lineupAvailable:true,
         lineupCoverage:{homeStarters:11,awayStarters:11,updatedAt:"2026-10-11T00:50:00Z"}}},
-    {id:"FS:event1",forebetDetail:{predictedScore:"0-2"},
+    {id:"FS:event1",home:"Home 1",away:"Away 1",league:"League A",kickoff:"2026-10-11T16:00:00Z",forebetDetail:{predictedScore:"0-2"},
       sourceContext:{source:"FLASHSCORE",lineupAvailable:false}}
   ],
   systemHealth:{FLASHSCORE_BET365:{status:"OK",raw:{snapshotFresh:true}}}
@@ -111,4 +111,17 @@ test("mismatched analysis identity is rejected, not joined by team names",async(
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByText("Verified analysis unavailable. Raw fixture fields remain visible.")).toBeVisible();
   await expect(page.getByTestId("official-xi")).toHaveCount(0);
+});
+
+test("cold or stale raw snapshot uses exact canonical source fallback without invented quotes",async({page})=>{
+  mockEndpoints(page,{raw:{...snapshot,captured_at:null,discovered:[],fixtures:[],count:0}});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("canonical-fallback")).toContainText("2 verified Flashscore canonical fixtures");
+  await expect(page.locator(".ft-match-row")).toHaveCount(2);
+  await expect(page.getByText("Canonical kickoff 15:30 UTC")).toBeVisible();
+  await expect(page.locator(".ft-raw-odds").first()).toContainText("—");
+  await page.locator(".ft-match-row").first().click();
+  await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
+  await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
+  await expect(page.getByText("Raw prices: — / — / —")).toHaveCount(0);
 });
