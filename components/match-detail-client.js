@@ -843,6 +843,16 @@ export default function MatchDetailClient({ initialFeed = null }) {
   const sourceContext = match.sourceContext || null;
   const sourceContextConfidence = Number(sourceContext?.matchConfidence);
   const sourceContextVerified = sourceContext && Number.isFinite(sourceContextConfidence) && sourceContextConfidence >= 0.94;
+  // FotMob statistics are genuine saved match observations, not a betting
+  // probability and never treated as live without its source timestamp.
+  const fotmobPlayers = Array.isArray(sourceContext?.fotmobPlayers)
+    ? sourceContext.fotmobPlayers
+    : Array.isArray(sourceContext?.fotmob?.players) ? sourceContext.fotmob.players : [];
+  const fotmobAvailable = Boolean(
+    String(sourceContext?.source || "").toUpperCase() === "FOTMOB" &&
+    (sourceContext?.detailAvailable || sourceContext?.lineupAvailable || fotmobPlayers.length)
+  ) || Boolean(sourceContext?.fotmob?.detailAvailable || sourceContext?.fotmob?.lineupAvailable);
+  const fotmobFetchedAt = sourceContext?.fotmob?.fetchedAt || sourceContext?.detailFetchedAt || null;
   const predictedScore = match.forebetDetail?.predictedScore || match.forebet?.predictedScore || null;
   const movement = match.oddsMovement || null;
   const movementPct = Number(movement?.rawOddsChangePct);
@@ -1438,6 +1448,39 @@ export default function MatchDetailClient({ initialFeed = null }) {
               ? "This layer confirms fixture, lineup and context coverage only; it does not alter model probabilities, Bet365 fair probability or edge."
                : "The route is healthy but data coverage is incomplete; missing model evidence is not filled with invented values."}
           </p>
+        </section>
+      ) : null}
+
+      {fotmobAvailable ? (
+        <section className="panel" aria-label="FotMob player and lineup evidence"
+          style={{marginTop:10,padding:"12px 14px",borderColor:"#e7d4cb",background:"#fffcfa"}}>
+          <div className="panel-title" style={{marginBottom:5}}>
+            <div>
+              <p>FM · FOTMOB · MATCH & PLAYER EVIDENCE</p>
+              <h2 style={{fontSize:15}}>Observed player ratings & lineup coverage</h2>
+            </div>
+            <span>{fotmobFetchedAt
+              ? "Captured " + new Date(fotmobFetchedAt).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})
+              : "Capture time unavailable"}</span>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:7,fontSize:10}}>
+            <span>FM lineup {sourceContext?.fotmob?.lineupCoverage?.starters ?? sourceContext?.lineupCoverage?.starters ?? "—"}/22</span>
+            <span>Stats {sourceContext?.fotmob?.statsAvailable || sourceContext?.statsAvailable ? "available" : "not supplied"}</span>
+            <span>xG {sourceContext?.fotmob?.xgAvailable || sourceContext?.xgAvailable ? "available" : "not supplied"}</span>
+            <span>Rated players {fotmobPlayers.length ? "top " + fotmobPlayers.length : "not supplied"}</span>
+          </div>
+          {fotmobPlayers.length ? (
+            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+              {fotmobPlayers.map((p) => (
+                <div key={p.id || p.name} style={{border:"1px solid #e6d8d0",borderRadius:6,padding:"6px 9px",fontSize:11}}>
+                  <b>{p.name}</b>
+                  <strong style={{marginLeft:8,color:"#a94f30"}}>{Number(p.rating).toFixed(2)}</strong>
+                  <small style={{display:"block"}}>FM rating · {p.goals == null ? "Goals —" : "Goals " + p.goals} · {p.assists == null ? "Assists —" : "Assists " + p.assists}</small>
+                </div>
+              ))}
+            </div>
+          ) : <p className="fineprint">FotMob has not supplied individual rated player performances for this match.</p>}
+          <p className="fineprint">FotMob evidence is independent of Forebet/BetClan predictions; past player ratings never imply confirmed future lineups.</p>
         </section>
       ) : null}
 
