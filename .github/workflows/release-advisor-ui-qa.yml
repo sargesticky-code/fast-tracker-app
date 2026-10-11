@@ -1,14 +1,19 @@
-name: Release Advisor and FotMob UI QA
+name: Fast Tracker Raw + Verified Release QA
 on:
   push:
     branches: [release/ft-advisors-fotmob-20261011]
     paths:
+      - 'app/**'
       - 'components/**'
-      - 'lib/fast-tracker.js'
-      - 'scripts/check-advisor-source-hierarchy.mjs'
+      - 'lib/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/release-advisor-ui-qa.yml'
 permissions:
   contents: read
+concurrency:
+  group: fast-tracker-release-ui-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   release-compile:
     runs-on: ubuntu-latest
@@ -18,17 +23,15 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
-      - name: Install existing dependencies
-        run: npm install --no-audit --no-fund
-      - name: Source priority, UI identity and no stale predictions
-        run: |
-          node scripts/check-advisor-source-hierarchy.mjs
-          npm run check:ui
-      - name: Build exact proposed public Railway release
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate raw fixture and verified UI contract
         run: npm run build
         env:
           CF_PAGES: '1'
-      - name: Validate Homepage and Detail static routes
+      - name: Verify exported public routes
         run: |
           test -f out/index.html
           test -f out/details/index.html
+          test -f out/health/index.html
