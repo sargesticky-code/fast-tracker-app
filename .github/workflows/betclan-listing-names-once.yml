@@ -1,0 +1,23 @@
+name: BetClan Complete Index Name Evidence Once
+on:
+  push:
+    branches: [ops/offline-team-alias-master-export-20261011]
+    paths: [scripts/export_betclan_all_listing_names.py, .github/workflows/betclan-listing-names-once.yml]
+permissions:
+  contents: read
+jobs:
+  export-index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check requests==2.32.5 beautifulsoup4==4.14.3
+      - run: python -m py_compile scripts/export_betclan_all_listing_names.py
+      - run: python scripts/export_betclan_all_listing_names.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BETCLAN-ALL-INDEX-TEAM-NAMES
+          path: ops/team-alias-export/listing-only/
+          retention-days: 14
