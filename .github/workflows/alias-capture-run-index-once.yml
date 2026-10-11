@@ -1,0 +1,39 @@
+name: alias-capture-run-index-once
+on:
+  push:
+    branches: [audit/alias-source-manual-chatgpt-20261011]
+    paths: [.github/workflows/alias-capture-run-index-once.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get actual capture run ID from authenticated GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json,os,time,urllib.request,urllib.parse
+          repo=os.environ["GITHUB_REPOSITORY"]
+          token=os.environ["GH_TOKEN"]
+          branch="audit/alias-source-manual-chatgpt-20261011"
+          endpoint="https://api.github.com/repos/"+repo+"/actions/runs?branch="+urllib.parse.quote(branch,safe="")+"&per_page=40"
+          req=urllib.request.Request(endpoint,headers={"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json"})
+          runs=json.load(urllib.request.urlopen(req,timeout=25)).get("workflow_runs",[])
+          matching=[x for x in runs if x.get("name")=="alias-source-manual-once-20261011" and x.get("event")=="push"]
+          matching.sort(key=lambda x:x.get("created_at",""),reverse=True)
+          data={"branch":branch,"observed_at_utc":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),"runs":[{"id":x["id"],"name":x.get("name"),"status":x.get("status"),"conclusion":x.get("conclusion"),"html_url":x.get("html_url"),"head_sha":x.get("head_sha")} for x in matching[:3]]}
+          os.makedirs("audit",exist_ok=True)
+          with open("audit/capture-run-index-20261011.json","w") as f:json.dump(data,f,indent=2)
+          print(json.dumps(data))
+          PY
+      - name: Commit read-only run index to isolated audit branch
+        run: |
+          git config user.name "FastTracker Audit Robot"
+          git config user.email "audit-bot@users.noreply.github.com"
+          git add audit/capture-run-index-20261011.json
+          git diff --cached --quiet || (git commit -m "audit: record capture run id for source evidence download" && git push)
