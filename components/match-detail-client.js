@@ -632,7 +632,6 @@ export default function MatchDetailClient({ initialFeed = null }) {
     let cancelled = false;
     let resolvedFresh = Boolean(serverRow);
     let canonicalMissing = false;
-    let authoritativeDetailBlocksFeed = false;
     let liveApplied = false;
     const requestsInFlight = {
       match: false,
@@ -651,7 +650,7 @@ export default function MatchDetailClient({ initialFeed = null }) {
         const res = await fetchWithDeadline(DETAIL_SUMMARY_FEED_URL, { cache: "default" }, 20000);
         if (!res.ok) return;
         const feed = await res.json();
-        if (cancelled || canonicalMissing || authoritativeDetailBlocksFeed) return;
+        if (cancelled || canonicalMissing) return;
         const live = (feed.matches || []).find((m) => String(m.id) === String(matchId));
         if (live) {
           resolvedFresh = true;
@@ -718,7 +717,6 @@ export default function MatchDetailClient({ initialFeed = null }) {
         const fixtureFallback = matchFromDetailPayload(payload, matchId);
         if (fixtureFallback) {
           const fallbackStale = fixtureFallback?.health?.authorityFreshness === "STALE";
-          if (fallbackStale) authoritativeDetailBlocksFeed = true;
           setMatch((previous) => {
             const previousKickoff = previous?.kickoff ? new Date(previous.kickoff).getTime() : NaN;
             const previousStarted = Number.isFinite(previousKickoff) && previousKickoff <= Date.now() + 2 * 60 * 1000;
