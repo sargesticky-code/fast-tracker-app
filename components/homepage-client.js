@@ -52,7 +52,8 @@ export default function HomepageClient() {
       } finally {inFlight=false;}
     }
     refreshVerified();
-    const timer=setInterval(refreshVerified,90000);
+    // Verified evidence refreshes less often than raw fixtures to limit Supabase traffic.
+    const timer=setInterval(refreshVerified,300000);
     document.addEventListener("visibilitychange",refreshVerified);
     return ()=>{cancelled=true;controller.abort();clearInterval(timer);document.removeEventListener("visibilitychange",refreshVerified);};
   }, []);
