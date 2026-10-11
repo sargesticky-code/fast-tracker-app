@@ -27,6 +27,12 @@ Result: 120 eligible, 120 inserted registry, 120 inserted master (**118 FLASHSCO
 - Last Flashscore snapshot used was Oct 9, 2026; this backfills NAME identity only, **not** fresh match data.
 - Existing `ft_refresh_team_name_master()` truncates and reconstructs the master. Registry was updated FIRST, so later refresh can rebuild these aliases; avoid master-only manual insertions.
 
+## Per-event provenance completion
+- Existing `team_alias_evidence_v2` received **120 new source-backed rows**, each with original stored provider event ID, canonical fixture ID, team side, kickoff and verification method: Flashscore 118, Forebet 2.
+- Direct database audit showed precisely 118 + 2 unique evidence aliases; no synthetic names or external scrape requests.
+- `ops/sql/ft-20261011-backfill-alias-evidence.sql` is idempotent. A replay added 0 rows.
+- Initial SQL result accidentally counted two source *groups* instead of 120 evidence *rows*; corrected the checked-in reporting query to `sum(n)`, and independently confirmed 120 actual database rows.
+
 ## End-to-end resolver audit after production backfill
 - `ft_resolve_team_name('FLASHSCORE', ...)` resolved **212 / 718** distinct stored Flashscore fixture names; **506 remain unknown**.
 - `ft_resolve_team_name('FOREBET', ...)` resolved **795 / 806** distinct stored Forebet prediction names; **11 remain unknown**.
