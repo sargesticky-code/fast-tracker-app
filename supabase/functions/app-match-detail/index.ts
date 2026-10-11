@@ -341,6 +341,33 @@ Deno.serve(async(req:Request)=>{
         {statistics_raw:row.detail_raw?.statistics_raw},
         row.detail_fetched_at,row.kickoff_hkt
       );
+      const roster=row.verified_lineup && Array.isArray(row.verified_lineup.rows)
+        && row.verified_lineup.rows.length===22
+        && row.verified_lineup.homeStarters===11
+        && row.verified_lineup.awayStarters===11
+        ? row.verified_lineup:null;
+      const lineupIdentityVerified=roster?.canonicalIdentitiesVerified===true;
+      const coaches=row.verified_managers && Array.isArray(row.verified_managers.rows)
+        && row.verified_managers.rows.length===2
+        && row.verified_managers.rows.some((x:any)=>x?.team_side==="H")
+        && row.verified_managers.rows.some((x:any)=>x?.team_side==="A")
+        ? row.verified_managers:null;
+      // Reuse the exact one-fixture SQL read. No extra network queries/crawlers.
+      const playerMatchStats=Array.isArray(row.player_match_stats)?row.player_match_stats:[];
+      const byFotmobId=new Map(playerMatchStats.filter((s:any)=>s.playerId).map((s:any)=>[String(s.playerId),s]));
+      const verifiedLineupRows=(roster?.rows??[]).map((p:any)=>{
+        const provider=String(p.source_name||"").toUpperCase();
+        // Never equate Flashscore numerical IDs with FotMob IDs by coincidence.
+        const exact=provider==="FOTMOB_OFFICIAL" ? byFotmobId.get(String(p.player_key||"")):null;
+        return exact?{...p,match_stats:exact}:p;
+      });
+      const playerStatsMeta=playerMatchStats.length?{
+        source:"FOTMOB",identityStatus:"EXACT_PAIR_OR_VERIFIED_IDENTITY",
+        observedAt:row.player_match_stats_fetched_at??null,
+        players:playerMatchStats.length,
+        lineupRowsMatched:verifiedLineupRows.filter((x:any)=>x.match_stats).length,
+        joinMethod:"EXACT_FOTMOB_PROVIDER_PLAYER_ID_ONLY"
+      }:null;
       return Response.json(sanitizePublicCompatibility({
         generatedAt:new Date().toISOString(),id:requestedId,requestedId,
         fixtureSource:"CANONICAL_FLASHSCORE",redirect:null,
@@ -353,21 +380,45 @@ Deno.serve(async(req:Request)=>{
           had_draw:fresh?Number(row.had_draw):null,
           had_away:fresh?Number(row.had_away):null,
           bookmaker_source:fresh?"FLASHSCORE_BET365":null,
+          score_home:row.fs_home_score??null,
+          score_away:row.fs_away_score??null,
+          score_fetched_at:row.fs_score_fetched_at??null,
+          score_source:row.fs_home_score!=null&&row.fs_away_score!=null?"FLASHSCORE":null,
         },
         flashscoreStats:stats,
-        models:{internal:null,forebet:null,form:null,opta:null,multisource:null,evidence:[]},
+        models:{internal:row.internal_model??null,forebet:row.forebet_prediction??null,form:null,opta:null,multisource:null,evidence:[]},
         humanFactors:{
-          summary:null,eventMap:null,playerStatus:[],lineup:[],
-          playerProfiles:[],playerMatchStats:[],playerMatchStatsMeta:null,
-          lineupStrength:[],managers:[]
+          summary:null,
+          eventMap:lineupIdentityVerified?{lineup_confirmed_at:roster?.confirmedAt,
+            match_quality:1,source:roster?.source}:null,
+          playerStatus:[],lineup:verifiedLineupRows,
+          lineupProvenance:roster?{
+            source:roster.source,confirmedAt:roster.confirmedAt,
+            sourceConfirmed:true,canonicalIdentitiesVerified:lineupIdentityVerified,
+            homeStarters:11,awayStarters:11,
+            semantics:lineupIdentityVerified?"VERIFIED_CANONICAL_PLAYER_IDENTITIES":
+              "OFFICIAL_SOURCE_XI_CANONICAL_PLAYER_IDENTITIES_UNRESOLVED"
+          }:null,
+          playerProfiles:[],playerMatchStats,playerMatchStatsMeta:playerStatsMeta,
+          lineupStrength:[],
+          managers:coaches?.rows??[],
+          managerProvenance:coaches?{
+            source:coaches.source,capturedAt:coaches.capturedAt,
+            sourceConfirmed:true,canonicalManagerIdentityVerified:false
+          }:null
         },
         scenario:[],oddsMovement:null,
         h2h:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
         headToHead:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
         marketIntelligence:{bestValue:null,value:[],arbitrage:[],nearArbitrage:null,mode:"DETECT_ONLY"},
-        errors:{},evidenceMode:stats?"EXACT_FLASHSCORE_MATCH_STATISTICS":"EXACT_FLASHSCORE_FIXTURE_HDA",
+        errors:{},
+        evidenceMode:stats?"EXACT_FLASHSCORE_MATCH_STATISTICS":
+          roster?"EXACT_FLASHSCORE_FIXTURE_VERIFIED_SOURCE_XI":"EXACT_FLASHSCORE_FIXTURE_HDA",
         sourceLineage:{fixture:"FLASHSCORE",bookmaker:fresh?"FLASHSCORE_BET365":null,
-          quoteCapturedAt:quoteAt,statsCapturedAt:stats?.capturedAt||null}
+          quoteCapturedAt:quoteAt,statsCapturedAt:stats?.capturedAt||null,
+          fotmobPlayerStatsCapturedAt:playerStatsMeta?.observedAt||null,
+          forebetCapturedAt:row.forebet_prediction?.fetched_at||null,
+          internalModelCapturedAt:row.internal_model?.fetched_at||null}
       }),{headers:{...cors,"Cache-Control":"public, max-age=10, stale-while-revalidate=30"}});
     }
     if(fast.error){
