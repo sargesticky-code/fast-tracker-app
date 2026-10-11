@@ -293,9 +293,14 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     inPlay: liveNow,
     liveEligible: Boolean(liveNow || r.live_eligible),
     liveNow,
+    // Source-verified AG/AH scores are independent of prematch probabilities.
+    scoreHome: r.fs_home_score == null ? null : num(r.fs_home_score),
+    scoreAway: r.fs_away_score == null ? null : num(r.fs_away_score),
+    scoreCapturedAt: r.fs_score_fetched_at ?? null,
+    scoreSource: r.fs_home_score != null && r.fs_away_score != null ? "FLASHSCORE" : null,
     live: liveNow ? {
       status: r.status ?? null,
-      fetchedAt: r.fetched_at ?? null,
+      fetchedAt: r.fs_score_fetched_at ?? null,
       poolStatus: r.pool_status ?? null,
       oddsUpdatedAt: null,
       odds: { home: null, draw: null, away: null },
@@ -309,7 +314,12 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
       handicap: { line: null, home: null, away: null },
       goals: { line: null, over: null, under: null },
       corners: { line: null, over: null, under: null },
-      score: null,
+      score: r.fs_home_score != null && r.fs_away_score != null ? {
+        home: num(r.fs_home_score), away: num(r.fs_away_score),
+        text: `${r.fs_home_score} - ${r.fs_away_score}`,
+        source:"FLASHSCORE", capturedAt:r.fs_score_fetched_at??null,
+        status:r.status??"LIVE"
+      } : null,
       stats: null,
       shadow: null,
     } : null,
@@ -340,6 +350,11 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     pi: null,
     piDetail: null,
     form: null,
+    // Observed football-data.co.uk domestic league results, not a forecast or live statistic.
+    historicalForm: {
+      home: r.historical_form_home ?? null,
+      away: r.historical_form_away ?? null,
+    },
     formDetail: null,
     multi: null,
     health: {
@@ -369,9 +384,18 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     oddsMovement: null,
     power: null,
     storySummary: null,
-    sourceContext: chinaFresh ? {marketAuthority:"CHINA_500_SPF",
-      quoteSemantics:"PREMATCH_REFERENCE_ONLY",sourceUpdatedAt:r.china500_source_updated_at,
-      capturedAt:r.china500_captured_at} : null,
+    sourceContext:{
+      ...(chinaFresh ? {marketAuthority:"CHINA_500_SPF",
+        quoteSemantics:"PREMATCH_REFERENCE_ONLY",sourceUpdatedAt:r.china500_source_updated_at,
+        capturedAt:r.china500_captured_at} : {}),
+      source:"FLASHSCORE",matchConfidence:1,
+      identityStatus:"EXACT_CANONICAL_PROVIDER_FIXTURE",
+      lineupAvailable:r.flashscore_verified_source_xi===true,
+      lineupCoverage:r.flashscore_verified_source_xi===true?{
+        source:"FLASHSCORE_OFFICIAL",starters:22,homeStarters:11,awayStarters:11,
+        confirmedStarters:22,updatedAt:r.flashscore_xi_observed_at??null
+      }:null
+    },
     updatedAt: chinaFresh ? r.china500_captured_at : (r.updated_at ?? r.fetched_at ?? null),
   };
 }
@@ -380,6 +404,22 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
 function evidenceTriplet(row:any){
   const home=num(row?.prob_home), draw=num(row?.prob_draw), away=num(row?.prob_away);
   return home==null||draw==null||away==null ? null : {home,draw,away};
+}
+
+function fotmobTopRatedPlayers(playerStats:any) {
+  if (!playerStats || typeof playerStats !== "object" || Array.isArray(playerStats)) return [];
+  return Object.values(playerStats).flatMap((player:any) => {
+    const name=String(player?.name??"").trim();
+    const sections=Array.isArray(player?.stats)?player.stats:[];
+    const top=sections.find((section:any)=>section?.key==="top_stats")?.stats??{};
+    const rating=Number(top?.["FotMob rating"]?.stat?.value);
+    if (!name || !Number.isFinite(rating) || rating<=0 || rating>10) return [];
+    const numOrNull=(v:any)=>v===null||v===undefined||v===""
+      ? null : Number.isFinite(Number(v))?Number(v):null;
+    return [{id:String(player?.id??""),name,rating:Math.round(rating*100)/100,
+      goals:numOrNull(top?.Goals?.stat?.value),
+      assists:numOrNull(top?.Assists?.stat?.value)}];
+  }).sort((a:any,b:any)=>b.rating-a.rating||a.name.localeCompare(b.name)).slice(0,3);
 }
 
 async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:any,hours:number){
@@ -534,6 +574,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
         const detail=sourceDetailById.get(id);
         const content=detail?.detail_raw?.content||{};
         const playerStats=content?.playerStats;
+           const fotmobPlayers=fotmobTopRatedPlayers(playerStats);
         const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
         const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
         const shotRows=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
@@ -547,6 +588,7 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
           statsAvailable:matchStatsAvailable||Boolean(m?.sourceContext?.statsAvailable),
           xgAvailable:xgAvailable||Boolean(m?.sourceContext?.xgAvailable),
           detailFetchedAt:detail?.detail_fetched_at??m?.sourceContext?.detailFetchedAt??null,
+          fotmobPlayers,
           lineupCoverage:lineup?{
             source:lineup.source,
             starters:lineup.home+lineup.away,
@@ -630,7 +672,7 @@ Deno.serve(async (req: Request) => {
       ]);
       if(!fast.error && Array.isArray(fast.data)){
         const matches=fast.data.map((r:any)=>{
-          const base=directAuthoritySummaryRow(r,false);
+          const base=directAuthoritySummaryRow(r,r.fs_live_verified===true);
           const stats=observedFlashscoreStats(
             {detail_raw:r.detail_raw,detail_fetched_at:r.detail_fetched_at},
             r.kickoff_hkt
@@ -643,11 +685,19 @@ Deno.serve(async (req: Request) => {
               observedStats:stats,statsAvailable:true,
               xgAvailable:Boolean(stats.stats.xg),
               detailFetchedAt:stats.capturedAt,
-              lineupAvailable:false,lineupCoverage:null
+              lineupAvailable:Boolean(base.sourceContext?.lineupAvailable),
+              lineupCoverage:base.sourceContext?.lineupCoverage??null
             }
           } : base;
         });
         const source=heartbeat.data??null;
+        const publisherCaptureAt=source?.raw?.captured_at||source?.observed_at||null;
+        const publisherAgeMs=publisherCaptureAt?Date.now()-Date.parse(String(publisherCaptureAt)):Infinity;
+        const publisherFresh=Number.isFinite(publisherAgeMs)
+          && publisherAgeMs>=-60_000 && publisherAgeMs<=20*60_000;
+        // An OK publication event does not mean the bookmaker data is still fresh.
+        const publisherStatus=source?.status==="OK"&&!publisherFresh?"STALE":
+          (source?.status??"UNKNOWN");
         return Response.json({
           generatedAt:new Date().toISOString(),
           source:"flashscore-single-rpc-canonical",
@@ -655,10 +705,14 @@ Deno.serve(async (req: Request) => {
           count:matches.length,matches,
           systemHealth:{
             FLASHSCORE_BET365:{
-              status:source?.status??"UNKNOWN",
+              status:publisherStatus,
               value:source?.value_text??null,
-              observedAt:source?.observed_at??null,
-              notes:source?.notes??null,raw:source?.raw??{}
+              observedAt:publisherCaptureAt,
+              notes:publisherFresh?(source?.notes??null):
+                "Latest verified bookmaker snapshot is stale or missing; successful jobs do not imply fresh data.",
+              raw:{...(source?.raw??{}),snapshotFresh:publisherFresh,
+                snapshotAgeMinutes:Number.isFinite(publisherAgeMs)?
+                  Math.round(publisherAgeMs/60000):null}
             },
             authorityMode:{
               status:"OK",value:"EXACT_CANONICAL_WITH_SOURCE_PROVENANCE",
@@ -1017,6 +1071,7 @@ Deno.serve(async (req: Request) => {
         for(const [id,row] of newestByMatch.entries()){
           const content=row?.detail_raw?.content||{};
           const playerStats=content?.playerStats;
+           const fotmobPlayers=fotmobTopRatedPlayers(playerStats);
           const playerStatsAvailable=Boolean(playerStats&&typeof playerStats==="object"&&!Array.isArray(playerStats)&&Object.keys(playerStats).length);
           const matchStatsAvailable=Boolean(content?.stats||playerStatsAvailable);
           const shots=Array.isArray(content?.shotmap?.shots)?content.shotmap.shots:[];
@@ -1031,6 +1086,7 @@ Deno.serve(async (req: Request) => {
             statsAvailable:matchStatsAvailable||Boolean(existing.statsAvailable),
             xgAvailable:xgAvailable||Boolean(existing.xgAvailable),
             detailFetchedAt:row?.detail_fetched_at??row?.updated_at??existing.detailFetchedAt??null,
+          fotmobPlayers,
           });
         }
       }
