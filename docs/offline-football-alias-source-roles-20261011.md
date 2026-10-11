@@ -47,5 +47,25 @@ Use a **one-time / on-demand historical matching batch**, not daily recurring al
 - **Do not claim a live deployment until Railway reports the new exact commit and the public detail page has no obsolete label.** The service source/deployment action was blocked by platform safety, so this commit may still be pending release.
 - Historical database column names and IDs bearing the old prefix are compatibility keys only, not active bookmaking inputs.
 
+
+## Completed offline batch results (verified 2026-10-11)
+- `football_alias_supertable`: **22,215 scoped source records**, 9,330 VERIFIED, 542 CANDIDATE, 153 AMBIGUOUS, 12,190 UNMATCHED. These are scoped rows, not unique teams. Earlier baseline was 21,612 total and 8,805 VERIFIED. Never claim 100% coverage.
+- Verified 205 new historical/current fixture + stable-provider-ID contexts for Flashscore/FotMob, plus 174 played-football-data contexts across 103 uniquely matched historical fixtures. Imported 398 league/team pairs into the supertable from 1,385 already-held football-data match rows, no paid web calls.
+- Provider-name collisions: 79 repeated source-name keys across leagues/provider IDs; 146 unsafe NON-VERIFIED rows quarantined as ambiguous. Existing stable-ID-backed verified rows left untouched.
+- Generated **13** candidate-only cross-provider historical fixture/opponent evidence entries, with one-to-one fixture and bounded lexical checks. Do not auto-promote those candidates.
+- Backfilled **32** unique source-backed Forebet predictions with HDA, predicted score, average goals and original source references; `forebet_predictions` now **588**. Source data remain 1,285 unique Forebet events from previous acquisition.
+- Supabase cron jobs 11 and 41 confirmed **inactive**. Forebet collector is deployed but no scheduled jobs nor fresh Firecrawl expenditure for this batch; Firecrawl connected team showed **950/1000 remaining**.
+- UI model-support chart correction committed to exact current Railway release branch (git `87793ba6`), but the last observed LIVE Railway deployment still used `7318338a` and displayed stale wording. **Live deployment blocked and not verified; not shipped to production.** No fabricated deploy claim.
+
+### Exact offline replay order (no scheduled invocation)
+1. `select private.ft_verify_offline_context_aliases();`
+2. `select private.ft_verify_historical_football_data_contexts();`
+3. `select private.ft_refresh_football_alias_supertable();`
+4. `select private.ft_seed_played_football_data_to_supertable();`
+5. `select private.ft_seed_offline_backwards_fixture_aliases();`
+6. `select private.ft_quarantine_provider_name_collisions();` — **important last identity stage**, as a general supertable refresh recomputes candidates.
+7. `select private.ft_publish_historical_verified_forebet_pairs();`
+Run as an on-demand, audited offline batch only. Never let Codex or scheduled workers independently rerun these. Reconcile conflicting identities manually before any further VERIFIED promotion.
+
 ## Final operating pattern
 Collect public sources in a *single finite batch* only when evidence is missing. Persist source-specific records. Run offline event / league / historical match reconciliation. Quarantine collisions. Publish only uniquely verified matches and provider-attributed probabilities. Render from the same stable Supabase feed. No recurring alias crawlers, no duplicate source producers, no new HKJC market capture.
