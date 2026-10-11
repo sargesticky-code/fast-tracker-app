@@ -27,6 +27,14 @@ Result: 120 eligible, 120 inserted registry, 120 inserted master (**118 FLASHSCO
 - Last Flashscore snapshot used was Oct 9, 2026; this backfills NAME identity only, **not** fresh match data.
 - Existing `ft_refresh_team_name_master()` truncates and reconstructs the master. Registry was updated FIRST, so later refresh can rebuild these aliases; avoid master-only manual insertions.
 
+## End-to-end resolver audit after production backfill
+- `ft_resolve_team_name('FLASHSCORE', ...)` resolved **212 / 718** distinct stored Flashscore fixture names; **506 remain unknown**.
+- `ft_resolve_team_name('FOREBET', ...)` resolved **795 / 806** distinct stored Forebet prediction names; **11 remain unknown**.
+- Flashscore direct provider master VERIFIED matches grew from 62 observed fixture names to 182. **Overall resolver coverage did not necessarily rise by 120**, since many promoted names were already served through existing cross-source unique fallback. This is primarily durable source-specific identity/provenance and lookup path optimization.
+- Flashscore candidates 151 and ambiguous 2 unchanged. Exact source-verified key collision test = 0. `Bohemians` remains unresolved.
+- On last read, current 48h fixture summary contained 99 fixtures / 20 Forebet predicted-score records. New aliases do not themselves create model predictions.
+- Re-running the exact production SQL produced `vetted_eligible=0`, `added_registry=0`, `added_master=0` (idempotence).
+
 ## What this does NOT do
 - Does not download the entire Flashscore or Forebet proprietary website database. Flashscore explicitly restricts substantial database extraction and scraping without express consent: https://www.flashscore.com/terms-of-use/ . Forebet similarly restricts copying/reuse: https://www.forebet.com/en/terms-of-use . A scraper's MIT license does not grant rights over website data.
 - Does not turn an unverified match into a verified one or produce missing Forebet predicted scores.
