@@ -1,0 +1,39 @@
+name: Reep CC0 40-sample bulk alias gate
+on:
+  push:
+    branches: [fix/reep-bulk-alias-verified-sample-20261011]
+    paths:
+      - scripts/prepare_reep_bulk_alias_candidates.py
+      - .github/workflows/reep-bulk-alias-sample.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sample-and-prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download small public CC0 identity register once
+        run: python scripts/build_open_team_name_reference.py --out-dir /tmp/reep
+      - name: Generate sample-audited, idempotent SQL chunks
+        run: |
+          python -m py_compile scripts/prepare_reep_bulk_alias_candidates.py
+          python scripts/prepare_reep_bulk_alias_candidates.py
+      - name: Commit candidate and reviewable SQL only to isolated branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/reep-bulk-output/
+          git commit -m 'data: sample-checked Reep alias candidates (no DB writes)'
+          git push origin HEAD:fix/reep-bulk-alias-verified-sample-20261011
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reep-40-sample-bulk-alias
+          path: ops/reep-bulk-output/
+          retention-days: 7
