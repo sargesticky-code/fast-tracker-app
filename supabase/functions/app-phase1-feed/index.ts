@@ -338,8 +338,19 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     corners,
     forebetDetail:validForebet?{
       predictedScore:r.forebet_predicted_score.trim(),
-      ou25:{over:null,under:null,avgGoals:num(r.forebet_avg_goals)},
-      corners95:{over:null,under:null,avgCorners:null},
+      ou25:{
+        over:r.forebet_ou_over==null?null:num(r.forebet_ou_over),
+        under:r.forebet_ou_under==null?null:num(r.forebet_ou_under),
+        pick:r.forebet_ou_pick??null,
+        avgGoals:num(r.forebet_avg_goals)
+      },
+      corners95:{
+        over:r.forebet_corner_over==null?null:num(r.forebet_corner_over),
+        under:r.forebet_corner_under==null?null:num(r.forebet_corner_under),
+        pick:r.forebet_corner_pick??null,
+        predictedScore:r.forebet_corner_score??null,
+        avgCorners:r.forebet_avg_corners==null?null:num(r.forebet_avg_corners)
+      },
       goalsCurrentLine:null,cornersCurrentLine:null,
       fetchedAt:r.forebet_captured_at,source:"FOREBET",
     }:null,
