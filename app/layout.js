@@ -3,7 +3,7 @@ import "./homepage.css";
 import "react-day-picker/style.css";
 
 export const metadata = {
-  title: "Fast Tracker · Flashscore raw fixtures",
+  title: "Fast Tracker · Flashscore fixtures and verified analysis",
   description: "Flashscore source fixtures and captured Bet365 H/D/A prices",
   manifest: "/manifest.webmanifest",
 };
