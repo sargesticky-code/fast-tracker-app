@@ -1,0 +1,3 @@
+with verified as (select source_key,min(team_key) target,count(distinct team_key) targets,count(distinct source) sources from public.team_name_lookup group by source_key)
+update private.team_alias_reference as r set canonical_team_key=v.target,identity_status='LINKED_CANONICAL',updated_at=now()
+from verified as v where r.source='OPENFOOTBALL_CC0' and r.source_key=v.source_key and r.canonical_team_key is null and v.targets=1 and v.sources>=2;
