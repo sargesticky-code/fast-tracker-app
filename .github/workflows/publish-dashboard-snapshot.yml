@@ -1,0 +1,41 @@
+name: Publish dashboard snapshot
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: publish-dashboard-snapshot
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: github.repository == 'sargesticky-code/fast-tracker-app' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Request GitHub OIDC token and publish snapshot
+        env:
+          PROJECT_REF: hekqxhgjexzxnecwhyao
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          endpoint.searchParams.set("audience", "fast-tracker-supabase");
+          const tokenResponse = await fetch(endpoint, {
+            headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+          });
+          if (!tokenResponse.ok) throw new Error(`OIDC token request failed: ${tokenResponse.status}`);
+          const { value: token } = await tokenResponse.json();
+          const publishResponse = await fetch(
+            `https://${process.env.PROJECT_REF}.supabase.co/functions/v1/publish-dashboard-snapshot`,
+            { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+          );
+          const result = await publishResponse.text();
+          if (!publishResponse.ok) throw new Error(`Snapshot publish failed: ${publishResponse.status} ${result}`);
+          console.log(result);
+          NODE

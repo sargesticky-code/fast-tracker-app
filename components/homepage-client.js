@@ -19,6 +19,7 @@ import {
   fairMarket,
   formatKickoff,
   formatOdds,
+  isFreshDashboardSnapshot,
   leagueDisplayName,
   matchDetailHref,
   preferredModel,
@@ -28,8 +29,10 @@ import {
 const FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24";
+const SNAPSHOT_URL =
+  process.env.NEXT_PUBLIC_FAST_TRACKER_SNAPSHOT_URL ||
+  "https://hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/fast-tracker-dashboard/current.json";
 const HOMEPAGE_FEED_URL = FEED_URL + (FEED_URL.includes("?") ? "&" : "?") + "view=summary";
-const ENRICHMENT_FEED_URL = FEED_URL;
 const LIVE_FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_LIVE_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
@@ -545,14 +548,33 @@ export default function HomepageClient({ initialFeed, nowMs }) {
   useEffect(() => {
     let cancelled = false;
     let refreshInFlight = false;
-    let enrichmentInFlight = false;
     let liveInFlight = false;
 
     async function refreshAuthority() {
       if (cancelled || refreshInFlight || document.visibilityState === "hidden") return;
       refreshInFlight = true;
       try {
+        try {
+          const cachedRes = await fetch(SNAPSHOT_URL, {
+            cache: "default",
+            signal: AbortSignal.timeout(20000),
+          });
+          if (cachedRes.ok) {
+            const snapshot = await cachedRes.json();
+            if (isFreshDashboardSnapshot(snapshot)) {
+              if (!cancelled) {
+                setFeed(snapshot);
+                setFeedState({ status: "ready", message: null });
+              }
+              return;
+            }
+          }
+        } catch {
+          // Use the live feed if Storage is temporarily unavailable.
+        }
+
         const res = await fetch(HOMEPAGE_FEED_URL, {
+          cache: "default",
           signal: AbortSignal.timeout(20000),
         });
         if (!res.ok) {
@@ -580,25 +602,6 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       }
     }
 
-    async function refreshEnrichment() {
-      if (cancelled || enrichmentInFlight || document.visibilityState === "hidden") return;
-      enrichmentInFlight = true;
-      try {
-        const res = await fetch(ENRICHMENT_FEED_URL, {
-          signal: AbortSignal.timeout(35000),
-        });
-        if (!res.ok) return;
-        const rich = await res.json();
-        if (!Array.isArray(rich?.matches) || !rich.matches.length) return;
-        if (!cancelled) setFeed((current) => mergeAuthorityWithEnrichment(current, rich));
-      } catch {
-        // Enrichment is best-effort. Fixture authority must remain visible even
-        // when the heavier model/story pipeline is unavailable.
-      } finally {
-        enrichmentInFlight = false;
-      }
-    }
-
     async function refreshLiveOverlay() {
       if (cancelled || liveInFlight || document.visibilityState === "hidden") return;
       liveInFlight = true;
@@ -621,18 +624,14 @@ export default function HomepageClient({ initialFeed, nowMs }) {
 
     refreshAuthority();
     const warmLive = setTimeout(refreshLiveOverlay, 800);
-    const warmEnrichment = setTimeout(refreshEnrichment, 1500);
-    const authorityTimer = setInterval(refreshAuthority, 60000);
-    const liveTimer = setInterval(refreshLiveOverlay, 30000);
-    const enrichmentTimer = setInterval(refreshEnrichment, 300000);
+    const authorityTimer = setInterval(refreshAuthority, 300000);
+    const liveTimer = setInterval(refreshLiveOverlay, 60000);
 
     return () => {
       cancelled = true;
       clearTimeout(warmLive);
-      clearTimeout(warmEnrichment);
       clearInterval(authorityTimer);
       clearInterval(liveTimer);
-      clearInterval(enrichmentTimer);
     };
   }, []);
 
