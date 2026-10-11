@@ -63,10 +63,21 @@ def build():
  write_csv("02_ALL_ALIAS_NAMES_AND_IDS.csv",list(details[0]),details)
  write_csv("03_PROVIDER_IDS.csv",list(cross[0]),cross)
  write_csv("04_LEAGUE_MEMBERSHIP_EVIDENCE.csv",list(league_rows[0]),league_rows)
+ # These are repository-committed snapshots, not a live Supabase export.
+ reference=ROOT/"ops"/"reference"
+ verified=json.loads((reference/"verified-team-name-input-20261011.json").read_text())
+ observed=json.loads((reference/"observed-provider-names-20261011.json").read_text())
+ write_csv("05_EXISTING_VERIFIED_SNAPSHOT.csv",
+  ["source","source_name","canonical_team_key"],
+  [{"source":a,"source_name":b,"canonical_team_key":c} for a,b,c in verified])
+ write_csv("06_EXISTING_OBSERVED_PROVIDER_NAMES.csv",
+  ["source","source_name"],
+  [{"source":a,"source_name":b} for a,b in observed])
  manifest=dict(created_utc=datetime.now(timezone.utc).isoformat(),
   reep_names=len(raw),reep_entities=len(master),club_files=len(files),
   club_alias_names=len(club_rows),league_memberships=len(league_rows),
-  total_alias_rows=len(details),review_status="NOT_REVIEWED",
+  total_alias_rows=len(details),verified_snapshot_rows=len(verified),
+  observed_snapshot_rows=len(observed),review_status="NOT_REVIEWED",
   completeness="Full public Reep 24/24 plus all indexed CC0 openfootball/clubs files",
   caveat="Does not include private current Supabase mapping snapshot; site-specific names blank unless evidence exists",
   sources=["github.com/withqwerty/reep","github.com/openfootball/clubs",
@@ -76,7 +87,7 @@ def build():
   "OFFLINE ONLY: do not modify source IDs. Merge on unique provider ID, not text alone.\n"
   "Review youth/women/reserve/namesakes; preserve unknown. Complete proposal, confidence, evidence, status.\n"
   "No automatic import to Supabase. Treat league_hint as verified ONLY for exact CC0 season fixture names.\n"
-  "The existing canonical names/links require a separate authorized Supabase snapshot.\n"
+  "05/06 include existing repository canonical/provider snapshots, not all LIVE Supabase aliases.\n"
   "Hand this ZIP to the next ChatGPT chat for dedicated one-time matching.\n")
  path=ROOT/"dist"/"TEAM_ALIAS_OFFLINE_PACKAGE_20261011.zip"
  with zipfile.ZipFile(path,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
