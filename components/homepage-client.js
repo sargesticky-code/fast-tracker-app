@@ -622,8 +622,8 @@ export default function HomepageClient({ initialFeed, nowMs }) {
     refreshAuthority();
     const warmLive = setTimeout(refreshLiveOverlay, 800);
     const warmEnrichment = setTimeout(refreshEnrichment, 1500);
-    const authorityTimer = setInterval(refreshAuthority, 60000);
-    const liveTimer = setInterval(refreshLiveOverlay, 30000);
+    const authorityTimer = setInterval(refreshAuthority, 300000);
+    const liveTimer = setInterval(refreshLiveOverlay, 60000);
     const enrichmentTimer = setInterval(refreshEnrichment, 300000);
 
     return () => {
