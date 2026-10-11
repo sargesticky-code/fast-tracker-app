@@ -379,6 +379,65 @@ function TeamFormCard({ title, name, detail }) {
   );
 }
 
+
+function verifiedHistoricalForm(row, kickoff) {
+  if (!row || row.source !== "football-data.co.uk" || row.scope !== "domestic-league-results-only") return null;
+  const matches = Number(row.matches);
+  const sequence = String(row.resultsNewestFirst || "");
+  const throughDate = String(row.throughDate || "");
+  const throughMs = Date.parse(throughDate + "T00:00:00Z");
+  const kickoffMs = Date.parse(String(kickoff || ""));
+  const counts = [row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst].map(Number);
+  if (!Number.isInteger(matches) || matches < 3 || matches > 5
+    || sequence.length !== matches || !/^[WDL]{3,5}$/.test(sequence)
+    || counts.some((n) => !Number.isInteger(n) || n < 0)
+    || counts[0] + counts[1] + counts[2] !== matches
+    || !/^20\d{2}-\d{2}-\d{2}$/.test(throughDate)
+    || !Number.isFinite(throughMs) || !Number.isFinite(kickoffMs)
+    || throughMs >= kickoffMs) return null;
+  return { sequence, throughDate, matches, wins:counts[0], draws:counts[1], losses:counts[2], goalsFor:counts[3], goalsAgainst:counts[4] };
+}
+
+function HistoricalFormEvidence({ match }) {
+  const home = verifiedHistoricalForm(match?.historicalForm?.home, match?.kickoff);
+  const away = verifiedHistoricalForm(match?.historicalForm?.away, match?.kickoff);
+  if (!home && !away) return null;
+  const sides = [
+    ["Home", match.homeEn || match.home || "Home", home],
+    ["Away", match.awayEn || match.away || "Away", away],
+  ];
+  return (
+    <section className="panel" aria-label="Recorded domestic league results" style={{marginTop:12}}>
+      <div className="panel-title">
+        <div><p>ARCHIVED RESULTS · FOOTBALL-DATA.CO.UK</p><h2>Last five recorded league results</h2></div>
+        <span>HISTORICAL · NOT LIVE</span>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10}}>
+        {sides.map(([side,name,data]) => (
+          <div key={side} style={{border:"1px solid #d9e3ec",borderRadius:8,padding:"10px 12px",minWidth:0}}>
+            <small>{side}</small>
+            <strong style={{display:"block",margin:"4px 0 7px"}}>{name}</strong>
+            {data ? (
+              <>
+                <div aria-label={side + " recorded results newest first"} style={{display:"flex",gap:5}}>
+                  {[...data.sequence].map((v,i) => <span key={i} className={"form-chip form-"+v.toLowerCase()} title={"Recorded result "+v} style={{minWidth:26,textAlign:"center"}}>{v}</span>)}
+                </div>
+                <p style={{margin:"8px 0 3px",fontSize:12}}>{data.wins}W · {data.draws}D · {data.losses}L · Goals {data.goalsFor}-{data.goalsAgainst}</p>
+                <small>Latest result in file: {data.throughDate}</small>
+              </>
+            ) : <p style={{fontSize:12}}>Insufficient verified result history</p>}
+          </div>
+        ))}
+      </div>
+      <p className="fineprint" style={{marginTop:9}}>
+        Source: football-data.co.uk completed domestic league results only · newest result first.
+        Coverage is limited to the latest downloaded file; matches after each shown date may be missing.
+        No model probabilities, live form claims or inferred results are added.
+      </p>
+    </section>
+  );
+}
+
 function readCachedMatch(id) {
   if (!id) return null;
   try {
@@ -649,7 +708,7 @@ export default function MatchDetailClient({ initialFeed = null }) {
             // A stale/terminal authoritative detail snapshot must be allowed to
             // replace a cached prematch card so historical odds cannot survive
             // merely because local storage had an older "fresh" representation.
-            if (fallbackStale || previousStarted) return fixtureFallback;
+            if (fallbackStale || previousStarted) return { ...fixtureFallback, historicalForm: previous?.historicalForm ?? fixtureFallback.historicalForm ?? null };
             return previous || fixtureFallback;
           });
           if (!resolvedFresh) setSource("SUPABASE DETAIL · fixture fallback");
@@ -2201,6 +2260,8 @@ export default function MatchDetailClient({ initialFeed = null }) {
       </section>
 
 
+      <HistoricalFormEvidence match={match} />
+
       <section className={"panel team-form-panel " + (formCoverageState !== "FULL" ? "is-compact-state form-" + formCoverageState.toLowerCase() : "")} id="team-form">
         <div className="panel-title">
           <div><p>TEAM FORM</p><h2>Recent form comparison</h2></div>
@@ -2210,8 +2271,8 @@ export default function MatchDetailClient({ initialFeed = null }) {
           <div className="compact-form-state">
             <div>
               <span>FORM COVERAGE</span>
-              <strong>Recent form is unavailable for both teams</strong>
-              <p>No confirmed recent-match or model-sample statistics are stored in the current match card. Missing history remains unknown and is not scored as 0.</p>
+              <strong>{match?.historicalForm?.home || match?.historicalForm?.away ? "Detailed model-form breakdown is not available" : "Recent form is unavailable for both teams"}</strong>
+              <p>{match?.historicalForm?.home || match?.historicalForm?.away ? "The separately labelled historical W/D/L panel above comes from recorded football-data results; current model-form samples have not been verified." : "No confirmed recent-match or model-sample statistics are stored in the current match card. Missing history remains unknown and is not scored as 0."}</p>
             </div>
             <details className="compact-state-details">
               <summary>Coverage details</summary>
