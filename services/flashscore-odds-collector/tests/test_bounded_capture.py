@@ -1,4 +1,5 @@
 import sys
+import ast
 import tempfile
 import asyncio
 from pathlib import Path
@@ -11,6 +12,17 @@ from odds_batch import bounded_map
 
 
 class TestBoundedCollector(unittest.TestCase):
+    def test_refresh_loop_uses_15min_start_to_start_not_extra_capture_delay(self):
+        source = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        loop_node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name=="loop")
+        body = ast.unparse(loop_node)
+        self.assertEqual(body.count("run_refresh()"), 1)
+        self.assertIn("started = time.monotonic()", body)
+        self.assertIn("elapsed = time.monotonic() - started", body)
+        self.assertIn("time.sleep(max(0.0, REFRESH_SECONDS - elapsed))", body)
+        self.assertNotIn("time.sleep(REFRESH_SECONDS)", body)
+
     def test_odds_requests_use_only_two_workers_and_keep_fixture_order(self):
         async def run():
             active = 0
