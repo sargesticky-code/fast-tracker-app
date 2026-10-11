@@ -166,7 +166,7 @@ function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
 const primaryNav = [
   ["Today", Goal, "today"],
   ["Live", Activity, "live"],
-  ["Value", Trophy, "value"],
+  ["Est. EV", Trophy, "value"],
   ["Forecasts", ChartNoAxesColumnIncreasing, "predictions"],
   ["Tomorrow", CalendarDays, "tomorrow"],
   ["All matches", ShieldCheck, "all"],
@@ -470,7 +470,7 @@ function Sidebar({ counts, activeMode, onModeChange, activeLeague, onLeagueChang
     ["Predictions for TOMORROW", counts.tomorrow],
     ["Weekend Predictions", counts.weekend],
     ["All Predictions", counts.all],
-    ["Value Bets", counts.value],
+    ["EV estimates", counts.value],
   ];
 
   return (
@@ -543,7 +543,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
         <div>Pred</div>
         <div>Correct<br />score</div>
         <div>Avg.<br />goals</div>
-        <div>Edge</div>
+        <div title="Estimated model return versus a recorded price, not an independently validated recommendation">Est. EV</div>
         <div>Live<br />score</div>
         <div>Market odds</div>
       </div>
@@ -623,7 +623,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
               <div>{predictedScore}</div>
               <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
               <div><span className={edge?.expectedValue > 0.04 ? "ft-edge strong" : "ft-edge"}
-                title={Number.isFinite(edge?.expectedValue) ? `Value selection ${valueSelection || "unknown"} · decimal odds ${bestOdds ?? "—"} · model-derived expected return, not the predicted winner` : "No comparable model and bookmaker price"}>
+                title={Number.isFinite(edge?.expectedValue) ? `Estimated model return for ${valueSelection || "unknown"} · odds ${bestOdds ?? "—"} · ${edge?.familyCount ?? 0} independent evidence family/families · analysis only, no validated value recommendation` : "No comparable model and bookmaker price"}>
                 {Number.isFinite(edge?.expectedValue) ? `${valueSelection || "?"} ${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}
               </span></div>
               <div className="ft-score-cell">
@@ -704,7 +704,7 @@ function ValuePicks({ matches }) {
 
   return (
     <section className="ft-right-card">
-      <div className="ft-right-head">Top value picks</div>
+      <div className="ft-right-head">Highest estimated EV · analysis only</div>
       <div className="ft-value-rail">
         {picks.length ? picks.map(({ match, edge }) => (
           <a href={matchDetailHref(match.id, "homepage-v1")} key={match.id}>
@@ -714,10 +714,11 @@ function ValuePicks({ matches }) {
               <small>{englishLeagueName(match)}</small>
             </div>
             <b>{edge.key}</b>
-            <em>{(edge.expectedValue * 100).toFixed(1)}%</em>
+            <em title={`Unvalidated model estimate · ${edge.familyCount ?? 0} evidence family/families`}>{(edge.expectedValue * 100).toFixed(1)}% · {edge.familyCount ?? 0} fam.</em>
           </a>
-        )) : <div className="ft-rail-empty">No positive value signal right now</div>}
+        )) : <div className="ft-rail-empty">No positive comparable model estimate right now</div>}
       </div>
+      <small style={{display:"block",padding:"5px 10px 10px",lineHeight:1.4,color:"#6b7f90"}}>Calculated model-versus-price differences are exploratory. Forecast calibration and release validation are not established here; no betting recommendation is implied.</small>
     </section>
   );
 }
@@ -992,7 +993,7 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       <header className="ft-top">
         <div className="ft-brand">
           <strong>FAST TRACKER <em>2026</em></strong>
-          <small>FOOTBALL DATA · MODELS · VALUE BETS</small>
+          <small>FOOTBALL DATA · MODELS · PRICE COMPARISON</small>
         </div>
         <label className="ft-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search team, league or match..." /></label>
         <button className="ft-icon-button"><Star size={22} /></button>
