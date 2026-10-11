@@ -66,8 +66,48 @@ SOURCE_PAGES = {
 }
 
 
-def capture(day, max_rows):
-    """Read the live Today/Tomorrow 1X2 surface, never the legacy date path."""
+def parse_snapshot(html, day, max_rows, source_url, captured_at=None, offline=False):
+    """Parse one original HTML snapshot, without publishing or verifying identity.
+
+    The load time of an offline snapshot is NOT the original source capture time.
+    """
+    from forebet_lean_parser import parse_forebet_html
+    from hashlib import sha256
+    parsed = parse_forebet_html(html)
+    if parsed["detected_home_nodes"] == 0:
+        raise RuntimeError("NO_FOREBET_ROWS: no fixture nodes in source snapshot")
+    rows, rejected = [], dict(parsed["rejected_by_reason"])
+    for raw in parsed["parsed_rows"][:max_rows]:
+        try:
+            item = normalize_row(raw)
+            item["source_detail_url"] = raw.get("source_detail_url")
+            rows.append(item)
+        except (KeyError, ValueError, TypeError) as exc:
+            key = str(exc)[:100]
+            rejected[key] = rejected.get(key, 0) + 1
+    if not rows:
+        raise RuntimeError("NO_VALID_FOREBET_PREDICTIONS: reject snapshot without complete HDA/score/avg")
+    return {
+        "requested_surface": day, "source_url": source_url,
+        "retrieved_at": captured_at if not offline else None,
+        "snapshot_loaded_at": datetime.now(timezone.utc).isoformat(),
+        "snapshot_sha256": sha256(html.encode("utf-8")).hexdigest(),
+        "capture_provenance": "LOCAL_HTML_UNVERIFIED_TIME" if offline else "DIRECT_BROWSER_READ",
+        "source_timestamp_verified": False,
+        "rows": rows, "detected_home_nodes": parsed["detected_home_nodes"],
+        "parsed_source_rows": parsed["parsed_count"], "rejected_by_reason": rejected,
+        "coverage_complete": False, "truncated_at_limit": parsed["parsed_count"] > max_rows
+    }
+
+
+def capture(day, max_rows, html_override=None):
+    """Use a bounded live read or an existing HTML snapshot; never mix modes."""
+    if day not in SOURCE_PAGES:
+        raise ValueError("UNSUPPORTED_SOURCE_DAY")
+    url = SOURCE_PAGES[day]
+    if html_override is not None:
+        snapshot = Path(html_override).read_text(encoding="utf-8")
+        return parse_snapshot(snapshot, day, max_rows, url, offline=True)
     from forebet_lean_parser import parse_forebet_html
     try:
         from selenium import webdriver
@@ -118,26 +158,10 @@ def capture(day, max_rows):
                 pass
             break
 
-        parsed = parse_forebet_html(driver.page_source)
-        if parsed["detected_home_nodes"] == 0:
-            raise RuntimeError("NO_FOREBET_ROWS: zero team nodes on source page")
-        rows, rejected = [], dict(parsed["rejected_by_reason"])
-        for raw in parsed["parsed_rows"][:max_rows]:
-            try:
-                item = normalize_row(raw)
-                item["source_detail_url"] = raw.get("source_detail_url")
-                rows.append(item)
-            except (KeyError, ValueError, TypeError) as exc:
-                reason = str(exc)[:100]
-                rejected[reason] = rejected.get(reason, 0) + 1
-
-        return {"requested_surface": day, "source_url": url,
-                "captured_at": datetime.now(timezone.utc).isoformat(),
-                "rows": rows, "detected_home_nodes": parsed["detected_home_nodes"],
-                "parsed_source_rows": parsed["parsed_count"],
-                "rejected_by_reason": rejected,
-                "pagination_state": pagination_state, "coverage_complete": False,
-                "truncated_at_limit": parsed["parsed_count"] > max_rows}
+        batch = parse_snapshot(driver.page_source, day, max_rows, url,
+                               captured_at=datetime.now(timezone.utc).isoformat())
+        batch["pagination_state"] = pagination_state
+        return batch
     finally:
         driver.quit()
 
@@ -146,24 +170,40 @@ def main():
     ap.add_argument("--days", type=int, default=2, choices=(1, 2))
     ap.add_argument("--max-rows-per-day", type=int, default=900)
     ap.add_argument("--out", default="forebet-candidates.json")
+    ap.add_argument("--html-today", help="Saved original today HTML; no web requests")
+    ap.add_argument("--html-tomorrow", help="Saved original tomorrow HTML; no web requests")
     args = ap.parse_args()
     if not 1 <= args.max_rows_per_day <= 1200:
         ap.error("--max-rows-per-day must be 1..1200")
-    batches = [capture(day, args.max_rows_per_day) for day in ("today", "tomorrow")[:args.days]]
-    rows, seen = [], set()
+    offline = bool(args.html_today or args.html_tomorrow)
+    if offline and (not args.html_today or (args.days == 2 and not args.html_tomorrow)):
+        ap.error("Offline mode requires one original HTML file for each requested surface")
+    inputs = {"today": args.html_today, "tomorrow": args.html_tomorrow}
+    batches = [capture(day, args.max_rows_per_day, inputs[day] if offline else None)
+               for day in ("today", "tomorrow")[:args.days]]
+    # Conflicting duplicate predictions cannot silently win by arrival order.
+    groups = {}
     for batch in batches:
         for row in batch["rows"]:
-            key = (row["source_competition"], row["source_home_team"],
-                   row["source_away_team"], row["source_kickoff_local_text"])
-            if key not in seen:
-                seen.add(key)
-                rows.append(row)
+            key = (row["source_competition"].casefold(), row["source_home_team"].casefold(),
+                   row["source_away_team"].casefold(), row["source_kickoff_local_text"])
+            groups.setdefault(key, []).append(row)
+    rows, conflicting_duplicates = [], 0
+    for items in groups.values():
+        fingerprints = {(r["prob_home"], r["prob_draw"], r["prob_away"],
+                         r["predicted_score"], r["avg_goals"]) for r in items}
+        if len(fingerprints) == 1:
+            rows.append(items[0])
+        else:
+            conflicting_duplicates += 1
     result = {"schema_version": 1, "production_writes": False,
               "identity_verified": False, "coverage_complete": False,
-              "batches": batches, "candidates": rows}
+              "batches": batches, "candidates": rows,
+              "conflicting_duplicate_keys": conflicting_duplicates}
     Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"candidates": len(rows), "output": args.out,
-                      "rejected": [b["rejected_by_reason"] for b in batches]}))
+                      "rejected": [b["rejected_by_reason"] for b in batches],
+                      "conflicting_duplicates": conflicting_duplicates}))
     if not rows:
         raise RuntimeError("Zero source candidates; no publication permitted")
 
