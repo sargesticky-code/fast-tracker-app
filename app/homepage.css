@@ -548,3 +548,24 @@ button,input{font:inherit}
   .ft-search{max-width:none;height:33px;padding:0 8px}
   .ft-search input{font-size:11px}
 }
+
+/* FT evidence-first responsive controls: all forecast filters remain usable on mobile. */
+.ft-form-toggle input{
+  display:block;
+  position:absolute;
+  width:1px;height:1px;
+  opacity:0;
+  clip-path:inset(50%);
+}
+.ft-form-toggle:focus-within{outline:2px solid var(--ft-yellow);outline-offset:3px;border-radius:4px}
+.ft-form-source-note{color:#516579;font-weight:550}
+@media(max-width:900px){
+  .ft-daybar{display:flex;flex-wrap:wrap;overflow:visible;padding-right:7px;gap:5px}
+  .ft-daybar .ft-form-toggle{position:static;display:flex;margin-left:auto;white-space:nowrap;right:auto;padding:4px 5px}
+  .ft-filterbar{flex-wrap:wrap}
+  .ft-result-count{display:block;white-space:nowrap}
+}
+@media(max-width:560px){
+  .ft-daybar .ft-form-toggle{display:flex}
+  .ft-form-source-note{font-size:10px;overflow-wrap:anywhere}
+}
