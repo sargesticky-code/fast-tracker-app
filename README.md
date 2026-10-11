@@ -1,10 +1,20 @@
 # Fast Tracker 2026
 
-Fast Tracker is a mobile-first football intelligence dashboard built around HKJC-authoritative fixtures, multi-source model comparison, human factors, live match intelligence and long-term model calibration.
+Fast Tracker is a mobile-first football intelligence dashboard using Flashscore event IDs as the active fixture/kickoff authority, with independent bookmaker pricing and models, human-factor and live-match intelligence.
+
+## Current authority contract (11 October 2026)
+
+- The live Supabase `app-phase1-feed` v93 uses `ft_fast_flashscore_summary` wired to `flashscore_primary_fixture_current`. It accepts only a fresh, matching Flashscore provider event ID/kickoff; legacy `FB` fixtures do not enter the active summary without a verified `FS:` counterpart.
+- 22 current-season 2026/27 football-data.co.uk results CSVs were freshly fetched and SHA-256 checked on 2026-10-11: 1,385 real match results, 0 new/changed against prior snapshot. The retired optional fixtures CSV is not requested. Results refresh **weekly** (Monday 06:30 UTC); Flashscore handles fixture discovery and kickoff times.
+- A 2026-10-11 offline, one-to-one migration linked 8 legacy fixtures to Flashscore IDs (2 new provider-ID records and 6 corrected stale +24-hour Flashscore kickoff records), with redirects and surviving Forebet attribution; no bulk speculative remapping.
+- HKJC bookmaker/provider is disabled in `lib/market-provider-contract.js` and excluded from the active fixture API. Physical legacy column names and archived history remain only to preserve existing foreign keys until a separate verified FK migration. Do not source live odds or fixture authority from them.
+- Two daily alias-maintenance cron jobs remain disabled. No Firecrawl is required for historical team/result matching.
+
+**The historical Phase 0–10 roadmap below may contain superseded HKJC-era terminology. The current source authority contract above takes precedence.**
 
 ## Architecture boundary
 
-- HKJC naming remains the authoritative fixture/team key.
+- Flashscore event IDs (`FS:<event_id>`) are the active fixture identity and kickoff authority. The old `hkjc_event_id` database column is a compatibility field, not a live HKJC source or price authority.
 - The public dashboard is read-only.
 - Supabase is the canonical production platform for the app, dashboard and long-term data model.
 - The Google Sheet dashboard is frozen legacy and is no longer a development target.
