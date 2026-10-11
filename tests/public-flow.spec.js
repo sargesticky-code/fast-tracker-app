@@ -18,7 +18,9 @@ const summary = {
       forebetDetail:{predictedScore:"2-1"},
       scoreHome:1,scoreAway:0,scoreSource:"FLASHSCORE",
       sourceContext:{source:"FLASHSCORE",lineupAvailable:true,
-        lineupCoverage:{homeStarters:11,awayStarters:11,updatedAt:"2026-10-11T00:50:00Z"}}},
+        lineupCoverage:{homeStarters:11,awayStarters:11,updatedAt:"2026-10-11T00:50:00Z"},
+        observedStats:{source:"FLASHSCORE",capturedAt:"2026-10-11T00:55:00Z",
+          stats:{shots:{home:3,away:2},corners:{home:1,away:0},xg:{home:0.33,away:0.12}}}}},
     {id:"FS:event1",home:"Home 1",away:"Away 1",league:"League A",kickoff:"2026-10-11T16:00:00Z",forebetDetail:{predictedScore:"0-2"},
       sourceContext:{source:"FLASHSCORE",lineupAvailable:false}}
   ],
@@ -37,6 +39,9 @@ const detail = {
       prob_home:45,prob_draw:25,prob_away:30,fetched_at:"2026-10-11T00:30:00Z"},
     internal:{quality:"MODELED",dc_prob_home:0.45,dc_prob_draw:0.25,dc_prob_away:0.30,model_source:"RESULTS_HISTORY"}
   },
+  flashscoreStats:{source:"FLASHSCORE",capturedAt:"2026-10-11T00:55:00Z",
+    stats:{shots:{home:3,away:2},corners:{home:1,away:0},
+      xg:{home:0.33,away:0.12},possession:{home:51,away:49}}},
   humanFactors:{
     lineup:lineups,
     lineupProvenance:{sourceConfirmed:true,canonicalIdentitiesVerified:true,
@@ -67,6 +72,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByRole("button",{name:"2026-10-11 · 35"})).toBeVisible();
   await expect(page.getByText("Time not supplied")).toBeVisible();
   await expect(page.getByText("Forebet predicted score", {exact:false}).first()).toBeVisible();
+  await expect(page.getByTestId("historical-match-stats").first()).toContainText("Not final/live totals");
   await page.screenshot({path:"test-results/enriched-board-"+viewport.width+".png",fullPage:true});
 
   await page.getByRole("button",{name:"2026-10-12 · 5"}).click();
@@ -81,6 +87,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
   await expect(page.getByTestId("fotmob-player-stats")).toContainText("Player 0");
+  await expect(page.getByTestId("historical-flashscore-stats")).toContainText("not verified final totals");
+  await expect(page.getByTestId("historical-flashscore-stats")).toContainText("Expected goals (xG)");
   await page.getByText("Original Flashscore source fields").click();
   await expect(page.locator("pre")).toContainText('"time_text": null');
   expect(external.every(url=>url.includes("fast-tracker-dashboard-production.up.railway.app/snapshot")
@@ -124,4 +132,37 @@ test("cold or stale raw snapshot uses exact canonical source fallback without in
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
   await expect(page.getByText("Raw prices: — / — / —")).toHaveCount(0);
+});
+
+test("stale raw bookmaker prices are suppressed without hiding the fixture",async({page})=>{
+  mockEndpoints(page,{source:null,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.locator(".ft-match-row")).toHaveCount(40);
+  await page.getByLabel("Search",{exact:true}).fill("Home 1");
+  const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
+  await expect(row.locator(".ft-raw-odds")).toContainText("Stale quote hidden");
+  await expect(row.locator(".ft-raw-odds")).not.toContainText("2.2");
+});
+test("fresh complete bookmaker reference prices display but are never called live",async({page})=>{
+  const captured=new Date().toISOString();
+  const raw={...snapshot,captured_at:captured,
+    fixtures:[{provider_event_id:"event1",hda:{home:2.2,draw:3.3,away:4.4},captured_at:captured}]};
+  mockEndpoints(page,{raw,source:null,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await page.getByLabel("Search",{exact:true}).fill("Home 1");
+  const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
+  await expect(row.locator(".ft-raw-odds")).toContainText("2.2");
+  await expect(row.locator(".ft-raw-odds")).toContainText("Reference captured");
+});
+test("incomplete Forebet HDA remains unknown instead of treating null as zero",async({page})=>{
+  const invalid={...summary,matches:[
+    {...summary.matches[0],forebet:{home:null,draw:0.45,away:0.55}}
+  ]};
+  mockEndpoints(page,{source:invalid,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("verified-status")).toContainText("1 exact Flashscore IDs linked");
+  await page.getByLabel("Search",{exact:true}).fill("Home 0");
+  const row=page.locator(".ft-match-row").first();
+  await expect(row).toContainText("Forebet predicted score");
+  await expect(row).not.toContainText("Forebet H/D/A");
 });

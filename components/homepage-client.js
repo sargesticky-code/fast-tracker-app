@@ -10,6 +10,14 @@ function CompactEvidence({ evidence }) {
     {evidence.prediction && <small>Forebet predicted score <b>{evidence.prediction}</b></small>}
     {evidence.forebet && <small>Forebet H/D/A <b>{[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>(p*100).toFixed(0)+"%").join(" / ")}</b></small>}
     {evidence.confirmedXI && <small>Official source XI <b>22 players available</b></small>}
+    {evidence.observedStats && <small data-testid="historical-match-stats">
+      Recorded Flashscore snapshot
+      {evidence.observedStats.stats.shots &&
+        <b> · Shots {evidence.observedStats.stats.shots.home}–{evidence.observedStats.stats.shots.away}</b>}
+      {evidence.observedStats.stats.corners &&
+        <b> · Corners {evidence.observedStats.stats.corners.home}–{evidence.observedStats.stats.corners.away}</b>}
+      <span> · Not final/live totals</span>
+    </small>}
   </div>;
 }
 
@@ -34,7 +42,8 @@ export default function HomepageClient() {
       finally { inFlight = false; }
     }
     refresh();
-    const timer = setInterval(refresh, 60000);
+    // Prematch/reference raw collector refreshes every ~15 min; avoid 1 min client polling.
+    const timer = setInterval(refresh, 120000);
     document.addEventListener("visibilitychange", refresh);
     return () => { cancelled = true; controller.abort(); clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
   }, []);
@@ -52,7 +61,8 @@ export default function HomepageClient() {
       } finally {inFlight=false;}
     }
     refreshVerified();
-    const timer=setInterval(refreshVerified,90000);
+    // Compact summary is a secondary prematch enrichment. Halve+ Supabase invokes.
+    const timer=setInterval(refreshVerified,240000);
     document.addEventListener("visibilitychange",refreshVerified);
     return ()=>{cancelled=true;controller.abort();clearInterval(timer);document.removeEventListener("visibilitychange",refreshVerified);};
   }, []);
@@ -92,7 +102,10 @@ export default function HomepageClient() {
           <div className="ft-source-cell"><span>{m.sourceDate || "Date not supplied"}</span><small>{m.sourceTimeStatus==="VERIFIED_CANONICAL_KICKOFF"
             ? "Canonical kickoff "+m.sourceTime+" UTC"
             : m.sourceTime ? `Source time ${m.sourceTime} (zone unverified)` : "Time not supplied"}</small><CompactEvidence evidence={verified?.byId.get(m.id) || null}/></div>
-          <div className="ft-raw-odds"><span><b>H</b>{m.odds.home ?? "—"}</span><span><b>D</b>{m.odds.draw ?? "—"}</span><span><b>A</b>{m.odds.away ?? "—"}</span><small>{m.oddsCapturedAt ? `Captured ${m.oddsCapturedAt}` : "Quote not supplied"}</small></div>
+          <div className="ft-raw-odds"><span><b>H</b>{m.odds.home ?? "—"}</span><span><b>D</b>{m.odds.draw ?? "—"}</span><span><b>A</b>{m.odds.away ?? "—"}</span><small>{m.quoteStatus==="STALE" ? `Stale quote hidden · last captured ${m.oddsCapturedAt}`
+            :m.quoteStatus==="INVALID"?"Invalid bookmaker quote suppressed"
+            :m.quoteStatus==="FRESH" ? `Reference captured ${m.oddsCapturedAt}`
+            :"Quote not supplied"}</small></div>
         </a>)}
       </div>
       {feed && !visible.length && <p>No fixtures match these filters.</p>}

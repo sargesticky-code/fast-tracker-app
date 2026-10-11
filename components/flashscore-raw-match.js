@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
-import { fetchVerifiedMatch } from "@/lib/verified-evidence-feed";
+import { fetchVerifiedMatch, matchObservation } from "@/lib/verified-evidence-feed";
 
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
@@ -69,6 +69,7 @@ export default function FlashscoreRawMatch() {
   const lineupProvenance=analysis?.humanFactors?.lineupProvenance;
   const managers=Array.isArray(analysis?.humanFactors?.managers)?analysis.humanFactors.managers:[];
   const score=scoredPair(fixture?.score_home,fixture?.score_away);
+  const observed=matchObservation(analysis?.flashscoreStats);
   const home=match?.home||fixture?.home_en||"Home unknown";
   const away=match?.away||fixture?.away_en||"Away unknown";
   const validXI=lineups.length===22 && lineupProvenance?.sourceConfirmed===true
@@ -84,7 +85,11 @@ export default function FlashscoreRawMatch() {
     {match && <section className="ft-enriched-panel">
       <h2>Bet365 H / D / A · raw snapshot reference</h2>
       <p>Raw prices: {match.odds.home??"—"} / {match.odds.draw??"—"} / {match.odds.away??"—"}</p>
-      <small>{match.oddsCapturedAt?"Capture "+match.oddsCapturedAt:"Quote not supplied"} · Raw observations are not verified current live odds.</small>
+      <small>{match.quoteStatus==="STALE"
+        ? "Stale quote hidden · last captured "+match.oddsCapturedAt
+        : match.quoteStatus==="INVALID"?"Invalid bookmaker prices suppressed"
+        : match.quoteStatus==="FRESH"?"Captured "+match.oddsCapturedAt+" · prematch reference only"
+        :"Quote not supplied"} · No verified in-play bookmaker odds.</small>
     </section>}
 
     {!analysis && <p role="status">Verified analysis unavailable. Raw fixture fields remain visible.</p>}
@@ -101,6 +106,25 @@ export default function FlashscoreRawMatch() {
         A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
       {!model && <p>Internal model not verified for this match.</p>}
       <p>Goal-line and corner predictions are shown only when real source fields exist. Unknown values remain unknown.</p>
+    </section>}
+
+    {observed && <section className="ft-enriched-panel" data-testid="historical-flashscore-stats">
+      <h2>Flashscore match observations</h2>
+      <p>Recorded at {observed.capturedAt}. These values are from a historical source snapshot,
+        <strong> not verified final totals or current live statistics</strong>.</p>
+      <div className="ft-stats-grid">
+        {[
+          ["Shots","shots",0],["Shots on target","shotsOnTarget",0],
+          ["Expected goals (xG)","xg",2],["Corners","corners",0],
+          ["Possession","possession",0],["Big chances","bigChances",0],
+        ].filter(([_,key])=>observed.stats[key]).map(([label,key,digits])=>
+          <div key={key}><b>{label}</b><small>
+            {home}: {knownNumber(observed.stats[key].home,digits)}{key==="possession"?"%":""}
+            {" · "}
+            {away}: {knownNumber(observed.stats[key].away,digits)}{key==="possession"?"%":""}
+          </small></div>
+        )}
+      </div>
     </section>}
 
     {validXI && <section className="ft-enriched-panel" data-testid="official-xi">
