@@ -1,0 +1,60 @@
+name: One-Time Complete Team Alias ZIP Export
+on:
+  push:
+    branches: [ops/offline-team-alias-master-export-20261011]
+    paths:
+      - scripts/create_offline_team_alias_package.py
+      - .github/workflows/team-alias-offline-zip-export.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export-all-available:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BETCLAN_MAX_DETAILS: "260"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lightweight parser only
+        run: python -m pip install --disable-pip-version-check requests==2.32.5 beautifulsoup4==4.14.3
+      - name: Validate script syntax and presence of genuine saved sources
+        run: |
+          python -m py_compile scripts/create_offline_team_alias_package.py
+          test -f ops/team-alias-export/raw/master_bcl.json
+          test -f ops/team-alias-export/raw/master_fst.json
+          test -f ops/team-alias-export/raw/master_forebet.json
+          test -f ops/team-alias-export/raw/forebet_stored_matches.json
+          test -f ops/reep-full-20261011/chunk_024.json
+      - name: Aggregate all saved team IDs and attempt accessible public source reads once
+        run: python scripts/create_offline_team_alias_package.py
+      - name: Validate offline zip contains CSVs, prompt and original records
+        run: |
+          python - <<'PY'
+          import zipfile,csv,json,io
+          p='ops/team-alias-export/FT_ALL_PROVIDER_TEAM_ALIAS_OFFLINE.zip'
+          with zipfile.ZipFile(p) as z:
+            n=z.namelist()
+            assert any(x.endswith('01_ALL_SOURCE_NAMES_LONG.csv') for x in n)
+            assert any(x.endswith('02_WIDE_MATCHING_MASTER_EDIT_ME.csv') for x in n)
+            assert any(x.endswith('PROMPT_FOR_NEXT_ADVANCED_CHATGPT.md') for x in n)
+            assert len([x for x in n if x.startswith('SOURCE_RAW/REEP_CC0/')]) == 24
+            t=next(x for x in n if x.endswith('MANIFEST.json'))
+            d=json.loads(z.read(t))
+            print('VALID_ZIP',d['total_long_rows'],d['source_counts'])
+            assert d['source_counts'].get('REEP_CC0',0)>=47400
+            assert d['source_counts'].get('BCL',0)>=380
+            assert d['source_counts'].get('FST',0)>=300
+            assert d['source_counts'].get('FOREBET',0)>=900
+          PY
+      - name: Provide downloadable completed ZIP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FT-ALL-PROVIDER-TEAM-ALIAS-OFFLINE
+          path: ops/team-alias-export/FT_ALL_PROVIDER_TEAM_ALIAS_OFFLINE.zip
+          retention-days: 14
+          if-no-files-found: warn
