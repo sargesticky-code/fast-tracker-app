@@ -15,6 +15,7 @@ import {
 const SIDE_KEY = { H: "home", D: "draw", A: "away" };
 
 function toPct(value) {
+  if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.abs(n) <= 1.5 ? n * 100 : n;
@@ -37,7 +38,7 @@ function EdgeTooltip({ active, payload, marketPct }) {
     <div className="model-edge-tooltip">
       <strong>{row.model}</strong>
       <span>Model {row.probability.toFixed(1)}%</span>
-      <span>HKJC fair {marketPct == null ? "—" : marketPct.toFixed(1) + "%"}</span>
+      <span>Market no-vig {marketPct == null ? "—" : marketPct.toFixed(1) + "%"}</span>
       <b>{row.edge == null ? "—" : (row.edge >= 0 ? "+" : "") + row.edge.toFixed(1) + "% edge"}</b>
     </div>
   );
@@ -48,7 +49,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
   const marketPct = toPct(marketProbability);
 
   const data = rows
-    .filter((row) => row?.key !== "HKJC" && sideKey && row?.values)
+    .filter((row) => !["HKJC", "BET365", "MARKET"].includes(row?.key) && sideKey && row?.values)
     .map((row) => {
       const probability = toPct(row.values?.[sideKey]);
       return {
@@ -68,6 +69,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
     );
   }
 
+  const hasMarketReference = marketPct != null;
   const support = data.filter((row) => row.edge != null && row.edge > 0).length;
 
   return (
@@ -78,8 +80,8 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
           <h3>Model support for the current market position</h3>
         </div>
         <div className="model-support-score">
-          <strong>{support}/{data.length}</strong>
-          <span>above HKJC fair</span>
+          <strong>{hasMarketReference ? `${support}/${data.length}` : "—"}</strong>
+          <span>{hasMarketReference ? "above market no-vig" : "no market comparison"}</span>
         </div>
       </div>
 
@@ -113,7 +115,7 @@ export default function ModelEdgeChart({ rows = [], side, marketProbability }) {
                 x={marketPct}
                 stroke="#20372c"
                 strokeDasharray="4 4"
-                label={{ value: "HKJC fair", position: "insideTopRight", fill: "#596960", fontSize: 9 }}
+                label={{ value: "Market no-vig", position: "insideTopRight", fill: "#596960", fontSize: 9 }}
               />
             ) : null}
             <Bar dataKey="probability" barSize={14} radius={[0, 5, 5, 0]}>
