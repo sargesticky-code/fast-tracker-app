@@ -44,8 +44,8 @@ jobs:
           row = dict(league="Premier League",home="Team A",away="Team B",
                      date_time="11/10/2026 18:00",prob_home="42%",prob_draw="38",
                      prob_away="20",predicted_score="2 - 1",avg_goals="2.95")
-          assert mod.SOURCE_PAGES["today"] == "https://www.forebet.com/en/football-tips-and-predictions-for-today"
-          assert mod.SOURCE_PAGES["tomorrow"] == "https://www.forebet.com/en/football-tips-and-predictions-for-tomorrow"
+          assert mod.SOURCE_PAGES["today"] == "https://www.forebet.com/index.php/en/football-predictions/predictions-1x2"
+          assert mod.SOURCE_PAGES["tomorrow"] == "https://www.forebet.com/index.php/en/football-tips-and-predictions-for-tomorrow"
           out = mod.normalize_row(row)
           # Source reports US-style month/day and AM/PM in 2026.
           us = mod.normalize_row({**row,"date_time":"10/11/2026 6:00 PM"})
