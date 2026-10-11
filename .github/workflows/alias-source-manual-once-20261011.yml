@@ -1,0 +1,84 @@
+name: alias-source-manual-once-20261011
+on:
+  push:
+    branches: [audit/alias-source-manual-chatgpt-20261011]
+    paths: [.github/workflows/alias-source-manual-once-20261011.yml]
+permissions:
+  contents: read
+jobs:
+  betclan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests==2.32.3 beautifulsoup4==4.14.3
+      - run: python audit/source_capture_one_time.py betclan --out capture-output
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alias-betclan-live-evidence
+          path: capture-output/
+          retention-days: 7
+  sportytrader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests==2.32.3 beautifulsoup4==4.14.3
+      - run: python audit/source_capture_one_time.py sportytrader --out capture-output
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alias-sportytrader-live-evidence
+          path: capture-output/
+          retention-days: 7
+  forebet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests==2.32.3 beautifulsoup4==4.14.3
+      - run: python audit/source_capture_one_time.py forebet --out capture-output
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alias-forebet-live-evidence
+          path: capture-output/
+          retention-days: 7
+  flashscore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests==2.32.3 beautifulsoup4==4.14.3
+      - name: Start public open-source local Flashscore extractor
+        run: |
+          git clone --depth 1 --branch master https://github.com/omkarcloud/flashscore-scraper.git /tmp/flashscore-src
+          cd /tmp/flashscore-src
+          git rev-parse HEAD > "$GITHUB_WORKSPACE/flashscore-upstream-commit.txt"
+          python -m pip install -r requirements.txt
+          nohup python run.py > "$GITHUB_WORKSPACE/flashscore-server.log" 2>&1 &
+          sleep 12
+        continue-on-error: true
+      - run: python audit/source_capture_one_time.py flashscore --out capture-output
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alias-flashscore-live-evidence
+          path: |
+            capture-output/
+            flashscore-upstream-commit.txt
+            flashscore-server.log
+          retention-days: 7
