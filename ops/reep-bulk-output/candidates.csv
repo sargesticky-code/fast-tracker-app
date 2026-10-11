@@ -1,0 +1,817 @@
+source,name,team_key,reep_entity,qid
+FLASHSCORE,Akron Togliatti,HKJC:akrontolyatti,reep_t6b9e1c4a,Q65124755
+FLASHSCORE,Al-Rayyan,HKJC:alrayyan,reep_t46a17d02,Q311268
+FLASHSCORE,Ararat-Armenia,HKJC:araratarmenia,reep_t311c4fb4,Q39056364
+FLASHSCORE,Boulogne,HKJC:boulognesurmer,reep_td98d5ffb,Q309400
+FLASHSCORE,Bradford City,HKJC:bradford,reep_tf40134cd,Q48879
+FLASHSCORE,Coritiba,HKJC:coritiba,reep_t608fa042,Q478317
+FLASHSCORE,Danubio,HKJC:danubio,reep_t4ff10878,Q584316
+FLASHSCORE,Dundee FC,HKJC:dundee,reep_t8805c1ad,Q335483
+FLASHSCORE,FK Rostov,HKJC:rostov,reep_t63790e4c,Q182930
+FLASHSCORE,Fluminense,HKJC:fluminense,reep_t25b58b45,Q80987
+FLASHSCORE,Gimpo FC,HKJC:gimpofc,reep_td823c2bb,Q12589091
+FLASHSCORE,Hamburger SV,HKJC:hamburg,reep_te2cd1ba9,Q51974
+FLASHSCORE,Inter,HKJC:intermilan,reep_tb354b960,Q631
+FLASHSCORE,Jong PSV,HKJC:jongpsveindhoven,reep_t3d1edc6b,Q13534332
+FLASHSCORE,Nasaf Qarshi,HKJC:nasafqarshi,reep_tf45abdd0,Q1150723
+FLASHSCORE,PSG,HKJC:parissaintgermain,reep_t4d821d5c,Q483020
+FLASHSCORE,RAAL La Louviere,HKJC:lalouviere,reep_t59153117,Q536651
+FLASHSCORE,Rayo Vallecano,HKJC:vallecano,reep_tca43538f,Q10300
+FLASHSCORE,Sukhothai,HKJC:sukhothai,reep_t5fdf4581,Q6640806
+FLASHSCORE,Suwon FC,HKJC:suwonfc,reep_t28eee8ec,Q3455793
+REEP_CC0,1. FC Köln,HKJC:cologne,reep_td85c256f,Q104770
+REEP_CC0,1. FC Union Berlin,HKJC:unionberlin,reep_t63b1713b,Q141971
+REEP_CC0,1. Fußball-Club Köln,HKJC:cologne,reep_td85c256f,Q104770
+REEP_CC0,1. Fußballclub Union Berlin,HKJC:unionberlin,reep_t63b1713b,Q141971
+REEP_CC0,ACF Fiorentina,HKJC:fiorentina,reep_t879bdb44,Q2052
+REEP_CC0,AC Horsens,HKJC:horsens,reep_t6e3ec536,Q289286
+REEP_CC0,AC Monza,HKJC:monza,reep_tfcc34162,Q289482
+REEP_CC0,AC Oulu,HKJC:acoulu,reep_t2a8963aa,Q289516
+REEP_CC0,AC Sparta Prague,HKJC:spartaprague,reep_t098b3c84,Q193481
+REEP_CC0,"AC Sparta Praha, a. s.",HKJC:spartaprague,reep_t098b3c84,Q193481
+REEP_CC0,AD Ceuta,HKJC:ceuta,reep_tb00702b1,Q290841
+REEP_CC0,ADO Den Haag,HKJC:denhaag,reep_tcec13101,Q24904
+REEP_CC0,AFC Ajax,HKJC:ajax,reep_ta4e18ff0,Q81888
+REEP_CC0,AFC Ajax Amsterdam,HKJC:ajax,reep_ta4e18ff0,Q81888
+REEP_CC0,AFC Wimbledon,HKJC:afcwimbledon,reep_t291a8f61,Q48851
+REEP_CC0,AIK Fotboll,HKJC:aiksolna,reep_tbae0886f,Q221602
+REEP_CC0,Ajax,HKJC:ajax,reep_ta4e18ff0,Q81888
+REEP_CC0,Ajman Club,HKJC:ajmanclub,reep_tf4400d81,Q378368
+REEP_CC0,Akhmat Grozny,HKJC:akhmatgrozny,reep_tca619bc9,Q240444
+REEP_CC0,Akron Togliatti,HKJC:akrontolyatti,reep_t6b9e1c4a,Q65124755
+REEP_CC0,Akron Tolyatti,HKJC:akrontolyatti,reep_t6b9e1c4a,Q65124755
+REEP_CC0,Alacranes de Durango,HKJC:alacranesdedurango,reep_te98ebce8,Q1570541
+REEP_CC0,Albacete,HKJC:albacete,reep_t4c63f38c,Q2310972
+REEP_CC0,Albion,HKJC:albionfc,reep_t524a8233,Q568435
+REEP_CC0,Al-Duhail,HKJC:alduhail,reep_t8d4709d5,Q1056948
+REEP_CC0,Al-Duhail SC,HKJC:alduhail,reep_t8d4709d5,Q1056948
+REEP_CC0,Alebrijes de Oaxaca,HKJC:oaxaca,reep_t8dcb097b,Q5887994
+REEP_CC0,Al-Gharafa,HKJC:algharafa,reep_tb885dacc,Q428211
+REEP_CC0,Al-Gharafa SC,HKJC:algharafa,reep_tb885dacc,Q428211
+REEP_CC0,Alkmaar Zaanstreek,HKJC:azalkmaar,reep_t020fa03a,Q191264
+REEP_CC0,Allmänna Idrottsklubben,HKJC:aiksolna,reep_tbae0886f,Q221602
+REEP_CC0,Almere City,HKJC:almerecity,reep_t629bca13,Q653119
+REEP_CC0,Almere City FC,HKJC:almerecity,reep_t629bca13,Q653119
+REEP_CC0,Al-Rayyan,HKJC:alrayyan,reep_t46a17d02,Q311268
+REEP_CC0,Al-Shorta SC,HKJC:alshortasc,reep_tf36ff69e,Q286289
+REEP_CC0,Al Thaid,HKJC:aldhaid,reep_t44a8b148,Q16121329
+REEP_CC0,Angers SCO,HKJC:angerssco,reep_t206ad092,Q845137
+REEP_CC0,Angers Sporting Club de l'Ouest,HKJC:angerssco,reep_t206ad092,Q845137
+REEP_CC0,Ararat-Armenia,HKJC:araratarmenia,reep_t311c4fb4,Q39056364
+REEP_CC0,Argentinos Juniors,HKJC:argentinosjuniors,reep_td5c5b516,Q220621
+REEP_CC0,Arminia Bielefeld,HKJC:bielefeld,reep_t6dfef6c2,Q105844
+REEP_CC0,ASH Montpellier,HKJC:montpellier,reep_t87aa1070,Q119519685
+REEP_CC0,Asociación de Fomento Deportivo Riestra Barrio Colón,HKJC:deportivoriestra,reep_tca100de0,Q4382304
+REEP_CC0,AS Roma,HKJC:roma,reep_t2a2a71e0,Q2739
+REEP_CC0,Association de la Jeunesse auxerroise,HKJC:auxerre,reep_taf459f1f,Q182876
+REEP_CC0,Association sportive de Monaco Football Club,HKJC:monaco,reep_taa892957,Q180305
+REEP_CC0,Associazione Calcio Fiorentina,HKJC:fiorentina,reep_t879bdb44,Q2052
+REEP_CC0,Associazione Calcio Milan,HKJC:acmilan,reep_t92aa6359,Q1543
+REEP_CC0,Associazione Sportiva Roma,HKJC:roma,reep_t2a2a71e0,Q2739
+REEP_CC0,Aston Villa,HKJC:astonvilla,reep_t086e7f04,Q18711
+REEP_CC0,Aston Villa F.C.,HKJC:astonvilla,reep_t086e7f04,Q18711
+REEP_CC0,Aston Villa Football Club,HKJC:astonvilla,reep_t086e7f04,Q18711
+REEP_CC0,AS Troyes,HKJC:troyes,reep_t00a90771,Q2868069
+REEP_CC0,Athletic Bilbao,HKJC:bilbao,reep_t537d528b,Q8687
+REEP_CC0,Athletic Club Bilbao,HKJC:bilbao,reep_t537d528b,Q8687
+REEP_CC0,Atlanta United,HKJC:atlantautd,reep_t50c0946c,Q16836317
+REEP_CC0,Atlanta United FC,HKJC:atlantautd,reep_t50c0946c,Q16836317
+REEP_CC0,Atlanta United Football Club,HKJC:atlantautd,reep_t50c0946c,Q16836317
+REEP_CC0,Atlante,HKJC:atlante,reep_tb7c0f210,Q849949
+REEP_CC0,Atlante F.C.,HKJC:atlante,reep_tb7c0f210,Q849949
+REEP_CC0,Atlas,HKJC:atlas,reep_t6f9863a2,Q1023532
+REEP_CC0,Atlas F.C.,HKJC:atlas,reep_t6f9863a2,Q1023532
+REEP_CC0,Atlético Madrid,HKJC:atleticomadrid,reep_t3de4929e,Q8701
+REEP_CC0,Atlético Tucumán,HKJC:atleticotucuman,reep_t615a1f7e,Q757470
+REEP_CC0,Augsburg,HKJC:augsburg,reep_t36bebe51,Q15755
+REEP_CC0,Austin FC,HKJC:austinfc,reep_t43ce6cfb,Q60643348
+REEP_CC0,Austria Lustenau,HKJC:austrialustenau,reep_t26eef099,Q696507
+REEP_CC0,Austria Vienna,HKJC:austriavienna,reep_t8355deb7,Q131209
+REEP_CC0,Auxerre,HKJC:auxerre,reep_taf459f1f,Q182876
+REEP_CC0,Avispa Fukuoka,HKJC:avispafukuoka,reep_t5c6d713f,Q791164
+REEP_CC0,AZ Alkmaar,HKJC:azalkmaar,reep_t020fa03a,Q191264
+REEP_CC0,Baltika Kaliningrad,HKJC:baltikakaliningrad,reep_t80ab37e0,Q795978
+REEP_CC0,Barcelona,HKJC:barcelona,reep_t69090873,Q5424838
+REEP_CC0,Barnet,HKJC:barnet,reep_td04ab318,Q9408
+REEP_CC0,Barnet F.C.,HKJC:barnet,reep_td04ab318,Q9408
+REEP_CC0,Barnsley,HKJC:barnsley,reep_t186a37cf,Q19442
+REEP_CC0,Barnsley F.C.,HKJC:barnsley,reep_t186a37cf,Q19442
+REEP_CC0,Barracas Central,HKJC:barracascentral,reep_tf7a8baad,Q2469894
+REEP_CC0,Bayer 04 Leverkusen,HKJC:leverkusen,reep_tde1cded4,Q104761
+REEP_CC0,Bayer 04 Leverkusen Fußball,HKJC:leverkusen,reep_tde1cded4,Q104761
+REEP_CC0,Bayer Leverkusen,HKJC:leverkusen,reep_tde1cded4,Q104761
+REEP_CC0,Bayern München,HKJC:bayernmunich,reep_td2baa7e4,Q15789
+REEP_CC0,Bayern Munich,HKJC:bayernmunich,reep_td2baa7e4,Q15789
+REEP_CC0,Birmingham City,HKJC:birmingham,reep_tbf6d330d,Q19444
+REEP_CC0,Birmingham City F.C.,HKJC:birmingham,reep_tbf6d330d,Q19444
+REEP_CC0,Birmingham Legion,HKJC:birminghamlegion,reep_t431fabe2,Q38806632
+REEP_CC0,Birmingham Legion FC,HKJC:birminghamlegion,reep_t431fabe2,Q38806632
+REEP_CC0,Blackburn Rovers,HKJC:blackburn,reep_ta058d109,Q19446
+REEP_CC0,Blackburn Rovers F.C.,HKJC:blackburn,reep_ta058d109,Q19446
+REEP_CC0,Blackpool,HKJC:blackpool,reep_tee42485d,Q19449
+REEP_CC0,Blaublitz Akita,HKJC:blaublitzakita,reep_t0218bdb9,Q882425
+REEP_CC0,Boca Juniors,HKJC:bocajuniors,reep_tca630395,
+REEP_CC0,Bochum,HKJC:bochum,reep_t0e165abc,Q105861
+REEP_CC0,Bolton Wanderers,HKJC:bolton,reep_t1913b299,Q19451
+REEP_CC0,Bolton Wanderers F.C.,HKJC:bolton,reep_t1913b299,Q19451
+REEP_CC0,Borussia Dortmund,HKJC:dortmund,reep_tdb0faf79,Q41420
+REEP_CC0,Borussia M'gladbach,HKJC:monchengladbach,reep_t3cb8c10b,Q101959
+REEP_CC0,Borussia Verein für Leibesübungen 1900 Mönchengladbach,HKJC:monchengladbach,reep_t3cb8c10b,Q101959
+REEP_CC0,Borussia VfL Mönchengladbach,HKJC:monchengladbach,reep_t3cb8c10b,Q101959
+REEP_CC0,Boston River,HKJC:bostonriver,reep_td09fc009,Q1022910
+REEP_CC0,Botafogo,HKJC:botafogo,reep_t0f40ac60,Q2911639
+REEP_CC0,Boulogne,HKJC:boulognesurmer,reep_td98d5ffb,Q309400
+REEP_CC0,Bournemouth,HKJC:bournemouth,reep_td1520e72,Q5212324
+REEP_CC0,Bournemouth F.C.,HKJC:bournemouth,reep_td1520e72,Q5212324
+REEP_CC0,Bradford City,HKJC:bradford,reep_tf40134cd,Q48879
+REEP_CC0,Bradford City A.F.C.,HKJC:bradford,reep_tf40134cd,Q48879
+REEP_CC0,Brentford,HKJC:brentford,reep_t03df16bf,Q19571
+REEP_CC0,Brentford F.C.,HKJC:brentford,reep_t03df16bf,Q19571
+REEP_CC0,Brentford Football Club,HKJC:brentford,reep_t03df16bf,Q19571
+REEP_CC0,Brest,HKJC:brest,reep_t4c2d3d86,Q218372
+REEP_CC0,Bristol City,HKJC:bristolcity,reep_t4f0b2c0f,Q19456
+REEP_CC0,Bristol City F.C.,HKJC:bristolcity,reep_t4f0b2c0f,Q19456
+REEP_CC0,Bristol Rovers,HKJC:bristolrovers,reep_t69315d92,Q48925
+REEP_CC0,Bristol Rovers F.C.,HKJC:bristolrovers,reep_t69315d92,Q48925
+REEP_CC0,Bromley,HKJC:bromley,reep_t473c3f81,Q1584552
+REEP_CC0,Bromley F.C.,HKJC:bromley,reep_t473c3f81,Q1584552
+REEP_CC0,Bucheon FC 1995,HKJC:bucheonfc,reep_t8275d94a,Q4982682
+REEP_CC0,Burton Albion,HKJC:burtonalbion,reep_t9888ecbc,Q48929
+REEP_CC0,Burton Albion F.C.,HKJC:burtonalbion,reep_t9888ecbc,Q48929
+REEP_CC0,BV Borussia 09 Dortmund,HKJC:dortmund,reep_tdb0faf79,Q41420
+REEP_CC0,C.A. Cerro,HKJC:cacerro,reep_t515fc457,Q719344
+REEP_CC0,Cádiz CF,HKJC:cadiz,reep_t7968e51e,Q460448
+REEP_CC0,Cádiz Club de Fútbol,HKJC:cadiz,reep_t7968e51e,Q460448
+REEP_CC0,Cagliari,HKJC:cagliari,reep_t220ecc40,Q1900
+REEP_CC0,Cagliari Calcio,HKJC:cagliari,reep_t220ecc40,Q1900
+REEP_CC0,Calcio Como,HKJC:como,reep_t54d007b0,Q1120838
+REEP_CC0,Cancún,HKJC:cancunfc,reep_t7d77d7e5,Q96676635
+REEP_CC0,Cancún F.C.,HKJC:cancunfc,reep_t7d77d7e5,Q96676635
+REEP_CC0,C.A. Progreso,HKJC:caprogresso,reep_t25af0706,Q420106
+REEP_CC0,Cardiff City,HKJC:cardiff,reep_t24a9a332,Q18662
+REEP_CC0,Cardiff City F.C.,HKJC:cardiff,reep_t24a9a332,Q18662
+REEP_CC0,Casa Pia A.C.,HKJC:casapiaac,reep_t82fc4fb1,Q1046440
+REEP_CC0,Casa Pia Atlético Clube,HKJC:casapiaac,reep_t82fc4fb1,Q1046440
+REEP_CC0,Castellón,HKJC:castellon,reep_t798ed212,Q743557
+REEP_CC0,CD Albacete,HKJC:albacete,reep_t4c63f38c,Q2310972
+REEP_CC0,CD Castellón,HKJC:castellon,reep_t798ed212,Q743557
+REEP_CC0,CD Eldense,HKJC:cdeldense,reep_t1a717f4a,Q600232
+REEP_CC0,CD Leganés,HKJC:leganes,reep_t389cadf2,Q856119
+REEP_CC0,Celta de Vigo,HKJC:celtavigo,reep_tf6becfc3,Q8749
+REEP_CC0,Celta Vigo,HKJC:celtavigo,reep_tf6becfc3,Q8749
+REEP_CC0,Central Español,HKJC:centralespanol,reep_t84024f4a,Q1053786
+REEP_CC0,Cerezo Osaka,HKJC:cerezoosaka,reep_tb634d611,Q855809
+REEP_CC0,Cerro Largo,HKJC:cerrolargo,reep_t33172ff0,Q1055895
+REEP_CC0,Cerro Largo FC,HKJC:cerrolargo,reep_t33172ff0,Q1055895
+REEP_CC0,CF Montréal,HKJC:cfmontreal,reep_t5f3f7408,Q167615
+REEP_CC0,CFR Cluj,HKJC:cfrcluj,reep_tfb367348,Q205998
+REEP_CC0,Charlotte FC,HKJC:charlottefc,reep_ta64690a5,Q78944434
+REEP_CC0,Charlotte Football Club,HKJC:charlottefc,reep_ta64690a5,Q78944434
+REEP_CC0,Charlton Athletic,HKJC:charlton,reep_t4cbb80ca,Q19462
+REEP_CC0,Charlton Athletic F.C.,HKJC:charlton,reep_t4cbb80ca,Q19462
+REEP_CC0,Chelsea,HKJC:chelsea,reep_ta544eb41,Q9616
+REEP_CC0,Chelsea Football Club,HKJC:chelsea,reep_ta544eb41,Q9616
+REEP_CC0,Chesterfield,HKJC:chesterfield,reep_ta95a7ea4,Q48935
+REEP_CC0,Chesterfield F.C.,HKJC:chesterfield,reep_ta95a7ea4,Q48935
+REEP_CC0,Chiangrai United,HKJC:chiangraiutd,reep_t7c6b0ad9,Q2793662
+REEP_CC0,Chiangrai United F.C.,HKJC:chiangraiutd,reep_t7c6b0ad9,Q2793662
+REEP_CC0,Chicago Fire,HKJC:chicagofire,reep_t29573d12,Q308683
+REEP_CC0,Chicago Fire FC,HKJC:chicagofire,reep_t29573d12,Q308683
+REEP_CC0,Chicago Fire Soccer Club,HKJC:chicagofire,reep_t29573d12,Q308683
+REEP_CC0,Chonburi,HKJC:chonburi,reep_t769513b8,Q1387004
+REEP_CC0,Chonburi F.C.,HKJC:chonburi,reep_t769513b8,Q1387004
+REEP_CC0,Chris Smith,HKJC:gangwonfc,reep_t3c749d9e,Q484569
+REEP_CC0,Cienciano,HKJC:cienciano,reep_t928dabaa,Q602482
+REEP_CC0,Club Atlético Barracas Central,HKJC:barracascentral,reep_tf7a8baad,Q2469894
+REEP_CC0,Club Atlético de Madrid,HKJC:atleticomadrid,reep_t3de4929e,Q8701
+REEP_CC0,Club Atlético de Madrid S.A.D.,HKJC:atleticomadrid,reep_t3de4929e,Q8701
+REEP_CC0,Club Atlético Osasuna,HKJC:osasuna,reep_t1a69b736,Q10286
+REEP_CC0,Club Atlético Tucumán,HKJC:atleticotucuman,reep_t615a1f7e,Q757470
+REEP_CC0,Club de Foot Montréal,HKJC:cfmontreal,reep_t5f3f7408,Q167615
+REEP_CC0,Club de Fútbol Cruz Azul S.A. de C.V.,HKJC:cruzazul,reep_t29ac58da,Q845859
+REEP_CC0,Club de Futbol Puebla de La Franja,HKJC:puebla,reep_t66310807,Q646596
+REEP_CC0,Club de Futbol Rojinegros S.A. de C.V.,HKJC:atlas,reep_t6f9863a2,Q1023532
+REEP_CC0,Club Internacional de Fútbol Miami,HKJC:intermiamicf,reep_t03c86df1,Q16844931
+REEP_CC0,Club León,HKJC:clubleon,reep_t09af8f8a,Q633223
+REEP_CC0,Club León Fútbol Club,HKJC:clubleon,reep_t09af8f8a,Q633223
+REEP_CC0,Club Necaxa,HKJC:necaxa,reep_t9f8f97ac,Q1280895
+REEP_CC0,Club Santos Laguna S. A. de C. V.,HKJC:santoslaguna,reep_tdc7042fe,Q745246
+REEP_CC0,Club Social y Deportivo Defensa y Justicia,HKJC:defensayjusticia,reep_t3279eefc,Q1024338
+REEP_CC0,Club Sportivo Independiente Rivadavia,HKJC:independienterivadavia,reep_td56b5322,Q2454482
+REEP_CC0,Club Universidad Nacional A. C.,HKJC:pumasunam,reep_ta74fce25,Q1143000
+REEP_CC0,Cobreloa,HKJC:cobreloa,reep_tf308f2d2,Q643338
+REEP_CC0,Colorado Rapids,HKJC:coloradorapids,reep_t0b97b10a,Q642408
+REEP_CC0,Colorado Springs Switchbacks,HKJC:coloradospringsswitchbacks,reep_t56e0152d,Q16837600
+REEP_CC0,Colorado Springs Switchbacks FC,HKJC:coloradospringsswitchbacks,reep_t56e0152d,Q16837600
+REEP_CC0,Columbus Crew,HKJC:columbuscrew,reep_t0955d652,Q457163
+REEP_CC0,Como,HKJC:como,reep_t54d007b0,Q1120838
+REEP_CC0,Coritiba,HKJC:coritiba,reep_t608fa042,Q478317
+REEP_CC0,Coritiba F.C.,HKJC:coritiba,reep_t608fa042,Q478317
+REEP_CC0,Coritiba Foot Ball Club,HKJC:coritiba,reep_t608fa042,Q478317
+REEP_CC0,Coventry City,HKJC:coventry,reep_t61615edc,Q19580
+REEP_CC0,Coventry City F.C.,HKJC:coventry,reep_t61615edc,Q19580
+REEP_CC0,Crawley Town,HKJC:crawleytown,reep_t10f5de1f,Q19584
+REEP_CC0,Crawley Town F.C.,HKJC:crawleytown,reep_t10f5de1f,Q19584
+REEP_CC0,Crewe Alexandra,HKJC:crewe,reep_t4f56fd90,Q19587
+REEP_CC0,Crewe Alexandra F.C.,HKJC:crewe,reep_t4f56fd90,Q19587
+REEP_CC0,Cruz Azul,HKJC:cruzazul,reep_t29ac58da,Q845859
+REEP_CC0,Cruz Azul Hidalgo,HKJC:cruzazulhidalgo,reep_t98eb97be,Q1142131
+REEP_CC0,CSKA Moscow,HKJC:cskamoscow,reep_t492bdd5c,Q117952652
+REEP_CC0,Daegu FC,HKJC:daegufc,reep_t9c411528,Q483044
+REEP_CC0,Danubio,HKJC:danubio,reep_t4ff10878,Q584316
+REEP_CC0,Danubio F.C.,HKJC:danubio,reep_t4ff10878,Q584316
+REEP_CC0,D.C. United,HKJC:dcunited,reep_t00ccc097,Q238593
+REEP_CC0,Defensa y Justicia,HKJC:defensayjusticia,reep_t3279eefc,Q1024338
+REEP_CC0,Degerfors IF,HKJC:degerfors,reep_t5230d8eb,Q1140767
+REEP_CC0,De Graafschap,HKJC:degraafschap,reep_t4c6372ba,Q221927
+REEP_CC0,De Graafschap Doetinchem,HKJC:degraafschap,reep_t4c6372ba,Q221927
+REEP_CC0,Deportes Concepción,HKJC:deportesconcepcion,reep_t60198bd1,Q5260710
+REEP_CC0,Deportes Iquique,HKJC:iquique,reep_t639fcd89,Q642824
+REEP_CC0,Deportivo Alavés,HKJC:alaves,reep_t52e2f188,Q223620
+REEP_CC0,Deportivo Alavés S. A. D.,HKJC:alaves,reep_t52e2f188,Q223620
+REEP_CC0,Deportivo de La Coruña,HKJC:deportivo,reep_t80374b83,Q8760
+REEP_CC0,Deportivo La Coruña,HKJC:deportivo,reep_t80374b83,Q8760
+REEP_CC0,Deportivo Maldonado,HKJC:deportivomaldonado,reep_t0aec6dbd,Q1023199
+REEP_CC0,Deportivo Riestra,HKJC:deportivoriestra,reep_tca100de0,Q4382304
+REEP_CC0,Derby County,HKJC:derby,reep_t151e961a,Q19470
+REEP_CC0,Derby County F.C.,HKJC:derby,reep_t151e961a,Q19470
+REEP_CC0,Dijon,HKJC:dijon,reep_taf48a90a,Q3027897
+REEP_CC0,Dundee,HKJC:dundee,reep_t8805c1ad,Q335483
+REEP_CC0,Dundee F.C.,HKJC:dundee,reep_t8805c1ad,Q335483
+REEP_CC0,Dundee Football Club,HKJC:dundee,reep_t8805c1ad,Q335483
+REEP_CC0,Dundee United,HKJC:dundeeutd,reep_t81ba952c,Q192873
+REEP_CC0,Dundee United F.C.,HKJC:dundeeutd,reep_t81ba952c,Q192873
+REEP_CC0,Dundee United Football Club,HKJC:dundeeutd,reep_t81ba952c,Q192873
+REEP_CC0,Dynamo Dresden,HKJC:dresden,reep_t7b9b4b55,Q141931
+REEP_CC0,Dynamo Makhachkala,HKJC:dynamomakhachkala,reep_t6daefe73,Q2494171
+REEP_CC0,Ehime FC,HKJC:fcehime,reep_t6e25c29d,Q1059329
+REEP_CC0,Eibar,HKJC:eibar,reep_ta9170e66,Q770740
+REEP_CC0,Eindhovense Voetbalvereniging Philips Sport Vereniging,HKJC:psveindhoven,reep_t70dad9af,Q11938
+REEP_CC0,Eintracht Frankfurt,HKJC:frankfurt,reep_te31b36c6,Q38245
+REEP_CC0,Eintracht Frankfurt Fußball AG,HKJC:frankfurt,reep_te31b36c6,Q38245
+REEP_CC0,El Paso Locomotive,HKJC:elpasolocomotive,reep_t8e7a5ed6,Q54871337
+REEP_CC0,El Paso Locomotive FC,HKJC:elpasolocomotive,reep_t8e7a5ed6,Q54871337
+REEP_CC0,Elversberg,HKJC:elversberg,reep_tee73c21a,Q692691
+REEP_CC0,En avant Guingamp,HKJC:guingamp,reep_tf8252340,Q930072
+REEP_CC0,Espérance Sportive Troyes Aube Champagne,HKJC:troyes,reep_t00a90771,Q2868069
+REEP_CC0,Everton,HKJC:everton,reep_tb3b2e4a6,Q5794
+REEP_CC0,Everton Football Club,HKJC:everton,reep_tb3b2e4a6,Q5794
+REEP_CC0,Excelsior,HKJC:excelsior,reep_t153277ed,Q370712
+REEP_CC0,Excelsior Rotterdam,HKJC:excelsior,reep_t153277ed,Q370712
+REEP_CC0,Exeter City,HKJC:exetercity,reep_t47892373,Q48939
+REEP_CC0,Exeter City F.C.,HKJC:exetercity,reep_t47892373,Q48939
+REEP_CC0,Fagiano Okayama,HKJC:fagianookayama,reep_tc3b03666,Q595489
+REEP_CC0,Fagiano Okayama Sports Club,HKJC:fagianookayama,reep_tc3b03666,Q595489
+REEP_CC0,Fakel Voronezh,HKJC:fakelvoronezh,reep_t4a123249,Q1388889
+REEP_CC0,Falkirk,HKJC:falkirk,reep_t7962776d,Q219241
+REEP_CC0,Falkirk F.C.,HKJC:falkirk,reep_t7962776d,Q219241
+REEP_CC0,Falkirk Football & Athletic Club,HKJC:falkirk,reep_t7962776d,Q219241
+REEP_CC0,Famalicao,HKJC:famalicao,reep_t3c5a53fc,Q1387105
+REEP_CC0,FC Akhmat Grozny,HKJC:akhmatgrozny,reep_tca619bc9,Q240444
+REEP_CC0,FC Akron Tolyatti,HKJC:akrontolyatti,reep_t6b9e1c4a,Q65124755
+REEP_CC0,F.C. Alverca,HKJC:alverca,reep_t63906031,Q1386850
+REEP_CC0,FC Anyang,HKJC:fcanyang,reep_t7f2b06ec,Q1833814
+REEP_CC0,FC Ararat-Armenia,HKJC:araratarmenia,reep_t311c4fb4,Q39056364
+REEP_CC0,F.C. Arouca,HKJC:arouca,reep_tef79f3e8,Q1386869
+REEP_CC0,FC Augsburg,HKJC:augsburg,reep_t36bebe51,Q15755
+REEP_CC0,FC Baltika Kaliningrad,HKJC:baltikakaliningrad,reep_t80ab37e0,Q795978
+REEP_CC0,FC Barcelona (beach soccer),HKJC:barcelona,reep_t69090873,Q5424838
+REEP_CC0,FC Basel,HKJC:basel,reep_t0f188321,Q189671
+REEP_CC0,FC Basel 1893 AG,HKJC:basel,reep_t0f188321,Q189671
+REEP_CC0,FC Bayern München,HKJC:bayernmunich,reep_td2baa7e4,Q15789
+REEP_CC0,FC Bayern Munich,HKJC:bayernmunich,reep_td2baa7e4,Q15789
+REEP_CC0,FC Cincinnati,HKJC:fccincinnati,reep_t6f4e3b52,Q20855983
+REEP_CC0,FC Como Women,HKJC:fccomowomen,reep_tba43d5de,Q3747648
+REEP_CC0,FC Dallas,HKJC:fcdallas,reep_t91a77f4c,Q642291
+REEP_CC0,FC Den Bosch,HKJC:denbosch,reep_tb8a0710e,Q875169
+REEP_CC0,FC Dynamo Makhachkala,HKJC:dynamomakhachkala,reep_t6daefe73,Q2494171
+REEP_CC0,FC Eindhoven,HKJC:fceindhoven,reep_t9b9b8736,Q876699
+REEP_CC0,FC Emmen,HKJC:emmen,reep_t8b1f0c8c,Q1061627
+REEP_CC0,FC Fakel Voronezh,HKJC:fakelvoronezh,reep_t4a123249,Q1388889
+REEP_CC0,FC Famalicão,HKJC:famalicao,reep_t3c5a53fc,Q1387105
+REEP_CC0,FC Groningen,HKJC:groningen,reep_t5f32522a,Q24711
+REEP_CC0,FC Imabari,HKJC:fcimabari,reep_t1cb9e250,Q11198999
+REEP_CC0,FC Inter Turku,HKJC:interturku,reep_tb5f7de7c,Q222877
+REEP_CC0,FC Juárez,HKJC:juarez,reep_t4498ded4,Q20051399
+REEP_CC0,FC Krasnodar,HKJC:fkkrasnodar,reep_tb5ca18b1,Q220854
+REEP_CC0,FC Lahti,HKJC:lahti,reep_tf7c5c4a2,Q476880
+REEP_CC0,FC Lausanne-Sport,HKJC:lausanne,reep_t280b36e2,Q309456
+REEP_CC0,FC Luzern,HKJC:luzern,reep_t1e80cc8b,Q223262
+REEP_CC0,FC Machida Zelvia,HKJC:machidazelvia,reep_t049194ad,Q1366905
+REEP_CC0,FC Nantes,HKJC:nantes,reep_t94817121,Q192071
+REEP_CC0,FC Nordsjælland,HKJC:nordsjaelland,reep_t615a3d8f,Q210025
+REEP_CC0,FC Orenburg,HKJC:fcorenburg,reep_t695da1d4,Q2095484
+REEP_CC0,FC Rodina Moscow,HKJC:rodinamoscow,reep_t2e12f57b,Q66210522
+REEP_CC0,FC Rostov,HKJC:rostov,reep_t63790e4c,Q182930
+REEP_CC0,FC Schalke 04,HKJC:schalke04,reep_t02a8d789,Q32494
+REEP_CC0,FC Seoul,HKJC:fcseoul,reep_tc4e9553c,Q482406
+REEP_CC0,FC Sion,HKJC:sion,reep_t0a9bedd4,Q321061
+REEP_CC0,FC St. Gallen,HKJC:stgallen,reep_t1fec111e,Q659212
+REEP_CC0,FC St. Gallen 1879,HKJC:stgallen,reep_t1fec111e,Q659212
+REEP_CC0,FC St. Pauli,HKJC:stpauli,reep_t94f02422,Q6463
+REEP_CC0,FC Thun,HKJC:thun,reep_tdc295d22,Q464775
+REEP_CC0,FC Tokyo,HKJC:fctokyo,reep_tf2d17d60,Q856619
+REEP_CC0,FC Utrecht,HKJC:utrecht,reep_ta1e9fe18,Q24680
+REEP_CC0,FC Vaduz,HKJC:vaduz,reep_t9c45fc1e,Q216773
+REEP_CC0,FC Volendam,HKJC:volendam,reep_t1e9651d0,Q738060
+REEP_CC0,FC Zürich,HKJC:zurich,reep_t5d809f46,Q206692
+REEP_CC0,Ferro Carril Oeste women,HKJC:ferrocarriloestewomen,reep_tc508802f,Q115665898
+REEP_CC0,Fiorentina,HKJC:fiorentina,reep_t879bdb44,Q2052
+REEP_CC0,FK Baltika,HKJC:baltikakaliningrad,reep_t80ab37e0,Q795978
+REEP_CC0,FK Krasnodar,HKJC:fkkrasnodar,reep_tb5ca18b1,Q220854
+REEP_CC0,FK Rostov,HKJC:rostov,reep_t63790e4c,Q182930
+REEP_CC0,Fleetwood Town,HKJC:fleetwood,reep_t7956fee8,Q48941
+REEP_CC0,Fleetwood Town F.C.,HKJC:fleetwood,reep_t7956fee8,Q48941
+REEP_CC0,Fluminense,HKJC:fluminense,reep_t25b58b45,Q80987
+REEP_CC0,Fluminense F.C.,HKJC:fluminense,reep_t25b58b45,Q80987
+REEP_CC0,Fluminense Football Club,HKJC:fluminense,reep_t25b58b45,Q80987
+REEP_CC0,Fodbold Club Nordsjælland,HKJC:nordsjaelland,reep_t615a3d8f,Q210025
+REEP_CC0,Football Club Anyang,HKJC:fcanyang,reep_t7f2b06ec,Q1833814
+REEP_CC0,Football Club Cincinnati,HKJC:fccincinnati,reep_t6f4e3b52,Q20855983
+REEP_CC0,Football Club de Nantes,HKJC:nantes,reep_t94817121,Q192071
+REEP_CC0,Football Club Groningen,HKJC:groningen,reep_t5f32522a,Q24711
+REEP_CC0,Football Club Internazionale Milano S.p.A.,HKJC:intermilan,reep_tb354b960,Q631
+REEP_CC0,Football Club Lausanne-Sport,HKJC:lausanne,reep_t280b36e2,Q309456
+REEP_CC0,Football Club Mito HollyHock,HKJC:mitohollyhock,reep_t4957c305,Q1060184
+REEP_CC0,Football Club Seoul,HKJC:fcseoul,reep_tc4e9553c,Q482406
+REEP_CC0,Football Club Utrecht,HKJC:utrecht,reep_ta1e9fe18,Q24680
+REEP_CC0,Football Club Volendam,HKJC:volendam,reep_t1e9651d0,Q738060
+REEP_CC0,Fortuna Sittard,HKJC:fortunasittard,reep_te51951b1,Q854167
+REEP_CC0,Fortuna Sittardia Combinatie,HKJC:fortunasittard,reep_te51951b1,Q854167
+REEP_CC0,Fotbal Club CFR 1907 Cluj SA,HKJC:cfrcluj,reep_tfb367348,Q205998
+REEP_CC0,Freiburg,HKJC:freiburg,reep_t70979bf6,Q106394
+REEP_CC0,Fujieda MYFC,HKJC:fujiedamyfc,reep_td01fa25a,Q1342155
+REEP_CC0,Fulham,HKJC:fulham,reep_t78d85826,Q18708
+REEP_CC0,Fulham F.C.,HKJC:fulham,reep_t78d85826,Q18708
+REEP_CC0,Fulham Football Club,HKJC:fulham,reep_t78d85826,Q18708
+REEP_CC0,Fußball-Club St. Pauli von 1910,HKJC:stpauli,reep_t94f02422,Q6463
+REEP_CC0,Fußballklub Austria Wien,HKJC:austriavienna,reep_t8355deb7,Q131209
+REEP_CC0,Fútbol Club Juárez,HKJC:juarez,reep_t4498ded4,Q20051399
+REEP_CC0,Futebol Clube de Alverca,HKJC:alverca,reep_t63906031,Q1386850
+REEP_CC0,Futebol Clube de Arouca,HKJC:arouca,reep_tef79f3e8,Q1386869
+REEP_CC0,Futebol Clube de Famalicão,HKJC:famalicao,reep_t3c5a53fc,Q1387105
+REEP_CC0,Gainare Tottori,HKJC:gainaretottori,reep_tacfd2c5f,Q957420
+REEP_CC0,GAIS,HKJC:gais,reep_te6cdbce1,Q391789
+REEP_CC0,Gamba Osaka,HKJC:gambaosaka,reep_t3b8da54c,Q738423
+REEP_CC0,Gangwon FC,HKJC:gangwonfc,reep_t3c749d9e,Q484569
+REEP_CC0,Gangwon Football Club,HKJC:gangwonfc,reep_t3c749d9e,Q484569
+REEP_CC0,Genoa,HKJC:genoa,reep_t350ca358,Q2074
+REEP_CC0,Genoa CFC,HKJC:genoa,reep_t350ca358,Q2074
+REEP_CC0,Genoa Cricket and Football Club,HKJC:genoa,reep_t350ca358,Q2074
+REEP_CC0,Gillingham,HKJC:gillingham,reep_ta91d6e64,Q48943
+REEP_CC0,Gillingham F.C.,HKJC:gillingham,reep_ta91d6e64,Q48943
+REEP_CC0,Gil Vicente,HKJC:gilvicente,reep_t9b803c53,Q926438
+REEP_CC0,Gil Vicente F.C.,HKJC:gilvicente,reep_t9b803c53,Q926438
+REEP_CC0,Gil Vicente Futebol Clube,HKJC:gilvicente,reep_t9b803c53,Q926438
+REEP_CC0,Gimpo FC,HKJC:gimpofc,reep_td823c2bb,Q12589091
+REEP_CC0,Giravanz Kitakyushu,HKJC:giravanzkitakyushu,reep_te926fb3a,Q1151182
+REEP_CC0,Girona,HKJC:girona,reep_t786a1429,Q11945
+REEP_CC0,Girona FC,HKJC:girona,reep_t786a1429,Q11945
+REEP_CC0,Girona Fútbol Club S. A. D.,HKJC:girona,reep_t786a1429,Q11945
+REEP_CC0,Go Ahead Eagles,HKJC:goaheadeagles,reep_t1398e540,Q749589
+REEP_CC0,Granada,HKJC:cfgranada,reep_t4824edc4,Q8812
+REEP_CC0,Granada CF,HKJC:cfgranada,reep_t4824edc4,Q8812
+REEP_CC0,Grazer AK,HKJC:grazerak,reep_t5ee4d402,Q659780
+REEP_CC0,Grimsby Town,HKJC:grimsby,reep_t8069535d,Q18515
+REEP_CC0,Grimsby Town F.C.,HKJC:grimsby,reep_t8069535d,Q18515
+REEP_CC0,Groningen,HKJC:groningen,reep_t5f32522a,Q24711
+REEP_CC0,Guingamp,HKJC:guingamp,reep_tf8252340,Q930072
+REEP_CC0,Gwangju FC,HKJC:gwangjufc,reep_tb3cb20be,Q168364
+REEP_CC0,Gwangju Football Club,HKJC:gwangjufc,reep_tb3cb20be,Q168364
+REEP_CC0,Gyeongnam FC,HKJC:gyeongnamfc,reep_tad4f1bbe,Q425690
+REEP_CC0,Halmstads BK,HKJC:halmstads,reep_t0f6a3078,Q584858
+REEP_CC0,Hamburger Sport Verein,HKJC:hamburg,reep_te2cd1ba9,Q51974
+REEP_CC0,Hamburger SV,HKJC:hamburg,reep_te2cd1ba9,Q51974
+REEP_CC0,Hammarby Fotboll,HKJC:hammarby,reep_t0aba1426,Q460724
+REEP_CC0,Hammarby IF,HKJC:hammarby,reep_t0aba1426,Q460724
+REEP_CC0,Hannover 96,HKJC:hannover,reep_te0b80299,Q33748
+REEP_CC0,Hartford Athletic,HKJC:hartfordathletic,reep_te2ec8dd3,Q55613461
+REEP_CC0,Hatta Club,HKJC:hattaclub,reep_tc19d197f,Q2756902
+REEP_CC0,Heerenveen,HKJC:heerenveen,reep_t8567ddc4,Q200321
+REEP_CC0,Helmond Sport,HKJC:helmond,reep_tceb8bbd5,Q636315
+REEP_CC0,Helsingin Jalkapalloklubi,HKJC:hjkhelsinki,reep_t2d079f9c,Q208584
+REEP_CC0,Heracles,HKJC:heracles,reep_t2b29933c,Q11961
+REEP_CC0,Heracles Almelo,HKJC:heracles,reep_t2b29933c,Q11961
+REEP_CC0,Hibernian,HKJC:hibernian,reep_t17bb3038,Q192597
+REEP_CC0,Hibernian Football Club,HKJC:hibernian,reep_t17bb3038,Q192597
+REEP_CC0,Hitachi Kashiwa Reysol,HKJC:kashiwareysol,reep_t4bbdf95f,Q844931
+REEP_CC0,HJK Helsinki,HKJC:hjkhelsinki,reep_t2d079f9c,Q208584
+REEP_CC0,Hokkaido Consadole Sapporo,HKJC:hokkaidoconsadolesapporo,reep_td7c3929b,Q586787
+REEP_CC0,Holstein Kiel,HKJC:holsteinkiel,reep_tcef397e9,Q157828
+REEP_CC0,Houston Dynamo,HKJC:houstondynamo,reep_t962cfd4f,Q328313
+REEP_CC0,Houston Dynamo FC,HKJC:houstondynamo,reep_t962cfd4f,Q328313
+REEP_CC0,Hull City,HKJC:hullcity,reep_t7451405c,Q19477
+REEP_CC0,Hull City A.F.C.,HKJC:hullcity,reep_t7451405c,Q19477
+REEP_CC0,Huracán (women),HKJC:huracanwomen,reep_tcac1d59b,Q108061871
+REEP_CC0,Hwaseong FC,HKJC:hwaseongfc,reep_t4348ae2b,Q15700191
+REEP_CC0,Idrettsklubben Start,HKJC:start,reep_tced2da7c,Q737947
+REEP_CC0,Idrottsföreningen Kamraterna Göteborg,HKJC:goteborg,reep_t420f22dc,Q201567
+REEP_CC0,IFK Göteborg,HKJC:goteborg,reep_t420f22dc,Q201567
+REEP_CC0,IFK Mariehamn,HKJC:ifkmariehamn,reep_tc30cafd7,Q252276
+REEP_CC0,IK Start,HKJC:start,reep_tced2da7c,Q737947
+REEP_CC0,Imabari,HKJC:fcimabari,reep_t1cb9e250,Q11198999
+REEP_CC0,Impulsora del Deportivo Necaxa S.A. de C.V.,HKJC:necaxa,reep_t9f8f97ac,Q1280895
+REEP_CC0,Independiente del Valle,HKJC:independientedelvalle,reep_tbc8aad01,Q249648
+REEP_CC0,Independiente Rivadavia,HKJC:independienterivadavia,reep_td56b5322,Q2454482
+REEP_CC0,Indy Eleven,HKJC:indyeleven,reep_tb79d16ac,Q6023905
+REEP_CC0,Inter,HKJC:intermilan,reep_tb354b960,Q631
+REEP_CC0,Inter Miami,HKJC:intermiamicf,reep_t03c86df1,Q16844931
+REEP_CC0,Inter Miami CF,HKJC:intermiamicf,reep_t03c86df1,Q16844931
+REEP_CC0,Inter Milan,HKJC:intermilan,reep_tb354b960,Q631
+REEP_CC0,Inter Turku,HKJC:interturku,reep_tb5f7de7c,Q222877
+REEP_CC0,Ipswich Town,HKJC:ipswich,reep_t1cdfb4a1,Q9653
+REEP_CC0,Ipswich Town F.C.,HKJC:ipswich,reep_t1cdfb4a1,Q9653
+REEP_CC0,Iwaki,HKJC:iwakifc,reep_t5c9696a3,Q21652498
+REEP_CC0,Iwaki FC,HKJC:iwakifc,reep_t5c9696a3,Q21652498
+REEP_CC0,Jaiba Brava,HKJC:jaibabrava,reep_tf04925d9,Q971671
+REEP_CC0,JEF United,HKJC:jefunitedchiba,reep_t65d92111,Q646204
+REEP_CC0,JEF United Chiba,HKJC:jefunitedchiba,reep_t65d92111,Q646204
+REEP_CC0,Jong Ajax,HKJC:jongajax,reep_te92dc6f7,Q1770361
+REEP_CC0,Jong PSV,HKJC:jongpsveindhoven,reep_t3d1edc6b,Q13534332
+REEP_CC0,Júbilo Iwata,HKJC:jubiloiwata,reep_t210c80ba,Q855401
+REEP_CC0,Juventud de Las Piedras,HKJC:juventudlaspiedras,reep_t742bbedc,Q217644
+REEP_CC0,Juventud Las Piedras,HKJC:juventudlaspiedras,reep_t742bbedc,Q217644
+REEP_CC0,Kagoshima United,HKJC:kagoshimaunitedfc,reep_t574552da,Q17208878
+REEP_CC0,Kagoshima United FC,HKJC:kagoshimaunitedfc,reep_t574552da,Q17208878
+REEP_CC0,Kalba FC,HKJC:kalbafc,reep_ta7a1a819,Q3804552
+REEP_CC0,Kalmar FF,HKJC:kalmar,reep_tb28c94f5,Q644157
+REEP_CC0,Kalmar Fotbollförening,HKJC:kalmar,reep_tb28c94f5,Q644157
+REEP_CC0,Karlsruher SC,HKJC:karlsruher,reep_t486f96d0,Q105853
+REEP_CC0,Kashima Antlers,HKJC:kashimaantlers,reep_t2cda6590,Q16932
+REEP_CC0,Kashima Antlers FC,HKJC:kashimaantlers,reep_t2cda6590,Q16932
+REEP_CC0,Kashiwa Reysol,HKJC:kashiwareysol,reep_t4bbdf95f,Q844931
+REEP_CC0,Kataller Toyama,HKJC:katallertoyama,reep_t0f9efdaa,Q1140017
+REEP_CC0,Kawasaki Frontale,HKJC:kawasakifrontale,reep_td66af59a,Q874016
+REEP_CC0,Khor Fakkan Club,HKJC:khorfakkan,reep_tfd7e1f9e,Q6878716
+REEP_CC0,Kilmarnock,HKJC:kilmarnock,reep_te9e09340,Q210961
+REEP_CC0,Kilmarnock F.C.,HKJC:kilmarnock,reep_te9e09340,Q210961
+REEP_CC0,Kilmarnock Football Club,HKJC:kilmarnock,reep_te9e09340,Q210961
+REEP_CC0,KKS Lech Poznań Spółka Akcyjna,HKJC:lechpoznan,reep_tbb1fa454,Q52942
+REEP_CC0,Köln,HKJC:cologne,reep_td85c256f,Q104770
+REEP_CC0,Krasnodar,HKJC:fkkrasnodar,reep_tb5ca18b1,Q220854
+REEP_CC0,Kristiansund Ballklubb,HKJC:kristiansund,reep_t5e7e0c8e,Q496190
+REEP_CC0,Kristiansund BK,HKJC:kristiansund,reep_t5e7e0c8e,Q496190
+REEP_CC0,Kuwait SC,HKJC:kuwaitsc,reep_t20788ef2,Q812716
+REEP_CC0,K.V. Kortrijk,HKJC:kvkortrijk,reep_t873856f8,Q618620
+REEP_CC0,KV Mechelen,HKJC:kvmechelen,reep_t74584c9a,Q113000
+REEP_CC0,Kyoto Purple Sanga,HKJC:kyotosanga,reep_t7328be82,Q1047535
+REEP_CC0,Kyoto Sanga,HKJC:kyotosanga,reep_t7328be82,Q1047535
+REEP_CC0,Kyoto Sanga FC,HKJC:kyotosanga,reep_t7328be82,Q1047535
+REEP_CC0,LA Galaxy,HKJC:lagalaxy,reep_t447cdaee,Q204357
+REEP_CC0,Lahti,HKJC:lahti,reep_tf7c5c4a2,Q476880
+REEP_CC0,Lamphun Warrior,HKJC:lamphunwarriors,reep_td69ff6ec,Q6482429
+REEP_CC0,Lamphun Warrior F.C.,HKJC:lamphunwarriors,reep_td69ff6ec,Q6482429
+REEP_CC0,LASK Linz,HKJC:lasklinz,reep_t5fe9256a,Q392310
+REEP_CC0,Las Palmas,HKJC:laspalmas,reep_taf8bbff3,Q11979
+REEP_CC0,Las Vegas Lights,HKJC:lasvegaslights,reep_td234c020,Q38221432
+REEP_CC0,Las Vegas Lights FC,HKJC:lasvegaslights,reep_td234c020,Q38221432
+REEP_CC0,Lausanne-Sport,HKJC:lausanne,reep_t280b36e2,Q309456
+REEP_CC0,Lazio,HKJC:lazio,reep_t8e09c6f2,Q2609
+REEP_CC0,Lecce,HKJC:lecce,reep_t6f83124c,Q13391
+REEP_CC0,Lech Poznań,HKJC:lechpoznan,reep_tbb1fa454,Q52942
+REEP_CC0,Leeds United,HKJC:leeds,reep_t310cf271,Q1128631
+REEP_CC0,Leeds United Association Football Club,HKJC:leeds,reep_t310cf271,Q1128631
+REEP_CC0,Leeds United F.C.,HKJC:leeds,reep_t310cf271,Q1128631
+REEP_CC0,Leganés,HKJC:leganes,reep_t389cadf2,Q856119
+REEP_CC0,Le Havre,HKJC:lehavre,reep_tacb61040,Q328658
+REEP_CC0,Le Havre Athletic Club,HKJC:lehavre,reep_tacb61040,Q328658
+REEP_CC0,Leicester City,HKJC:leicester,reep_ta1382fcc,Q19481
+REEP_CC0,Leicester City F.C.,HKJC:leicester,reep_ta1382fcc,Q19481
+REEP_CC0,Le Mans,HKJC:lemans,reep_t306ce8b6,Q210864
+REEP_CC0,Le Mans F.C.,HKJC:lemans,reep_t306ce8b6,Q210864
+REEP_CC0,Lens,HKJC:lens,reep_t1f47218c,Q191843
+REEP_CC0,Lexington SC,HKJC:lexingtonsc,reep_t7041986b,Q111951146
+REEP_CC0,Leyton Orient,HKJC:leytonorient,reep_ta4d2afdb,Q19595
+REEP_CC0,Leyton Orient F.C.,HKJC:leytonorient,reep_ta4d2afdb,Q19595
+REEP_CC0,Lincoln City,HKJC:lincolncity,reep_tc6c54969,Q18519
+REEP_CC0,Lincoln City F.C.,HKJC:lincolncity,reep_tc6c54969,Q18519
+REEP_CC0,Linzer Athletik-Sport-Klub,HKJC:lasklinz,reep_t5fe9256a,Q392310
+REEP_CC0,Lommel SK,HKJC:lommelsk,reep_td8354ad9,Q1668203
+REEP_CC0,Los Angeles FC,HKJC:losangelesfc,reep_tbbca3647,Q18380286
+REEP_CC0,Los Angeles Football Club,HKJC:losangelesfc,reep_tbbca3647,Q18380286
+REEP_CC0,Los Angeles Galaxy,HKJC:lagalaxy,reep_t447cdaee,Q204357
+REEP_CC0,Loudoun United,HKJC:loudounutd,reep_t762dadb1,Q56063633
+REEP_CC0,Loudoun United FC,HKJC:loudounutd,reep_t762dadb1,Q56063633
+REEP_CC0,Louisville City,HKJC:louisvillecity,reep_tffd9a6c3,Q17182219
+REEP_CC0,Louisville City FC,HKJC:louisvillecity,reep_tffd9a6c3,Q17182219
+REEP_CC0,Luton Town,HKJC:luton,reep_tbaabf066,Q18520
+REEP_CC0,Luton Town F.C.,HKJC:luton,reep_tbaabf066,Q18520
+REEP_CC0,Luzern,HKJC:luzern,reep_t1e80cc8b,Q223262
+REEP_CC0,Lyon,HKJC:lyon,reep_t385861e5,Q704
+REEP_CC0,Machida Zelvia,HKJC:machidazelvia,reep_t049194ad,Q1366905
+REEP_CC0,Málaga,HKJC:malaga,reep_tcd90ca20,Q8857
+REEP_CC0,Málaga CF,HKJC:malaga,reep_tcd90ca20,Q8857
+REEP_CC0,Málaga Club de Fútbol,HKJC:malaga,reep_tcd90ca20,Q8857
+REEP_CC0,Mallorca,HKJC:mallorca,reep_t0cb41ad8,Q8835
+REEP_CC0,Manchester City,HKJC:manchestercity,reep_t30ae204f,Q50602
+REEP_CC0,Manchester City Football Club,HKJC:manchestercity,reep_t30ae204f,Q50602
+REEP_CC0,Marc Ziegler,HKJC:monaco,reep_taa892957,Q180305
+REEP_CC0,Marítimo,HKJC:maritimo,reep_teb390632,Q6782194
+REEP_CC0,Marseille,HKJC:marseille,reep_t13a752b0,Q132885
+REEP_CC0,Mechelen,HKJC:kvmechelen,reep_t74584c9a,Q113000
+REEP_CC0,Melbourne Victory,HKJC:melbournevictory,reep_tc86709e4,Q316789
+REEP_CC0,Metz,HKJC:metz,reep_te96fb31c,Q221525
+REEP_CC0,Middlesbrough,HKJC:middlesbrough,reep_tea01ddc2,Q18661
+REEP_CC0,Middlesbrough F.C.,HKJC:middlesbrough,reep_tea01ddc2,Q18661
+REEP_CC0,Milan,HKJC:acmilan,reep_t92aa6359,Q1543
+REEP_CC0,Millwall,HKJC:millwall,reep_t9050153a,Q19487
+REEP_CC0,Millwall F.C.,HKJC:millwall,reep_t9050153a,Q19487
+REEP_CC0,Milton Keynes Dons,HKJC:miltonkeynesdons,reep_t0caaa973,Q248188
+REEP_CC0,Milton Keynes Dons F.C.,HKJC:miltonkeynesdons,reep_t0caaa973,Q248188
+REEP_CC0,Mito HollyHock,HKJC:mitohollyhock,reep_t4957c305,Q1060184
+REEP_CC0,Mjällby AIF,HKJC:mjallby,reep_tf1d2bf5b,Q749138
+REEP_CC0,Mjällby Almänna Idrottsförening,HKJC:mjallby,reep_tf1d2bf5b,Q749138
+REEP_CC0,Monaco,HKJC:monaco,reep_taa892957,Q180305
+REEP_CC0,Montedio Yamagata,HKJC:montedioyamagata,reep_t0e7c4f76,Q1045524
+REEP_CC0,Montpellier,HKJC:montpellier,reep_t87aa1070,Q119519685
+REEP_CC0,Montreal Impact,HKJC:cfmontreal,reep_t328de072,Q6546792
+REEP_CC0,Monza,HKJC:monza,reep_tfcc34162,Q289482
+REEP_CC0,Moreirense,HKJC:moreirense,reep_tba53b47c,Q1346314
+REEP_CC0,Moreirense F.C.,HKJC:moreirense,reep_tba53b47c,Q1346314
+REEP_CC0,Moreirense Futebol Clube,HKJC:moreirense,reep_tba53b47c,Q1346314
+REEP_CC0,Motherwell,HKJC:motherwell,reep_t25eb35bc,Q216523
+REEP_CC0,Motherwell F.C.,HKJC:motherwell,reep_t25eb35bc,Q216523
+REEP_CC0,Motherwell Football Club,HKJC:motherwell,reep_t25eb35bc,Q216523
+REEP_CC0,MVV Maastricht,HKJC:maastricht,reep_tf2f71d44,Q876568
+REEP_CC0,Nagoya Grampus,HKJC:nagoyagrampus,reep_t510b2672,Q249662
+REEP_CC0,Nagoya Grampus Eight,HKJC:nagoyagrampus,reep_t510b2672,Q249662
+REEP_CC0,Nantes,HKJC:nantes,reep_t94817121,Q192071
+REEP_CC0,Napoli,HKJC:napoli,reep_t2b6ccc55,Q2641
+REEP_CC0,Nasaf Qarshi,HKJC:nasafqarshi,reep_tf45abdd0,Q1150723
+REEP_CC0,N.E.C.,HKJC:necnijmegen,reep_te00786eb,Q318348
+REEP_CC0,NEC Nijmegen,HKJC:necnijmegen,reep_te00786eb,Q318348
+REEP_CC0,Newcastle United,HKJC:newcastle,reep_tca986041,Q18716
+REEP_CC0,Newcastle United F.C.,HKJC:newcastle,reep_tca986041,Q18716
+REEP_CC0,Newcastle United Football Club,HKJC:newcastle,reep_tca986041,Q18716
+REEP_CC0,Newell's Old Boys,HKJC:newellsoldboys,reep_te847018b,Q221882
+REEP_CC0,New England Revolution,HKJC:newenglandrevolution,reep_t584cd365,Q309095
+REEP_CC0,Newport County,HKJC:newportcounty,reep_tb5397c2c,Q18523
+REEP_CC0,Newport County A.F.C.,HKJC:newportcounty,reep_tb5397c2c,Q18523
+REEP_CC0,New York City FC,HKJC:newyorkcity,reep_t02bd918b,Q13361030
+REEP_CC0,New York City Football Club,HKJC:newyorkcity,reep_t02bd918b,Q13361030
+REEP_CC0,Nijmegen Eendracht Combinatie,HKJC:necnijmegen,reep_te00786eb,Q318348
+REEP_CC0,NK Celje,HKJC:nkcelje,reep_t39336b57,Q31533
+REEP_CC0,Norwich City,HKJC:norwich,reep_t36aecb16,Q18721
+REEP_CC0,Norwich City F.C.,HKJC:norwich,reep_t36aecb16,Q18721
+REEP_CC0,Nottingham Forest,HKJC:nottinghamforest,reep_tf3e27a53,Q19490
+REEP_CC0,Nottingham Forest F.C.,HKJC:nottinghamforest,reep_tf3e27a53,Q19490
+REEP_CC0,Nottingham Forest Football Club,HKJC:nottinghamforest,reep_tf3e27a53,Q19490
+REEP_CC0,Notts County,HKJC:nottscounty,reep_t9f216c33,Q19598
+REEP_CC0,Notts County F.C.,HKJC:nottscounty,reep_t9f216c33,Q19598
+REEP_CC0,Oakland Roots,HKJC:oaklandroots,reep_t0c439f99,Q65966164
+REEP_CC0,Oakland Roots SC,HKJC:oaklandroots,reep_t0c439f99,Q65966164
+REEP_CC0,Oakleigh Cannons,HKJC:oakleighcannons,reep_tc9b173eb,Q7074109
+REEP_CC0,Oakleigh Cannons FC,HKJC:oakleighcannons,reep_tc9b173eb,Q7074109
+REEP_CC0,Oita Trinita,HKJC:oitatrinita,reep_t5d7d4c52,Q385074
+REEP_CC0,Oldham Athletic,HKJC:oldham,reep_t19ae98b8,Q19601
+REEP_CC0,Oldham Athletic A.F.C.,HKJC:oldham,reep_t19ae98b8,Q19601
+REEP_CC0,Olympique de Marseille,HKJC:marseille,reep_t13a752b0,Q132885
+REEP_CC0,Olympique Lyonnais,HKJC:lyon,reep_t385861e5,Q704
+REEP_CC0,Olympique Marseille,HKJC:marseille,reep_t13a752b0,Q132885
+REEP_CC0,Omonia Nicosia,HKJC:omonianicosia,reep_taaac764d,Q66998718
+REEP_CC0,Omonia Nicosia FC,HKJC:omonianicosia,reep_taaac764d,Q66998718
+REEP_CC0,Orange County SC,HKJC:orangecountysc,reep_t5f4daece,Q64884
+REEP_CC0,Orenburg,HKJC:fcorenburg,reep_t695da1d4,Q2095484
+REEP_CC0,Örgryte IS,HKJC:orgryte,reep_t5c110207,Q297906
+REEP_CC0,Osasuna,HKJC:osasuna,reep_t1a69b736,Q10286
+REEP_CC0,Osnabrück,HKJC:osnabruck,reep_t1836a624,Q160530
+REEP_CC0,Oxford United,HKJC:oxfordutd,reep_tdfabec6f,Q48946
+REEP_CC0,Oxford United F.C.,HKJC:oxfordutd,reep_tdfabec6f,Q48946
+REEP_CC0,Paris Saint-Germain,HKJC:parissaintgermain,reep_t4d821d5c,Q483020
+REEP_CC0,Paris Saint-Germain FC,HKJC:parissaintgermain,reep_t4d821d5c,Q483020
+REEP_CC0,Paris Saint-Germain Football Club,HKJC:parissaintgermain,reep_t4d821d5c,Q483020
+REEP_CC0,Pattani,HKJC:pattani,reep_t35a5377f,Q6417886
+REEP_CC0,Pattani F.C.,HKJC:pattani,reep_t35a5377f,Q6417886
+REEP_CC0,Persib Bandung,HKJC:persibbandung,reep_t3df20507,Q1630834
+REEP_CC0,Philadelphia Union,HKJC:philadelphiaunion,reep_t5f432af0,Q689874
+REEP_CC0,Phoenix Rising,HKJC:phoenixrising,reep_td4cf62fd,Q111516
+REEP_CC0,Phoenix Rising FC,HKJC:phoenixrising,reep_td4cf62fd,Q111516
+REEP_CC0,Pittsburgh Riverhounds,HKJC:pittsburghriverhounds,reep_t46567bff,Q570256
+REEP_CC0,Pittsburgh Riverhounds SC,HKJC:pittsburghriverhounds,reep_t46567bff,Q570256
+REEP_CC0,Plaza Colonia,HKJC:plazacolonia,reep_t4e705e09,Q1103101
+REEP_CC0,Plymouth Argyle,HKJC:plymouth,reep_t4917619e,Q48947
+REEP_CC0,Plymouth Argyle F.C.,HKJC:plymouth,reep_t4917619e,Q48947
+REEP_CC0,Port,HKJC:portfc,reep_t491654f5,Q580378
+REEP_CC0,Port F.C.,HKJC:portfc,reep_t491654f5,Q580378
+REEP_CC0,Portsmouth,HKJC:portsmouth,reep_t8c26303d,Q19604
+REEP_CC0,Portsmouth F.C.,HKJC:portsmouth,reep_t8c26303d,Q19604
+REEP_CC0,Port Vale,HKJC:portvale,reep_t0d9aaa50,Q48948
+REEP_CC0,Port Vale F.C.,HKJC:portvale,reep_t0d9aaa50,Q48948
+REEP_CC0,Prachuap,HKJC:prachuap,reep_tcef0cf2d,Q6640756
+REEP_CC0,Prachuap F.C.,HKJC:prachuap,reep_tcef0cf2d,Q6640756
+REEP_CC0,Preston North End,HKJC:preston,reep_tf7466707,Q19612
+REEP_CC0,Preston North End F.C.,HKJC:preston,reep_tf7466707,Q19612
+REEP_CC0,PSG,HKJC:parissaintgermain,reep_t4d821d5c,Q483020
+REEP_CC0,PSV Eindhoven,HKJC:psveindhoven,reep_t70dad9af,Q11938
+REEP_CC0,Puebla,HKJC:puebla,reep_t66310807,Q646596
+REEP_CC0,Puebla F.C.,HKJC:puebla,reep_t66310807,Q646596
+REEP_CC0,Pumas UNAM,HKJC:pumasunam,reep_ta74fce25,Q1143000
+REEP_CC0,Qatar SC,HKJC:qatarsc,reep_tfdf2e8ba,Q1051203
+REEP_CC0,RAAL La Louvière,HKJC:lalouviere,reep_t59153117,Q536651
+REEP_CC0,Racing Club,HKJC:racingclub,reep_tab3362b1,Q276533
+REEP_CC0,Racing Club Asociación Civil de Avellaneda,HKJC:racingclub,reep_tab3362b1,Q276533
+REEP_CC0,Racing Club de Strasbourg Alsace,HKJC:strasbourg,reep_t766ba498,Q126334
+REEP_CC0,Rakuten Vissel Kobe,HKJC:visselkobe,reep_t90f05d2c,Q844271
+REEP_CC0,Randers FC,HKJC:randers,reep_td2453848,Q729560
+REEP_CC0,Randers Fodbold Club,HKJC:randers,reep_td2453848,Q729560
+REEP_CC0,Rangers,HKJC:rangers,reep_t0cf21ae4,Q25443886
+REEP_CC0,Rapid Vienna,HKJC:rapidvienna,reep_ta4716007,Q131215
+REEP_CC0,Rasen Ballsport Leipzig,HKJC:rbleipzig,reep_t525a6d9c,Q702455
+REEP_CC0,Rasisalai United,HKJC:rasisalaiutd,reep_t2902d120,Q113630689
+REEP_CC0,Rasisalai United F.C.,HKJC:rasisalaiutd,reep_t2902d120,Q113630689
+REEP_CC0,Rayong,HKJC:rayong,reep_t36543311,Q6640728
+REEP_CC0,Rayong F.C.,HKJC:rayong,reep_t36543311,Q6640728
+REEP_CC0,Rayo Vallecano,HKJC:vallecano,reep_tca43538f,Q10300
+REEP_CC0,Rayo Vallecano de Madrid S. A. D.,HKJC:vallecano,reep_tca43538f,Q10300
+REEP_CC0,RB Leipzig,HKJC:rbleipzig,reep_t525a6d9c,Q702455
+REEP_CC0,RB Leipzig (women),HKJC:rbleipzigwomen,reep_t3b47cc7b,Q30033219
+REEP_CC0,RB Omiya Ardija,HKJC:rbomiyaardija,reep_t69d014d3,Q385496
+REEP_CC0,RC Celta de Vigo,HKJC:celtavigo,reep_tf6becfc3,Q8749
+REEP_CC0,RCD Mallorca,HKJC:mallorca,reep_t0cb41ad8,Q8835
+REEP_CC0,R.C. Lens,HKJC:lens,reep_t1f47218c,Q191843
+REEP_CC0,RC Strasbourg Alsace,HKJC:strasbourg,reep_t766ba498,Q126334
+REEP_CC0,Reading,HKJC:reading,reep_tfb81df86,Q18729
+REEP_CC0,Reading F.C.,HKJC:reading,reep_tfb81df86,Q18729
+REEP_CC0,Real Betis,HKJC:betis,reep_t05e5c936,Q8723
+REEP_CC0,Real Betis Balompié,HKJC:betis,reep_t05e5c936,Q8723
+REEP_CC0,Real Betis Balompié S.A.D.,HKJC:betis,reep_t05e5c936,Q8723
+REEP_CC0,Real Club Celta de Vigo,HKJC:celtavigo,reep_tf6becfc3,Q8749
+REEP_CC0,Real Club Celta de Vigo S. A. D.,HKJC:celtavigo,reep_tf6becfc3,Q8749
+REEP_CC0,Real Club Deportivo de La Coruña,HKJC:deportivo,reep_t80374b83,Q8760
+REEP_CC0,Real Club Deportivo Mallorca S.A.D.,HKJC:mallorca,reep_t0cb41ad8,Q8835
+REEP_CC0,Real Oviedo,HKJC:oviedo,reep_tf2890dd1,Q271574
+REEP_CC0,Real Oviedo S.A.D.,HKJC:oviedo,reep_tf2890dd1,Q271574
+REEP_CC0,Real Salt Lake,HKJC:realsaltlake,reep_tde03b673,Q391353
+REEP_CC0,Real Sociedad,HKJC:realsociedad,reep_t1511b870,Q10315
+REEP_CC0,Real Sociedad B,HKJC:realsociedadb,reep_tf15ce0df,Q1067750
+REEP_CC0,Real Sociedad de Fútbol,HKJC:realsociedad,reep_t1511b870,Q10315
+REEP_CC0,Real Sociedad de Fútbol S.A.D.,HKJC:realsociedad,reep_t1511b870,Q10315
+REEP_CC0,Real Valladolid,HKJC:valladolid,reep_t8c9953a0,Q10319
+REEP_CC0,Real Valladolid CF,HKJC:valladolid,reep_t8c9953a0,Q10319
+REEP_CC0,RFK Akhmat Grozny,HKJC:akhmatgrozny,reep_tca619bc9,Q240444
+REEP_CC0,Rhode Island FC,HKJC:rhodeislandfc,reep_t7ece3ac0,Q115802489
+REEP_CC0,RKC Waalwijk,HKJC:rkcwaalwijk,reep_tdd42a57e,Q24699
+REEP_CC0,Roasso Kumamoto,HKJC:roassokumamoto,reep_t839c9c83,Q287571
+REEP_CC0,Rodina Moscow,HKJC:rodinamoscow,reep_t2e12f57b,Q66210522
+REEP_CC0,Roma,HKJC:roma,reep_t2a2a71e0,Q2739
+REEP_CC0,Rosenborg Ballklub,HKJC:rosenborg,reep_t1a5b0d9d,Q186785
+REEP_CC0,Rosenborg BK,HKJC:rosenborg,reep_t1a5b0d9d,Q186785
+REEP_CC0,Rostov,HKJC:rostov,reep_t63790e4c,Q182930
+REEP_CC0,Sacramento Republic,HKJC:sacramentorepublic,reep_t5d6da608,Q7397036
+REEP_CC0,Sacramento Republic FC,HKJC:sacramentorepublic,reep_t5d6da608,Q7397036
+REEP_CC0,Sagan Tosu,HKJC:sagantosu,reep_te3453b76,Q1051238
+REEP_CC0,Saint-Étienne,HKJC:stetienne,reep_t89dfffbb,Q19521
+REEP_CC0,Salford City,HKJC:salfordcity,reep_tcc0c5977,Q18460
+REEP_CC0,Salford City F.C.,HKJC:salfordcity,reep_tcc0c5977,Q18460
+REEP_CC0,San Antonio,HKJC:sanantoniofc,reep_t2279edf5,Q22025437
+REEP_CC0,San Antonio FC,HKJC:sanantoniofc,reep_t2279edf5,Q22025437
+REEP_CC0,San Diego FC,HKJC:sandiegofc,reep_t52ed77de,Q118945347
+REEP_CC0,San Diego Football Club,HKJC:sandiegofc,reep_t52ed77de,Q118945347
+REEP_CC0,Sanfrecce Hiroshima,HKJC:sanfreccehiroshima,reep_t61b53994,Q630279
+REEP_CC0,Santos Laguna,HKJC:santoslaguna,reep_tdc7042fe,Q745246
+REEP_CC0,Sassuolo,HKJC:sassuolo,reep_t5105195c,Q8603
+REEP_CC0,SC Austria Lustenau,HKJC:austrialustenau,reep_t26eef099,Q696507
+REEP_CC0,Schalke 04,HKJC:schalke04,reep_t02a8d789,Q32494
+REEP_CC0,SC Heerenveen,HKJC:heerenveen,reep_t8567ddc4,Q200321
+REEP_CC0,SC Telstar,HKJC:telstar,reep_t6bb4cc05,Q1071713
+REEP_CC0,SD Eibar,HKJC:eibar,reep_ta9170e66,Q770740
+REEP_CC0,Seongnam FC,HKJC:seongnamfc,reep_ta56e936b,Q482540
+REEP_CC0,Sevilla,HKJC:sevilla,reep_t520f8dbd,Q10329
+REEP_CC0,Sevilla FC,HKJC:sevilla,reep_t520f8dbd,Q10329
+REEP_CC0,Sevilla Fútbol Club S.A.D.,HKJC:sevilla,reep_t520f8dbd,Q10329
+REEP_CC0,Sharjah FC,HKJC:sharjahfc,reep_t81c42934,Q286801
+REEP_CC0,Sheffield United,HKJC:sheffutd,reep_t2b40c662,Q19607
+REEP_CC0,Sheffield United F.C.,HKJC:sheffutd,reep_t2b40c662,Q19607
+REEP_CC0,Sheffield Wednesday,HKJC:sheffwednesday,reep_tc422dc27,Q19498
+REEP_CC0,Sheffield Wednesday F.C.,HKJC:sheffwednesday,reep_tc422dc27,Q19498
+REEP_CC0,Shimizu S-Pulse,HKJC:shimizuspulse,reep_t6a112440,Q823384
+REEP_CC0,Shonan Bellmare,HKJC:shonanbellmare,reep_tb35d9047,Q692856
+REEP_CC0,Silkeborg Idrætsforening,HKJC:silkeborgif,reep_tf177b46f,Q723489
+REEP_CC0,Silkeborg IF,HKJC:silkeborgif,reep_tf177b46f,Q723489
+REEP_CC0,Sion,HKJC:sion,reep_t0a9bedd4,Q321061
+REEP_CC0,Sisaket United,HKJC:sisaketutd,reep_t7b45bb22,Q18359121
+REEP_CC0,Sisaket United F.C.,HKJC:sisaketutd,reep_t7b45bb22,Q18359121
+REEP_CC0,Sisaket Utd,HKJC:sisaketutd,reep_t66e5ec76,Q22080917
+REEP_CC0,SK Beveren,HKJC:skbeveren,reep_t73e734d8,Q509170
+REEP_CC0,Società Sportiva Calcio Napoli,HKJC:napoli,reep_t2b6ccc55,Q2641
+REEP_CC0,Società Sportiva Lazio S.p.A.,HKJC:lazio,reep_t8e09c6f2,Q2609
+REEP_CC0,Sparta Prague,HKJC:spartaprague,reep_t098b3c84,Q193481
+REEP_CC0,Sport-Club Freiburg,HKJC:freiburg,reep_t70979bf6,Q106394
+REEP_CC0,Sportclub Heerenveen,HKJC:heerenveen,reep_t8567ddc4,Q200321
+REEP_CC0,Sportclub Telstar,HKJC:telstar,reep_t6bb4cc05,Q1071713
+REEP_CC0,Sporting Charleroi,HKJC:charleroi,reep_tb62566d2,Q109046924
+REEP_CC0,Sporting Clube de Portugal,HKJC:sporting,reep_t772bbea3,Q75729
+REEP_CC0,Sporting Club Jacksonville,HKJC:sportingclubjacksonville,reep_tcb7393c1,Q123846321
+REEP_CC0,Sporting CP,HKJC:sporting,reep_t772bbea3,Q75729
+REEP_CC0,Sporting de Gijón,HKJC:gijon,reep_tedb2203f,Q12278
+REEP_CC0,Sporting Gijón,HKJC:gijon,reep_tedb2203f,Q12278
+REEP_CC0,Sporting Kansas City,HKJC:sportingkansascity,reep_tf398568b,Q329812
+REEP_CC0,Sportivo Trinidense,HKJC:sportivotrinidense,reep_t0cc92471,Q2980011
+REEP_CC0,Sportklub Rapid,HKJC:rapidvienna,reep_ta4716007,Q131215
+REEP_CC0,Sportkring Beveren,HKJC:skbeveren,reep_t73e734d8,Q509170
+REEP_CC0,S-Pulse,HKJC:shimizuspulse,reep_t6a112440,Q823384
+REEP_CC0,SSC Napoli,HKJC:napoli,reep_t2b6ccc55,Q2641
+REEP_CC0,SS Lazio,HKJC:lazio,reep_t8e09c6f2,Q2609
+REEP_CC0,Start,HKJC:start,reep_t5d06764e,Q22019120
+REEP_CC0,Stevenage,HKJC:stevenage,reep_te008bd6b,Q9426
+REEP_CC0,Stevenage F.C.,HKJC:stevenage,reep_te008bd6b,Q9426
+REEP_CC0,St. Gallen,HKJC:stgallen,reep_t1fec111e,Q659212
+REEP_CC0,St Johnstone,HKJC:stjohnstone,reep_t81151ec4,Q268776
+REEP_CC0,St Johnstone F.C.,HKJC:stjohnstone,reep_t81151ec4,Q268776
+REEP_CC0,St. Louis City SC,HKJC:stlouiscitysc,reep_t32b07a21,Q66642491
+REEP_CC0,St. Louis City Soccer Club,HKJC:stlouiscitysc,reep_t32b07a21,Q66642491
+REEP_CC0,Stockport County,HKJC:stockport,reep_t5d169c52,Q18526
+REEP_CC0,Stockport County F.C.,HKJC:stockport,reep_t5d169c52,Q18526
+REEP_CC0,Stoke City,HKJC:stoke,reep_t55f4d538,Q18736
+REEP_CC0,Stoke City F.C.,HKJC:stoke,reep_t55f4d538,Q18736
+REEP_CC0,St. Pauli,HKJC:stpauli,reep_t94f02422,Q6463
+REEP_CC0,Strasbourg,HKJC:strasbourg,reep_t766ba498,Q126334
+REEP_CC0,Stuttgart,HKJC:stuttgart,reep_t88b5bc12,Q4512
+REEP_CC0,Sukhothai,HKJC:sukhothai,reep_t5fdf4581,Q6640806
+REEP_CC0,Sukhothai F.C.,HKJC:sukhothai,reep_t5fdf4581,Q6640806
+REEP_CC0,Sunderland,HKJC:sunderland,reep_tb5c0a8e2,Q18739
+REEP_CC0,Sunderland A.F.C.,HKJC:sunderland,reep_tb5c0a8e2,Q18739
+REEP_CC0,Sunderland Association Football Club,HKJC:sunderland,reep_tb5c0a8e2,Q18739
+REEP_CC0,Suwon FC,HKJC:suwonfc,reep_t28eee8ec,Q3455793
+REEP_CC0,SV Elversberg,HKJC:elversberg,reep_tee73c21a,Q692691
+REEP_CC0,Swansea City,HKJC:swansea,reep_t0394761b,Q18659
+REEP_CC0,Swansea City A.F.C.,HKJC:swansea,reep_t0394761b,Q18659
+REEP_CC0,Swindon Town,HKJC:swindon,reep_t5096eaa8,Q19634
+REEP_CC0,Swindon Town F.C.,HKJC:swindon,reep_t5096eaa8,Q19634
+REEP_CC0,Tampines Rovers,HKJC:tampinesrovers,reep_t49f24bd1,Q1536543
+REEP_CC0,Tampines Rovers FC,HKJC:tampinesrovers,reep_t49f24bd1,Q1536543
+REEP_CC0,Tegevajaro Miyazaki,HKJC:tegevajaromiyazaki,reep_tc2a6b265,Q11232186
+REEP_CC0,Telstar,HKJC:telstar,reep_t6bb4cc05,Q1071713
+REEP_CC0,Tepatitlán,HKJC:tepatitlan,reep_teddb38a7,Q24185207
+REEP_CC0,Tepatitlán F.C.,HKJC:tepatitlan,reep_teddb38a7,Q24185207
+REEP_CC0,Ternana Women,HKJC:ternanawomen,reep_t4b45db89,Q135196550
+REEP_CC0,Thun,HKJC:thun,reep_tdc295d22,Q464775
+REEP_CC0,Tlaxcala,HKJC:tlaxcala,reep_tfd5f537d,Q24185114
+REEP_CC0,Tlaxcala F.C.,HKJC:tlaxcala,reep_tfd5f537d,Q24185114
+REEP_CC0,Tochigi City,HKJC:tochigicity,reep_ta3bf794a,Q7811989
+REEP_CC0,Tochigi City FC,HKJC:tochigicity,reep_ta3bf794a,Q7811989
+REEP_CC0,Tokushima Vortis,HKJC:tokushimavortis,reep_t15414831,Q513145
+REEP_CC0,Tokyo Football Club,HKJC:fctokyo,reep_tf2d17d60,Q856619
+REEP_CC0,Tokyo Verdy,HKJC:tokyoverdy,reep_te8644ca0,Q620499
+REEP_CC0,TOP Oss,HKJC:oss,reep_tbd687e67,Q1149034
+REEP_CC0,Torino,HKJC:actorino,reep_t5ce85433,Q2768
+REEP_CC0,Torino Calcio,HKJC:actorino,reep_t5ce85433,Q2768
+REEP_CC0,Torino FC,HKJC:actorino,reep_t5ce85433,Q2768
+REEP_CC0,Toronto FC,HKJC:torontofc,reep_t1039270c,Q327238
+REEP_CC0,TPS Turku,HKJC:tpsturku,reep_t61415294,Q223813
+REEP_CC0,Tranmere Rovers,HKJC:tranmere,reep_t97135cb4,Q19637
+REEP_CC0,Tranmere Rovers F.C.,HKJC:tranmere,reep_t97135cb4,Q19637
+REEP_CC0,Troyes,HKJC:troyes,reep_t00a90771,Q2868069
+REEP_CC0,TSV Bayer 04 Leverkusen,HKJC:leverkusen,reep_tde1cded4,Q104761
+REEP_CC0,UD Almería,HKJC:almeria,reep_t7365d971,Q10407
+REEP_CC0,Udinese,HKJC:udinese,reep_t53dcb145,Q2798
+REEP_CC0,Udinese Calcio,HKJC:udinese,reep_t53dcb145,Q2798
+REEP_CC0,UD Las Palmas,HKJC:laspalmas,reep_taf8bbff3,Q11979
+REEP_CC0,Union Berlin,HKJC:unionberlin,reep_t63b1713b,Q141971
+REEP_CC0,Unión Deportiva Almería,HKJC:almeria,reep_t7365d971,Q10407
+REEP_CC0,Unione Sportiva Lecce,HKJC:lecce,reep_t6f83124c,Q13391
+REEP_CC0,Unione Sportiva Sassuolo Calcio,HKJC:sassuolo,reep_t5105195c,Q8603
+REEP_CC0,Urawa Red Diamonds,HKJC:urawareds,reep_t27424f4b,Q218883
+REEP_CC0,US Boulogne,HKJC:boulognesurmer,reep_td98d5ffb,Q309400
+REEP_CC0,US Lecce,HKJC:lecce,reep_t6f83124c,Q13391
+REEP_CC0,US Sassuolo Calcio,HKJC:sassuolo,reep_t5105195c,Q8603
+REEP_CC0,Uthai Thani,HKJC:uthaithani,reep_t709cd9b1,Q4925132
+REEP_CC0,Uthai Thani F.C.,HKJC:uthaithani,reep_t709cd9b1,Q4925132
+REEP_CC0,Utrecht,HKJC:utrecht,reep_ta1e9fe18,Q24680
+REEP_CC0,Vanraure Hachinohe,HKJC:vanraurehachinohe,reep_t073f59fc,Q11351958
+REEP_CC0,Vasco da Gama,HKJC:vascodagama,reep_t2990e863,Q2094623
+REEP_CC0,Vegalta Sendai,HKJC:vegaltasendai,reep_t9f69d264,Q1044651
+REEP_CC0,Venados,HKJC:venados,reep_td8a6f0e6,Q1570578
+REEP_CC0,Venados FC,HKJC:venados,reep_td8a6f0e6,Q1570578
+REEP_CC0,Venezia,HKJC:venezia,reep_t1efcd42e,Q501245
+REEP_CC0,Venezia F.C.,HKJC:venezia,reep_t1efcd42e,Q501245
+REEP_CC0,Ventforet Kofu,HKJC:ventforetkofu,reep_tbc973a53,Q1061696
+REEP_CC0,Verein für Bewegungsspiele Stuttgart 1893,HKJC:stuttgart,reep_t88b5bc12,Q4512
+REEP_CC0,Verein für Leibesübungen Wolfsburg,HKJC:wolfsburg,reep_te786da6b,Q101859
+REEP_CC0,VfB Stuttgart,HKJC:stuttgart,reep_t88b5bc12,Q4512
+REEP_CC0,VfB Stuttgart 1893,HKJC:stuttgart,reep_t88b5bc12,Q4512
+REEP_CC0,VfL Bochum,HKJC:bochum,reep_t0e165abc,Q105861
+REEP_CC0,VfL Osnabrück,HKJC:osnabruck,reep_t1836a624,Q160530
+REEP_CC0,Viborg FF,HKJC:viborg,reep_td1cfb6c3,Q837956
+REEP_CC0,Viborg Fodsports Forening,HKJC:viborg,reep_td1cfb6c3,Q837956
+REEP_CC0,Viking FK,HKJC:viking,reep_t9b15b6f6,Q211177
+REEP_CC0,Viking Fotballklubb,HKJC:viking,reep_t9b15b6f6,Q211177
+REEP_CC0,Vissel Kobe,HKJC:visselkobe,reep_t90f05d2c,Q844271
+REEP_CC0,V-Varen Nagasaki,HKJC:vvarennagasaki,reep_t2cd33fec,Q3029309
+REEP_CC0,VVV-Venlo,HKJC:venlo,reep_ta59324cc,Q24689
+REEP_CC0,Walsall,HKJC:walsall,reep_tb080a72a,Q19644
+REEP_CC0,Walsall F.C.,HKJC:walsall,reep_tb080a72a,Q19644
+REEP_CC0,Wanderers,HKJC:montevideowanderers,reep_t4b4705df,Q25443884
+REEP_CC0,Watford,HKJC:watford,reep_t2a827671,Q2714
+REEP_CC0,Watford F.C.,HKJC:watford,reep_t2a827671,Q2714
+REEP_CC0,Wigan Athletic,HKJC:wigan,reep_t27b734ef,Q18750
+REEP_CC0,Wigan Athletic F.C.,HKJC:wigan,reep_t27b734ef,Q18750
+REEP_CC0,Willem II,HKJC:willemii,reep_t62311e4c,Q332664
+REEP_CC0,Wolfsburg,HKJC:wolfsburg,reep_te786da6b,Q101859
+REEP_CC0,Yellow-Red Koninklijke Voetbalclub Mechelen,HKJC:kvmechelen,reep_t74584c9a,Q113000
+REEP_CC0,Yokohama FC,HKJC:fcyokohama,reep_tc746e352,Q1062259
+REEP_CC0,Yokohama F. Marinos,HKJC:yokohamafmarinos,reep_t94e0f75d,Q854932
+REEP_CC0,Yokohama Marinos,HKJC:yokohamafmarinos,reep_t94e0f75d,Q854932
+REEP_CC0,Yongin FC,HKJC:yonginfc,reep_t013b0d46,Q137510040
+REEP_CC0,Zelvia,HKJC:machidazelvia,reep_t049194ad,Q1366905
+REEP_CC0,Zürich,HKJC:zurich,reep_t5d809f46,Q206692

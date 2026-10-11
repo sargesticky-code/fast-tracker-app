@@ -1,0 +1,155 @@
+-- Reep sampled CC0, unique QID entity and pre-verified canonical name.
+-- Do not overwrite old source identities or global homonyms.
+WITH incoming(source,source_name,team_key,reep_id,qid) AS (
+ VALUES
+('REEP_CC0','Gillingham F.C.','HKJC:gillingham','reep_ta91d6e64','Q48943'),
+('REEP_CC0','Gil Vicente','HKJC:gilvicente','reep_t9b803c53','Q926438'),
+('REEP_CC0','Gil Vicente F.C.','HKJC:gilvicente','reep_t9b803c53','Q926438'),
+('REEP_CC0','Gil Vicente Futebol Clube','HKJC:gilvicente','reep_t9b803c53','Q926438'),
+('REEP_CC0','Gimpo FC','HKJC:gimpofc','reep_td823c2bb','Q12589091'),
+('REEP_CC0','Giravanz Kitakyushu','HKJC:giravanzkitakyushu','reep_te926fb3a','Q1151182'),
+('REEP_CC0','Girona','HKJC:girona','reep_t786a1429','Q11945'),
+('REEP_CC0','Girona FC','HKJC:girona','reep_t786a1429','Q11945'),
+('REEP_CC0','Girona Fútbol Club S. A. D.','HKJC:girona','reep_t786a1429','Q11945'),
+('REEP_CC0','Go Ahead Eagles','HKJC:goaheadeagles','reep_t1398e540','Q749589'),
+('REEP_CC0','Granada','HKJC:cfgranada','reep_t4824edc4','Q8812'),
+('REEP_CC0','Granada CF','HKJC:cfgranada','reep_t4824edc4','Q8812'),
+('REEP_CC0','Grazer AK','HKJC:grazerak','reep_t5ee4d402','Q659780'),
+('REEP_CC0','Grimsby Town','HKJC:grimsby','reep_t8069535d','Q18515'),
+('REEP_CC0','Grimsby Town F.C.','HKJC:grimsby','reep_t8069535d','Q18515'),
+('REEP_CC0','Groningen','HKJC:groningen','reep_t5f32522a','Q24711'),
+('REEP_CC0','Guingamp','HKJC:guingamp','reep_tf8252340','Q930072'),
+('REEP_CC0','Gwangju FC','HKJC:gwangjufc','reep_tb3cb20be','Q168364'),
+('REEP_CC0','Gwangju Football Club','HKJC:gwangjufc','reep_tb3cb20be','Q168364'),
+('REEP_CC0','Gyeongnam FC','HKJC:gyeongnamfc','reep_tad4f1bbe','Q425690'),
+('REEP_CC0','Halmstads BK','HKJC:halmstads','reep_t0f6a3078','Q584858'),
+('REEP_CC0','Hamburger Sport Verein','HKJC:hamburg','reep_te2cd1ba9','Q51974'),
+('REEP_CC0','Hamburger SV','HKJC:hamburg','reep_te2cd1ba9','Q51974'),
+('REEP_CC0','Hammarby Fotboll','HKJC:hammarby','reep_t0aba1426','Q460724'),
+('REEP_CC0','Hammarby IF','HKJC:hammarby','reep_t0aba1426','Q460724'),
+('REEP_CC0','Hannover 96','HKJC:hannover','reep_te0b80299','Q33748'),
+('REEP_CC0','Hartford Athletic','HKJC:hartfordathletic','reep_te2ec8dd3','Q55613461'),
+('REEP_CC0','Hatta Club','HKJC:hattaclub','reep_tc19d197f','Q2756902'),
+('REEP_CC0','Heerenveen','HKJC:heerenveen','reep_t8567ddc4','Q200321'),
+('REEP_CC0','Helmond Sport','HKJC:helmond','reep_tceb8bbd5','Q636315'),
+('REEP_CC0','Helsingin Jalkapalloklubi','HKJC:hjkhelsinki','reep_t2d079f9c','Q208584'),
+('REEP_CC0','Heracles','HKJC:heracles','reep_t2b29933c','Q11961'),
+('REEP_CC0','Heracles Almelo','HKJC:heracles','reep_t2b29933c','Q11961'),
+('REEP_CC0','Hibernian','HKJC:hibernian','reep_t17bb3038','Q192597'),
+('REEP_CC0','Hibernian Football Club','HKJC:hibernian','reep_t17bb3038','Q192597'),
+('REEP_CC0','Hitachi Kashiwa Reysol','HKJC:kashiwareysol','reep_t4bbdf95f','Q844931'),
+('REEP_CC0','HJK Helsinki','HKJC:hjkhelsinki','reep_t2d079f9c','Q208584'),
+('REEP_CC0','Hokkaido Consadole Sapporo','HKJC:hokkaidoconsadolesapporo','reep_td7c3929b','Q586787'),
+('REEP_CC0','Holstein Kiel','HKJC:holsteinkiel','reep_tcef397e9','Q157828'),
+('REEP_CC0','Houston Dynamo','HKJC:houstondynamo','reep_t962cfd4f','Q328313'),
+('REEP_CC0','Houston Dynamo FC','HKJC:houstondynamo','reep_t962cfd4f','Q328313'),
+('REEP_CC0','Hull City','HKJC:hullcity','reep_t7451405c','Q19477'),
+('REEP_CC0','Hull City A.F.C.','HKJC:hullcity','reep_t7451405c','Q19477'),
+('REEP_CC0','Huracán (women)','HKJC:huracanwomen','reep_tcac1d59b','Q108061871'),
+('REEP_CC0','Hwaseong FC','HKJC:hwaseongfc','reep_t4348ae2b','Q15700191'),
+('REEP_CC0','Idrettsklubben Start','HKJC:start','reep_tced2da7c','Q737947'),
+('REEP_CC0','Idrottsföreningen Kamraterna Göteborg','HKJC:goteborg','reep_t420f22dc','Q201567'),
+('REEP_CC0','IFK Göteborg','HKJC:goteborg','reep_t420f22dc','Q201567'),
+('REEP_CC0','IFK Mariehamn','HKJC:ifkmariehamn','reep_tc30cafd7','Q252276'),
+('REEP_CC0','IK Start','HKJC:start','reep_tced2da7c','Q737947'),
+('REEP_CC0','Imabari','HKJC:fcimabari','reep_t1cb9e250','Q11198999'),
+('REEP_CC0','Impulsora del Deportivo Necaxa S.A. de C.V.','HKJC:necaxa','reep_t9f8f97ac','Q1280895'),
+('REEP_CC0','Independiente del Valle','HKJC:independientedelvalle','reep_tbc8aad01','Q249648'),
+('REEP_CC0','Independiente Rivadavia','HKJC:independienterivadavia','reep_td56b5322','Q2454482'),
+('REEP_CC0','Indy Eleven','HKJC:indyeleven','reep_tb79d16ac','Q6023905'),
+('REEP_CC0','Inter','HKJC:intermilan','reep_tb354b960','Q631'),
+('REEP_CC0','Inter Miami','HKJC:intermiamicf','reep_t03c86df1','Q16844931'),
+('REEP_CC0','Inter Miami CF','HKJC:intermiamicf','reep_t03c86df1','Q16844931'),
+('REEP_CC0','Inter Milan','HKJC:intermilan','reep_tb354b960','Q631'),
+('REEP_CC0','Inter Turku','HKJC:interturku','reep_tb5f7de7c','Q222877'),
+('REEP_CC0','Ipswich Town','HKJC:ipswich','reep_t1cdfb4a1','Q9653'),
+('REEP_CC0','Ipswich Town F.C.','HKJC:ipswich','reep_t1cdfb4a1','Q9653'),
+('REEP_CC0','Iwaki','HKJC:iwakifc','reep_t5c9696a3','Q21652498'),
+('REEP_CC0','Iwaki FC','HKJC:iwakifc','reep_t5c9696a3','Q21652498'),
+('REEP_CC0','Jaiba Brava','HKJC:jaibabrava','reep_tf04925d9','Q971671'),
+('REEP_CC0','JEF United','HKJC:jefunitedchiba','reep_t65d92111','Q646204'),
+('REEP_CC0','JEF United Chiba','HKJC:jefunitedchiba','reep_t65d92111','Q646204'),
+('REEP_CC0','Jong Ajax','HKJC:jongajax','reep_te92dc6f7','Q1770361'),
+('REEP_CC0','Jong PSV','HKJC:jongpsveindhoven','reep_t3d1edc6b','Q13534332'),
+('REEP_CC0','Júbilo Iwata','HKJC:jubiloiwata','reep_t210c80ba','Q855401'),
+('REEP_CC0','Juventud de Las Piedras','HKJC:juventudlaspiedras','reep_t742bbedc','Q217644'),
+('REEP_CC0','Juventud Las Piedras','HKJC:juventudlaspiedras','reep_t742bbedc','Q217644'),
+('REEP_CC0','Kagoshima United','HKJC:kagoshimaunitedfc','reep_t574552da','Q17208878'),
+('REEP_CC0','Kagoshima United FC','HKJC:kagoshimaunitedfc','reep_t574552da','Q17208878'),
+('REEP_CC0','Kalba FC','HKJC:kalbafc','reep_ta7a1a819','Q3804552'),
+('REEP_CC0','Kalmar FF','HKJC:kalmar','reep_tb28c94f5','Q644157'),
+('REEP_CC0','Kalmar Fotbollförening','HKJC:kalmar','reep_tb28c94f5','Q644157'),
+('REEP_CC0','Karlsruher SC','HKJC:karlsruher','reep_t486f96d0','Q105853'),
+('REEP_CC0','Kashima Antlers','HKJC:kashimaantlers','reep_t2cda6590','Q16932'),
+('REEP_CC0','Kashima Antlers FC','HKJC:kashimaantlers','reep_t2cda6590','Q16932'),
+('REEP_CC0','Kashiwa Reysol','HKJC:kashiwareysol','reep_t4bbdf95f','Q844931'),
+('REEP_CC0','Kataller Toyama','HKJC:katallertoyama','reep_t0f9efdaa','Q1140017'),
+('REEP_CC0','Kawasaki Frontale','HKJC:kawasakifrontale','reep_td66af59a','Q874016'),
+('REEP_CC0','Khor Fakkan Club','HKJC:khorfakkan','reep_tfd7e1f9e','Q6878716'),
+('REEP_CC0','Kilmarnock','HKJC:kilmarnock','reep_te9e09340','Q210961'),
+('REEP_CC0','Kilmarnock F.C.','HKJC:kilmarnock','reep_te9e09340','Q210961'),
+('REEP_CC0','Kilmarnock Football Club','HKJC:kilmarnock','reep_te9e09340','Q210961'),
+('REEP_CC0','KKS Lech Poznań Spółka Akcyjna','HKJC:lechpoznan','reep_tbb1fa454','Q52942'),
+('REEP_CC0','Köln','HKJC:cologne','reep_td85c256f','Q104770'),
+('REEP_CC0','Krasnodar','HKJC:fkkrasnodar','reep_tb5ca18b1','Q220854'),
+('REEP_CC0','Kristiansund Ballklubb','HKJC:kristiansund','reep_t5e7e0c8e','Q496190'),
+('REEP_CC0','Kristiansund BK','HKJC:kristiansund','reep_t5e7e0c8e','Q496190'),
+('REEP_CC0','Kuwait SC','HKJC:kuwaitsc','reep_t20788ef2','Q812716'),
+('REEP_CC0','K.V. Kortrijk','HKJC:kvkortrijk','reep_t873856f8','Q618620'),
+('REEP_CC0','KV Mechelen','HKJC:kvmechelen','reep_t74584c9a','Q113000'),
+('REEP_CC0','Kyoto Purple Sanga','HKJC:kyotosanga','reep_t7328be82','Q1047535'),
+('REEP_CC0','Kyoto Sanga','HKJC:kyotosanga','reep_t7328be82','Q1047535'),
+('REEP_CC0','Kyoto Sanga FC','HKJC:kyotosanga','reep_t7328be82','Q1047535'),
+('REEP_CC0','LA Galaxy','HKJC:lagalaxy','reep_t447cdaee','Q204357'),
+('REEP_CC0','Lahti','HKJC:lahti','reep_tf7c5c4a2','Q476880'),
+('REEP_CC0','Lamphun Warrior','HKJC:lamphunwarriors','reep_td69ff6ec','Q6482429'),
+('REEP_CC0','Lamphun Warrior F.C.','HKJC:lamphunwarriors','reep_td69ff6ec','Q6482429'),
+('REEP_CC0','LASK Linz','HKJC:lasklinz','reep_t5fe9256a','Q392310'),
+('REEP_CC0','Las Palmas','HKJC:laspalmas','reep_taf8bbff3','Q11979'),
+('REEP_CC0','Las Vegas Lights','HKJC:lasvegaslights','reep_td234c020','Q38221432'),
+('REEP_CC0','Las Vegas Lights FC','HKJC:lasvegaslights','reep_td234c020','Q38221432'),
+('REEP_CC0','Lausanne-Sport','HKJC:lausanne','reep_t280b36e2','Q309456'),
+('REEP_CC0','Lazio','HKJC:lazio','reep_t8e09c6f2','Q2609'),
+('REEP_CC0','Lecce','HKJC:lecce','reep_t6f83124c','Q13391'),
+('REEP_CC0','Lech Poznań','HKJC:lechpoznan','reep_tbb1fa454','Q52942'),
+('REEP_CC0','Leeds United','HKJC:leeds','reep_t310cf271','Q1128631'),
+('REEP_CC0','Leeds United Association Football Club','HKJC:leeds','reep_t310cf271','Q1128631'),
+('REEP_CC0','Leeds United F.C.','HKJC:leeds','reep_t310cf271','Q1128631'),
+('REEP_CC0','Leganés','HKJC:leganes','reep_t389cadf2','Q856119'),
+('REEP_CC0','Le Havre','HKJC:lehavre','reep_tacb61040','Q328658'),
+('REEP_CC0','Le Havre Athletic Club','HKJC:lehavre','reep_tacb61040','Q328658'),
+('REEP_CC0','Leicester City','HKJC:leicester','reep_ta1382fcc','Q19481'),
+('REEP_CC0','Leicester City F.C.','HKJC:leicester','reep_ta1382fcc','Q19481'),
+('REEP_CC0','Le Mans','HKJC:lemans','reep_t306ce8b6','Q210864'),
+('REEP_CC0','Le Mans F.C.','HKJC:lemans','reep_t306ce8b6','Q210864')
+), valid AS (
+ SELECT source,source_name,team_key,public.ft_team_name_key(source_name) source_key
+ FROM incoming x WHERE EXISTS(SELECT 1 FROM public.team_entities_v2 e WHERE e.team_key=x.team_key)
+ AND NOT EXISTS(SELECT 1 FROM public.team_name_master m
+  WHERE m.source=x.source AND m.source_key=public.ft_team_name_key(x.source_name))
+ AND NOT EXISTS(SELECT 1 FROM public.team_alias_registry_v2 a
+  WHERE a.source=x.source AND a.alias_key=public.ft_team_name_key(x.source_name))
+), safe AS (
+ SELECT v.* FROM valid v WHERE NOT EXISTS(
+ SELECT 1 FROM valid w WHERE v.source=w.source AND v.source_key=w.source_key
+ AND v.team_key<>w.team_key)
+), reg AS (
+ INSERT INTO public.team_alias_registry_v2
+ (source,alias_key,team_key,alias,status,confidence,evidence_count,distinct_event_count,
+ verification_method,first_seen_at,last_seen_at,updated_at)
+ SELECT source,source_key,team_key,source_name,'VERIFIED',0.94,1,1,
+ 'REEP_CC0_UNIQUE_ENTITY_MULTI_SOURCE_SAMPLE_CHECKED',now(),now(),now()
+ FROM safe ON CONFLICT(source,alias_key,team_key) DO NOTHING
+ RETURNING source,alias_key,team_key,alias,confidence
+), mast AS (
+ INSERT INTO public.team_name_master
+ (source,source_name,source_key,team_key,hkjc_name_en,hkjc_name_zh,
+ status,confidence,event_count,first_seen_at,last_seen_at,evidence_sources,updated_at)
+ SELECT r.source,r.alias,r.alias_key,r.team_key,e.hkjc_name_en,e.hkjc_name_zh,
+ 'VERIFIED',r.confidence,1,now(),now(),
+ '["REEP_CC0_ENTITY","SAMPLED_CROSS_SOURCE_20261011"]'::jsonb,now()
+ FROM reg r JOIN public.team_entities_v2 e USING(team_key)
+ ON CONFLICT(source,source_key,team_key) DO NOTHING RETURNING source
+)
+SELECT (SELECT count(*) FROM reg) aliases_inserted,
+ (SELECT count(*) FROM mast) master_inserted;

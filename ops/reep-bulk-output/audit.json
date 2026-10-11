@@ -1,0 +1,192 @@
+{
+  "catalogue_rows": 47407,
+  "verified_input": 2799,
+  "observed_input": 1524,
+  "anchored_entities": 430,
+  "cross_source_entities": 255,
+  "cross_source_conflicts": 0,
+  "sample_size": 40,
+  "sample_disagreements": 0,
+  "gate_pass": true,
+  "candidates": 816,
+  "by_source": {
+    "FLASHSCORE": 20,
+    "REEP_CC0": 796
+  },
+  "excluded": {
+    "existing": 385,
+    "ambiguous": 29
+  },
+  "sample_examples": [
+    {
+      "entity": "reep_t7451405c",
+      "team": "HKJC:hullcity",
+      "names": [
+        "Hull City",
+        "Hull City"
+      ]
+    },
+    {
+      "entity": "reep_t515fc457",
+      "team": "HKJC:cacerro",
+      "names": [
+        "CA Cerro",
+        "CA Cerro",
+        "CA Cerro"
+      ]
+    },
+    {
+      "entity": "reep_t74584c9a",
+      "team": "HKJC:kvmechelen",
+      "names": [
+        "KV Mechelen",
+        "KV Mechelen"
+      ]
+    },
+    {
+      "entity": "reep_t4ff10878",
+      "team": "HKJC:danubio",
+      "names": [
+        "Danubio",
+        "Danubio FC"
+      ]
+    },
+    {
+      "entity": "reep_t4348ae2b",
+      "team": "HKJC:hwaseongfc",
+      "names": [
+        "Hwaseong FC",
+        "Hwaseong FC"
+      ]
+    },
+    {
+      "entity": "reep_t0c439f99",
+      "team": "HKJC:oaklandroots",
+      "names": [
+        "Oakland Roots",
+        "Oakland Roots",
+        "Oakland Roots"
+      ]
+    },
+    {
+      "entity": "reep_t0955d652",
+      "team": "HKJC:columbuscrew",
+      "names": [
+        "Columbus Crew",
+        "Columbus Crew",
+        "Columbus Crew"
+      ]
+    },
+    {
+      "entity": "reep_t52ed77de",
+      "team": "HKJC:sandiegofc",
+      "names": [
+        "San Diego FC",
+        "San Diego FC",
+        "San Diego FC"
+      ]
+    },
+    {
+      "entity": "reep_t70979bf6",
+      "team": "HKJC:freiburg",
+      "names": [
+        "Freiburg",
+        "Freiburg"
+      ]
+    },
+    {
+      "entity": "reep_t086e7f04",
+      "team": "HKJC:astonvilla",
+      "names": [
+        "Aston Villa",
+        "Aston Villa",
+        "Aston Villa"
+      ]
+    },
+    {
+      "entity": "reep_tab3362b1",
+      "team": "HKJC:racingclub",
+      "names": [
+        "Racing Club",
+        "Racing Club",
+        "Racing Club"
+      ]
+    },
+    {
+      "entity": "reep_t0218bdb9",
+      "team": "HKJC:blaublitzakita",
+      "names": [
+        "Blaublitz Akita",
+        "Blaublitz Akita"
+      ]
+    },
+    {
+      "entity": "reep_tb080a72a",
+      "team": "HKJC:walsall",
+      "names": [
+        "Walsall",
+        "Walsall",
+        "Walsall"
+      ]
+    },
+    {
+      "entity": "reep_tde03b673",
+      "team": "HKJC:realsaltlake",
+      "names": [
+        "Real Salt Lake",
+        "Real Salt Lake",
+        "Real Salt Lake"
+      ]
+    },
+    {
+      "entity": "reep_tc2a6b265",
+      "team": "HKJC:tegevajaromiyazaki",
+      "names": [
+        "Tegevajaro Miyazaki",
+        "Tegevajaro Miyazaki",
+        "Tegevajaro Miyazaki"
+      ]
+    },
+    {
+      "entity": "reep_ta64690a5",
+      "team": "HKJC:charlottefc",
+      "names": [
+        "Charlotte FC",
+        "Charlotte FC"
+      ]
+    },
+    {
+      "entity": "reep_tfdf2e8ba",
+      "team": "HKJC:qatarsc",
+      "names": [
+        "Qatar SC",
+        "Qatar SC"
+      ]
+    },
+    {
+      "entity": "reep_t2cd33fec",
+      "team": "HKJC:vvarennagasaki",
+      "names": [
+        "V-Varen Nagasaki",
+        "V-Varen Nagasaki"
+      ]
+    },
+    {
+      "entity": "reep_ta4e18ff0",
+      "team": "HKJC:ajax",
+      "names": [
+        "Ajax",
+        "Ajax"
+      ]
+    },
+    {
+      "entity": "reep_t91a77f4c",
+      "team": "HKJC:fcdallas",
+      "names": [
+        "FC Dallas",
+        "FC Dallas",
+        "FC Dallas"
+      ]
+    }
+  ]
+}
