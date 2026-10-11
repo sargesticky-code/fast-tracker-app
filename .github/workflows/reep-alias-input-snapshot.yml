@@ -1,0 +1,25 @@
+name: One-time Reep alias snapshot QA
+on:
+  push:
+    branches: [fix/reep-bulk-alias-verified-sample-20261011]
+    paths:
+      - ops/reference/verified-team-name-input-20261011.json
+      - ops/reference/observed-provider-names-20261011.json
+      - .github/workflows/reep-alias-input-snapshot.yml
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate stored source JSON
+        run: |
+          python -m json.tool ops/reference/verified-team-name-input-20261011.json >/dev/null
+          python -m json.tool ops/reference/observed-provider-names-20261011.json >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reep-alias-verified-input-20261011
+          path: ops/reference/*.json
+          retention-days: 3
