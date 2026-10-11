@@ -160,7 +160,7 @@ function marketQuality({ evPct = null, gapPp = null, odds = null, freshnessKey, 
 
 function totalMarketSummary(match, edge, market, label) {
   const line = market?.line;
-  if (line == null || line === "") return { label, text: "未有盤口", detail: "HKJC 暫未提供", positive: false };
+  if (line == null || line === "") return { label, text: "未有盤口", detail: "Bet365 price unavailable", positive: false };
   if (!edge || !Number.isFinite(Number(edge.expectedValue)) || Number(edge.expectedValue) <= 0) {
     return { label, text: "暫不選 · " + line, detail: "現價未見投注價值", positive: false };
   }
@@ -230,7 +230,7 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
       : handicapAdvice?.band === "LEAN" ? "輕微價值"
         : handicapAdvice?.band === "WATCH" ? "觀望" : "暫不選";
   const handicapSummary = handicapLine == null
-    ? { text:"未有讓球盤", detail:"HKJC 暫未提供", positive:false }
+    ? { text:"未有讓球盤", detail:"Bet365 price unavailable", positive:false }
     : !handicapAdvice
       ? { text:"讓球 " + handicapLine, detail:"資料未足夠計算讓球價值", positive:false }
       : {

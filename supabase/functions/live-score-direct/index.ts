@@ -21,6 +21,15 @@ function ts(v:any){
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s+"T00:00:00+08:00";
   return s.replace(" ","T")+"+08:00";
 }
+function matchId(v:any){
+  if(!v||typeof v!=="object") return null;
+  const direct=text(v.match_id ?? v.canonical_match_id ?? v.event_id);
+  if(direct) return direct;
+  for(const [k,value] of Object.entries(v)){
+    if(/_event_id$/i.test(k) && !blank(value)) return text(value);
+  }
+  return null;
+}
 function serviceKey(){
   const a=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); if(a) return a;
   const m=Deno.env.get("SUPABASE_SECRET_KEYS");
@@ -78,28 +87,27 @@ Deno.serve(async (_req:Request)=>{
       }
     },{onConflict:"source,metric"});
 
-    const stubs=rows.filter((x:any)=>x?.hkjc_event_id).map((x:any)=>({
-      hkjc_event_id:text(x.hkjc_event_id),kickoff_hkt:ts(x.kickoff_hkt),tournament:text(x.league),
-      home_en:text(x.home_en),away_en:text(x.away_en),status:"HISTORICAL_STUB",selling:false,in_play:false,
-      raw:{edge_sync_stub:true}
-    }));
-    if(stubs.length){
-      const {error}=await db.from("matches").upsert(stubs,{onConflict:"hkjc_event_id",ignoreDuplicates:true});
-      if(error) throw new Error("matches:"+error.message);
+    const eventIds=[...new Set(rows.map((x:any)=>matchId(x)).filter(Boolean))];
+    const canonicalSet=new Set<string>();
+    if(eventIds.length){
+      const canonical=await db.from("canonical_fixture_current").select("match_id").in("match_id",eventIds);
+      if(canonical.error) throw new Error("canonical_fixture_current:"+canonical.error.message);
+      for(const row of canonical.data??[]) canonicalSet.add(String(row.match_id));
     }
-
-    const eventIds=rows.map((x:any)=>text(x?.hkjc_event_id)).filter(Boolean);
     const verifiedIdentity=new Map<string,any>();
     if(eventIds.length){
-      const {data:maps}=await db.from("phase3_live_identity_map")
-        .select("hkjc_event_id,source,source_match_id,confidence,evidence_count,mapping_state")
-        .in("hkjc_event_id",eventIds)
+      const {data:maps}=await db.from("live_identity_map_current")
+        .select("match_id,source,source_match_id,confidence,evidence_count,mapping_state")
+        .in("match_id",eventIds)
         .eq("mapping_state","VERIFIED");
-      for(const m of maps??[]) verifiedIdentity.set(String(m.hkjc_event_id),m);
+      for(const m of maps??[]) verifiedIdentity.set(String(m.match_id),m);
     }
 
-    const enrichedRows=rows.map((x:any)=>{
-      const id=text(x?.hkjc_event_id);
+    const enrichedRows=rows.filter((x:any)=>{
+      const id=matchId(x);
+      return Boolean(id&&canonicalSet.has(String(id)));
+    }).map((x:any)=>{
+      const id=matchId(x);
       const mapped=id?verifiedIdentity.get(id):null;
       if(!mapped || text(x?.source_match_id)) return x;
       return {
@@ -113,8 +121,8 @@ Deno.serve(async (_req:Request)=>{
       };
     });
 
-    const current=enrichedRows.filter((x:any)=>x?.hkjc_event_id).map((x:any)=>({
-      hkjc_event_id:text(x.hkjc_event_id),updated_at_source:capturedAt,kickoff_hkt:ts(x.kickoff_hkt),
+    const current=enrichedRows.map((x:any)=>({
+      match_id:matchId(x),updated_at_source:capturedAt,kickoff_hkt:ts(x.kickoff_hkt),
       league:text(x.league),home_en:text(x.home_en),away_en:text(x.away_en),live_score:text(x.live_score),
       home_score:int(x.home_score),away_score:int(x.away_score),minute:int(x.minute),match_status:text(x.match_status),
       source:text(x.source),source_match_id:text(x.source_match_id),source_home:text(x.source_home),source_away:text(x.source_away),
@@ -123,12 +131,12 @@ Deno.serve(async (_req:Request)=>{
       corner_line_ref:text(x.corner_line_ref),corners_to_hi:num(x.corners_to_hi),corner_progress:text(x.corner_progress),raw:x
     }));
     if(current.length){
-      const {error}=await db.from("live_score_current").upsert(current,{onConflict:"hkjc_event_id"});
+      const {error}=await db.rpc("ft_upsert_live_score_generic",{rows_data:current});
       if(error) throw new Error("live_score_current:"+error.message);
     }
 
-    const stats=enrichedRows.filter((x:any)=>x?.hkjc_event_id).map((x:any)=>({
-      hkjc_event_id:text(x.hkjc_event_id),captured_at_hkt:capturedAt,api_updated_at:ts(x.source_updated_at),
+    const stats=enrichedRows.map((x:any)=>({
+      match_id:matchId(x),captured_at_hkt:capturedAt,api_updated_at:ts(x.source_updated_at),
       kickoff_hkt:ts(x.kickoff_hkt),league:text(x.league),home_en:text(x.home_en),away_en:text(x.away_en),
       live_score:text(x.live_score),match_minute:int(x.minute),match_status:text(x.match_status),source:text(x.source),
       source_match_id:text(x.source_match_id),match_confidence:num(x.match_confidence),detail_status:text(x.detail_status),
@@ -136,7 +144,7 @@ Deno.serve(async (_req:Request)=>{
       corner_line_ref:text(x.corner_line_ref),corner_progress:text(x.corner_progress),
       team_stats:Array.isArray(x.team_stats)?x.team_stats:[],events:Array.isArray(x.events)?x.events:[],
       momentum:Array.isArray(x.momentum)?x.momentum:[],full_capture:false,
-      raw:{scenario_shadow:x.scenario_shadow??null,hkjc_live_market:x.hkjc_live_market??null,
+      raw:{scenario_shadow:x.scenario_shadow??null,
         shotmap_available:Boolean(x.shotmap),lineup_available:Boolean(x.lineup)}
     }));
 
@@ -154,7 +162,7 @@ Deno.serve(async (_req:Request)=>{
         })
         .map((x:any)=>({...x,raw_full_capture_key:null,raw_full_chunk_count:null}));
       if(history.length){
-        const {error:he}=await db.from("live_stats_history").upsert(history,{onConflict:"hkjc_event_id,captured_at_hkt",ignoreDuplicates:true});
+        const {error:he}=await db.rpc("ft_upsert_live_stats_history_generic",{rows_data:history});
         if(he) throw new Error("live_stats_history:"+he.message);
       }
 
@@ -167,7 +175,7 @@ Deno.serve(async (_req:Request)=>{
         (Array.isArray(x.momentum)&&x.momentum.length>0)
       );
       if(currentStats.length){
-        const {error}=await db.from("live_stats_current").upsert(currentStats,{onConflict:"hkjc_event_id"});
+        const {error}=await db.rpc("ft_upsert_live_stats_current_generic",{rows_data:currentStats});
         if(error) throw new Error("live_stats_current:"+error.message);
       }
 
@@ -175,14 +183,16 @@ Deno.serve(async (_req:Request)=>{
       const empty=stats.filter((x:any)=>String(x.detail_status||"")==="DETAIL_EMPTY").length;
       const identityBackfills=enrichedRows.filter((x:any)=>x?.identity_backfill&&text(x?.source_match_id)).length;
       const terminalStatuses=new Set(["FULLTIME","FINISHED","FT","ENDED","MATCHENDED","INPLAYMATCHENDED","AET","PEN","CANCELLED","CANCELED","VOID","ABANDONED"]);
-      const activeRows=rows.filter((x:any)=>!terminalStatuses.has(String(x.match_status||"").toUpperCase().replaceAll("_","").replaceAll(" ","")));
+      const activeRows=enrichedRows.filter((x:any)=>!terminalStatuses.has(String(x.match_status||"").toUpperCase().replaceAll("_","").replaceAll(" ","")));
       await db.from("source_health").upsert({
         source:"LIVE_SCORE_EDGE",metric:"heartbeat",value_text:String(activeRows.length),status:"OK",
         notes:"Supabase direct live score/stats sync",observed_at:now.toISOString(),
         raw:{
-          rows:rows.length,
+          rows:enrichedRows.length,
+          upstream_rows:rows.length,
+          rejected_unresolved_rows:rows.length-enrichedRows.length,
           active_rows:activeRows.length,
-          terminal_rows:rows.length-activeRows.length,
+          terminal_rows:enrichedRows.length-activeRows.length,
           identity_backfills:identityBackfills,
           history_writes:history.length,
           detail_current_updates:currentStats.length,
@@ -196,7 +206,7 @@ Deno.serve(async (_req:Request)=>{
       },{onConflict:"source,metric"});
 
       return Response.json({
-        ok:true,rows:rows.length,activeRows:activeRows.length,identityBackfills,historyWrites:history.length,
+        ok:true,rows:enrichedRows.length,upstreamRows:rows.length,rejectedUnresolvedRows:rows.length-enrichedRows.length,activeRows:activeRows.length,identityBackfills,historyWrites:history.length,
         detailCurrentUpdates:currentStats.length,
         deferredRows:deferred,detailEmptyRows:empty,capturedAt,
         upstreamUpdatedAt:payload?.updatedAt??null,

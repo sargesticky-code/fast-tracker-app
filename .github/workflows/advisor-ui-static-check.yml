@@ -1,0 +1,32 @@
+name: Advisor UI Static Compile
+on:
+  push:
+    branches: [feat/alternate-advisor-source-probe-20261011]
+    paths:
+      - 'components/homepage-client.js'
+      - 'components/match-detail-client.js'
+      - 'supabase/functions/app-phase1-feed/index.ts'
+      - '.github/workflows/advisor-ui-static-check.yml'
+      - 'lib/fast-tracker.js'
+      - 'scripts/check-advisor-source-hierarchy.mjs'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Install current app deps
+        run: npm install --no-audit --no-fund
+      - name: Check UI contract and independent advisor selection
+        run: |
+          npm run check:ui
+          node scripts/check-advisor-source-hierarchy.mjs
+      - name: Static Next build (no production deployment)
+        run: npm run build
+        env:
+          CF_PAGES: '1'

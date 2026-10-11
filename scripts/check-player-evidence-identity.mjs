@@ -2,11 +2,14 @@ import fs from "node:fs";
 
 const analysis = fs.readFileSync("supabase/functions/app-match-analysis/index.ts", "utf8");
 const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts", "utf8");
+const detailCriticalRpc = fs.readFileSync("supabase/migrations/20261007164000_app_match_detail_critical_rpc.sql", "utf8");
 const article = fs.readFileSync("components/evidence-article.js", "utf8");
 const detailUi = fs.readFileSync("components/match-detail-client.js", "utf8");
 
 const required = [
-  [detailApi, "phase2_players"],
+  [detailCriticalRpc, "phase2_players"],
+  [detailCriticalRpc, "source_ids->>'flashscore'"],
+  [detailApi, 'identityMethod:"EXACT_FLASHSCORE_PLAYER_ID"'],
   [detailApi, "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"],
   [detailApi, "evidence_key:evidenceKey"],
   [analysis, "uniqueConfirmedClaims"],

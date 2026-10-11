@@ -105,18 +105,27 @@ function playerFlags(row) {
 }
 
 function playerRole(row) {
-  const raw = String(row?.role || row?.raw?.flash_record?.LS || "").trim();
+  const raw = String(
+    row?.canonical_position
+      || row?.position
+      || row?.role
+      || row?.raw?.flash_record?.LS
+      || ""
+  ).trim();
   if (!raw) return null;
-  if (/goalkeeper/i.test(raw) || raw === "GK") return "GK";
-  if (/def/i.test(raw) || raw === "DEF") return "DEF";
-  if (/mid/i.test(raw) || raw === "MID") return "MID";
-  if (/att|forward|striker/i.test(raw) || raw === "ATT") return "ATT";
+  const upper = raw.toUpperCase();
+  if (/goalkeeper/i.test(raw) || upper === "GK" || upper === "G") return "GK";
+  if (/def/i.test(raw) || upper === "DEF" || upper === "D") return "DEF";
+  if (/mid/i.test(raw) || upper === "MID" || upper === "M") return "MID";
+  if (/att|forward|striker/i.test(raw) || upper === "ATT" || upper === "F") return "ATT";
   if (/captain/i.test(raw)) return null;
-  return raw.toUpperCase();
+  return upper;
 }
 
 function playerCountry(row) {
-  return row?.country
+  return row?.canonical_nationality
+    || row?.nationality
+    || row?.country
     || row?.country_name
     || row?.raw?.country
     || row?.raw?.country_name
@@ -129,6 +138,73 @@ function roleBadge(row) {
   if (role === "GK") return "🧤 GK";
   if (role) return role;
   return row?.starter === false ? "SUB" : "XI";
+}
+
+function firstStat(stats, keys) {
+  for (const key of keys) {
+    const value = stats?.[key];
+    if (value === null || value === undefined || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function playerStatSummary(row) {
+  const matchStats = row?.match_stats || null;
+  if (matchStats) {
+    const out = [];
+    const rating = Number(matchStats?.rating);
+    const minutes = Number(matchStats?.minutes);
+    const goals = Number(matchStats?.goals);
+    const assists = Number(matchStats?.assists);
+    if (Number.isFinite(rating) && rating > 0) out.push("Rating " + rating.toFixed(2));
+    if (Number.isFinite(minutes) && minutes >= 0) out.push(minutes + " min");
+    if (Number.isFinite(goals) || Number.isFinite(assists)) out.push((Number.isFinite(goals) ? goals : 0) + "G " + (Number.isFinite(assists) ? assists : 0) + "A");
+    if (Number.isFinite(Number(matchStats?.totalShots))) out.push(Number(matchStats.totalShots) + " shots");
+    if (Number.isFinite(Number(matchStats?.chancesCreated))) out.push(Number(matchStats.chancesCreated) + " chances");
+    if (Number.isFinite(Number(matchStats?.tackles))) out.push(Number(matchStats.tackles) + " tackles");
+    if (Number.isFinite(Number(matchStats?.accuratePasses))) {
+      const attempts = Number(matchStats?.passAttempts);
+      out.push(Number(matchStats.accuratePasses) + (Number.isFinite(attempts) && attempts > 0 ? "/" + attempts : "") + " passes");
+    }
+    if (out.length) return out;
+  }
+
+  const stats = row?.raw?.statistics || row?.statistics || null;
+  const ratingRaw = row?.raw?.rating ?? row?.rating ?? stats?.rating ?? null;
+  const rating = Number(ratingRaw);
+  const minutes = firstStat(stats, ["minutesPlayed", "minutes", "minsPlayed"]);
+  const goals = firstStat(stats, ["goals", "goal"]);
+  const assists = firstStat(stats, ["assists", "goalAssist"]);
+  const shots = firstStat(stats, ["totalShots", "shots", "shotAttempts"]);
+  const keyPasses = firstStat(stats, ["keyPass", "keyPasses", "chancesCreated"]);
+  const tackles = firstStat(stats, ["tackles", "totalTackle"]);
+  const passes = firstStat(stats, ["accuratePasses", "successfulPasses", "passesAccurate"]);
+  const out = [];
+  if (Number.isFinite(rating) && rating > 0) out.push("Rating " + rating.toFixed(1));
+  if (Number.isFinite(minutes)) out.push(minutes + " min");
+  if (Number.isFinite(goals) || Number.isFinite(assists)) out.push((goals || 0) + "G " + (assists || 0) + "A");
+  if (Number.isFinite(shots)) out.push(shots + " shots");
+  if (Number.isFinite(keyPasses)) out.push(keyPasses + " key passes");
+  if (Number.isFinite(tackles)) out.push(tackles + " tackles");
+  if (Number.isFinite(passes)) out.push(passes + " accurate passes");
+
+  const recent = row?.canonical_profile?.recent || null;
+  const recentMatches = Array.isArray(recent?.matches) ? recent.matches.slice(0, 5) : [];
+  if (!out.length && recentMatches.length) {
+    const played = recentMatches.filter((m) => Number(m?.minutes) > 0);
+    const recentGoals = recentMatches.reduce((sum, m) => sum + (Number(m?.goals) || 0), 0);
+    const recentAssists = recentMatches.reduce((sum, m) => sum + (Number(m?.assists) || 0), 0);
+    const recentMinutes = recentMatches.reduce((sum, m) => sum + (Number(m?.minutes) || 0), 0);
+    if (played.length) out.push(played.length + "/" + recentMatches.length + " recent apps");
+    if (recentGoals || recentAssists) out.push(recentGoals + "G " + recentAssists + "A");
+    if (recentMinutes) out.push(recentMinutes + " min");
+    if (Number.isFinite(Number(recent?.averageRating)) && Number(recent.averageRating) > 0) {
+      out.unshift("Avg rating " + Number(recent.averageRating).toFixed(2));
+    }
+  }
+  return out;
 }
 
 function sourceUpdated(rows) {
@@ -315,14 +391,19 @@ function TeamPitch({ teamName, rows, accent, status }) {
             const flags = playerFlags(row);
             const country = playerCountry(row);
             const role = playerRole(row);
+            const statSummary = playerStatSummary(row);
+            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.primaryTeam?.teamName || row?.canonical_profile?.club || null;
+            const profileAge = row?.canonical_profile?.age || null;
+            const profileHeight = row?.canonical_profile?.height || null;
             return (
               <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e3ebe6",borderRadius:11,background:"#fafcfb"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:11,fontWeight:950,boxShadow:"inset 0 0 0 1px rgba(255,255,255,.22)"}}>{row?.shirt_number ?? "•"}</span>
                 <div style={{minWidth:0}}>
                   <b style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
                   <small style={{display:"block",marginTop:2,fontSize:9,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[country, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
+                    {[country, currentClub, profileAge ? "Age " + profileAge : null, profileHeight, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
                   </small>
+                  {statSummary.length ? <small style={{display:"block",marginTop:3,fontSize:8.5,fontWeight:800,color:"#4d6d5b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statSummary.slice(0,4).join(" · ")}</small> : null}
                 </div>
                 <span style={{fontSize:8.5,fontWeight:900,padding:"4px 6px",borderRadius:999,background:role==="GK"?"#eaf1ff":"#eef5f0",color:role==="GK"?"#315d9a":"#4f6b5d",whiteSpace:"nowrap"}}>
                   {roleBadge(row)}
@@ -348,14 +429,19 @@ function SquadList({ title, rows, accent, empty }) {
           {rows.map((row, i) => {
             const country = playerCountry(row);
             const captain = playerFlags(row).includes("C");
+            const statSummary = playerStatSummary(row);
+            const currentClub = row?.raw?.flash_record?.LUN || row?.canonical_profile?.primaryTeam?.teamName || row?.canonical_profile?.club || null;
+            const profileAge = row?.canonical_profile?.age || null;
+            const profileHeight = row?.canonical_profile?.height || null;
             return (
               <div key={row?.id || row?.player_key || i} style={{display:"grid",gridTemplateColumns:"36px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e8eeea",borderRadius:11,background:"#f8faf8"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:10,fontWeight:950}}>#{row?.shirt_number ?? "—"}</span>
                 <div style={{minWidth:0}}>
                   <span style={{display:"block",fontSize:11.5,fontWeight:850,color:"#2f4036",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row?.player_name || "Unknown"}</span>
                   <small style={{display:"block",marginTop:2,fontSize:8.8,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    {[country, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
+                    {[country, currentClub, profileAge ? "Age " + profileAge : null, profileHeight, captain ? "Captain" : null].filter(Boolean).join(" · ") || (row?.starter === false ? "Substitute" : "Starting XI")}
                   </small>
+                  {statSummary.length ? <small style={{display:"block",marginTop:3,fontSize:8.4,fontWeight:800,color:"#4d6d5b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{statSummary.slice(0,4).join(" · ")}</small> : null}
                 </div>
                 <small style={{fontSize:8.5,fontWeight:900,color:"#52675b",padding:"4px 6px",borderRadius:999,background:"#eef4f0",whiteSpace:"nowrap"}}>{roleBadge(row)}</small>
               </div>
@@ -421,6 +507,177 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
   );
 }
 
+function PlayerMatchStatsPanel({ rows, meta, homeTeam, awayTeam }) {
+  if (!rows.length) {
+    return (
+      <div style={{padding:18,border:"1px dashed #cfdad3",borderRadius:14,background:"#fbfcfb"}}>
+        <b style={{display:"block",fontSize:13,color:palette.ink}}>Match player stats not available yet</b>
+        <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted}}>This fills automatically after FotMob publishes player-level match performance. Missing metrics stay unknown.</small>
+      </div>
+    );
+  }
+  const teams=[homeTeam,awayTeam];
+  const topPerformers=rows
+    .filter((r)=>Number.isFinite(Number(r?.rating)) && Number(r.rating)>0)
+    .sort((a,b)=>Number(b.rating)-Number(a.rating))
+    .slice(0,3);
+  return (
+    <div style={{display:"grid",gap:12}}>
+      {topPerformers.length ? (
+        <div style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+            <b style={{fontSize:13,color:palette.ink}}>Top performers</b>
+            <small style={{fontSize:9,color:palette.muted}}>{meta?.source||"FOTMOB"} · exact player match stats</small>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:7,marginTop:9}}>
+            {topPerformers.map((r,i)=>(
+              <div key={r?.playerId||r?.optaId||i} style={{padding:"9px 10px",border:"1px solid #e5ece8",borderRadius:11,background:"#fafcfb"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
+                  <div style={{minWidth:0}}>
+                    <b style={{display:"block",fontSize:11.5,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r?.playerName||"Unknown"}</b>
+                    <small style={{display:"block",marginTop:2,fontSize:8.5,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r?.teamName||"Team"} · #{r?.shirtNumber||"—"}</small>
+                  </div>
+                  <strong style={{fontSize:17,color:"#245f43"}}>{Number(r.rating).toFixed(2)}</strong>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7,fontSize:8.4,fontWeight:850,color:"#587064"}}>
+                  <span>{r?.goals??0}G</span>
+                  <span>{r?.assists??0}A</span>
+                  <span>{r?.totalShots??0} shots</span>
+                  <span>{r?.chancesCreated??0} chances</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {teams.map((teamName) => {
+        const sortPerformance=(list)=>[...list].sort((a,b)=>{
+          const ar=Number(a?.rating),br=Number(b?.rating);
+          if(Number.isFinite(ar)||Number.isFinite(br)) return (Number.isFinite(br)?br:-1)-(Number.isFinite(ar)?ar:-1);
+          return String(a?.playerName||"").localeCompare(String(b?.playerName||""));
+        });
+        const exactRows=sortPerformance(rows.filter((r)=>String(r?.teamName||"")===String(teamName||""))).slice(0,18);
+        const fallbackRows=exactRows.length?exactRows:sortPerformance(rows.filter((r)=>String(r?.teamName||"").toLowerCase().includes(String(teamName||"").toLowerCase()))).slice(0,18);
+        return (
+          <div key={teamName} style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+              <b style={{fontSize:13,color:palette.ink}}>{teamName}</b>
+              <small style={{fontSize:9,color:palette.muted}}>{meta?.source||"FOTMOB"} · {formatHkt(meta?.observedAt)}</small>
+            </div>
+            <div style={{display:"grid",gap:7,marginTop:9}}>
+              {fallbackRows.map((r,i)=>{
+                const passes=(Number.isFinite(Number(r?.accuratePasses))&&Number.isFinite(Number(r?.passAttempts))&&Number(r.passAttempts)>0)
+                  ? Math.round((Number(r.accuratePasses)/Number(r.passAttempts))*100)+"%"
+                  : null;
+                return (
+                  <div key={r?.playerId||r?.optaId||i} style={{display:"grid",gridTemplateColumns:"minmax(140px,1.2fr) repeat(6,minmax(54px,.55fr))",gap:6,alignItems:"center",padding:"8px 9px",border:"1px solid #e8eeea",borderRadius:10,background:"#fafcfb"}}>
+                    <div style={{minWidth:0}}>
+                      <b style={{display:"block",fontSize:11,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r?.playerName||"Unknown"}</b>
+                      <small style={{fontSize:8.3,color:palette.muted}}>#{r?.shirtNumber||"—"}{r?.isGoalkeeper?" · GK":""}</small>
+                    </div>
+                    <span style={{fontSize:9,fontWeight:900}}>R {Number.isFinite(Number(r?.rating))?Number(r.rating).toFixed(2):"—"}</span>
+                    <span style={{fontSize:9}}>G/A {(r?.goals??"—")}/{(r?.assists??"—")}</span>
+                    <span style={{fontSize:9}}>Shots {r?.totalShots??"—"}</span>
+                    <span style={{fontSize:9}}>Chances {r?.chancesCreated??"—"}</span>
+                    <span style={{fontSize:9}}>Tkl {r?.tackles??"—"}</span>
+                    <span style={{fontSize:9}}>Pass {passes||"—"}</span>
+                    <div style={{gridColumn:"1 / -1",display:"flex",gap:8,flexWrap:"wrap",fontSize:8.3,color:"#6f8177"}}>
+                      <span>Touches {r?.touches??"—"}</span>
+                      <span>Rec {r?.recoveries??"—"}</span>
+                      <span>Int {r?.interceptions??"—"}</span>
+                      <span>Clr {r?.clearances??"—"}</span>
+                      <span>Duels {r?.duelsWon??"—"}</span>
+                      <span>Aerial {r?.aerialsWon??"—"}/{r?.aerialDuels??"—"}</span>
+                      {r?.isGoalkeeper?<span>Saves {r?.saves??"—"}</span>:null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlayerFormPanel({ rows, homeTeam, awayTeam }) {
+  if (!rows.length) {
+    return (
+      <div style={{padding:18,border:"1px dashed #cfdad3",borderRadius:14,background:"#fbfcfb"}}>
+        <b style={{display:"block",fontSize:13,color:palette.ink}}>Player-form profiles are still being populated</b>
+        <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted}}>Only provider-backed recent appearances are shown; missing ratings or events stay unknown.</small>
+      </div>
+    );
+  }
+  return (
+    <div style={{display:"grid",gap:12}}>
+      {["H","A"].map((s) => {
+        const teamRows = rows.filter((r) => side(r) === s).slice(0,18);
+        return (
+          <div key={s} style={{border:"1px solid "+palette.line,borderRadius:15,background:"#fff",padding:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+              <b style={{fontSize:13,color:palette.ink}}>{s === "H" ? homeTeam : awayTeam}</b>
+              <small style={{fontSize:9,color:palette.muted}}>{teamRows.length} profiled players</small>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:7,marginTop:9}}>
+              {teamRows.map((row, i) => {
+                const profile = row?.profile || {};
+                const recent = profile?.recent || {};
+                const matches = Array.isArray(recent?.matches) ? recent.matches.slice(0,5) : [];
+                const apps = matches.filter((m) => Number(m?.minutes) > 0).length;
+                const minutes = matches.reduce((sum, m) => sum + (Number(m?.minutes) || 0), 0);
+                const goals = matches.reduce((sum, m) => sum + (Number(m?.goals) || 0), 0);
+                const assists = matches.reduce((sum, m) => sum + (Number(m?.assists) || 0), 0);
+                const avgRating = Number(recent?.averageRating);
+                const club = profile?.primaryTeam?.teamName || null;
+                const primaryPosition = profile?.position?.primaryPosition?.label || row?.role || null;
+                const age = profile?.age || null;
+                const height = profile?.height || null;
+                const traits = Array.isArray(profile?.traits?.items)
+                  ? profile.traits.items
+                      .filter((item) => Number.isFinite(Number(item?.value)))
+                      .sort((a, b) => Number(b.value) - Number(a.value))
+                      .slice(0, 3)
+                  : [];
+                return (
+                  <div key={row?.player_key || i} style={{padding:"9px 10px",border:"1px solid #e5ece8",borderRadius:11,background:"#fafcfb"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
+                      <div style={{minWidth:0}}>
+                        <b style={{display:"block",fontSize:11.5,color:"#2d3f35",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
+                        <small style={{display:"block",marginTop:2,fontSize:8.7,color:palette.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {[primaryPosition, row?.nationality, club, age ? "Age " + age : null, height].filter(Boolean).join(" · ") || "Profile"}
+                        </small>
+                      </div>
+                      {Number.isFinite(avgRating) && avgRating > 0 ? <strong style={{fontSize:15,color:"#245f43"}}>{avgRating.toFixed(2)}</strong> : null}
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7,fontSize:8.7,fontWeight:850,color:"#587064"}}>
+                      <span>{apps}/{matches.length || 0} apps</span>
+                      <span>{minutes} min</span>
+                      <span>{goals}G</span>
+                      <span>{assists}A</span>
+                    </div>
+                    {traits.length ? (
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}>
+                        {traits.map((item) => (
+                          <span key={item?.key || item?.title} title={profile?.traits?.title || "Relative player profile"} style={{fontSize:8,padding:"3px 5px",borderRadius:999,background:"#edf3ef",color:"#52695d",fontWeight:800}}>
+                            {item?.title || item?.key} {Math.round(Number(item.value) * 100)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <small style={{display:"block",marginTop:5,fontSize:8.2,color:"#87958d"}}>{row?.source_name || "FOTMOB"} · profile {formatHkt(row?.profile_updated_at)}</small>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StrengthBar({ team, data }) {
   const pct = Number.isFinite(Number(data?.lineup_strength_pct)) ? Number(data.lineup_strength_pct) : null;
   const conf = Number.isFinite(Number(data?.lineup_confidence_pct)) ? Number(data.lineup_confidence_pct) : null;
@@ -442,17 +699,28 @@ function StrengthBar({ team, data }) {
   );
 }
 
-export default function LineupPanel() {
+export default function LineupPanel({ initialFeed = null }) {
   const [payload, setPayload] = useState(null);
   const [id, setId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("formation");
+  const [cachedFixture, setCachedFixture] = useState(null);
 
   useEffect(() => {
     const matchId = new URLSearchParams(window.location.search).get("id");
     setId(matchId);
     if (!matchId) { setLoading(false); return; }
+    try {
+      const value = window.sessionStorage.getItem(`ft-match-${matchId}`)
+        || window.localStorage.getItem(`ft-match-${matchId}`);
+      const fixture = value ? JSON.parse(value) : null;
+      const captured = Date.parse(String(fixture?.health?.authorityFetchedAt || fixture?.updatedAt || ""));
+      if(fixture && String(fixture.id)===String(matchId) &&
+         Number.isFinite(captured) && Date.now()-captured <= 24*3600000) {
+        setCachedFixture(fixture);
+      }
+    } catch {}
     let cancelled = false;
     const load = async () => {
       try {
@@ -471,18 +739,32 @@ export default function LineupPanel() {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
+  const serverMatch = (Array.isArray(initialFeed?.matches) ? initialFeed.matches : [])
+    .find((m) => String(m?.id || "") === String(id || "")) || cachedFixture;
   const view = useMemo(() => {
     const hf = getHumanFactors(payload);
     const sourceRows = findLineup(payload);
-    const fixture = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
+    const detailFixture = payload?.match || payload?.fixture || payload?.data?.match || payload?.data?.fixture || {};
+    const fixture = {
+      home_en: serverMatch?.home || null,
+      away_en: serverMatch?.away || null,
+      kickoff_hkt: serverMatch?.kickoff || null,
+      league: serverMatch?.league || null,
+      ...detailFixture,
+    };
     const meta = hf?.lineupMeta || hf?.lineup_meta || payload?.lineupMeta || payload?.lineup_meta || {};
     const identityAnnotated = sourceRows.some((r) => Boolean(r?.fact_status));
     const unresolvedIdentityRows = identityAnnotated
       ? sourceRows.filter((r) => factStatus(r) === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
       : [];
-    const rows = identityAnnotated
-      ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
+    const unresolvedStarterIdentityRows = unresolvedIdentityRows.filter((r) => r?.starter !== false);
+    const identityApprovedRows = identityAnnotated
+      ? sourceRows.filter((r) => factStatus(r) !== "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
       : sourceRows;
+    // app-match-detail already returns canonical, provider-deduplicated lineup rows.
+    // Do not re-group by source here: mixed official providers may each contribute
+    // canonical players, and collapsing to one provider would hide valid XI/bench rows.
+    const rows = identityApprovedRows;
     const canonicalFixtureMissing = String(payload?.fixtureSource || "").toUpperCase() === "MISSING";
     const home = rows.filter((r) => side(r) === "H");
     const away = rows.filter((r) => side(r) === "A");
@@ -495,22 +777,28 @@ export default function LineupPanel() {
     const awayBench = away.filter((r) => r?.starter === false);
     const status = canonicalFixtureMissing
       ? "IDENTITY_BLOCKED"
-      : unresolvedIdentityRows.length
+      : unresolvedStarterIdentityRows.length
         ? "IDENTITY_PARTIAL"
         : meta?.status
           || (homeStarters.length >= 11 && awayStarters.length >= 11
             ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
             : rows.length ? "PARTIAL" : "MISSING");
     const confidence = avgConfidence(rows);
-    const source = meta?.source || sourceRows[0]?.source_name || null;
-    const sourceUrl = sourceRows.find((r) => r?.source_url)?.source_url || null;
-    const evidenceSources = meta?.evidenceSources || [...new Set(sourceRows.map((r) => r?.source_name).filter(Boolean))];
+    const evidenceSources = meta?.evidenceSources || [...new Set(rows.flatMap((r) => [
+      r?.source_name,
+      ...(Array.isArray(r?.evidence_sources) ? r.evidence_sources : [])
+    ]).filter(Boolean))];
+    const source = meta?.source || (evidenceSources.length > 1 ? "MULTIPLE VERIFIED SOURCES" : evidenceSources[0] || null);
+    const sourceUrl = rows.find((r) => r?.source_url)?.source_url || null;
     const playerStatusRaw = Array.isArray(hf?.playerStatus) ? hf.playerStatus : Array.isArray(hf?.player_status) ? hf.player_status : [];
     const playerStatusAnnotated = playerStatusRaw.some((r) => Boolean(r?.fact_status));
     const playerStatus = playerStatusAnnotated
       ? playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")
       : playerStatusRaw;
     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
+    const playerProfiles = Array.isArray(hf?.playerProfiles) ? hf.playerProfiles : [];
+    const playerMatchStats = Array.isArray(hf?.playerMatchStats) ? hf.playerMatchStats : [];
+    const playerMatchStatsMeta = hf?.playerMatchStatsMeta || null;
     const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
       : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
     const homeStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "HOME") || null;
@@ -522,24 +810,24 @@ export default function LineupPanel() {
     const conflicts = rows.filter((r) => statusNames.has(String(r?.player_name || "").toLowerCase()));
 
     return {
-      rows, sourceRows, unresolvedIdentityRows, canonicalFixtureMissing,
-      unresolvedHome: unresolvedIdentityRows.filter((r) => side(r) === "H").length,
-      unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
+      rows, sourceRows, unresolvedIdentityRows, unresolvedStarterIdentityRows, canonicalFixtureMissing,
+      unresolvedHome: unresolvedStarterIdentityRows.filter((r) => side(r) === "H").length,
+      unresolvedAway: unresolvedStarterIdentityRows.filter((r) => side(r) === "A").length,
       home, away, homeStarters, awayStarters, homeBench, awayBench,
       homeTeam, awayTeam, status, confidence, source, sourceUrl, evidenceSources,
-      playerStatus, playerStatusRaw, managers, conflicts, homeStrength, awayStrength,
+      playerStatus, playerStatusRaw, playerProfiles, playerMatchStats, playerMatchStatsMeta, managers, conflicts, homeStrength, awayStrength,
       homeFormation: normalizeFormation(formation(homeStarters)),
       awayFormation: normalizeFormation(formation(awayStarters)),
       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
       tournament: fixture.league || fixture.tournament || null,
       updatedAt: sourceUpdated(sourceRows),
     };
-  }, [payload]);
+  }, [payload,serverMatch]);
 
   if (!id) return null;
 
   const tone = statusTone(view.status);
-  const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
+  const identityBlocked = view.canonicalFixtureMissing || view.unresolvedStarterIdentityRows.length > 0;
   const lineupPending = view.sourceRows.length === 0;
   const countsUnknown = identityBlocked || lineupPending;
   const ready = !countsUnknown && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
@@ -553,13 +841,15 @@ export default function LineupPanel() {
   const tabs = [
     ["formation","Formation"],
     ["squad","Squad"],
+    ["form","Player form"],
+    ["matchstats","Match stats"],
     ["availability","Availability"],
     ["source","Sources"],
   ];
 
   return (
     <section style={{maxWidth:1180,margin:"10px auto 18px",padding:"0 16px"}} aria-label="Professional lineup module">
-      <details className="lineup-tool-disclosure">
+      <details className="lineup-tool-disclosure" open>
         <summary>
           <div>
             <span>FULL LINEUP TOOL</span>
@@ -615,11 +905,11 @@ export default function LineupPanel() {
         {loading && !payload ? <div style={{padding:24,fontSize:12,color:palette.muted}}>Loading lineup data…</div> : null}
         {error && !payload ? <div style={{padding:24,fontSize:12,color:"#a04f43"}}>Lineup feed: {error}</div> : null}
 
-        {!loading && !ready && view.rows.length === 0 ? (
+        {!loading && !ready && (view.rows.length === 0 || view.unresolvedStarterIdentityRows.length > 0) ? (
           <div style={{padding:22}}>
             <div style={{padding:18,border:"1px dashed #cdd9d1",borderRadius:14,background:"#fff"}}>
-              <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedIdentityRows.length ? "Source lineup exists, but player identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
-              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>{view.canonicalFixtureMissing ? "Lineup rows are not promoted while the canonical fixture gate is unresolved." : view.unresolvedIdentityRows.length ? `${view.unresolvedIdentityRows.length} source-confirmed row(s) remain outside confirmed XI counts until canonical player identity resolves.` : "This panel upgrades automatically when predicted or official XI evidence arrives; missing players are never invented to fill positions."}</small>
+              <b style={{display:"block",fontSize:14,color:palette.ink}}>{view.canonicalFixtureMissing ? "Canonical fixture identity is unresolved" : view.unresolvedStarterIdentityRows.length ? "Source starting XI exists, but starter identity is unresolved" : "Waiting for reliable 11v11 lineups"}</b>
+              <small style={{display:"block",marginTop:6,fontSize:10,color:palette.muted}}>{view.canonicalFixtureMissing ? "Lineup rows are not promoted while the canonical fixture gate is unresolved." : view.unresolvedStarterIdentityRows.length ? `${view.unresolvedStarterIdentityRows.length} source starter row(s) remain outside XI counts until canonical player identity resolves.` : "This panel upgrades automatically when predicted or official XI evidence arrives; unresolved bench rows do not block a complete XI, and missing players are never invented to fill positions."}</small>
             </div>
           </div>
         ) : null}
@@ -651,6 +941,18 @@ export default function LineupPanel() {
           </div>
         ) : null}
 
+        {tab === "form" ? (
+          <div style={{padding:14}}>
+            <PlayerFormPanel rows={view.playerProfiles} homeTeam={view.homeTeam} awayTeam={view.awayTeam} />
+          </div>
+        ) : null}
+
+        {tab === "matchstats" ? (
+          <div style={{padding:14}}>
+            <PlayerMatchStatsPanel rows={view.playerMatchStats} meta={view.playerMatchStatsMeta} homeTeam={view.homeTeam} awayTeam={view.awayTeam} />
+          </div>
+        ) : null}
+
         {view.rows.length > 0 && tab === "availability" ? (
           <div style={{padding:14,display:"grid",gap:12}}>
             <AvailabilityPanel rows={view.playerStatus} homeTeam={view.homeTeam} awayTeam={view.awayTeam} />
@@ -669,7 +971,7 @@ export default function LineupPanel() {
             <div style={{marginTop:10,padding:12,border:"1px solid "+palette.line,borderRadius:13,background:"#fff"}}>
               <b style={{display:"block",fontSize:12,color:palette.ink}}>Data provenance</b>
               <p style={{margin:"6px 0 0",fontSize:10,lineHeight:1.55,color:palette.muted}}>
-                HKJC fixture identity is the master key. External lineup evidence is matched through the one-for-all alias layer, stored in Supabase, then canonicalized so confirmed XI outranks predicted XI.
+                Canonical fixture identity is resolved independently from the public source label. External lineup evidence is matched through the identity layer, stored in Supabase, and canonicalized so confirmed XI always outranks predicted XI.
               </p>
               {view.sourceUrl ? <a href={view.sourceUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,fontWeight:900,color:"#1976d2"}}>Open source evidence ↗</a> : null}
             </div>

@@ -1,0 +1,28 @@
+name: One-Shot Third Advisor Source Check
+on:
+  push:
+    branches: [feat/alternate-advisor-source-probe-20261011]
+    paths:
+      - scripts/third_advisor_source_probe.py
+      - .github/workflows/third-source-one-shot.yml
+permissions:
+  contents: read
+jobs:
+  third-advisor-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe a single WDW page and one public market CSV
+        run: |
+          python -m py_compile scripts/third_advisor_source_probe.py
+          python scripts/third_advisor_source_probe.py
+      - name: Preserve results, never source HTML or provider credentials
+        uses: actions/upload-artifact@v4
+        with:
+          name: third-advisor-source-feasibility
+          path: third-source-probe.json
+          retention-days: 7

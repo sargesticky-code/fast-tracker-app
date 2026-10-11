@@ -357,55 +357,59 @@ Deno.serve(async (_req:Request)=>{
     const from=new Date(now.getTime()-15*60000).toISOString();
     const to=new Date(now.getTime()+90*60000).toISOString();
 
-    const [{data:liveRows,error:liveErr},{data:upRows,error:upErr}]=await Promise.all([
-      db.from("hkjc_live_odds_current")
-        .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status,pool_status,fetched_at")
-        .eq("pool_status","SELLINGSTARTED")
-        .gte("fetched_at",liveCutoff),
-      db.from("hkjc_upcoming_current")
-        .select("hkjc_event_id,kickoff_hkt,tournament,home_en,away_en,status,selling,fetched_at")
-        .eq("selling",true)
-        .gte("kickoff_hkt",from)
+    const canonicalFrom=new Date(now.getTime()-4*60*60000).toISOString();
+    const [{data:liveRows,error:liveErr},{data:canonicalRows,error:canonicalErr}]=await Promise.all([
+      db.from("live_score_feed_current")
+        .select("match_id,match_status,updated_at_source,source_updated_at,source,source_match_id,match_confidence")
+        .gte("updated_at_source",liveCutoff),
+      db.from("canonical_fixture_current")
+        .select("match_id,kickoff_hkt,league,home_en,away_en,status")
+        .gte("kickoff_hkt",canonicalFrom)
         .lte("kickoff_hkt",to)
     ]);
     if(liveErr) throw liveErr;
-    if(upErr) throw upErr;
+    if(canonicalErr) throw canonicalErr;
+
+    const liveById=new Map<string,any>();
+    for(const r of liveRows||[]){
+      const id=String(r?.match_id||"");
+      if(!id||isTerminal(r?.match_status)) continue;
+      liveById.set(id,r);
+    }
 
     const targets=new Map<string,any>();
-    for(const r of upRows||[]){
-      if(!r.hkjc_event_id||isTerminal(r.status)) continue;
-      targets.set(String(r.hkjc_event_id),{...r,target_state:"PREWARM"});
-    }
-    for(const r of liveRows||[]){
-      if(!r.hkjc_event_id||isTerminal(r.status)) continue;
-      targets.set(String(r.hkjc_event_id),{...r,target_state:"LIVE"});
+    for(const r of canonicalRows||[]){
+      const id=String(r?.match_id||"");
+      if(!id||isTerminal(r?.status)) continue;
+      const liveRow=liveById.get(id);
+      if(liveRow){
+        targets.set(id,{...r,status:liveRow.match_status??r.status,target_state:"LIVE",
+          live_score_source:liveRow.source??null,live_score_updated_at:liveRow.updated_at_source??liveRow.source_updated_at??null});
+        continue;
+      }
+      const ko=Date.parse(String(r?.kickoff_hkt||""));
+      if(Number.isFinite(ko)&&ko>=Date.parse(from)){
+        targets.set(id,{...r,target_state:"PREWARM"});
+      }
     }
 
     const canonicalNames=[...new Set([...targets.values()].flatMap((t:any)=>[txt(t.home_en),txt(t.away_en)]).filter(Boolean))];
     const aliasMap=new Map<string,string[]>();
     if(canonicalNames.length){
-      const [{data:aliasRows,error:aliasErr},{data:legacyAliasRows,error:legacyAliasErr}]=await Promise.all([
-        db.from("team_alias_resolved_v2")
-          .select("hkjc_name_en,alias,confidence")
-          .in("hkjc_name_en",canonicalNames)
-          .gte("confidence",0.90),
-        db.from("team_aliases")
-          .select("source,alias,canonical_hkjc_name,confidence,status")
-          .in("canonical_hkjc_name",canonicalNames)
-          .in("source",["FOTMOB","SOFASCORE"])
-          .eq("status","ACTIVE")
-          .gte("confidence",0.94),
-      ]);
-      if(aliasErr) throw aliasErr;
-      if(legacyAliasErr) throw legacyAliasErr;
+      const {data:identityRows,error:identityErr}=await db.from("team_identity_current")
+        .select("source,source_name,canonical_name_en,confidence,status")
+        .in("canonical_name_en",canonicalNames)
+        .in("source",["FOTMOB","SOFASCORE"])
+        .eq("status","VERIFIED")
+        .gte("confidence",0.94);
+      if(identityErr) throw identityErr;
       const addAlias=(canonical:any,alias:any)=>{
         const k=txt(canonical),v=txt(alias); if(!k||!v) return;
         if(!aliasMap.has(k)) aliasMap.set(k,[]);
         const list=aliasMap.get(k)!;
         if(!list.includes(v)) list.push(v);
       };
-      for(const a of aliasRows||[]) addAlias(a.hkjc_name_en,a.alias);
-      for(const a of legacyAliasRows||[]) addAlias(a.canonical_hkjc_name,a.alias);
+      for(const a of identityRows||[]) addAlias(a.canonical_name_en,a.source_name);
     }
     for(const t of targets.values()){
       t._home_aliases=aliasMap.get(txt(t.home_en))||[];
@@ -415,12 +419,12 @@ Deno.serve(async (_req:Request)=>{
     const targetIds=[...targets.keys()];
     const verifiedByEvent=new Map<string,any[]>();
     if(targetIds.length){
-      const {data:verifiedRows}=await db.from("phase3_live_identity_map")
-        .select("hkjc_event_id,source,source_match_id,confidence,mapping_state")
-        .in("hkjc_event_id",targetIds)
+      const {data:verifiedRows}=await db.from("live_identity_map_current")
+        .select("match_id,source,source_match_id,confidence,mapping_state")
+        .in("match_id",targetIds)
         .eq("mapping_state","VERIFIED");
       for(const v of verifiedRows||[]){
-        const id=txt(v.hkjc_event_id); if(!verifiedByEvent.has(id)) verifiedByEvent.set(id,[]);
+        const id=txt(v.match_id); if(!verifiedByEvent.has(id)) verifiedByEvent.set(id,[]);
         verifiedByEvent.get(id)!.push(v);
       }
     }
@@ -431,7 +435,7 @@ Deno.serve(async (_req:Request)=>{
 
     const out:any[]=[];
     for(const target of targets.values()){
-      const verified=verifiedByEvent.get(String(target.hkjc_event_id))||[];
+      const verified=verifiedByEvent.get(String(target.match_id))||[];
       const mappedFotmob=verified.find((v:any)=>v.source==="FOOTBALL_LIVE_API_SELF_HOSTED"&&txt(v.source_match_id));
       const preferred=target.target_state==="LIVE"?fotmob.filter(x=>x.live):fotmob;
 
@@ -467,11 +471,11 @@ Deno.serve(async (_req:Request)=>{
 
       const m=match?.m||null;
       out.push({
-        hkjc_event_id:String(target.hkjc_event_id),
+        match_id:String(target.match_id),
         captured_at:now.toISOString(),
         target_state:target.target_state,
         kickoff_hkt:target.kickoff_hkt,
-        league:target.tournament,
+        league:target.league,
         home_en:target.home_en,
         away_en:target.away_en,
         source:m?.source||"SOURCE_GAP",
@@ -519,7 +523,7 @@ Deno.serve(async (_req:Request)=>{
         row.detail_status=hasData?"CAPTURED":"CAPTURED_NO_METRICS";
         if(hasData) detailSuccess++; else detailNoMetrics++;
         detailRows.push({
-          hkjc_event_id:row.hkjc_event_id,
+          match_id:row.match_id,
           captured_at:now.toISOString(),
           source:row.source,
           source_match_id:row.source_match_id,
@@ -537,7 +541,7 @@ Deno.serve(async (_req:Request)=>{
         detailErrors++;
         row.detail_status="ERROR_"+(e instanceof Error?e.message:String(e));
         detailRows.push({
-          hkjc_event_id:row.hkjc_event_id,
+          match_id:row.match_id,
           captured_at:now.toISOString(),
           source:row.source,
           source_match_id:row.source_match_id,
@@ -550,13 +554,13 @@ Deno.serve(async (_req:Request)=>{
       }
     });
     if(detailRows.length){
-      const {error:detailUpsertError}=await db.from("live_detail_shadow_current").upsert(detailRows,{onConflict:"hkjc_event_id"});
+      const {error:detailUpsertError}=await db.rpc("ft_upsert_live_detail_shadow_generic",{rows_data:detailRows});
       if(detailUpsertError) throw detailUpsertError;
     }
 
     let identityRpcErrors=0;
     if(out.length){
-      const {error}=await db.from("live_source_shadow_current").upsert(out,{onConflict:"hkjc_event_id"});
+      const {error}=await db.rpc("ft_upsert_live_source_shadow_generic",{rows_data:out});
       if(error) throw error;
 
       const identityRows=out.filter((row:any)=>
@@ -570,8 +574,8 @@ Deno.serve(async (_req:Request)=>{
             : null;
         if(!identitySource) return;
         try{
-          const result=await db.rpc("ft_record_phase3_shadow_identity",{
-            p_hkjc_event_id:row.hkjc_event_id,
+          const result=await db.rpc("ft_record_live_shadow_identity_generic",{
+            p_match_id:row.match_id,
             p_source:identitySource,
             p_source_match_id:row.source_match_id,
             p_confidence:Number(row.match_confidence),

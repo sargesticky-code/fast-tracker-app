@@ -1,0 +1,14 @@
+[Unit]
+Description=Fast Tracker Bet365 browser scraper API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=BET365_SCRAPER_HOME=%h/.local/share/fast-tracker/bet365-scraper
+ExecStart=%h/.local/share/fast-tracker/bet365-scraper/.venv/bin/python %h/.local/share/fast-tracker/bet365-scraper/local_api.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
