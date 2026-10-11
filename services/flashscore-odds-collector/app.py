@@ -234,19 +234,15 @@ def run_refresh():
         _state["last_started_at"] = utcnow()
         _state["last_error"] = None
     try:
-        fixtures = snapshot = None
-        last_refresh_error = None
-        for attempt in range(2):
-            try:
-                fixtures, snapshot = asyncio.run(refresh_once())
-                break
-            except Exception as exc:
-                last_refresh_error = exc
-                if attempt == 0:
-                    print(f"[flashscore-odds] refresh attempt 1 failed {type(exc).__name__}: {exc}; retrying once", flush=True)
-                    time.sleep(2)
-        if fixtures is None or snapshot is None:
-            raise last_refresh_error or RuntimeError("refresh_failed_without_result")
+        # One original bounded capture, not duplicate attempts. A hung browser
+        # or HTTP odds request dies with its isolated child process at 300s.
+        from bounded_capture import run_bounded_capture
+        fixtures, snapshot = run_bounded_capture(
+            os.path.join(os.path.dirname(__file__), "collector_worker.py"),
+            timeout_seconds=300,
+        )
+        if len(fixtures) > MAX_FIXTURES or len(snapshot) > MAX_FIXTURES:
+            raise ValueError("BOOKMAKER_QUOTE_BUDGET_EXCEEDED")
         completed_at = utcnow()
         discovered = [{
             "source": "FLASHSCORE",
@@ -316,6 +312,11 @@ def health():
             "fixtures_seen": _state["fixtures_seen"],
             "complete_hda": _state["complete_hda"],
             "discovered_count": len(_state["discovered"]),
+            "snapshot_stale": (
+                _state["last_completed_at"] is None
+                or (datetime.now(timezone.utc) -
+                    datetime.fromisoformat(_state["last_completed_at"])).total_seconds() > 1200
+            ),
         })
 
 @app.get("/snapshot")
@@ -338,7 +339,9 @@ def refresh():
         threading.Thread(target=run_refresh, daemon=True).start()
     return jsonify({"accepted": not busy, "refreshing": True}), 202
 
-threading.Thread(target=loop, daemon=True).start()
+# The isolated worker imports app.refresh_once; never recurse into a loop.
+if os.getenv("FT_COLLECTOR_CHILD") != "1":
+    threading.Thread(target=loop, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
