@@ -1,0 +1,37 @@
+name: Open football team-name reference
+on:
+  push:
+    branches: [fix/team-name-inventory-20261011]
+    paths:
+      - scripts/build_open_team_name_reference.py
+      - tests/test_build_open_team_name_reference.py
+      - .github/workflows/open-team-name-reference.yml
+  pull_request:
+    branches: [phase0/international-authority]
+    paths:
+      - scripts/build_open_team_name_reference.py
+      - tests/test_build_open_team_name_reference.py
+      - .github/workflows/open-team-name-reference.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-team-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate matching and fail-closed semantics
+        run: |
+          python -m py_compile scripts/build_open_team_name_reference.py
+          python -m unittest discover -s tests -p 'test_build_open_team_name_reference.py' -v
+      - name: Download CC0 Reep teams and aliases once
+        run: python scripts/build_open_team_name_reference.py --out-dir reference-team-names
+      - uses: actions/upload-artifact@v4
+        with:
+          name: open-football-teams-cc0
+          path: reference-team-names/
+          retention-days: 7
