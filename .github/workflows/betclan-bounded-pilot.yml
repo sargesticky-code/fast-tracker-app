@@ -1,0 +1,33 @@
+name: BetClan Bounded Live Parser QA
+on:
+  push:
+    branches: [feat/alternate-advisor-source-probe-20261011]
+    paths:
+      - scripts/betclan_pilot_adapter.py
+      - tests/test_betclan_pilot_adapter.py
+      - .github/workflows/betclan-bounded-pilot.yml
+permissions:
+  contents: read
+jobs:
+  one-detail-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline parser tests
+        run: |
+          python -m pip install beautifulsoup4==4.14.3
+          python -m unittest discover -s tests -p test_betclan_pilot_adapter.py -v
+      - name: Fetch one live public BetClan page and one detail max
+        run: |
+          python scripts/betclan_pilot_adapter.py --day today --max-details 12 --output betclan-pilot-candidates.json
+      - name: Preserve limited candidate evidence, no database or odds writes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: betclan-bounded-pilot
+          path: betclan-pilot-candidates.json
+          retention-days: 7

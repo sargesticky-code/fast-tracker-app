@@ -114,9 +114,21 @@ function mergeAuthorityWithEnrichment(authorityFeed, enrichmentFeed) {
       const observed = authorityContext?.observedStats?.source === "FLASHSCORE"
         ? authorityContext.observedStats
         : null;
+      const fotmob = richContext.source === "FOTMOB"
+        ? {
+            detailAvailable: Boolean(richContext.detailAvailable),
+            statsAvailable: Boolean(richContext.statsAvailable),
+            xgAvailable: Boolean(richContext.xgAvailable),
+            lineupAvailable: Boolean(richContext.lineupAvailable),
+            fetchedAt: richContext.detailFetchedAt ?? null,
+            lineupCoverage: richContext.lineupCoverage ?? null,
+            players: Array.isArray(richContext.fotmobPlayers) ? richContext.fotmobPlayers : [],
+          }
+        : richContext.fotmob ?? null;
       merged.sourceContext = {
         ...richContext,
         ...authorityContext,
+        ...(fotmob ? { fotmob } : {}),
         lineupCoverage: authorityContext?.lineupCoverage ?? richContext?.lineupCoverage ?? null,
         ...(observed ? {
           source: "FLASHSCORE",
@@ -381,6 +393,40 @@ function LiveStatStrip({ match }) {
   );
 }
 
+function EvidenceSourceIcons({ match }) {
+  const ctx = match?.sourceContext || {};
+  const fotmob = ctx.fotmob || (ctx.source === "FOTMOB" ? ctx : null);
+  const verifiedFotmob = fotmob && (fotmob.detailAvailable || fotmob.lineupAvailable || fotmob.statsAvailable);
+  const bcl = match?.advisorPredictions?.BETCLAN || match?.betclan || null;
+  const rows = [
+    { id: "BCL", name: "BetClan — primary advisor", available: Boolean(bcl && preferredModel(match) === bcl), tint: "#aa6611" },
+    { id: "FB", name: "Forebet — secondary advisor", available: Boolean(match?.forebet || match?.forebetDetail?.predictedScore), tint: "#197148" },
+    { id: "ST", name: "SportyTrader — third advisor (prediction source candidate)", available: Boolean(match?.advisorPredictions?.SPORTYTRADER?.status === "CURRENT" && match?.advisorPredictions?.SPORTYTRADER?.identityStatus === "VERIFIED"), tint: "#6f52aa" },
+    { id: "FT", name: "Fast Tracker quantitative model, not an external advisor", available: Boolean(match?.dc || match?.pi || match?.form), tint: "#3659ae" },
+    { id: "FM", name: "FotMob — lineup, player and match evidence (not a betting prediction)", available: Boolean(verifiedFotmob), tint: "#be5036" },
+    { id: "FS", name: "Flashscore — match/fixture evidence", available: Boolean(ctx.observedStats || ctx.statsAvailable && ctx.source === "FLASHSCORE"), tint: "#2d7292" },
+  ];
+  return (
+    <div className="ft-source-evidence-icons" aria-label="Source availability" style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>
+      {rows.map(({id,name,available,tint}) =>
+        <span key={id} title={name + (available ? " · data available" : " · no verified data for this match")}
+          aria-label={name + (available ? " available" : " unavailable")}
+          style={{fontSize:9,fontWeight:850,borderRadius:4,padding:"1px 4px",
+                  border:available ? `1px solid ${tint}` : "1px solid #d1d7d5",
+                  color:available ? tint : "#919995",background:available ? "#fff" : "#f5f7f6"}}>
+          {id}{available ? " ✓" : " —"}
+        </span>
+      )}
+      {verifiedFotmob && fotmob?.lineupCoverage?.starters ? (
+        <span title="Actual stored FotMob lineup evidence, not a player-performance claim"
+          style={{fontSize:9,color:"#a54d30",padding:"1px 4px",fontWeight:750}}>
+          FM XI {fotmob.lineupCoverage.starters}/22
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function AdvertSlot({ variant = "wide" }) {
   return (
     <div className={`ft-ad-slot ft-ad-${variant}`} aria-label="Advertisement placeholder">
@@ -492,8 +538,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           const forebetRawAvg = match?.forebetDetail?.ou25?.avgGoals
             ?? match?.forebetDetail?.avgGoals ?? match?.forebet?.avgGoals ?? null;
           const avgGoals = forebetRawAvg === null || forebetRawAvg === "" ? null : Number(forebetRawAvg);
-          const predictedScore = match?.forebetDetail?.predictedScore
-            || match?.forebet?.score || "—";
+          const primaryModel = preferredModel(match);
+          const betclanPrimary = match?.advisorPredictions?.BETCLAN &&
+            primaryModel === match.advisorPredictions.BETCLAN;
+          const predictedScore = betclanPrimary && primaryModel?.predictedScore
+            ? primaryModel.predictedScore
+            : match?.forebetDetail?.predictedScore || match?.forebet?.score || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
           const rowClasses = [
@@ -528,6 +578,7 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                     {match?.sourceContext?.xgAvailable ? " · xG" : ""}
                   </small>
                 </div>
+                <EvidenceSourceIcons match={match} />
               </div>
               <div className="ft-probs">
                 <ProbabilityStrip model={displayProb} />
