@@ -1,0 +1,45 @@
+name: One-Time Official Forebet 1X2 Public Route Probe
+on:
+  push:
+    branches: [fix/forebet-official-public-route-probe-20261011]
+    paths:
+      - 'scripts/forebet-lean-capture.py'
+      - '.github/workflows/forebet-public-route-probe.yml'
+permissions:
+  contents: read
+jobs:
+  real-source-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pre-existing pinned parser and Selenium
+        run: python -m pip install -r scripts/requirements-forebet-lean.txt
+      - name: Public Forebet 1X2 and tomorrow (no proxy or clearance)
+        run: |
+          python scripts/forebet-lean-capture.py --days 2 \
+            --max-rows-per-day 1200 --out forebet-public-candidates.json \
+            2>&1 | tee forebet-public-capture.log
+      - name: Verify bounded candidates, preserve source unknowns
+        run: |
+          python - <<'PY'
+          import json
+          o=json.load(open("forebet-public-candidates.json"))
+          assert len(o.get("candidates",[]))>0
+          assert o["identity_verified"] is False
+          assert o["production_writes"] is False
+          assert all(c.get("canonical_match_id") is None for c in o["candidates"])
+          print("FOREBET_PUBLIC_ROUTE_CANDIDATES",len(o["candidates"]))
+          PY
+      - name: Preserve source evidence (success or failure, no DB writes)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forebet-official-route-probe
+          path: |
+            forebet-public-capture.log
+            forebet-public-candidates.json
+          retention-days: 7
