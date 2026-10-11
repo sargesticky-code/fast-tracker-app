@@ -32,7 +32,8 @@ def probe(name,url):
    r["usable"]=r["html"] and r["matches_selector"]>0 and r["score_selector"]>0
   else:
    header=next((line.strip() for line in text.splitlines() if line.strip()), "")
-   r["csv_header"]=header[:190]\n   r["body_prefix"]=text[:100].replace("\\n"," ")
+   r["csv_header"]=header[:190]
+   r["body_prefix"]=text[:100].replace("\\n"," ")
    r["rows_estimate"]=text.count("\n")
    r["usable"]= ("Date" in header and "HomeTeam" in header and "AwayTeam" in header
         and r["rows_estimate"]>1)
