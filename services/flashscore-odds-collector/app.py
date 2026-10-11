@@ -316,8 +316,15 @@ def run_refresh():
 
 def loop():
     while True:
+        # 900 seconds means start-to-start cadence, not run duration + 900s.
+        # A bounded capture normally takes ~60s. Sleeping another 900s after
+        # it extends snapshot intervals to ~16m, plus the 5m SQL handoff
+        # can exceed the strict 20m bookmaker freshness window.
+        # Keep ONE serial capture and the existing hard 300s worker deadline.
+        started = time.monotonic()
         run_refresh()
-        time.sleep(REFRESH_SECONDS)
+        elapsed = time.monotonic() - started
+        time.sleep(max(0.0, REFRESH_SECONDS - elapsed))
 
 @app.get("/health")
 def health():

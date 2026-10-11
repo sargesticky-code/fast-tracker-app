@@ -15,7 +15,7 @@ const summary = {
   count:2,
   matches:[
     {id:"FS:event0",home:"Home 0",away:"Away 0",league:"League B",kickoff:"2026-10-11T15:30:00Z",forebet:{home:0.45,draw:0.25,away:0.30},
-      forebetDetail:{predictedScore:"2-1"},
+      forebetDetail:{predictedScore:"2-1",ou25:{over:0.62,under:0.38,pick:"Over",avgGoals:3.08},corners95:{over:0.44,under:0.56,pick:"Under",predictedScore:"5-3",avgCorners:8.75}},
       scoreHome:1,scoreAway:0,scoreSource:"FLASHSCORE",
       sourceContext:{source:"FLASHSCORE",lineupAvailable:true,
         lineupCoverage:{homeStarters:11,awayStarters:11,updatedAt:"2026-10-11T00:50:00Z"},
@@ -36,7 +36,7 @@ const detail = {
     tournament:"League B",kickoff_hkt:"2026-10-11T15:30:00Z",score_home:1,score_away:0,status:"FINISHED"},
   models:{
     forebet:{predicted_score:"2-1",avg_goals:2.71,
-      prob_home:45,prob_draw:25,prob_away:30,fetched_at:"2026-10-11T00:30:00Z"},
+      prob_home:45,prob_draw:25,prob_away:30,prob_over25:62,prob_under25:38,corner_prob_under95:56,corner_prob_over95:44,corner_predicted_score:"5-3",avg_corners:8.75,fetched_at:"2026-10-11T00:30:00Z"},
     internal:{quality:"MODELED",dc_prob_home:0.45,dc_prob_draw:0.25,dc_prob_away:0.30,model_source:"RESULTS_HISTORY"}
   },
   flashscoreStats:{source:"FLASHSCORE",capturedAt:"2026-10-11T00:55:00Z",
@@ -72,6 +72,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByRole("button",{name:"2026-10-11 · 35"})).toBeVisible();
   await expect(page.getByText("Time not supplied")).toBeVisible();
   await expect(page.getByText("Forebet predicted score", {exact:false}).first()).toBeVisible();
+  await expect(page.getByText("Forebet Goals 2.5", {exact:false}).first()).toBeVisible();
+  await expect(page.getByText("Forebet Corners 9.5", {exact:false}).first()).toBeVisible();
   await expect(page.getByTestId("historical-match-stats").first()).toContainText("Not final/live totals");
   await page.screenshot({path:"test-results/enriched-board-"+viewport.width+".png",fullPage:true});
 
@@ -85,6 +87,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByText("Raw prices: — / — / —")).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
+  await expect(page.getByTestId("forebet-goals-25")).toContainText("Over 62%");
+  await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
   await expect(page.getByTestId("fotmob-player-stats")).toContainText("Player 0");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("not verified final totals");
@@ -165,4 +169,18 @@ test("incomplete Forebet HDA remains unknown instead of treating null as zero",a
   const row=page.locator(".ft-match-row").first();
   await expect(row).toContainText("Forebet predicted score");
   await expect(row).not.toContainText("Forebet H/D/A");
+});
+
+test("invalid incomplete Forebet market pair remains unknown",async({page})=>{
+  const broken={...summary,matches:[
+    {...summary.matches[0],forebetDetail:{predictedScore:"2-1",
+      ou25:{over:null,under:0.38,pick:"Over"},corners95:{over:0.9,under:0.7,pick:"Over"}}}
+  ]};
+  mockEndpoints(page,{source:broken,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.locator(".ft-match-row")).toHaveCount(40);
+  await page.getByLabel("Search",{exact:true}).fill("Home 0");
+  const row=page.locator(".ft-match-row").first();
+  await expect(row).not.toContainText("Forebet Goals 2.5");
+  await expect(row).not.toContainText("Forebet Corners 9.5");
 });

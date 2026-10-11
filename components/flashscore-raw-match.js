@@ -101,6 +101,25 @@ export default function FlashscoreRawMatch() {
         <div><b>Forebet H / D / A</b>
           <small>{knownNumber(forebet.prob_home,1)}% / {knownNumber(forebet.prob_draw,1)}% / {knownNumber(forebet.prob_away,1)}%</small></div>
       </div>: <p>Forebet forecast unavailable for this exact canonical event.</p>}
+      {forebet && [forebet.prob_over25,forebet.prob_under25].every(v=>v!=null && Number.isFinite(Number(v)))
+        && Math.abs(Number(forebet.prob_over25)+Number(forebet.prob_under25)-100)<=2 && (
+        <div className="ft-stats-grid" data-testid="forebet-goals-25">
+          <div><b>Forebet Goals 2.5</b>
+            <small>Over {knownNumber(forebet.prob_over25,0)}% · Under {knownNumber(forebet.prob_under25,0)}%</small>
+          </div>
+        </div>
+      )}
+      {forebet && [forebet.corner_prob_under95,forebet.corner_prob_over95].every(v=>v!=null && Number.isFinite(Number(v)))
+        && Math.abs(Number(forebet.corner_prob_under95)+Number(forebet.corner_prob_over95)-100)<=2 && (
+        <div className="ft-stats-grid" data-testid="forebet-corners-95">
+          <div><b>Forebet Corners 9.5</b>
+            <small>Under {knownNumber(forebet.corner_prob_under95,0)}% · Over {knownNumber(forebet.corner_prob_over95,0)}%
+              {forebet.corner_predicted_score?" · Predicted "+forebet.corner_predicted_score:""}
+              {forebet.avg_corners==null?"":" · Avg "+knownNumber(forebet.avg_corners,2)}
+            </small>
+          </div>
+        </div>
+      )}
       {model && <p>Qualified internal model (DC) · H {percentDecimal(model.dc_prob_home)}% /
         D {percentDecimal(model.dc_prob_draw)}% /
         A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
