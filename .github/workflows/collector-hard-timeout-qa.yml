@@ -23,5 +23,8 @@ jobs:
           python-version: '3.12'
       - name: Check worker and collector syntax
         run: python -m py_compile services/flashscore-odds-collector/app.py services/flashscore-odds-collector/bounded_capture.py services/flashscore-odds-collector/collector_worker.py
+      - name: Assert Railway Docker image includes watchdog modules
+        run: |
+          grep -F 'COPY app.py day_budget.py bounded_capture.py collector_worker.py ./' services/flashscore-odds-collector/Dockerfile
       - name: Offline child process and timeout tests (zero provider requests)
         run: python -m unittest discover -s services/flashscore-odds-collector/tests -p test_bounded_capture.py -v
