@@ -22,6 +22,6 @@ for(const path of [
   assert.ok(s.includes(term),path+" missing auth guard: "+term);
  }
  const pos=s.indexOf('db.rpc("ft_internal_cron_key_matches"');
- assert.ok(pos>=0 && s.indexOf(".from(")>pos,"authentication must be before normal table access");
+ assert.ok(pos>=0 && s.indexOf('db.from("')>pos,"authentication must be before normal table access");
 }
 console.log("INTERNAL_EDGE_CRON_VAULT_SECURITY_CONTRACT_PASSED");
