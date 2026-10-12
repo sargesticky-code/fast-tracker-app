@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run check:ui && npm run check:raw && next build",
+    "build": "npm run check:ui && npm run check:raw && npm run check:native && next build",
     "start": "next start",
     "check:ui": "node scripts/check-visible-escapes.mjs",
-    "check:raw": "node scripts/check-flashscore-raw.mjs"
+    "check:raw": "node scripts/check-flashscore-raw.mjs",
+    "check:native": "node scripts/check-native-model.mjs"
   },
   "dependencies": {
     "next": "16.3.8",
