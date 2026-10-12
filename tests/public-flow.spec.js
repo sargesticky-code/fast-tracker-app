@@ -102,7 +102,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
 
   await page.getByRole("button",{name:DAY2+" · 5"}).click();
   await expect(page.locator(".ft-match-row")).toHaveCount(5);
-  await page.getByRole("button",{name:"Active fixtures · 40"}).click();
+  await page.getByRole("button",{name:"All dates · 40"}).click();
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   await expect(page.locator(".ft-match-row")).toHaveCount(11);
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
@@ -168,7 +168,7 @@ test("unavailable raw source does not invent fixture counts",async({page})=>{
   mockEndpoints(page,{raw:null,source:null,deep:null});
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator("p[role=alert]")).toContainText("Fixture counts are unknown");
-  await expect(page.getByRole("button",{name:"Active fixtures · —"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Active matches · —"})).toBeVisible();
 });
 test("mismatched analysis identity is rejected, not joined by team names",async({page})=>{
   mockEndpoints(page,{deep:{...detail,id:"FS:wrong",fixture:{...detail.fixture,match_id:"FS:wrong"}}});
