@@ -332,3 +332,59 @@ for (const sourceName of ["FOTMOB_OFFICIAL","FLASHSCORE_OFFICIAL"]) {
     });
   }
 }
+
+test("saved exact-ID fixture kickoffs render British summer/winter times without guesswork",async({page})=>{
+  const supplied={...summary,fixtureKickoffs:[
+    {id:"FS:event9",kickoff:"2026-10-11T20:15:00+00:00"},
+    {id:"FS:event10",kickoff:"2026-11-10T20:15:00+00:00"}]};
+  const raw={...snapshot,discovered:snapshot.discovered.map(r=>r.provider_event_id==="event10"
+    ?{...r,fixture_date:"2026-11-10"}:r)};
+  mockEndpoints(page,{source:supplied,raw});
+  await page.goto("http://127.0.0.1:4173/");
+  const row9=page.getByTestId("fixture-row").filter({hasText:"Home 9"}).first();
+  const row10=page.getByTestId("fixture-row").filter({hasText:"Home 10"}).first();
+  await expect(row9.getByTestId("uk-kickoff")).toHaveText("21:15");
+  await expect(row10.getByTestId("uk-kickoff")).toHaveText("20:15");
+  await expect(row9).toContainText("BST");
+  await expect(row10).toContainText("GMT");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 11"}).first().getByTestId("uk-kickoff")).toHaveText("—:—");
+});
+test("remove Standings and source navigation text; group major leagues above lesser leagues",async({page})=>{
+  const raw={...snapshot,discovered:[
+    {provider_event_id:"event0",home:"London FC",away:"Liverpool",competition:"Premier LeagueENGLAND: Live Standings",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event1",home:"Madrid FC",away:"Barcelona",competition:"LaLigaSPAIN: Standings",fixture_date:"2026-10-13",time_text:"20:00"},
+    {provider_event_id:"event2",home:"Bremen",away:"Stuttgart",competition:"BundesligaGERMANY: Live Standings",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event3",home:"Paris FC",away:"Lyon",competition:"Ligue 1FRANCE: Live Standings",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event4",home:"Some Team",away:"Another Team",competition:"Premier LeagueJAMAICA: Live Standings",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event5",home:"Bragantino",away:"Cruzeiro",competition:"Serie ABRAZIL: Live Standings",fixture_date:"2026-10-13",time_text:null}
+  ],fixtures:[]};
+  mockEndpoints(page,{raw,source:null});
+  await page.goto("http://127.0.0.1:4173/");
+  const names=await page.locator(".ft-league-heading h2").allTextContents();
+  expect(names[0]).toContain("Premier League · England");
+  expect(names[1]).toContain("LaLiga · Spain");
+  expect(names.indexOf("★Bundesliga · Germany")).toBeLessThan(names.indexOf("Serie A · Brazil"));
+  expect(names.some(n=>n.includes("Jamaica"))).toBeTruthy();
+  expect(names.join(" ")).not.toMatch(/Standings|: Draw/);
+  await expect(page.getByTestId("fixture-list")).not.toContainText("Flashscore event");
+  await page.getByTestId("scope-top").click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(4);
+  await page.getByTestId("scope-other").click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(2);
+});
+test("status and insights filters distinguish completed from elapsed but unverified fixtures",async({page})=>{
+  const source={...summary,matches:[{...summary.matches[0],status:"SCHEDULED"},
+    {...summary.matches[1],status:"FINISHED"}]};
+  mockEndpoints(page,{source});
+  await page.goto("http://127.0.0.1:4173/");
+  await page.getByTestId("status-live").click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(0);
+  await page.getByTestId("status-finished").click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(1);
+  await page.getByTestId("status-all").click();
+  await page.getByRole("button",{name:/Predictions/}).click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(2);
+  await page.getByTestId("scope-top").click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
