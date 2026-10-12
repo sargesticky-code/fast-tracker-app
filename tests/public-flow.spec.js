@@ -28,7 +28,10 @@ const summary = {
 };
 const lineups=Array.from({length:22},(_,i)=>({
   player_key:""+(i+1),player_name:"Player "+i,team_side:i<11?"H":"A",
-  confirmed:true,starter:true,source_name:"FOTMOB_OFFICIAL",formation_slot:i===0||i===11?"1:3":null
+  confirmed:true,starter:true,source_name:"FOTMOB_OFFICIAL",formation_slot:i===0||i===11?"1:3":null,
+  fotmob_profile:{fotmobId:""+(i+1),position:"Midfielder",nationality:"England",age:25,height:"180 cm",
+    updatedAt:"2026-10-11T00:55:00Z",
+    recentMatches:[{minutes:90,goals:1,assists:0},{minutes:65,goals:0,assists:1}]}
 }));
 const detail = {
   id:"FS:event0",requestedId:"FS:event0",fixtureSource:"CANONICAL_FLASHSCORE",
@@ -107,6 +110,12 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("forebet-goals-25")).toContainText("Over 62%");
   await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
+  await expect(page.getByTestId("fotmob-player-insights")).toBeVisible();
+  await expect(page.getByTestId("fotmob-selected-player")).toContainText("Midfielder");
+  await expect(page.getByTestId("fotmob-selected-player")).toContainText("155");
+  await page.getByRole("button",{name:/Player 12/}).click();
+  await expect(page.getByTestId("fotmob-selected-player")).toContainText("Player 12");
+  await expect(page.getByTestId("fotmob-selected-player").getByRole("link",{name:/FotMob profile/})).toHaveAttribute("href","https://www.fotmob.com/players/13");
   await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
   await expect(page.getByTestId("official-xi-pitch").locator(".ft-xi-marker")).toHaveCount(2);
   await expect(page.getByTestId("official-xi-pitch")).toContainText("source positions unavailable");
@@ -234,4 +243,18 @@ test("malformed coordinates do not invent player pitch positions",async({page})=
   const pitch=page.getByTestId("official-xi-pitch");
   await expect(pitch.locator(".ft-xi-marker")).toHaveCount(0);
   await expect(pitch.locator(".ft-xi-roster-player")).toHaveCount(22);
+});
+
+test("FotMob player insights never join by name or mislabel Flashscore identities",async({page})=>{
+  const nonFotmob=lineups.map(x=>({...x,source_name:"FLASHSCORE_OFFICIAL",fotmob_profile:null}));
+  mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:nonFotmob}}});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("official-xi")).toBeVisible();
+  await expect(page.getByTestId("fotmob-player-insights")).toHaveCount(0);
+});
+test("FotMob player insights reject mismatched profile identifiers",async({page})=>{
+  const corrupt=lineups.map(x=>({...x,fotmob_profile:{...x.fotmob_profile,fotmobId:"9999"}}));
+  mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:corrupt}}});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("fotmob-player-insights")).toHaveCount(0);
 });
