@@ -23,22 +23,22 @@ GRANT EXECUTE ON FUNCTION public.ft_internal_cron_key_matches(text) TO service_r
 DO $guard$
 DECLARE
  old_cmd text;
- name text;
+ v_job_name text;
  cadence text;
  token_present boolean;
  new_cmd text;
  auth_header text;
 BEGIN
- SELECT EXISTS(SELECT 1 FROM vault.decrypted_secrets
-  WHERE name='fast_tracker_cron_secret' AND length(decrypted_secret)>=32)
+ SELECT EXISTS(SELECT 1 FROM vault.decrypted_secrets v
+  WHERE v.name='fast_tracker_cron_secret' AND length(decrypted_secret)>=32)
  INTO token_present;
  IF NOT token_present THEN
   RAISE EXCEPTION 'FT_CRON_SECRET_MISSING_OR_TOO_SHORT';
  END IF;
 
- SELECT j.jobname,j.schedule,j.command INTO name,cadence,old_cmd
+ SELECT j.jobname,j.schedule,j.command INTO v_job_name,cadence,old_cmd
  FROM cron.job j WHERE j.jobid=32;
- IF name IS DISTINCT FROM 'phase2-lineup-source-refresh'
+ IF v_job_name IS DISTINCT FROM 'phase2-lineup-source-refresh'
   OR cadence IS DISTINCT FROM '12,22,32,42,52 * * * *'
   OR old_cmd IS NULL
   OR position('phase15-flashscore-scout' IN old_cmd)=0
