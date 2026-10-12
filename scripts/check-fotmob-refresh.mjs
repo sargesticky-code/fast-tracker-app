@@ -8,7 +8,8 @@ for(const term of [
  '.eq("source","FOTMOB")',
  '.eq("status","ACTIVE")',
  '.gte("confidence",0.94)',
- '.range(0,1999)',
+ 'for(let offset=0;offset<2000;offset+=1000)',
+ '.range(offset,offset+999)',
  'if(targets.size!==1){ambiguousAliasCount++;continue;}' ,
  'const picked=identityOnly?[]:matchedForDetail.slice(0,MAX_DETAIL)',
  'mode:identityOnly?"identity":"full"'
