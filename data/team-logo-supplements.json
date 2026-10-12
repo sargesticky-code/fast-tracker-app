@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "key": "crb",
+      "file": "crb.png",
+      "source": "commons: File:CRB logo.svg",
+      "license": "public domain (PD-textlogo)",
+      "source_url": "https://commons.wikimedia.org/wiki/File:CRB_logo.svg"
+    },
+    {
+      "key": "gimnasia mendoza",
+      "file": "gimnasia-mendoza.png",
+      "source": "commons: File:Escudo Club Gimnasia y Esgrima Mendoza.svg",
+      "license": "CC BY-SA 4.0",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Escudo_Club_Gimnasia_y_Esgrima_Mendoza.svg"
+    },
+    {
+      "key": "gv san jose",
+      "file": "gv-san-jose.png",
+      "source": "commons: File:Escudo GV Club Deportivo San José PNG.png",
+      "license": "CC BY-SA 4.0",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Escudo_GV_Club_Deportivo_San_Jos%C3%A9_PNG.png"
+    },
+    {
+      "key": "nacional asuncion",
+      "file": "nacional-asuncion.png",
+      "source": "commons: File:Club Nacional de Paraguay.png",
+      "license": "public domain (simple logo)",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Club_Nacional_de_Paraguay.png"
+    },
+    {
+      "key": "sariyer sk",
+      "file": "sariyer.png",
+      "source": "official Sarıyer Spor Kulübü corporate identity page",
+      "license": "official club asset; use unaltered",
+      "source_url": "https://www.sariyersporkulubu.com.tr/kulup/kurumsal-kimlik"
+    },
+    {
+      "key": "van spor fk",
+      "file": "vanspor.png",
+      "source": "official Vanspor FK website /images/logo.png",
+      "license": "official club asset",
+      "source_url": "https://www.vansporfk.org.tr/images/logo.png"
+    }
+  ]
+}
