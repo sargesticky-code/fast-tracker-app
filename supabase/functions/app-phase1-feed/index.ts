@@ -249,6 +249,15 @@ function verifiedCompactSummaryRow(m: any) {
   return {
     id:m.id,kickoff:m.kickoff,league:m.league,home:m.home,away:m.away,
     scoreHome:m.scoreHome,scoreAway:m.scoreAway,scoreSource:m.scoreSource,
+    status:m.status??null,liveNow:m.liveNow===true,
+    // The canonical feed already applies the strict current-price freshness gate.
+    // Preserve these exact-ID prices for collector-outage fallback instead of
+    // replacing them with unknown values in the compact projection.
+    odds:m.odds??null,
+    oddsCapturedAt:m.health?.authorityFetchedAt??null,
+    oddsLabel:m.sourceContext?.marketAuthority==="CHINA_500_SPF"
+      ? "China 500 reference" : "Bookmaker reference",
+    historicalForm:m.historicalForm??null,
     forebet:m.forebet??null,
     forebetDetail:{
       predictedScore:detail.predictedScore??null,
@@ -701,12 +710,18 @@ Deno.serve(async (req: Request) => {
       // One indexed, read-only RPC replaces repeated PostgREST fanout across
       // fixture, bookmaker, detail, profile and lineup views. This is the
       // critical All-in-One lane. Legacy queries remain only as fallback.
-      const [fast,heartbeat]=await Promise.all([
+      const [fast,heartbeat,fixtureTimesResult]=await Promise.all([
         db.rpc("ft_fast_flashscore_summary",{p_window_hours:hours}),
         db.from("source_health")
           .select("status,value_text,observed_at,notes,raw")
-          .eq("source","FLASHSCORE_BET365").eq("metric","cloud_ingest")
+           .eq("source","FLASHSCORE_BET365").eq("metric","cloud_ingest")
           .maybeSingle(),
+        // All stored exact Flashscore fixture kickoffs in one small indexed read.
+        // This is not a new collector and introduces no further browser fetches.
+        db.from("canonical_fixture_current")
+          .select("match_id,kickoff_hkt")
+          .not("kickoff_hkt","is",null)
+          .limit(1000),
       ]);
       if(!fast.error && Array.isArray(fast.data)){
         const matches=fast.data.map((r:any)=>{
@@ -742,6 +757,11 @@ Deno.serve(async (req: Request) => {
           view:compactOnly?"compact":"summary",windowHours:hours,
           count:matches.length,
           matches:compactOnly?matches.map(verifiedCompactSummaryRow):matches,
+          fixtureKickoffs: Array.isArray(fixtureTimesResult.data)
+            ? fixtureTimesResult.data.filter((r:any)=>/^FS:[A-Za-z0-9_-]{5,32}$/.test(String(r.match_id||""))
+                && typeof r.kickoff_hkt==="string")
+              .map((r:any)=>({id:r.match_id,kickoff:r.kickoff_hkt}))
+            : [],
           systemHealth:{
             FLASHSCORE_BET365:{
               status:publisherStatus,
