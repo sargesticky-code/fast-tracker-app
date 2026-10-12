@@ -28,7 +28,7 @@ const summary = {
 };
 const lineups=Array.from({length:22},(_,i)=>({
   player_key:""+(i+1),player_name:"Player "+i,team_side:i<11?"H":"A",
-  confirmed:true,starter:true,source_name:"FOTMOB_OFFICIAL"
+  confirmed:true,starter:true,source_name:"FOTMOB_OFFICIAL",formation_slot:i===0||i===11?"1:3":null
 }));
 const detail = {
   id:"FS:event0",requestedId:"FS:event0",fixtureSource:"CANONICAL_FLASHSCORE",
@@ -107,6 +107,9 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("forebet-goals-25")).toContainText("Over 62%");
   await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
+   await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
+   await expect(page.getByTestId("official-xi-pitch")).toContainText("Source positions unavailable");
+   await expect(page.getByTestId("verified-match-analysis")).not.toContainText("No verified in-play bookmaker odds.");
   await expect(page.getByTestId("fotmob-player-stats")).toContainText("Player 0");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("not verified final totals");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("Expected goals (xG)");
