@@ -87,7 +87,16 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   mockEndpoints(page);
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
-  await expect(page.getByTestId("verified-status")).toContainText("2 matches with verified insights");
+  await expect(page.getByTestId("match-overview")).toBeVisible();
+  await expect(page.getByTestId("overview-matches")).toContainText("40");
+  await expect(page.getByTestId("overview-details")).toContainText("2");
+  await expect(page.getByTestId("overview-predictions")).toContainText("2");
+  await expect(page.getByTestId("overview-lineups")).toContainText("1");
+  await expect(page.getByTestId("overview-odds")).toContainText("0");
+  await expect(page.getByTestId("overview-insight-status")).toContainText("Stats ready");
+  await expect(page.locator(".ft-home")).not.toContainText("exact Flashscore IDs linked");
+  await expect(page.locator(".ft-home")).not.toContainText("bookmaker snapshot");
+  await expect(page.locator(".ft-home")).not.toContainText("Raw provider fixtures are preferred");
   expect(external.some(url=>url.includes("/app-phase1-feed?view=compact&hours=48"))).toBeTruthy();
   await expect(page.getByRole("button",{name:/10-11/}).first()).toBeVisible();
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
@@ -156,7 +165,9 @@ test("raw remains available when verified analysis fails",async({page})=>{
   mockEndpoints(page,{source:null,deep:null});
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
-  await expect(page.getByTestId("verified-status")).toContainText("insights currently unavailable");
+  await expect(page.getByTestId("overview-insight-status")).toContainText("Stats limited");
+  await expect(page.getByTestId("overview-details")).toContainText("—");
+  await expect(page.getByTestId("overview-matches")).toContainText("40");
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   await page.locator(".ft-match-row").click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
@@ -179,7 +190,7 @@ test("mismatched analysis identity is rejected, not joined by team names",async(
 test("cold or stale raw snapshot uses exact canonical source fallback without invented quotes",async({page})=>{
   mockEndpoints(page,{raw:{...snapshot,captured_at:null,discovered:[],fixtures:[],count:0}});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("canonical-fallback")).toContainText("2 verified fixtures");
+  await expect(page.getByTestId("canonical-fallback")).toContainText("2 saved matches");
   await expect(page.locator(".ft-match-row")).toHaveCount(2);
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
   await expect(page.locator(".ft-odds-cell").first()).toContainText("No fresh odds");
@@ -216,7 +227,7 @@ test("incomplete Forebet HDA remains unknown instead of treating null as zero",a
   ]};
   mockEndpoints(page,{source:invalid,deep:null});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("verified-status")).toContainText("1 matches with verified insights");
+  await expect(page.getByTestId("overview-details")).toContainText("1");
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   const row=page.locator(".ft-match-row").first();
   await expect(row.getByTestId("match-prediction")).toContainText("2-1");
@@ -388,4 +399,50 @@ test("status and insights filters distinguish completed from elapsed but unverif
   await page.getByTestId("scope-top").click();
   await expect(page.getByTestId("fixture-row")).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+
+
+for(const width of [1440,390]) {
+ test("visual overview cards show honest counts and useful shortcuts "+width,async({page})=>{
+   await page.setViewportSize({width,height:900});
+   mockEndpoints(page);
+   await page.goto("http://127.0.0.1:4173/");
+   await expect(page.getByTestId("fixture-row")).toHaveCount(40);
+   const overview=page.getByTestId("match-overview");
+   await expect(overview.getByRole("button")).toHaveCount(6);
+   await expect(page.getByTestId("overview-feed-status")).toContainText("Matches ready");
+   await expect(page.getByTestId("overview-insight-status")).toContainText("Stats ready");
+   await expect(page.getByTestId("overview-live")).toContainText("0");
+   await expect(page.getByTestId("overview-predictions")).toContainText("2");
+   await page.getByTestId("overview-predictions").click();
+   await expect(page.getByTestId("fixture-row")).toHaveCount(2);
+   await expect(page.getByTestId("overview-predictions")).toHaveAttribute("aria-pressed","true");
+   await page.getByTestId("overview-lineups").click();
+   await expect(page.getByTestId("fixture-row")).toHaveCount(1);
+   await page.getByTestId("overview-details").click();
+   await expect(page.getByTestId("fixture-row")).toHaveCount(2);
+   await page.getByTestId("overview-live").click();
+   await expect(page.getByTestId("fixture-row")).toHaveCount(0);
+   await expect(page.getByTestId("overview-live")).toHaveAttribute("aria-pressed","true");
+   await page.getByTestId("overview-matches").click();
+   await expect(page.getByTestId("fixture-row")).toHaveCount(40);
+   await expect(page.getByTestId("overview-matches")).toHaveAttribute("aria-pressed","true");
+   const size=await page.evaluate(()=>({
+     gridCols:getComputedStyle(document.querySelector(".ft-overview-grid")).gridTemplateColumns.split(" ").length,
+     overflow:document.documentElement.scrollWidth>innerWidth
+   }));
+   expect(size.overflow).toBe(false);
+   expect(size.gridCols).toBe(width<=650?2:6);
+   await page.screenshot({path:"test-results/visual-overview-"+width+".png",fullPage:false});
+ });
+}
+test("overview shows unavailable rather than zero when neither source can answer",async({page})=>{
+  mockEndpoints(page,{raw:null,source:null,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("overview-feed-status")).toContainText("Matches unavailable");
+  await expect(page.getByTestId("overview-insight-status")).toContainText("Stats limited");
+  await expect(page.getByTestId("overview-matches")).toContainText("—");
+  await expect(page.getByTestId("overview-details")).toContainText("—");
+  await expect(page.getByTestId("overview-live")).toContainText("—");
+  await expect(page.getByTestId("overview-odds")).toContainText("—");
 });
