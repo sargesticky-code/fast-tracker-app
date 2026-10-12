@@ -243,7 +243,7 @@ async function fetchCommentary(home,away,kickoff){
 }
 
 Deno.serve(async (req)=>{
-  const u=new URL(req.url), force=u.searchParams.get("force")==="1";
+  const u=new URL(req.url), force=u.searchParams.get("force")==="1", identityOnly=u.searchParams.get("mode")==="identity";
   const supabaseUrl=Deno.env.get("SUPABASE_URL")||"", sk=serviceKey();
   if(!supabaseUrl||!sk) return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(supabaseUrl,sk,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -343,7 +343,7 @@ Deno.serve(async (req)=>{
       if(gapA!==gapB) return gapB-gapA;
       return new Date(a.kickoff||0).getTime()-new Date(b.kickoff||0).getTime();
     });
-    const picked=matchedForDetail.slice(0,MAX_DETAIL);
+    const picked=identityOnly?[]:matchedForDetail.slice(0,MAX_DETAIL);
     const priorityGapDetailCount=picked.filter(x=>gapPriority.has(String(x.matchId))).length;
     for(let i=0;i<picked.length;i++){
       const p=picked[i];
@@ -419,7 +419,7 @@ Deno.serve(async (req)=>{
       last_probe_at:nowIso,last_success_at:nowIso,last_failure_at:null,
       consecutive_success:prevS+1,consecutive_failure:0,total_records:rows.length,
       schema_fingerprint:schema,last_seen_at:nowIso,updated_at:nowIso,
-      raw:{upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
+      raw:{mode:identityOnly?"identity":"full",upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
     }).eq("source_key",SOURCE);
 
     await db.from("source_health").upsert({
@@ -428,10 +428,10 @@ Deno.serve(async (req)=>{
       status:rows.length>0?"OK":"WARN",
       notes:"Experimental shadow-only scout. No betting-model influence until trust promotion.",
       observed_at:new Date().toISOString(),
-      raw:{upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
+      raw:{mode:identityOnly?"identity":"full",upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
     },{onConflict:"source,metric"});
 
-    return Response.json({ok:true,source:SOURCE,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
+    return Response.json({ok:true,source:SOURCE,mode:identityOnly?"identity":"full",rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
   }catch(e){
     const message=e instanceof Error?e.message:(typeof e==="object"?JSON.stringify(e):String(e));
     const reg=await db.from("phase15_source_registry").select("consecutive_failure").eq("source_key",SOURCE).maybeSingle();
