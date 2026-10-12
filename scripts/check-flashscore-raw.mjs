@@ -53,4 +53,16 @@ for(const contract of ["verifiedCompactSummaryRow","compactOnly?matches.map(veri
   assert.ok(feedSource.includes(contract),"Missing compact fast-RPC contract: "+contract);
 assert.ok(sourceClient.includes("view=compact&hours=48"));
 assert.ok(sourceClient.includes("verified_summary_contract_invalid"));
+const resultArchiveSql=fs.readFileSync("supabase/migrations/20261012051600_ft_forebet_exact_fs_final_result_archive.sql","utf8");
+for(const contract of [
+  "ft_preserve_forebet_verified_final",
+  "BEFORE DELETE ON public.matches",
+  "s.source_key='FLASHSCORE'",
+  "EXACT_FS_PROVIDER_ID_AND_KICKOFF",
+  "s.raw->>'AB'='3'",
+  "s.raw->>'AC'='3'",
+  "a.captured_at<=m.kickoff_hkt",
+  "NOT a.raw ? 'verified_final_result'"
+]) assert.ok(resultArchiveSql.includes(contract),"Missing verified final archive contract: "+contract);
+assert.ok(!resultArchiveSql.includes("cron.schedule"),"No added result cron allowed");
 console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
