@@ -4,6 +4,11 @@ const source=fs.readFileSync("supabase/functions/phase15-source-scout/index.ts",
 const migration=fs.readFileSync("supabase/migrations/20261012112500_ft_restore_bounded_fotmob_refresh_in_job32.sql","utf8");
 for(const term of [
  'identityOnly=u.searchParams.get("mode")==="identity"',
+ 'db.from("team_alias_current")',
+ '.eq("source","FOTMOB")',
+ '.eq("status","ACTIVE")',
+ '.gte("confidence",0.94)',
+ 'if(targets.size!==1){ambiguousAliasCount++;continue;}' ,
  'const picked=identityOnly?[]:matchedForDetail.slice(0,MAX_DETAIL)',
  'mode:identityOnly?"identity":"full"'
 ]) assert.ok(source.includes(term),"missing lightweight identity contract: "+term);
@@ -17,4 +22,5 @@ for(const term of [
 ]) assert.ok(migration.includes(term),"missing job32 guard/schedule contract: "+term);
 assert.ok(!/\bcron\.schedule\s*\(/.test(migration),"must not create another scheduled job");
 assert.ok(!source.includes("FIRECRAWL"),"FotMob refresh must not add Firecrawl dependency");
+assert.ok(!source.includes('db.from("team_identity_current")'),"Scout must not regress to stale legacy FotMob identity table");
 console.log("BOUNDED_FOTMOB_REFRESH_CONTRACT_PASSED");
