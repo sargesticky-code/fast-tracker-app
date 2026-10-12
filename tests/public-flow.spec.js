@@ -108,6 +108,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
   await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
+  await expect(page.getByTestId("official-xi-pitch").locator(".ft-xi-marker")).toHaveCount(2);
   await expect(page.getByTestId("official-xi-pitch")).toContainText("source positions unavailable");
   await expect(page.locator(".ft-raw-detail")).not.toContainText("No verified in-play bookmaker odds.");
   await expect(page.locator(".ft-raw-detail")).not.toContainText("prematch reference only");
@@ -206,4 +207,31 @@ test("invalid incomplete Forebet market pair remains unknown",async({page})=>{
   const row=page.locator(".ft-match-row").first();
   await expect(row).not.toContainText("Forebet Goals 2.5");
   await expect(row).not.toContainText("Forebet Corners 9.5");
+});
+
+test("source-backed FotMob coordinates plot all 22 starters without inventing positions",async({page})=>{
+  const fullSlots=["1:3","2:1","2:2","2:4","2:5","3:2","3:4","4:1","4:3","4:5","5:3"];
+  const completeLineup=lineups.map((row,i)=>{
+    const p=i%11;
+    return {...row,formation_slot:fullSlots[p],formation:"4-2-3-1",
+      position_x:p===0?0.5:((p%5)+0.5)/5, position_y:p===0?0.1:(p<5?0.3:p<7?0.5:p<10?0.7:0.9)};
+  });
+  mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:completeLineup}}});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  const pitch=page.getByTestId("official-xi-pitch");
+  await expect(pitch).toBeVisible();
+  await expect(pitch.locator(".ft-xi-marker")).toHaveCount(22);
+  await expect(pitch).toContainText("Formation 4-2-3-1");
+  await expect(pitch).not.toContainText("Player positions not supplied");
+  await expect(pitch.locator(".ft-xi-roster-player")).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+
+test("malformed coordinates do not invent player pitch positions",async({page})=>{
+  const invalid=lineups.map((row,i)=>({...row,formation_slot:null,position_x:i===0?4:null,position_y:0.5}));
+  mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:invalid}}});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  const pitch=page.getByTestId("official-xi-pitch");
+  await expect(pitch.locator(".ft-xi-marker")).toHaveCount(0);
+  await expect(pitch.locator(".ft-xi-roster-player")).toHaveCount(22);
 });
