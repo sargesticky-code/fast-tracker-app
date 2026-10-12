@@ -1,11 +1,14 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 fs.mkdirSync("test-results",{recursive:true});
+// All baseline fixtures are future-relative; separate lifecycle tests exercise finished rows.
+const utcDay = offset => { const d = new Date(); d.setUTCDate(d.getUTCDate()+offset); return d.toISOString().slice(0,10); };
+const DAY1 = utcDay(2), DAY2 = utcDay(3);
 const snapshot = {
   source:"FLASHSCORE_BET365",captured_at:new Date().toISOString(),
   discovered:Array.from({length:40},(_,i)=>({
     provider_event_id:"event"+i,home:"Home "+i,away:"Away "+i,
-    competition:i%2?"League A":"League B",fixture_date:i<35?"2026-10-11":"2026-10-12",
+    competition:i%2?"League A":"League B",fixture_date:i<35?DAY1:DAY2,
     time_text:i?"15:30":null
   })),
   fixtures:[{provider_event_id:"event1",hda:{home:2.2,draw:3.3,away:4.4},captured_at:"2026-10-11T00:59:00Z"}]
@@ -14,14 +17,14 @@ const summary = {
   source:"flashscore-single-rpc-canonical",generatedAt:"2026-10-11T01:00:00Z",
   count:2,
   matches:[
-    {id:"FS:event0",home:"Home 0",away:"Away 0",league:"League B",kickoff:"2026-10-11T15:30:00Z",forebet:{home:0.45,draw:0.25,away:0.30},
+    {id:"FS:event0",home:"Home 0",away:"Away 0",league:"League B",kickoff:DAY1+"T15:30:00Z",forebet:{home:0.45,draw:0.25,away:0.30},
       forebetDetail:{predictedScore:"2-1",ou25:{over:0.62,under:0.38,pick:"Over",avgGoals:3.08},corners95:{over:0.44,under:0.56,pick:"Under",predictedScore:"5-3",avgCorners:8.75}},
       scoreHome:1,scoreAway:0,scoreSource:"FLASHSCORE",
       sourceContext:{source:"FLASHSCORE",lineupAvailable:true,
         lineupCoverage:{homeStarters:11,awayStarters:11,updatedAt:"2026-10-11T00:50:00Z"},
         observedStats:{source:"FLASHSCORE",capturedAt:"2026-10-11T00:55:00Z",
           stats:{shots:{home:3,away:2},corners:{home:1,away:0},xg:{home:0.33,away:0.12}}}}},
-    {id:"FS:event1",home:"Home 1",away:"Away 1",league:"League A",kickoff:"2026-10-11T16:00:00Z",forebetDetail:{predictedScore:"0-2"},
+    {id:"FS:event1",home:"Home 1",away:"Away 1",league:"League A",kickoff:DAY1+"T16:00:00Z",forebetDetail:{predictedScore:"0-2"},
       sourceContext:{source:"FLASHSCORE",lineupAvailable:false}}
   ],
   systemHealth:{FLASHSCORE_BET365:{status:"OK",raw:{snapshotFresh:true}}}
@@ -89,7 +92,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
   await expect(page.getByTestId("verified-status")).toContainText("2 exact Flashscore IDs linked");
   expect(external.some(url=>url.includes("/app-phase1-feed?view=compact&hours=48"))).toBeTruthy();
-  await expect(page.getByRole("button",{name:"2026-10-11 · 35"})).toBeVisible();
+  await expect(page.getByRole("button",{name:DAY1+" · 35"})).toBeVisible();
   await expect(page.getByText("Time not supplied")).toBeVisible();
   await expect(page.getByText("Forebet predicted score", {exact:false}).first()).toBeVisible();
   await expect(page.getByText("Forebet Goals 2.5", {exact:false}).first()).toBeVisible();
@@ -97,9 +100,9 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("historical-match-stats").first()).toContainText("Not final/live totals");
   await page.screenshot({path:"test-results/enriched-board-"+viewport.width+".png",fullPage:true});
 
-  await page.getByRole("button",{name:"2026-10-12 · 5"}).click();
+  await page.getByRole("button",{name:DAY2+" · 5"}).click();
   await expect(page.locator(".ft-match-row")).toHaveCount(5);
-  await page.getByRole("button",{name:"All fixtures · 40"}).click();
+  await page.getByRole("button",{name:"Active fixtures · 40"}).click();
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   await expect(page.locator(".ft-match-row")).toHaveCount(11);
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
@@ -165,7 +168,7 @@ test("unavailable raw source does not invent fixture counts",async({page})=>{
   mockEndpoints(page,{raw:null,source:null,deep:null});
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator("p[role=alert]")).toContainText("Fixture counts are unknown");
-  await expect(page.getByRole("button",{name:"All fixtures · —"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Active fixtures · —"})).toBeVisible();
 });
 test("mismatched analysis identity is rejected, not joined by team names",async({page})=>{
   mockEndpoints(page,{deep:{...detail,id:"FS:wrong",fixture:{...detail.fixture,match_id:"FS:wrong"}}});
@@ -178,7 +181,7 @@ test("mismatched analysis identity is rejected, not joined by team names",async(
 test("cold or stale raw snapshot uses exact canonical source fallback without invented quotes",async({page})=>{
   mockEndpoints(page,{raw:{...snapshot,captured_at:null,discovered:[],fixtures:[],count:0}});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("canonical-fallback")).toContainText("2 verified Flashscore canonical fixtures");
+  await expect(page.getByTestId("canonical-fallback")).toContainText("2 active verified Flashscore canonical fixtures");
   await expect(page.locator(".ft-match-row")).toHaveCount(2);
   await expect(page.getByText("Canonical kickoff 15:30 UTC")).toBeVisible();
   await expect(page.locator(".ft-raw-odds").first()).toContainText("—");
@@ -331,3 +334,23 @@ for (const sourceName of ["FOTMOB_OFFICIAL","FLASHSCORE_OFFICIAL"]) {
     });
   }
 }
+
+
+test("homepage excludes terminal, verified-finished and old-date fixtures without deleting match details", async({page})=>{
+  const raw={...snapshot,discovered:snapshot.discovered.map(f=>{
+    if(f.provider_event_id==="event2")return {...f,status:"FT"};
+    if(f.provider_event_id==="event3")return {...f,match_status:"CANCELLED"};
+    if(f.provider_event_id==="event4")return {...f,fixture_date:"2026-01-01"};
+    return f;
+  })};
+  const source={...summary,matches:summary.matches.map(m=>m.id==="FS:event0"?{...m,status:"FINISHED"}:m)};
+  mockEndpoints(page,{raw,source});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.locator(".ft-match-row")).toHaveCount(36);
+  await expect(page.getByRole("button",{name:"Active fixtures · 36"})).toBeVisible();
+  await expect(page.locator('.ft-match-row[href="/details?id=FS%3Aevent0"]')).toHaveCount(0);
+  await expect(page.locator('.ft-match-row[href="/details?id=FS%3Aevent1"]')).toHaveCount(1);
+  // Historical direct links must keep functioning after homepage suppression.
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
+});
