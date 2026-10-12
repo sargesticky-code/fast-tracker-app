@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedMatch, matchObservation } from "@/lib/verified-evidence-feed";
@@ -40,8 +40,11 @@ export default function FlashscoreRawMatch() {
   const searchParams=useSearchParams();
   const id=searchParams.get("id")||"";
   const [state,setState]=useState({status:"loading",match:null,analysis:null});
+  const [selectedPlayer,setSelectedPlayer]=useState(null);
+  const closePlayerProfile=useCallback(()=>setSelectedPlayer(null),[]);
 
   useEffect(()=>{
+    setSelectedPlayer(null);
     let cancelled=false;
     const controller=new AbortController();
     Promise.allSettled([
@@ -156,6 +159,7 @@ export default function FlashscoreRawMatch() {
         homeFormation={analysis?.humanFactors?.homeFormation || analysis?.humanFactors?.formation?.home || null}
         awayFormation={analysis?.humanFactors?.awayFormation || analysis?.humanFactors?.formation?.away || null}
         confirmed={validXI}
+        onPlayerSelect={setSelectedPlayer}
       />
     </section>}
     {managers.length>0 && <section className="ft-enriched-panel">
@@ -165,9 +169,11 @@ export default function FlashscoreRawMatch() {
         <small>{m.evidence_value||m.manager_key||m.manager_name||"Unknown"} · {m.source_name||analysis?.humanFactors?.managerProvenance?.source||"Source unavailable"}</small>
       </div>)}</div>
     </section>}
-    {lineups.length > 0 && <FotMobPlayerInsights lineup={lineups}
+    {selectedPlayer && <FotMobPlayerInsights
+      player={selectedPlayer}
       stats={analysis?.humanFactors?.playerMatchStats}
-      homeTeam={home} awayTeam={away} />}
+      homeTeam={home} awayTeam={away}
+      onClose={closePlayerProfile} />}
     {analysis && <PlayerStats data={analysis}/>}
     {match && <details><summary>Original Flashscore source fields</summary>
       <pre>{JSON.stringify({fixture:match.raw,quote:match.rawQuote},null,2)}</pre></details>}

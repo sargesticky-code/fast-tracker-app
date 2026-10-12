@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 
 function finite(value, min = -Infinity, max = Infinity) {
   if (value === null || value === undefined || value === "") return null;
@@ -17,11 +17,8 @@ function summaryOfRecent(rows) {
     return found.length === sample.length ? found.reduce((a, b) => a + b, 0) : null;
   };
   return {
-    games: sample.length,
-    appearances: appearances.length,
-    minutes: sum("minutes", 130),
-    goals: sum("goals", 20),
-    assists: sum("assists", 20),
+    games: sample.length, appearances: appearances.length,
+    minutes: sum("minutes", 130), goals: sum("goals", 20), assists: sum("assists", 20),
   };
 }
 
@@ -30,83 +27,118 @@ function Metric({ label, value }) {
   return <div className="ft-player-metric"><small>{label}</small><b>{value}</b></div>;
 }
 
-export default function FotMobPlayerInsights({ lineup = [], stats = [], homeTeam = "Home", awayTeam = "Away" }) {
-  // Deliberately match on exact FotMob IDs. Flashscore-only players cannot be
-  // attached to FotMob records merely because their names look similar.
-  const available = lineup.filter(row => row?.source_name === "FOTMOB_OFFICIAL" &&
-    row?.confirmed === true && row?.starter === true &&
-    row?.fotmob_profile && /^\d{3,12}$/.test(String(row.fotmob_profile.fotmobId || "")) &&
-    String(row.fotmob_profile.fotmobId) === String(row.player_key));
-  const [selectedId, setSelectedId] = useState(null);
-  if (!available.length) return null;
+function trustedProfile(player) {
+  const p=player?.fotmob_profile;
+  if (player?.source_name !== "FOTMOB_OFFICIAL" || player?.confirmed !== true ||
+      player?.starter !== true || !p ||
+      !/^\d{3,12}$/.test(String(p.fotmobId || "")) ||
+      String(p.fotmobId) !== String(player.player_key)) return null;
+  return p;
+}
 
-  const selected = available.find(p => String(p.player_key) === selectedId) || available[0];
-  const profile = selected.fotmob_profile;
-  const current = (Array.isArray(stats) ? stats : []).find(row =>
-    String(row?.playerId ?? "") === String(profile.fotmobId));
-  const recent = summaryOfRecent(profile.recentMatches);
-  const formatMetric = (value, decimals=0, max=200) => {
+// The pitch invokes this drawer with its exact lineup row. It never fetches a
+// player separately and never joins FotMob to Flashscore by a similar name.
+export default function FotMobPlayerInsights({ player = null, stats = [], homeTeam = "Home", awayTeam = "Away", onClose }) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+
+  useEffect(() => {
+    if (!player) return;
+    const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    function handleKey(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose?.();
+      } else if (event.key === "Tab" && dialogRef.current) {
+        const focusable = [...dialogRef.current.querySelectorAll(
+          "button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])"
+        )].filter(node => node.getClientRects().length);
+        if (!focusable.length) return;
+        const first=focusable[0], last=focusable[focusable.length-1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [player, onClose]);
+
+  if (!player) return null;
+
+  const profile=trustedProfile(player);
+  const side=player.team_side === "H" ? homeTeam : player.team_side === "A" ? awayTeam : "Unknown team";
+  const id=profile ? String(profile.fotmobId) : null;
+  const current=id && Array.isArray(stats) ? stats.find(row => String(row?.playerId ?? "")===id) : null;
+  const recent=summaryOfRecent(profile?.recentMatches);
+  const formatMetric=(value,decimals=0,max=200) => {
     const n=finite(value,0,max);
     return n === null ? null : n.toFixed(decimals);
   };
-  const footId = String(profile.fotmobId);
-  const snapshot = profile.updatedAt && !Number.isNaN(Date.parse(profile.updatedAt))
-    ? new Date(profile.updatedAt).toISOString().slice(0, 10) : null;
+  const snapshot=profile?.updatedAt && Number.isFinite(Date.parse(profile.updatedAt))
+    ? new Date(profile.updatedAt).toISOString().slice(0,10) : null;
+  const name=String(player.player_name || player.canonical_player_name || "Unknown player");
 
-  return <section className="ft-enriched-panel ft-player-insights" data-testid="fotmob-player-insights">
-    <h2>FotMob player insights</h2>
-    <p>Select an official starter to see saved FotMob biography and recorded performance. No additional live player requests.</p>
-    <div className="ft-player-insights-body">
-      <div className="ft-player-picker" aria-label="FotMob official starters">
-        {["H","A"].map(side => <div className="ft-player-team" key={side}>
-          <b>{side === "H" ? homeTeam : awayTeam}</b>
-          <div className="ft-player-buttons">
-            {available.filter(row => row.team_side === side).map(row =>
-              <button type="button" className="ft-player-select" key={row.player_key}
-                aria-pressed={String(row.player_key) === String(selected.player_key)}
-                onClick={() => setSelectedId(String(row.player_key))}>
-                <span>{row.shirt_number ?? "·"}</span>{row.player_name}
-              </button>)}
-          </div>
-        </div>)}
+  return <div className="ft-player-overlay" data-testid="player-profile-overlay">
+    <button type="button" tabIndex={-1} className="ft-player-backdrop" aria-label="Close player panel" onClick={onClose} />
+    <aside ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="ft-player-drawer-title"
+      className="ft-player-drawer" data-testid="player-profile-drawer">
+      <div className="ft-player-drawer-head">
+        <div>
+          <small>Player profile · {side}</small>
+          <h2 id="ft-player-drawer-title">{name}</h2>
+          <span className="ft-player-source">{profile ? "FotMob verified player ID" : (player.source_name || "Lineup source")}</span>
+        </div>
+        <button ref={closeRef} type="button" onClick={onClose} className="ft-player-drawer-close" aria-label="Close player profile">×</button>
       </div>
-      <article className="ft-player-insight-detail" data-testid="fotmob-selected-player">
-        <div className="ft-player-detail-heading">
-          <div><h3>{selected.player_name}</h3>
-            <small>{selected.team_side === "H" ? homeTeam : awayTeam} · Source: FotMob official XI</small>
-          </div>
-          <a href={"https://www.fotmob.com/players/"+footId} target="_blank"
-             rel="noopener noreferrer">FotMob profile ↗</a>
-        </div>
+      <div className="ft-player-drawer-scroll" data-testid="fotmob-selected-player">
         <div className="ft-player-metrics">
-          <Metric label="Position" value={profile.position}/>
-          <Metric label="Country" value={profile.nationality}/>
-          <Metric label="Age (snapshot)" value={formatMetric(profile.age,0,55)}/>
-          <Metric label="Height" value={profile.height}/>
+          <Metric label="Shirt number" value={player.shirt_number}/>
+          <Metric label="Position" value={profile?.position || player.role}/>
+          {profile && <>
+            <Metric label="Country" value={profile.nationality}/>
+            <Metric label="Age (snapshot)" value={formatMetric(profile.age,0,55)}/>
+            <Metric label="Height" value={profile.height}/>
+          </>}
         </div>
-        {recent && <>
-          <h4>Stored recent-match sample <small>({recent.games} records, dates not guaranteed)</small></h4>
-          <div className="ft-player-metrics">
-            <Metric label="Appearances with minutes" value={recent.appearances}/>
-            <Metric label="Minutes" value={recent.minutes}/>
-            <Metric label="Goals" value={recent.goals}/>
-            <Metric label="Assists" value={recent.assists}/>
-          </div>
-          <small>These are the available stored records, not season totals, per-90 rates or verified last-five form.</small>
-        </>}
-        {current && <>
-          <h4>Match performance · FotMob</h4>
-          <div className="ft-player-metrics">
-            <Metric label="Rating" value={formatMetric(current.rating,2,10)}/>
-            <Metric label="Shots" value={formatMetric(current.totalShots,0,30)}/>
-            <Metric label="On target" value={formatMetric(current.shotsOnTarget,0,30)}/>
-            <Metric label="Goals" value={formatMetric(current.goals,0,20)}/>
-            <Metric label="Assists" value={formatMetric(current.assists,0,20)}/>
-            <Metric label="Accurate passes" value={formatMetric(current.accuratePasses,0,300)}/>
-          </div>
-        </>}
-        {snapshot && <small className="ft-player-asof">Saved profile updated {snapshot}. Older snapshots may not reflect current transfers or injuries.</small>}
-      </article>
-    </div>
-  </section>;
+        {profile ? <>
+          {recent && <section className="ft-player-drawer-section">
+            <h3>Stored recent-match sample <small>({recent.games} records)</small></h3>
+            <div className="ft-player-metrics">
+              <Metric label="Appearances with minutes" value={recent.appearances}/>
+              <Metric label="Minutes" value={recent.minutes}/>
+              <Metric label="Goals" value={recent.goals}/>
+              <Metric label="Assists" value={recent.assists}/>
+            </div>
+            <p>Available stored records, not season totals or verified last-five form. Match dates and opponent identities may be missing.</p>
+          </section>}
+          {current && <section className="ft-player-drawer-section">
+            <h3>Match performance · FotMob</h3>
+            <div className="ft-player-metrics">
+              <Metric label="Rating" value={formatMetric(current.rating,2,10)}/>
+              <Metric label="Shots" value={formatMetric(current.totalShots,0,30)}/>
+              <Metric label="On target" value={formatMetric(current.shotsOnTarget,0,30)}/>
+              <Metric label="Goals" value={formatMetric(current.goals,0,20)}/>
+              <Metric label="Assists" value={formatMetric(current.assists,0,20)}/>
+              <Metric label="Accurate passes" value={formatMetric(current.accuratePasses,0,300)}/>
+            </div>
+          </section>}
+          {snapshot && <p className="ft-player-asof">Saved profile updated {snapshot}; details may have changed since then.</p>}
+          <a className="ft-player-fotmob-link" href={"https://www.fotmob.com/players/"+id}
+            target="_blank" rel="noopener noreferrer">View full profile on FotMob ↗</a>
+        </> : <p className="ft-player-no-profile" data-testid="fotmob-profile-unavailable">
+          FotMob profile not linked for this player. Only source-backed lineup details are shown.
+        </p>}
+      </div>
+    </aside>
+  </div>;
 }
