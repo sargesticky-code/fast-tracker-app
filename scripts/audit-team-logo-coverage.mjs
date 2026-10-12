@@ -92,6 +92,17 @@ for (const fixture of sourceFixtures) {
   }
 }
 const unresolved = teams.filter((team) => !(contexts.get(normalize(team)) || []).some((context) => resolve(index, team, context)));
+const invalidAliasTargets = Object.entries(registry.aliases || {})
+  .filter(([, target]) => index.logos?.[target]?.length !== 1 && !registry.disambiguatedLogos?.[target])
+  .map(([source, target]) => ({ source, target }));
+const invalidContextualTargets = Object.entries(registry.contextualAliases || {}).flatMap(([source, entries]) =>
+  entries
+    .filter((entry) => index.logos?.[entry.target]?.length !== 1)
+    .map((entry) => ({ source, competitionContains: entry.competitionContains, target: entry.target })),
+);
+const invalidDisambiguations = Object.entries(registry.disambiguatedLogos || {})
+  .filter(([target, choice]) => !(index.logos?.[target]?.length === 1 || index.logos?.[choice.sourceKey]?.some((entry) => entry.source === choice.source)))
+  .map(([target, choice]) => ({ target, sourceKey: choice.sourceKey, source: choice.source }));
 console.log(JSON.stringify({
   snapshotCapturedAt: snapshot.captured_at,
   displayedFixtures: sourceFixtures.length,
@@ -100,7 +111,10 @@ console.log(JSON.stringify({
   matchedTeams: teams.length - unresolved.length,
   coveragePercent: teams.length ? Number(((teams.length - unresolved.length) * 100 / teams.length).toFixed(1)) : 100,
   unresolvedTeams: unresolved,
+  invalidAliasTargets,
+  invalidContextualTargets,
+  invalidDisambiguations,
   atlas: index.atlas,
   indexedAssets: index.count,
 }, null, 2));
-if (unresolved.length) process.exitCode = 1;
+if (unresolved.length || invalidAliasTargets.length || invalidContextualTargets.length || invalidDisambiguations.length) process.exitCode = 1;
