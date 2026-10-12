@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { toFlashscoreRawFeed } from "../lib/flashscore-raw-feed.js";
+import { showFixtureOnDashboard, isInactiveFixtureStatus } from "../lib/fixture-visibility.js";
 const fixtures = Array.from({length:40}, (_,i) => ({provider_event_id:`event${i}`,home:`Home ${i}`,away:`Away ${i}`,fixture_date:"2026-10-11",time_text:i ? "15:30" : null,competition:"Premier League"}));
 const capturedAt = new Date().toISOString();
 const oldQuoteAt = new Date(Date.now()-25*60*1000).toISOString();
@@ -98,4 +99,18 @@ for(const item of [
  "730 days"
 ]) assert.ok(nativeDocs.some(d=>d.includes(item)),"Native verified training missing "+item);
 for(const d of nativeDocs) assert.ok(!d.includes("cron.schedule("),"No extra recurring crawler or cron");
-console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
+// Lifecycle gate must not reinterpret a live score or source-local time as FT.
+const at = Date.parse("2026-10-13T12:00:00Z");
+const active = {id:"FS:live01",sourceDate:"2026-10-13",raw:{time_text:"90+4"}};
+assert.equal(showFixtureOnDashboard(active,null,at),true);
+assert.equal(isInactiveFixtureStatus("FT"),true);
+assert.equal(isInactiveFixtureStatus("13:30FRO"),false);
+assert.equal(showFixtureOnDashboard({...active,raw:{status:"FT"}},null,at),false);
+assert.equal(showFixtureOnDashboard({...active,raw:{match_status:"ABANDONED"}},null,at),false);
+assert.equal(showFixtureOnDashboard(active,{status:"FINISHED"},at),false);
+assert.equal(showFixtureOnDashboard(active,{kickoff:"2026-10-13T08:00:00Z"},at),true);
+assert.equal(showFixtureOnDashboard(active,{kickoff:"2026-10-13T06:59:59Z"},at),false);
+assert.equal(showFixtureOnDashboard({sourceDate:"2026-10-11",raw:{}},null,at),false);
+assert.equal(showFixtureOnDashboard({sourceDate:"2026-10-12",raw:{}},null,at),true);
+assert.equal(showFixtureOnDashboard(active,{score:{home:2,away:1}},at),true);
+console.log("Raw fixture identity, missing data, complete enumeration and provider removal and lifecycle checks passed");
