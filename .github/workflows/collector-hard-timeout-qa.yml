@@ -22,9 +22,36 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check worker and collector syntax
-        run: python -m py_compile services/flashscore-odds-collector/app.py services/flashscore-odds-collector/bounded_capture.py services/flashscore-odds-collector/collector_worker.py
+        run: python -m py_compile services/flashscore-odds-collector/app.py services/flashscore-odds-collector/bounded_capture.py services/flashscore-odds-collector/collector_worker.py services/flashscore-odds-collector/forebet_capture.py
       - name: Assert Railway Docker image includes watchdog modules
         run: |
-          grep -F 'COPY app.py day_budget.py bounded_capture.py collector_worker.py odds_batch.py browser_resources.py ./' services/flashscore-odds-collector/Dockerfile
+          grep -F 'COPY app.py day_budget.py bounded_capture.py collector_worker.py odds_batch.py browser_resources.py forebet_capture.py ./' services/flashscore-odds-collector/Dockerfile
       - name: Offline child process and timeout tests (zero provider requests)
         run: python -m unittest discover -s services/flashscore-odds-collector/tests -p test_bounded_capture.py -v
+      - name: Install one pinned parser dependency
+        run: python -m pip install httpx==0.28.1 beautifulsoup4==4.14.2
+      - name: Offline Forebet selector and anti-mismatch regression tests
+        run: python -m unittest discover -s services/flashscore-odds-collector/tests -p test_forebet_capture.py -v
+  provider-reachability:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'fix/forebet-persistent-source-lane')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install bounded source dependencies
+        run: pip install httpx==0.28.1 beautifulsoup4==4.14.2
+      - name: Single bounded official Forebet source probe
+        run: |
+          cd services/flashscore-odds-collector
+          python - <<'PY'
+          import asyncio
+          from forebet_capture import collect_forebet_listing_snapshot
+          capture=asyncio.run(collect_forebet_listing_snapshot())
+          print({"ok":capture["ok"],"events":capture["source_events"],
+                 "surfaces_ok":capture["surfaces_successful"],
+                 "failed":capture["surfaces_failed"]})
+          assert capture["ok"], "FOREBET_DIRECT_SOURCE_UNAVAILABLE_OR_FORMAT_DRIFT"
+          PY
