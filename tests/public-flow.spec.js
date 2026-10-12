@@ -91,10 +91,10 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   expect(external.some(url=>url.includes("/app-phase1-feed?view=compact&hours=48"))).toBeTruthy();
   await expect(page.getByRole("button",{name:/10-11/}).first()).toBeVisible();
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
-  await expect(page.getByTestId("match-prediction").first()).toContainText("2-1");
-  await expect(page.getByTestId("forebet-goals-25").first()).toContainText("O 62%");
-  await expect(page.getByTestId("forebet-corners-95").first()).toContainText("U 56%");
-  await expect(page.getByTestId("confirmed-xi").first()).toContainText("XI");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("match-prediction")).toContainText("2-1");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("forebet-goals-25")).toContainText("O 62%");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("forebet-corners-95")).toContainText("U 56%");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("confirmed-xi")).toContainText("XI");
   await expect(page.locator(".ft-match-list")).not.toContainText("Flashscore event");
   await page.screenshot({path:"test-results/enriched-board-"+viewport.width+".png",fullPage:true});
 
@@ -183,7 +183,7 @@ test("cold or stale raw snapshot uses exact canonical source fallback without in
   await expect(page.locator(".ft-match-row")).toHaveCount(2);
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
   await expect(page.locator(".ft-odds-cell").first()).toContainText("No fresh odds");
-  await page.locator(".ft-match-row").first().click();
+  await page.locator(".ft-match-row").filter({hasText:"Home 0"}).first().click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
   await expect(page.getByText("Raw prices: — / — / —")).toHaveCount(0);
@@ -360,6 +360,7 @@ test("remove Standings and source navigation text; group major leagues above les
   ],fixtures:[]};
   mockEndpoints(page,{raw,source:null});
   await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("fixture-row")).toHaveCount(6);
   const names=await page.locator(".ft-league-heading h2").allTextContents();
   expect(names[0]).toContain("Premier League · England");
   expect(names[1]).toContain("LaLiga · Spain");
