@@ -20,9 +20,15 @@
 - After PR CI succeeds, merge branch. Deploy only `app-phase1-feed` Edge and public Railway frontend service to reviewed release SHA, with no collector redeploy.
 - Compare production `view=compact` vs `view=summary` same 48-hour window: returned fixture counts and IDs, forecasts/confirmed XIs, HTTP 200 and size reduction. Check booking/scores and borrower finances: not in scope.
 
+## Verified outcome archiving (additional live migration)
+- Forecasts alone are not sufficient for a reproducible evaluation. Existing Flashscore shadow uses exact `FS:` provider IDs, verified finish flags `AB=3`, `AC=3` and source score fields `AG/AH`.
+- An additional **already applied** lightweight migration adds a `BEFORE DELETE` trigger on `public.matches` that records the verified final score inside the independent `forebet_archive.raw.verified_final_result` only when exact FS ID, kickoff within 20 minutes, post-kickoff source capture and both finish flags pass. It does not backdate forecast capture or edit H/D/A predictions. No new table/API/cron.
+- One-time source-verified backfill froze **14 final results** for the 17 pregame source predictions; the other 3 historical archive rows remain without invented outcomes. Compact archive size was **192 KB** at verification.
+- This supports future evaluation, but 14 matches is too small/selected to publish a claimed model hit rate.
+
 ## Remaining, not falsely claimed solved
 - **Forebet ingestion freshness:** the Firecrawl listing input does not carry reliable per-match O/U/corners. Existing source ingestion has no independent scheduled refresh in currently active 8 jobs; full automatic coverage requires the *upstream* collector to observe official match-detail markets and supply fresh verified evidence. Do not start more scraping until availability and provider permission reviewed.
-- **Evaluation outcomes:** after a match is deleted from active fixture registry, archived forecasts survive, but final score history remains a separate evidence/retention problem. Do not report a historical win rate from unverified late or missing outcomes.
+- **Evaluation sample size:** exact FS final outcomes are now preserved only where source-confirmed. No hit-rate or calibration claims until prospective sample is sufficiently large and missingness is accounted for.
 - **Recent-48h historical UI:** compact archive preserves evidence; raw public match pages intentionally prune 12h after kickoff. A separate on-demand historical UI or a bounded quality-gated model evaluation feed can consume archive in a later change without bloating the live homepage.
 - **Operational gating:** the 20-minute H/D/A freshness gate and 15-minute collector cadence are deliberately retained. Cron `succeeded` and `UNCHANGED` do not imply failure or quote recapture; check age/status/coverage.
 
