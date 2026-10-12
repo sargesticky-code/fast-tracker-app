@@ -50,7 +50,7 @@ const detail = {
     lineupProvenance:{sourceConfirmed:true,canonicalIdentitiesVerified:true,
       source:"FOTMOB_OFFICIAL",confirmedAt:"2026-10-11T00:55:00Z"},
     managers:[{team_side:"H",manager_name:"Manager Home",source_name:"FLASHSCORE"}],
-    playerMatchStats:[{playerId:"1",playerName:"Player 0",teamName:"Home 0",rating:7.82,totalShots:3,
+    playerMatchStats:[{playerId:"1000",playerName:"Player 0",teamName:"Home 0",rating:7.82,totalShots:3,
       shotsOnTarget:2,accuratePasses:30,passAttempts:35,goals:1,assists:0}],
     playerMatchStatsMeta:{source:"FOTMOB",observedAt:"2026-10-11T01:00:00Z",lineupRowsMatched:1}
   }
@@ -110,13 +110,31 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("forebet-goals-25")).toContainText("Over 62%");
   await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
-  await expect(page.getByTestId("fotmob-player-insights")).toBeVisible();
+  await expect(page.getByTestId("player-profile-drawer")).toHaveCount(0);
+  await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
+  const firstPlayer=page.getByRole("button",{name:"View player profile: Player 0"});
+  await firstPlayer.click();
+  const drawer=page.getByRole("dialog",{name:"Player 0"});
+  await expect(drawer).toBeVisible();
   await expect(page.getByTestId("fotmob-selected-player")).toContainText("Midfielder");
   await expect(page.getByTestId("fotmob-selected-player")).toContainText("155");
-  await page.getByRole("button",{name:/Player 12/}).click();
+  await expect(page.getByTestId("fotmob-selected-player")).toContainText("7.82");
+  await expect(drawer.getByRole("link",{name:/View full profile on FotMob/})).toHaveAttribute("href","https://www.fotmob.com/players/1000");
+  await expect(drawer.getByRole("button",{name:"Close player profile"})).toBeFocused();
+  const drawerBox=await drawer.boundingBox();
+  expect(drawerBox).toBeTruthy();
+  if(viewport.width<=720) expect(Math.abs(drawerBox.y+drawerBox.height-viewport.height)).toBeLessThan(4);
+  else expect(Math.abs(drawerBox.x+drawerBox.width-viewport.width)).toBeLessThan(4);
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(firstPlayer).toBeFocused();
+  // A player without a pitch slot remains actionable from the unpositioned XI list.
+  await page.getByRole("button",{name:"View player profile: Player 12"}).click();
+  await expect(page.getByRole("dialog",{name:"Player 12"})).toBeVisible();
   await expect(page.getByTestId("fotmob-selected-player")).toContainText("Player 12");
-  await expect(page.getByTestId("fotmob-selected-player").getByRole("link",{name:/FotMob profile/})).toHaveAttribute("href","https://www.fotmob.com/players/1012");
-  await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
+  await expect(page.getByRole("link",{name:/View full profile on FotMob/})).toHaveAttribute("href","https://www.fotmob.com/players/1012");
+  await page.getByRole("button",{name:"Close player profile"}).click();
+  await expect(page.getByTestId("player-profile-drawer")).toHaveCount(0);
   await expect(page.getByTestId("official-xi-pitch").locator(".ft-xi-marker")).toHaveCount(2);
   await expect(page.getByTestId("official-xi-pitch")).toContainText("source positions unavailable");
   await expect(page.locator(".ft-raw-detail")).not.toContainText("No verified in-play bookmaker odds.");
@@ -230,6 +248,7 @@ test("source-backed FotMob coordinates plot all 22 starters without inventing po
   const pitch=page.getByTestId("official-xi-pitch");
   await expect(pitch).toBeVisible();
   await expect(pitch.locator(".ft-xi-marker")).toHaveCount(22);
+  await expect(pitch.getByRole("button",{name:/View player profile/})).toHaveCount(22);
   await expect(pitch).toContainText("Formation 4-2-3-1");
   await expect(pitch).not.toContainText("Player positions not supplied");
   await expect(pitch.locator(".ft-xi-roster-player")).toHaveCount(0);
@@ -243,6 +262,9 @@ test("malformed coordinates do not invent player pitch positions",async({page})=
   const pitch=page.getByTestId("official-xi-pitch");
   await expect(pitch.locator(".ft-xi-marker")).toHaveCount(0);
   await expect(pitch.locator(".ft-xi-roster-player")).toHaveCount(22);
+  await pitch.getByRole("button",{name:"View player profile: Player 1"}).click();
+  await expect(page.getByRole("dialog",{name:"Player 1"})).toBeVisible();
+  await page.getByRole("button",{name:"Close player profile"}).click();
 });
 
 test("FotMob player insights never join by name or mislabel Flashscore identities",async({page})=>{
@@ -250,11 +272,18 @@ test("FotMob player insights never join by name or mislabel Flashscore identitie
   mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:nonFotmob}}});
   await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
   await expect(page.getByTestId("official-xi")).toBeVisible();
-  await expect(page.getByTestId("fotmob-player-insights")).toHaveCount(0);
+  await page.getByRole("button",{name:"View player profile: Player 0"}).click();
+  const drawer=page.getByTestId("player-profile-drawer");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId("fotmob-profile-unavailable")).toBeVisible();
+  await expect(drawer.getByRole("link",{name:/FotMob/})).toHaveCount(0);
 });
 test("FotMob player insights reject mismatched profile identifiers",async({page})=>{
   const corrupt=lineups.map(x=>({...x,fotmob_profile:{...x.fotmob_profile,fotmobId:"9999"}}));
   mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:corrupt}}});
   await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
-  await expect(page.getByTestId("fotmob-player-insights")).toHaveCount(0);
+  await page.getByRole("button",{name:"View player profile: Player 0"}).click();
+  const drawer=page.getByTestId("player-profile-drawer");
+  await expect(drawer.getByTestId("fotmob-profile-unavailable")).toBeVisible();
+  await expect(drawer.getByRole("link",{name:/FotMob/})).toHaveCount(0);
 });
