@@ -255,6 +255,14 @@ Deno.serve(async (req:Request)=>{
   const url=Deno.env.get("SUPABASE_URL")||"",key=serviceKey();
   if(!url||!key)return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  // Internal cron authentication. Token is read from Vault by pg_net,
+  // never embedded in the repository, response or application logs.
+  if(req.method!=="GET") return Response.json({ok:false,error:"method_not_allowed"},{status:405});
+  const cronKey=req.headers.get("x-ft-cron-key")||"";
+  if(!cronKey) return Response.json({ok:false,error:"unauthorized"},{status:401});
+  const cronAuth=await db.rpc("ft_internal_cron_key_matches",{p_key:cronKey});
+  if(cronAuth.error||cronAuth.data!==true)
+    return Response.json({ok:false,error:"unauthorized"},{status:401});
   const now=Date.now(),fromIso=new Date(now-4*3600000).toISOString(),toIso=new Date(now+WINDOW_HOURS*3600000).toISOString();
   try{
     const [fixtureRes,shadowRes,aliasRes]=await Promise.all([
