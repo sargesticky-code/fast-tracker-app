@@ -41,7 +41,7 @@ Deep detail should be expandable rather than removed.
 
 ## Current review boundary
 
-Work remains on draft PR #2 / branch `homepage-forebet-v1`.
+PR #2 (`homepage-forebet-v1`) was merged on 2026-10-03. The current public dashboard is based on `release/ft-advisors-fotmob-20261011`; follow-up UI work should branch from the latest release head and use a new review PR.
 
 Review-only unless explicitly changed:
 - no merge;
