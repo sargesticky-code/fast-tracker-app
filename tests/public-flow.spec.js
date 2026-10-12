@@ -107,9 +107,10 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("forebet-goals-25")).toContainText("Over 62%");
   await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
   await expect(page.getByTestId("official-xi")).toContainText("Player 21");
-   await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
-   await expect(page.getByTestId("official-xi-pitch")).toContainText("Source positions unavailable");
-   await expect(page.getByTestId("verified-match-analysis")).not.toContainText("No verified in-play bookmaker odds.");
+  await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
+  await expect(page.getByTestId("official-xi-pitch")).toContainText("source positions unavailable");
+  await expect(page.locator(".ft-raw-detail")).not.toContainText("No verified in-play bookmaker odds.");
+  await expect(page.locator(".ft-raw-detail")).not.toContainText("prematch reference only");
   await expect(page.getByTestId("fotmob-player-stats")).toContainText("Player 0");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("not verified final totals");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("Expected goals (xG)");
@@ -165,7 +166,7 @@ test("stale raw bookmaker prices are suppressed without hiding the fixture",asyn
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
-  await expect(row.locator(".ft-raw-odds")).toContainText("Stale quote hidden");
+  await expect(row.locator(".ft-raw-odds")).toContainText("Odds unavailable");
   await expect(row.locator(".ft-raw-odds")).not.toContainText("2.2");
 });
 test("fresh complete bookmaker reference prices display but are never called live",async({page})=>{
@@ -177,7 +178,8 @@ test("fresh complete bookmaker reference prices display but are never called liv
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
   await expect(row.locator(".ft-raw-odds")).toContainText("2.2");
-  await expect(row.locator(".ft-raw-odds")).toContainText("Reference captured");
+  await expect(row.locator(".ft-raw-odds")).not.toContainText("captured");
+  await expect(row.locator(".ft-raw-odds")).not.toContainText("live");
 });
 test("incomplete Forebet HDA remains unknown instead of treating null as zero",async({page})=>{
   const invalid={...summary,matches:[
