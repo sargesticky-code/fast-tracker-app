@@ -6,6 +6,15 @@ import React from "react";
 // Plot only explicit source slots. Never infer positions from shirt number, array
 // order, player name, or a formation label.
 function sourcePosition(player) {
+  // FotMob's stored normalized coordinates are source-supplied, not inferred.
+  // x/y refer to the original pitch orientation (keeper at low y).
+  const x = player?.position_x, y = player?.position_y;
+  if (typeof x === "number" && typeof y === "number" &&
+      Number.isFinite(x) && Number.isFinite(y) &&
+      x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+    return { left: (6 + 88 * x) + "%", top: (94 - 88 * y) + "%" };
+  }
+  // Flashscore provides a verified positional grid instead of coordinates.
   const slots = [
     player?.formation_slot, player?.grid, player?.slot,
     player?.raw?.formation_slot, player?.raw?.grid, player?.raw?.slot
@@ -52,7 +61,7 @@ function SidePitch({ team, rows, tone, formation }) {
   return <div className={"ft-xi-side ft-xi-side-" + tone}>
     <div className="ft-xi-side-head">
       <strong>{team}</strong>
-      <span>{players.length}/11 starters · {formation ? "Formation " + formation : "Formation unavailable"}</span>
+      <span>{players.length}/11 starters · {(formation || players.find(p => p.formation)?.formation) ? "Formation " + (formation || players.find(p => p.formation)?.formation) : "Formation unavailable"}</span>
     </div>
     <div className="ft-xi-pitch" role="img" aria-label={team + " football pitch with " + onPitch.length + " source-positioned players"}>
       <div className="ft-xi-pitch-midline" />
