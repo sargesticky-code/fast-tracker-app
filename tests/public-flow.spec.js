@@ -131,7 +131,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   // A player without a pitch slot remains actionable from the unpositioned XI list.
   await page.getByRole("button",{name:"View player profile: Player 12"}).click();
   await expect(page.getByRole("dialog",{name:"Player 12"})).toBeVisible();
-  await expect(page.getByTestId("fotmob-selected-player")).toContainText("Player 12");
+  await expect(page.getByRole("dialog",{name:"Player 12"}).getByRole("heading",{name:"Player 12"})).toBeVisible();
   await expect(page.getByRole("link",{name:/View full profile on FotMob/})).toHaveAttribute("href","https://www.fotmob.com/players/1012");
   await page.getByRole("button",{name:"Close player profile"}).click();
   await expect(page.getByTestId("player-profile-drawer")).toHaveCount(0);
@@ -262,7 +262,7 @@ test("malformed coordinates do not invent player pitch positions",async({page})=
   const pitch=page.getByTestId("official-xi-pitch");
   await expect(pitch.locator(".ft-xi-marker")).toHaveCount(0);
   await expect(pitch.locator(".ft-xi-roster-player")).toHaveCount(22);
-  await pitch.getByRole("button",{name:"View player profile: Player 1"}).click();
+  await pitch.getByRole("button",{name:"View player profile: Player 1",exact:true}).click();
   await expect(page.getByRole("dialog",{name:"Player 1"})).toBeVisible();
   await page.getByRole("button",{name:"Close player profile"}).click();
 });
