@@ -65,4 +65,18 @@ for(const contract of [
   "NOT a.raw ? 'verified_final_result'"
 ]) assert.ok(resultArchiveSql.includes(contract),"Missing verified final archive contract: "+contract);
 assert.ok(!resultArchiveSql.includes("cron.schedule"),"No added result cron allowed");
+const assessmentSql=fs.readFileSync("supabase/migrations/20261012062400_ft_forebet_prospective_assessment_private.sql","utf8");
+for (const contract of [
+  "SECURITY INVOKER",
+  "a.raw->>'archive_origin'='VERIFIED_PREKICKOFF_FOREBET'",
+  "ORDER BY a.match_id,a.captured_at ASC",
+  "a.captured_at <= a.kickoff_hkt",
+  "outcome->>'source'='FLASHSCORE'",
+  "outcome->>'match_id'=a.match_id",
+  "EXACT_FS_PROVIDER_ID_AND_KICKOFF",
+  "verified_final_n>=100",
+  "'INSUFFICIENT_PROSPECTIVE_SAMPLE'",
+  "REVOKE ALL ON FUNCTION private.ft_forebet_prospective_assessment()"
+]) assert.ok(assessmentSql.includes(contract),"Missing prospective quality gate: "+contract);
+assert.ok(!assessmentSql.includes("cron.schedule"),"Do not introduce recurring evaluation work");
 console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
