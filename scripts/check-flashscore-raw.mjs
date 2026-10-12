@@ -79,4 +79,24 @@ for (const contract of [
   "REVOKE ALL ON FUNCTION private.ft_forebet_prospective_assessment()"
 ]) assert.ok(assessmentSql.includes(contract),"Missing prospective quality gate: "+contract);
 assert.ok(!assessmentSql.includes("cron.schedule"),"Do not introduce recurring evaluation work");
+const nativeDocs = [
+ "supabase/migrations/20261012085100_ft_verified_flashscore_results_compact.sql",
+ "supabase/migrations/20261012085500_ft_native_model_training_slice.sql",
+ "supabase/migrations/20261012085900_ft_verified_flashscore_fulltime_corners.sql",
+ "supabase/migrations/20261012090400_ft_native_training_include_verified_corners.sql"
+].map(file => fs.readFileSync(file,"utf8"));
+for(const item of [
+ "FS_ID_TEAM_IDS_LEAGUE_ID_FINISHED_EPOCH",
+ "ON CONFLICT(match_id) DO NOTHING",
+ "raw->>'AB'='3'",
+ "raw->>'AC'='3'",
+ "league_external_id~'^[A-Za-z0-9]{6,16}
+",
+ "source_captured_at<=p_asof",
+ "d.fetched_at<=p_asof",
+ "s.detail_fetched_at>=s.kickoff_utc+interval '120 minutes'",
+ "home_corners IS NULL AND r.away_corners IS NULL",
+ "730 days"
+]) assert.ok(nativeDocs.some(d=>d.includes(item)),"Native verified training missing "+item);
+for(const d of nativeDocs) assert.ok(!d.includes("cron.schedule("),"No extra recurring crawler or cron");
 console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
