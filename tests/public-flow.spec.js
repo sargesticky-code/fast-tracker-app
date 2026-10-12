@@ -85,6 +85,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
   await expect(page.getByTestId("verified-status")).toContainText("2 exact Flashscore IDs linked");
+  expect(external.some(url=>url.includes("/app-phase1-feed?view=compact&hours=48"))).toBeTruthy();
   await expect(page.getByRole("button",{name:"2026-10-11 · 35"})).toBeVisible();
   await expect(page.getByText("Time not supplied")).toBeVisible();
   await expect(page.getByText("Forebet predicted score", {exact:false}).first()).toBeVisible();
