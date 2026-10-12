@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
+import { showFixtureOnDashboard } from "@/lib/fixture-visibility";
 import { fetchVerifiedSummary } from "@/lib/verified-evidence-feed";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
@@ -35,6 +36,7 @@ export default function HomepageClient() {
   const [verified, setVerified] = useState(null);
   const [verifiedStatus, setVerifiedStatus] = useState("loading");
   const [query, setQuery] = useState("");
+  const [matchView, setMatchView] = useState("active");
   const [date, setDate] = useState("");
   const [league, setLeague] = useState("");
   useEffect(() => {
@@ -81,27 +83,37 @@ export default function HomepageClient() {
     && Array.isArray(feed?.matches) && feed.matches.length>0;
   const usingCanonicalFallback=!rawReady && (verified?.fallbackMatches?.length||0)>0;
   const matches=rawReady?feed.matches:(verified?.fallbackMatches||[]);
-  const dates = [...new Set(matches.map(m => m.sourceDate).filter(Boolean))].sort();
-  const leagues = [...new Set(matches.map(m => m.league))].sort();
-  const visible = useMemo(() => matches.filter(m => (!date || m.sourceDate === date) && (!league || m.league === league) && `${m.home} ${m.away} ${m.league} ${m.providerEventId}`.toLowerCase().includes(query.toLowerCase())), [matches, date, league, query]);
+  // Both views are backed by the same fetched records; switching does not delete
+  // anything from the raw detail pages or independent model/result archives.
+  const activeMatches = matches.filter(m => showFixtureOnDashboard(m, verified?.byId.get(m.id) || null));
+  const endedMatches = matches.filter(m => !showFixtureOnDashboard(m, verified?.byId.get(m.id) || null));
+  const listedMatches = matchView === "ended" ? endedMatches : activeMatches;
+  const dates = [...new Set(listedMatches.map(m => m.sourceDate).filter(Boolean))].sort();
+  const leagues = [...new Set(listedMatches.map(m => m.league))].sort();
+  const visible = useMemo(() => listedMatches.filter(m => (!date || m.sourceDate === date) && (!league || m.league === league) && `${m.home} ${m.away} ${m.league} ${m.providerEventId}`.toLowerCase().includes(query.toLowerCase())), [matches, verified, matchView, date, league, query]);
   return <main className="ft-home">
     <header className="ft-top"><div className="ft-brand"><strong>FAST TRACKER <em>2026</em></strong><small>FLASHSCORE · VERIFIED WHERE AVAILABLE</small></div><a href="/health">Source status</a></header>
     <section className="ft-raw-board">
-      <div className="ft-page-heading"><h1>Flashscore fixtures</h1><p>Raw provider fixtures are preferred. Verified canonical Flashscore fixtures appear during collector restart or stale snapshots.</p></div>
+      <div className="ft-page-heading"><h1>Flashscore fixtures</h1><p>Active matches are shown by default. Switch to Ended matches for past fixtures still available from the same feed; verified canonical fixtures appear during collector restart or stale snapshots.</p></div>
       <p data-testid="verified-status">
         Verified analysis: {verifiedStatus==="ready"
-          ? `${matches.filter(m=>verified?.byId.has(m.id)).length} exact Flashscore IDs linked · bookmaker snapshot ${verified?.bookmakerHealth||"UNKNOWN"}`
+          ? `${listedMatches.filter(m=>verified?.byId.has(m.id)).length} exact Flashscore IDs linked · bookmaker snapshot ${verified?.bookmakerHealth||"UNKNOWN"}`
           : verifiedStatus==="unavailable" ? "temporarily unavailable — raw fixtures remain visible"
           : "checking available predictions and official XIs"}
       </p>
       {status === "loading" && <p role="status">Loading Flashscore snapshot…</p>}
       {status === "error" && <p role="alert">Flashscore snapshot unavailable. {usingCanonicalFallback ? "Showing verified canonical fixtures instead." : "Fixture counts are unknown."}</p>}
-      {usingCanonicalFallback && <p role="status" data-testid="canonical-fallback">Raw collector is initializing or its snapshot is stale. Showing {matches.length} verified Flashscore canonical fixtures (UTC kickoff, no inferred raw odds).</p>}
+      {usingCanonicalFallback && <p role="status" data-testid="canonical-fallback">Raw collector is initializing or its snapshot is stale. Showing {activeMatches.length} active verified Flashscore canonical fixtures (UTC kickoff, no inferred raw odds).</p>}
+      <nav className="ft-daybar" aria-label="Match view">
+        <button type="button" onClick={() => { setMatchView("active"); setDate(""); setLeague(""); setQuery(""); }} aria-pressed={matchView === "active"}>Active matches · {feed || usingCanonicalFallback ? activeMatches.length : "—"}</button>
+        <button type="button" onClick={() => { setMatchView("ended"); setDate(""); setLeague(""); setQuery(""); }} aria-pressed={matchView === "ended"}>Ended matches · {feed || usingCanonicalFallback ? endedMatches.length : "—"}</button>
+      </nav>
+      {matchView === "ended" && <p data-testid="ended-match-note">Past fixtures are shown from available Flashscore snapshots only. A three-hour kickoff cutoff is a display rule, not confirmation of a final result. Verified scores remain labelled where available.</p>}
       <div className="ft-raw-filters">
         <label>Search<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Team, competition or event ID" /></label>
         <label>Competition<select value={league} onChange={e => setLeague(e.target.value)}><option value="">All competitions</option>{leagues.map(l => <option key={l}>{l}</option>)}</select></label>
       </div>
-      <nav className="ft-daybar" aria-label="Source dates"><button onClick={() => setDate("")} aria-pressed={!date}>All fixtures · {feed ? matches.length : "—"}</button>{dates.map(d => <button key={d} onClick={() => setDate(d)} aria-pressed={date === d}>{d} · {matches.filter(m => m.sourceDate === d).length}</button>)}</nav>
+      <nav className="ft-daybar" aria-label="Source dates"><button onClick={() => setDate("")} aria-pressed={!date}>All dates · {feed || usingCanonicalFallback ? listedMatches.length : "—"}</button>{dates.map(d => <button key={d} onClick={() => setDate(d)} aria-pressed={date === d}>{d} · {listedMatches.filter(m => m.sourceDate === d).length}</button>)}</nav>
       <p>{matches.length ? `${visible.length} fixtures shown` : "Waiting for source data"}</p>
       <div className="ft-table-wrap"><div className="ft-table-head"><div>Fixture</div><div>Flashscore source fields</div><div>Bet365 H / D / A raw odds</div></div>
         {visible.map(m => <a className="ft-match-row" href={`/details?id=${encodeURIComponent(m.id)}`} key={m.id}>
@@ -112,7 +124,7 @@ export default function HomepageClient() {
           <div className="ft-raw-odds"><span><b>H</b>{m.odds.home ?? "—"}</span><span><b>D</b>{m.odds.draw ?? "—"}</span><span><b>A</b>{m.odds.away ?? "—"}</span>{m.quoteStatus!=="FRESH" && <small>Odds unavailable</small>}</div>
         </a>)}
       </div>
-      {feed && !visible.length && <p>No fixtures match these filters.</p>}
+      {(feed || usingCanonicalFallback) && !visible.length && <p>No {matchView === "ended" ? "ended/past" : "active"} fixtures match these filters.</p>}
       <p>Raw bookmaker observations and verified predictions remain distinct. Canonical fallback is read-only, uses exact provider IDs and never invents raw odds, scores or missing source fields.</p>
     </section>
   </main>;
