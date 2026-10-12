@@ -113,7 +113,7 @@ BEGIN
  END IF;
 
  RETURN jsonb_build_object('status','EXPERIMENTAL_UNCALIBRATED',
-  'modelVersion','FAST_TRACKER_INDEPENDENT_POISSON_V0_SQL_PARITY',
+  'modelVersion','FAST_TRACKER_INDEPENDENT_POISSON_V0_SQL_EXPERIMENTAL',
   'trainingSource','FOOTBALL_DATA','league',p_league,
   'homeId',p_home,'awayId',p_away,'asOf',p_asof,
   'trainingCount',v_n,'trainingFingerprint',v_input_hash,
