@@ -394,7 +394,7 @@ test("status and insights filters distinguish completed from elapsed but unverif
   await page.getByTestId("status-finished").click();
   await expect(page.getByTestId("fixture-row")).toHaveCount(1);
   await page.getByTestId("status-all").click();
-  await page.getByRole("button",{name:/Predictions/}).click();
+  await page.getByTestId("overview-predictions").click();
   await expect(page.getByTestId("fixture-row")).toHaveCount(2);
   await page.getByTestId("scope-top").click();
   await expect(page.getByTestId("fixture-row")).toHaveCount(0);
