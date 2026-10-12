@@ -40,20 +40,25 @@ function starters(rows) {
   }).slice(0, 11);
 }
 
-function PlayerToken({ player, onPitch = false, position }) {
+function PlayerToken({ player, onPitch = false, position, onPlayerSelect }) {
   const name = String(player.player_name || player.name || "Unknown player");
   const number = player.shirt_number ?? player.number ?? "·";
-  return <div
-    className={onPitch ? "ft-xi-marker" : "ft-xi-roster-player"}
-    style={onPitch ? position : undefined}
-    title={name}
-  >
+  const className = onPitch ? "ft-xi-marker" : "ft-xi-roster-player";
+  const contents = <>
     <b className="ft-xi-shirt">{number}</b>
     <span className="ft-xi-player-name">{name}</span>
-  </div>;
+  </>;
+  return onPlayerSelect
+    ? <button type="button" className={className+" ft-xi-player-action"}
+        style={onPitch ? position : undefined}
+        aria-label={"View player profile: "+name}
+        onClick={() => onPlayerSelect(player)}>{contents}</button>
+    : <div className={className} style={onPitch ? position : undefined} title={name}>
+        {contents}
+      </div>;
 }
 
-function SidePitch({ team, rows, tone, formation }) {
+function SidePitch({ team, rows, tone, formation, onPlayerSelect }) {
   const players = starters(rows);
   const positioned = players.map((player) => ({ player, position: sourcePosition(player) }));
   const onPitch = positioned.filter((item) => item.position);
@@ -63,13 +68,13 @@ function SidePitch({ team, rows, tone, formation }) {
       <strong>{team}</strong>
       <span>{players.length}/11 starters · {(formation || players.find(p => p.formation)?.formation) ? "Formation " + (formation || players.find(p => p.formation)?.formation) : "Formation unavailable"}</span>
     </div>
-    <div className="ft-xi-pitch" role="img" aria-label={team + " football pitch with " + onPitch.length + " source-positioned players"}>
+    <div className="ft-xi-pitch" role="group" aria-label={team + " football pitch with " + onPitch.length + " source-positioned players"}>
       <div className="ft-xi-pitch-midline" />
       <div className="ft-xi-pitch-circle" />
       <div className="ft-xi-box ft-xi-box-top" />
       <div className="ft-xi-box ft-xi-box-bottom" />
       {onPitch.map(({player, position}, index) =>
-        <PlayerToken key={player.player_key || player.player_name || index} player={player} onPitch position={position} />
+        <PlayerToken key={player.player_key || player.player_name || index} player={player} onPitch position={position} onPlayerSelect={onPlayerSelect} />
       )}
       {!onPitch.length && <div className="ft-xi-empty-pitch">Player positions not supplied</div>}
     </div>
@@ -77,7 +82,7 @@ function SidePitch({ team, rows, tone, formation }) {
       <small>Starting XI · source positions unavailable for {unplaced.length} player{unplaced.length === 1 ? "" : "s"}</small>
       <div className="ft-xi-roster">
         {unplaced.map(({player},index) =>
-          <PlayerToken key={player.player_key || player.player_name || index} player={player} />
+          <PlayerToken key={player.player_key || player.player_name || index} player={player} onPlayerSelect={onPlayerSelect} />
         )}
       </div>
     </div>}
@@ -87,7 +92,7 @@ function SidePitch({ team, rows, tone, formation }) {
 
 export default function FormationPitch({
   home = [], away = [], homeTeam = "Home", awayTeam = "Away",
-  homeFormation = null, awayFormation = null, confirmed = false
+  homeFormation = null, awayFormation = null, confirmed = false, onPlayerSelect = null
 }) {
   if (!home.length && !away.length) return null;
   return <div className="ft-xi-board" data-testid="official-xi-pitch">
@@ -96,8 +101,8 @@ export default function FormationPitch({
       <span>{confirmed ? "SOURCE-CONFIRMED 11v11" : "PARTIAL SOURCE LINEUP"}</span>
     </div>
     <div className="ft-xi-pitch-columns">
-      <SidePitch team={homeTeam} rows={home} tone="home" formation={homeFormation} />
-      <SidePitch team={awayTeam} rows={away} tone="away" formation={awayFormation} />
+      <SidePitch team={homeTeam} rows={home} tone="home" formation={homeFormation} onPlayerSelect={onPlayerSelect} />
+      <SidePitch team={awayTeam} rows={away} tone="away" formation={awayFormation} onPlayerSelect={onPlayerSelect} />
     </div>
   </div>;
 }
