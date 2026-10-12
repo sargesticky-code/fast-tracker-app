@@ -1,3 +1,5 @@
+import { planPlayerStatusRefresh } from "../_shared/player-status-refresh.ts";
+import { latestLineupRows, sourceLineupState, canPromoteLineupCapture } from "../_shared/lineup-snapshot.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
@@ -102,14 +104,51 @@ async function fetchDetail(id){
   for(const u of urls){try{return await getJson(u)}catch(e){last=String(e)}}
   throw new Error(last||"detail_failed");
 }
-function parseLineup(detail,eventId,externalId){
+async function refreshPlayerStatusEvidence(db,rows){
+  if(!rows.length)return {inserted:0,updated:0,skipped:0};
+  if(rows.some(row=>row.source_name!=="FOTMOB"))throw new Error("Unexpected player-status source");
+  const ids=[...new Set(rows.map(row=>row.hkjc_event_id))];
+  const ex=await db.from("phase2_player_status_evidence").select("id,hkjc_event_id,team_side,player_key,status_type,source_name,fetched_at,valid_from,valid_until")
+    .in("hkjc_event_id",ids).eq("source_name","FOTMOB");
+  if(ex.error)throw ex.error;
+  const plan=planPlayerStatusRefresh(rows,ex.data||[],Date.now());
+  let inserted=0,updated=0,skipped=plan.skipped;
+  if(plan.inserts.length){
+    const result=await db.from("phase2_player_status_evidence").insert(plan.inserts);
+    if(result.error)throw result.error;
+    inserted=plan.inserts.length;
+  }
+  for(const {previous,patch} of plan.updates){
+    // Compare the capture again in the write: concurrent newer evidence wins.
+    const result=await db.from("phase2_player_status_evidence").update(patch)
+      .eq("id",previous.id).eq("hkjc_event_id",previous.hkjc_event_id)
+      .eq("team_side",previous.team_side).eq("player_key",previous.player_key)
+      .eq("source_name",previous.source_name).eq("status_type",previous.status_type)
+      .eq("fetched_at",previous.fetched_at).select("id");
+    if(result.error)throw result.error;
+    if(result.data?.length===1)updated++;else skipped++;
+  }
+  return {inserted,updated,skipped};
+}
+function parseLineup(detail,eventId,externalId,capturedAt=new Date().toISOString(),expectedTeams=null){
   const l=detail?.content?.lineup;
-  if(!l)return {rows:[],kind:null,injuries:[],managers:[],complete:false};
-  const kind=String(l?.lineupType||"").toLowerCase();
-  const confirmed=["confirmed","official","actual"].some(x=>kind.includes(x));
+  if(!l || typeof capturedAt!=="string" || !capturedAt.trim() || !Number.isFinite(Date.parse(capturedAt)))return {rows:[],kind:null,injuries:[],managers:[],complete:false};
+  // A supplied source event or team identity must agree before any evidence is emitted.
+  if(!eventId || !externalId || (l.matchId!=null && String(l.matchId)!==String(externalId))
+    || (detail?.general?.matchId!=null && String(detail.general.matchId)!==String(externalId))
+    || (expectedTeams?.home!=null && String(l.homeTeam?.id)!==String(expectedTeams.home))
+    || (expectedTeams?.away!=null && String(l.awayTeam?.id)!==String(expectedTeams.away)))
+    return {rows:[],kind:null,injuries:[],managers:[],complete:false};
+  const kind=String(l?.lineupType||"").trim().toLowerCase();
+  const confirmed=["confirmed","official","actual"].includes(kind);
   const sourceName=confirmed?"FOTMOB_OFFICIAL":"FOTMOB_PREDICTED";
-  const confidence=confirmed?.96:.82;
-  const fetchedAt=new Date().toISOString();
+  // Preserve the existing source key for view/upsert compatibility. The raw
+  // classification carries the actual evidence type; unknown is not predicted.
+  const classification=confirmed?"CONFIRMED":kind==="predicted"?"PREDICTED":
+    ["laststarting11","laststartinglineups"].includes(kind)?"PREVIOUS_XI":"UNCONFIRMED";
+  const confidence=confirmed?.96:classification==="UNCONFIRMED"?null:.82;
+  // Cache reprocessing is not a new upstream observation.
+  const fetchedAt=new Date(capturedAt).toISOString();
   const rows=[],injuries=[],managers=[];
 
   for(const [teamSide,team] of [["H",l?.homeTeam],["A",l?.awayTeam]]){
@@ -126,8 +165,8 @@ function parseLineup(detail,eventId,externalId){
         role:roleFromPlayer(player),starter:true,formation_slot:slotFromLayout(player),
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
-        source_updated_at:fetchedAt,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null},
+        source_updated_at:null,fetched_at:fetchedAt,
+        raw:{classification,squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null},
         created_at:fetchedAt
       });
     }
@@ -141,8 +180,8 @@ function parseLineup(detail,eventId,externalId){
         role:roleFromPlayer(player),starter:false,formation_slot:null,
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
-        source_updated_at:fetchedAt,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null},
+        source_updated_at:null,fetched_at:fetchedAt,
+        raw:{classification,squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null},
         created_at:fetchedAt
       });
     }
@@ -178,8 +217,16 @@ function parseLineup(detail,eventId,externalId){
 
   const hStarters=rows.filter(x=>x.team_side==="H"&&x.starter);
   const aStarters=rows.filter(x=>x.team_side==="A"&&x.starter);
-  const complete=hStarters.length===11&&aStarters.length===11;
-  return {rows:complete?rows:[],kind,injuries,managers,complete};
+  const keys=rows.map(row=>row.player_key);
+  const validRoster=keys.every(Boolean) && new Set(keys).size===keys.length
+    && hStarters.length<=11 && aStarters.length<=11;
+  const complete=validRoster && hStarters.length===11 && aStarters.length===11;
+  const mappedSides=expectedTeams && ["home","away"].every(side=>
+    ["string","number"].includes(typeof expectedTeams[side]) && String(expectedTeams[side]).trim()!==""
+    && (typeof expectedTeams[side]!=="number" || (Number.isFinite(expectedTeams[side]) && expectedTeams[side]>0)));
+  const partialOfficial=validRoster && confirmed && !complete && hStarters.length+aStarters.length>0
+    && String(l.matchId)===String(externalId) && mappedSides;
+  return {rows:complete||partialOfficial?rows:[],kind,injuries,managers,complete,partialOfficial};
 }
 
 Deno.serve(async ()=>{
@@ -202,38 +249,29 @@ Deno.serve(async ()=>{
     }
     const canon=(k)=>aliasMap.get(k)||k;
     const ids=hk.map(x=>x.hkjc_event_id);
-    const lineupRes=ids.length?await db.from("phase2_match_lineup_evidence").select("hkjc_event_id,team_side,starter,confirmed,source_name").in("hkjc_event_id",ids):{data:[],error:null};
+    const lineupRes=ids.length?await db.from("phase2_match_lineup_evidence").select("hkjc_event_id,team_side,player_key,starter,confirmed,source_name,fetched_at").in("hkjc_event_id",ids):{data:[],error:null};
     if(lineupRes.error)throw lineupRes.error;
-    const state=new Map();
-    for(const r of lineupRes.data||[]){
-      const id=String(r.hkjc_event_id),source=String(r.source_name||"UNKNOWN");
-      if(!state.has(id))state.set(id,new Map());
-      const sm=state.get(id); if(!sm.has(source))sm.set(source,{h:0,a:0,confirmed:0});
-      const s=sm.get(source); if(r.starter&&r.team_side==="H")s.h++;if(r.starter&&r.team_side==="A")s.a++;if(r.confirmed)s.confirmed++;
-    }
-    const lineupState=(id)=>{
-      const m=state.get(String(id)); if(!m)return {full:false,confirmed:false};
-      const groups=[...m.values()];
-      return {
-        full:groups.some(s=>s.h===11&&s.a===11),
-        confirmed:groups.some(s=>s.h===11&&s.a===11&&s.confirmed>=22)
-      };
-    };
+    const latestRows=latestLineupRows(lineupRes.data||[],Date.now());
+    const lineupState=(id)=>sourceLineupState(latestRows.filter(row=>String(row.hkjc_event_id)===String(id)));
 
     // Reuse fresh cached FotMob details before spending any upstream requests.
     // This lets already-captured bench, coach and injury data flow into Phase 2 every run.
-    let cachedLineupMatches=0,cachedLineupRows=0,cachedBenchRows=0,cachedManagerRows=0,cachedInjuryRows=0;
+    let cachedLineupMatches=0,cachedPartialOfficialMatches=0,cachedLineupCaptureSkips=0,cachedLineupRows=0,cachedBenchRows=0,cachedManagerRows=0,cachedInjuryRows=0;
     const cachedLineups=[];
     const cachedManagers=[];
     const cachedInjuries=[];
+    let cachedInjuryUpdates=0,cachedInjurySkips=0;
     for(const s of shadow){
       if(!s.matched_hkjc_event_id||!s.detail_raw||!s.detail_fetched_at)continue;
       const ageMs=now-new Date(s.detail_fetched_at).getTime();
       if(!Number.isFinite(ageMs)||ageMs<0||ageMs>12*3600000)continue;
-      const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id);
-      if(parsed.complete&&parsed.rows.length>=22){
+      const parsed=parseLineup(s.detail_raw,s.matched_hkjc_event_id,s.external_event_id,s.detail_fetched_at,{home:s.home_external_id,away:s.away_external_id});
+      const promoteCached=parsed.rows.length>0&&canPromoteLineupCapture(parsed.rows,lineupRes.data||[],Date.now());
+      if(parsed.rows.length&&!promoteCached)cachedLineupCaptureSkips++;
+      if(promoteCached){
         cachedLineups.push(...parsed.rows);
         cachedLineupMatches++;
+        if(parsed.partialOfficial)cachedPartialOfficialMatches++;
         cachedLineupRows+=parsed.rows.length;
         cachedBenchRows+=parsed.rows.filter(x=>!x.starter).length;
       }
@@ -256,19 +294,10 @@ Deno.serve(async ()=>{
     }
 
     if(cachedInjuries.length){
-      const injuryIds=[...new Set(cachedInjuries.map(x=>x.hkjc_event_id))];
-      const ex=await db.from("phase2_player_status_evidence")
-        .select("hkjc_event_id,player_key,status_type")
-        .in("hkjc_event_id",injuryIds)
-        .eq("source_name","FOTMOB");
-      if(ex.error)throw ex.error;
-      const known=new Set((ex.data||[]).map(x=>String(x.hkjc_event_id)+"|"+String(x.player_key)+"|"+String(x.status_type)));
-      const missing=cachedInjuries.filter(x=>!known.has(String(x.hkjc_event_id)+"|"+String(x.player_key)+"|"+String(x.status_type)));
-      if(missing.length){
-        const ir=await db.from("phase2_player_status_evidence").insert(missing);
-        if(ir.error)throw ir.error;
-        cachedInjuryRows=missing.length;
-      }
+      const result=await refreshPlayerStatusEvidence(db,cachedInjuries);
+      cachedInjuryRows=result.inserted;
+      cachedInjuryUpdates=result.updated;
+      cachedInjurySkips=result.skipped;
     }
     const matched=[];
     const aliasLearns=[];
@@ -300,27 +329,32 @@ Deno.serve(async ()=>{
       return Math.abs(ak-now)-Math.abs(bk-now);
     });
     const picked=matched.filter(x=>priority(x)<99).slice(0,MAX_DETAIL);
-    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,confirmedMatches=0,injuryRows=0,managerRows=0,managerMatches=0,identityWrites=0;
+    let detailOk=0,detailFail=0,lineupFound=0,promotedMatches=0,promotedRows=0,benchRows=0,predictedMatches=0,unclassifiedMatches=0,referenceMatches=0,confirmedMatches=0,partialOfficialMatches=0,injuryRows=0,injuryUpdates=0,injurySkips=0,managerRows=0,managerMatches=0,identityWrites=0;
     await mapLimit(picked,DETAIL_CONCURRENCY,async(target)=>{
     const {h,best}=target;
     try{
       const d=await fetchDetail(best.row.external_event_id);
-      const parsed=parseLineup(d,h.hkjc_event_id,best.row.external_event_id);
+      const capturedAt=new Date().toISOString();
+      const parsed=parseLineup(d,h.hkjc_event_id,best.row.external_event_id,capturedAt,{home:best.row.home_external_id,away:best.row.away_external_id});
       const upd=await db.from("phase15_source_shadow_current").update({
         matched_hkjc_event_id:h.hkjc_event_id,match_confidence:best.conf,identity_status:best.identity,
         detail_available:true,lineup_available:parsed.complete,
-        detail_fetched_at:new Date().toISOString(),detail_raw:d,updated_at:new Date().toISOString()
+        detail_fetched_at:capturedAt,detail_raw:d,updated_at:new Date().toISOString()
       }).eq("source_key",SOURCE).eq("external_event_id",best.row.external_event_id);
       if(upd.error)throw upd.error;identityWrites++;
       detailOk++;
-      if(parsed.complete&&parsed.rows.length>=22){
+      if(parsed.rows.length){
         lineupFound++;
         const wr=await db.from("phase2_match_lineup_evidence").upsert(parsed.rows,{onConflict:"hkjc_event_id,team_side,source_name,player_key"});
         if(wr.error)throw wr.error;
         promotedMatches++;
         promotedRows+=parsed.rows.length;
         benchRows+=parsed.rows.filter(x=>!x.starter).length;
-        if(parsed.rows[0]?.confirmed)confirmedMatches++;else predictedMatches++;
+        if(parsed.partialOfficial)partialOfficialMatches++;
+        else if(parsed.complete&&parsed.rows[0]?.confirmed)confirmedMatches++;
+        else if(parsed.kind==="predicted")predictedMatches++;
+        else if(["laststarting11","laststartinglineups"].includes(parsed.kind))referenceMatches++;
+        else unclassifiedMatches++;
       }
 
       if(parsed.managers.length){
@@ -333,18 +367,15 @@ Deno.serve(async ()=>{
         managerRows+=parsed.managers.length;managerMatches++;
       }
       if(parsed.injuries.length){
-        const ex=await db.from("phase2_player_status_evidence").select("player_key,status_type").eq("hkjc_event_id",h.hkjc_event_id).eq("source_name","FOTMOB");
-        const known=new Set((ex.data||[]).map(x=>String(x.player_key)+"|"+String(x.status_type)));
-        const missing=parsed.injuries.filter(x=>!known.has(String(x.player_key)+"|"+String(x.status_type)));
-        if(missing.length){
-          const ir=await db.from("phase2_player_status_evidence").insert(missing);
-          if(!ir.error)injuryRows+=missing.length;
-        }
+        const result=await refreshPlayerStatusEvidence(db,parsed.injuries);
+        injuryRows+=result.inserted;
+        injuryUpdates+=result.updated;
+        injurySkips+=result.skipped;
       }
     }catch(e){detailFail++;console.warn("detail_fail",h.hkjc_event_id,String(e));}
 
     });
-    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,confirmedMatches,injuryRows,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows};
+    const health={matched:matched.length,picked:picked.length,detailOk,detailFail,lineupFound,promotedMatches,promotedRows,benchRows,predictedMatches,unclassifiedMatches,referenceMatches,confirmedMatches,partialOfficialMatches,injuryRows,injuryUpdates,injurySkips,managerRows,managerMatches,identityWrites,cachedLineupMatches,cachedPartialOfficialMatches,cachedLineupCaptureSkips,cachedLineupRows,cachedBenchRows,cachedManagerRows,cachedInjuryRows,cachedInjuryUpdates,cachedInjurySkips};
     await db.from("source_health").upsert({
       source:"PHASE2_FOTMOB_LINEUPS",metric:"30m",value_text:JSON.stringify(health),
       status:detailFail===0?"OK":detailOk>0?"WARN":"FAIL",
