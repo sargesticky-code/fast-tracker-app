@@ -27,9 +27,9 @@ const summary = {
   systemHealth:{FLASHSCORE_BET365:{status:"OK",raw:{snapshotFresh:true}}}
 };
 const lineups=Array.from({length:22},(_,i)=>({
-  player_key:""+(i+1),player_name:"Player "+i,team_side:i<11?"H":"A",
+  player_key:""+(1000+i),player_name:"Player "+i,team_side:i<11?"H":"A",
   confirmed:true,starter:true,source_name:"FOTMOB_OFFICIAL",formation_slot:i===0||i===11?"1:3":null,
-  fotmob_profile:{fotmobId:""+(i+1),position:"Midfielder",nationality:"England",age:25,height:"180 cm",
+  fotmob_profile:{fotmobId:""+(1000+i),position:"Midfielder",nationality:"England",age:25,height:"180 cm",
     updatedAt:"2026-10-11T00:55:00Z",
     recentMatches:[{minutes:90,goals:1,assists:0},{minutes:65,goals:0,assists:1}]}
 }));
@@ -115,7 +115,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("fotmob-selected-player")).toContainText("155");
   await page.getByRole("button",{name:/Player 12/}).click();
   await expect(page.getByTestId("fotmob-selected-player")).toContainText("Player 12");
-  await expect(page.getByTestId("fotmob-selected-player").getByRole("link",{name:/FotMob profile/})).toHaveAttribute("href","https://www.fotmob.com/players/13");
+  await expect(page.getByTestId("fotmob-selected-player").getByRole("link",{name:/FotMob profile/})).toHaveAttribute("href","https://www.fotmob.com/players/1012");
   await expect(page.getByTestId("official-xi-pitch")).toBeVisible();
   await expect(page.getByTestId("official-xi-pitch").locator(".ft-xi-marker")).toHaveCount(2);
   await expect(page.getByTestId("official-xi-pitch")).toContainText("source positions unavailable");
