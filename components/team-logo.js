@@ -3,27 +3,9 @@
 import { useEffect, useState } from "react";
 
 const STORAGE_BASE = "https://hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos";
-const INDEX_URL = `${STORAGE_BASE}/team-logo-index.json`;
+const INDEX_URL = `${STORAGE_BASE}/team-logo-index-v20261012.json`;
 let indexPromise;
 
-// Flashscore's current Phase 1 feed uses several abbreviated team names.
-// Keep only aliases verified against the source asset paths in the logo index.
-const FEED_ALIASES = {
-  "ind rivadavia": "independiente rivadavia",
-  "argentinos jrs": "argeninos juniors",
-  "d concepcion": "deportes concepcion",
-  "vila nova fc": "vila nova",
-  "flamengo rj": "flamengo",
-  "nacional potosi": "atletico nacional potosi",
-  "operario pr": "operario ferroviario",
-  "ldu quito": "liga de quito",
-  limache: "deportes limache",
-  escorpiones: "escorpiones de belen",
-  saprissa: "deportivo saprissa",
-  chico: "boyaca chico",
-  cucuta: "cucuta deportivo",
-  coventry: "coventry city",
-};
 const IGNORABLE_SUFFIXES = new Set([
   "fc", "cf", "sc", "ac", "afc", "club", "w", "women", "u17", "u18",
   "u19", "u20", "u21", "u22", "u23", "b", "reserve", "reserves", "sau", "uae",
@@ -57,7 +39,7 @@ function loadIndex() {
 }
 
 function resolveLogo(index, key) {
-  const lookup = (candidate) => index.aliases?.[candidate] || FEED_ALIASES[candidate] || candidate;
+  const lookup = (candidate) => index.aliases?.[candidate] || candidate;
   const exactKey = lookup(key);
   const exact = index.logos?.[exactKey];
   if (Array.isArray(exact)) return exact.length === 1 ? exact[0] : null;
