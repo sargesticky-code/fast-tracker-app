@@ -22,7 +22,7 @@ ODDS_CONCURRENCY = max(1, min(2, int(os.getenv("ODDS_CONCURRENCY", "2"))))
 ODDS_PHASE_TIMEOUT_SECONDS = 180
 # Separate low-frequency Forebet source lane; no additional Flashscore requests.
 FOREBET_SECONDS = max(10800, int(os.getenv("FOREBET_SECONDS", "14400")))
-FOREBET_ENABLED = os.getenv("FOREBET_ENABLED", "1") == "1"
+FOREBET_ENABLED = os.getenv("FOREBET_ENABLED", "0") == "1"  # gated: direct HTTP live probe returned access errors
 
 app = Flask(__name__)
 _lock = threading.Lock()
