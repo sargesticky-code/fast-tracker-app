@@ -1,0 +1,26 @@
+# FT Native Model: prospective frozen audit pilot — 2026-10-12
+
+## Why this fixes the persistence gap, not just today's fixtures
+- Native v0's original JavaScript function does not run automatically in the public static Next frontend. Active `private.prematch_prediction_snapshot` has an FK `ON DELETE CASCADE` to active `private.matches`; it is therefore not suitable for historical evaluation.
+- Current Flashscore result archive contains 2,597 exact-match final scores in 481 leagues. **No one league has >=60 games** (largest 27), so a native-FS training source cannot yet pass the quality gate. The archive keeps accruing from the existing hourly cron #48, and should not be misrepresented as already capable of global predictions.
+- Football-Data's E1 has 95 historical, source-captured-before-now results with goals and full-time corners, last played Sep 20 2026, within the v0 30-day freshness gate. For safe small-sample forward evaluation only, the exact native Flashscore league ID `Q74g9dNP` denotes **English** Championship, distinct from Scottish Championship `r3Jkflge`.
+- Verified FS provider home/away team IDs are linked to Football-Data `E1` teams through **both** existing verified aliases. This uses stored opaque alias keys only, **no HKJC API, result or new retrieval dependency**. Five upcoming fixtures have unique two-team mappings; 3 others fail the fail-closed identity requirement.
+- At 2026-10-12 10:08 UTC, actual SQL scorer of Bristol City v Blackburn produced home ~0.38984, draw ~0.27326, away ~0.33690, Over 2.5 ~0.44134, expected goals 1.27624/1.16622. Independent arithmetic performed on the same 95 historical E1 training rows agreed to better than 1e-9. These are **experimental probabilities, not validated wagering advice**.
+
+## Production design (three versioned migrations)
+1. `private.ft_native_fd_poisson` is private, source-asof verified, and rejects datasets with <60 league games, <6 per team, <2 home/away, latest match >30 days old, post-asof source captures, invalid scoring. It builds a Poisson scoreline grid and independently verified corner market only where full-time corner data exists, along with immutable league-only baseline probabilities and an MD5 digest of source match key+row hashes. The hash permits later drift detection, **not full reproduction if the original data is removed**.
+2. `private.ft_native_prospective_frozen` is a new tiny private, RLS-enabled table **without an FK to active fixtures**. One INSERT per FS fixture/model version, captured at least 30 minutes before kickoff. INSERT-on-conflict does nothing; UPDATE is forbidden, DELETE prohibited until older than 730 days by trigger. Existing hourly job #48 invokes the bounded freeze function before normal pruning and retains it for 730 days, with no new job, scraper or bookmaker dependency.
+3. `private.ft_native_prospective_assessment` joins the frozen forecast only to **exact match/league/home/away provider IDs and confirmed final scores** in the independent result archive. No result can modify a pregame prediction. Full evaluation remains null until 100 verified fixtures; even then calibration and missingness need review.
+
+## Deliberate limits
+- **Scope:** Pilot only English Championship `FS:Q74g9dNP -> FOOTBALL_DATA:E1`. No inference based on the ambiguous competition label `Championship`. More league bridges must be verified separately. Native-Flashscore-only leagues stay missing until >=60 qualified rows AND relevant teams meet min games.
+- **Source freshness:** E1 historical source ends 2026-09-20 and will fail the 30-day gate around Oct 21 if the owned/authorised football-data ingestion is not updated. *Do not relax this gate to keep output full.*
+- **UI:** No public forecast display or overwrite of Forebet, HDA odds, live stats, or any legacy model field; experimental frozen evidence stays private. Browser build and existing Phase-1 UX remain unchanged.
+- **Ops:** One execution inside existing hourly job #48, <=40 candidate fixtures, no extra network access, snapshots 730-day horizon. 8 active cron jobs remain.
+- **Evaluation:** First 5 samples are far too few. A 100-fixture threshold is a reporting safeguard, not a model-proven advantage. Compare league-only baseline Brier and log loss when sample mature, prevent missingness bias.
+- **Source authority:** Flashscore is the FS match identifier. Football-Data is an independent historical goal/corner training provider; legacy string values in the all-in-one verified-alias registry are **not** a live HKJC data dependency.
+
+## Release and recovery
+- Run JS+SQL parity regression test `npm run check:native:prospective`, existing browser/collector tests. Supabase migrations dry-run transaction demonstrated 5 frozen candidates; full transaction was rolled back before release.
+- After CI, apply migrations in their numbered order **once** to production, verify newly frozen count, status, kickoff, JS parity, private permissions, unchanged job count, normal execution of job #48 and no loss of Forebet archive.
+- Roll back by removing the new invocation from job #48 and leaving immutable rows preserved; do not drop prior result/archive functions. Public website deployment is NOT necessary.
