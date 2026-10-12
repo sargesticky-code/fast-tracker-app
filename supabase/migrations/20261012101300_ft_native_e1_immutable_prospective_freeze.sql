@@ -32,6 +32,22 @@ REVOKE ALL ON TABLE private.ft_native_prospective_frozen FROM PUBLIC,anon,authen
 CREATE INDEX IF NOT EXISTS ft_native_prospective_kickoff
 ON private.ft_native_prospective_frozen(kickoff_utc);
 
+-- Prevent later "corrections" from rewriting the historical prediction.
+-- Permit only fixed-horizon retention after 730 days.
+CREATE OR REPLACE FUNCTION private.ft_native_frozen_immutable_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER
+SET search_path TO 'pg_catalog','private','pg_temp'
+AS $guard$
+BEGIN
+  IF TG_OP='UPDATE' OR OLD.frozen_at>=now()-interval '730 days'
+  THEN RAISE EXCEPTION 'NATIVE_FORECAST_IMMUTABLE'; END IF;
+  RETURN OLD;
+END
+$guard$;
+CREATE TRIGGER ft_native_frozen_immutable
+BEFORE UPDATE OR DELETE ON private.ft_native_prospective_frozen
+FOR EACH ROW EXECUTE FUNCTION private.ft_native_frozen_immutable_guard();
+
 CREATE OR REPLACE FUNCTION private.ft_native_freeze_e1_verified()
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER
 SET search_path TO 'pg_catalog','private','public','pg_temp'
@@ -149,10 +165,13 @@ BEGIN
     OR position('ft_native_freeze_e1_verified' IN prior_cmd)>0
  THEN RAISE EXCEPTION 'FT_NATIVE_EXISTING_JOB_CONTRACT_DRIFT'; END IF;
  PERFORM cron.alter_job(48,command=>
-    'SELECT private.ft_native_freeze_e1_verified();'||E'\n'||prior_cmd);
+    'SELECT private.ft_native_freeze_e1_verified();'||E'\n'||prior_cmd||E'\n'||
+    'DELETE FROM private.ft_native_prospective_frozen WHERE frozen_at < now() - interval ''730 days'';');
 END $job$;
 
 REVOKE ALL ON FUNCTION private.ft_native_freeze_e1_verified()
+ FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION private.ft_native_frozen_immutable_guard()
  FROM PUBLIC,anon,authenticated;
 
 -- Initial naturally pre-kickoff run; repeated later only through job 48.
