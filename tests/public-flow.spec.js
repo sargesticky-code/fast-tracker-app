@@ -72,7 +72,7 @@ test("Flashscore team names use the matching Supabase logo sprite tiles",async({
  await expect(firstRow.getByText("Coventry",{exact:true})).toBeVisible();
  await expect(firstRow.getByText("Newcastle",{exact:true})).toBeVisible();
  await expect(firstRow.locator(".ft-team-logo")).toHaveCount(2);
- await expect(firstRow.locator(".ft-team-logo").first()).toHaveCSS("background-image",/football-logo-atlas\.webp/);
+ await expect(firstRow.locator(".ft-team-logo").first()).toHaveCSS("background-image",/football-logo-atlas(?:-v\d{8})?\.webp/);
 });
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
  test("raw with exact-ID verified enrichment "+viewport.width,async({page})=>{
