@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import matchingRegistry from "@/data/team-logo-aliases.json";
 
 const STORAGE_BASE = "https://hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos";
 const INDEX_URL = `${STORAGE_BASE}/team-logo-index-v20261012.json`;
@@ -38,11 +39,30 @@ function loadIndex() {
   return indexPromise;
 }
 
-function resolveLogo(index, key) {
-  const lookup = (candidate) => index.aliases?.[candidate] || candidate;
+function resolveLogo(index, key, context) {
+  const scoped = matchingRegistry.contextualAliases?.[key] || [];
+  const normalizedContext = normalizeTeamName(context);
+  const scopedTargets = scoped
+    .filter((entry) => normalizedContext.includes(normalizeTeamName(entry.competitionContains)))
+    .map((entry) => entry.target);
+  if (scopedTargets.length === 1) {
+    const logo = index.logos?.[scopedTargets[0]];
+    return Array.isArray(logo) && logo.length === 1 ? logo[0] : null;
+  }
+  if (scopedTargets.length > 1) return null;
+
+  const lookup = (candidate) => matchingRegistry.aliases?.[candidate] || index.aliases?.[candidate] || candidate;
+  const logoFor = (target) => {
+    const direct = index.logos?.[target];
+    if (Array.isArray(direct)) return direct.length === 1 ? direct[0] : null;
+    const disambiguation = matchingRegistry.disambiguatedLogos?.[target];
+    if (!disambiguation) return null;
+    const candidates = index.logos?.[disambiguation.sourceKey] || [];
+    return candidates.find((entry) => entry.source === disambiguation.source) || null;
+  };
   const exactKey = lookup(key);
-  const exact = index.logos?.[exactKey];
-  if (Array.isArray(exact)) return exact.length === 1 ? exact[0] : null;
+  const exact = logoFor(exactKey);
+  if (exact) return exact;
 
   const variants = new Set();
   let parts = key.split(" ");
@@ -57,15 +77,15 @@ function resolveLogo(index, key) {
   for (const variant of variants) {
     const baseKey = lookup(variant);
     for (const candidate of [baseKey, `${baseKey} national team`]) {
-      const logos = index.logos?.[candidate];
-      if (Array.isArray(logos) && logos.length === 1) matches.set(candidate, logos[0]);
-      else if (Array.isArray(logos) && logos.length > 1) return null;
+      const logo = logoFor(candidate);
+      if (logo) matches.set(candidate, logo);
+      else if (Array.isArray(index.logos?.[candidate]) && index.logos[candidate].length > 1) return null;
     }
   }
   return matches.size === 1 ? matches.values().next().value : null;
 }
 
-export function TeamLogo({ team, size = 24 }) {
+export function TeamLogo({ team, context = "", size = 24 }) {
   const [entry, setEntry] = useState(null);
 
   useEffect(() => {
@@ -77,13 +97,13 @@ export function TeamLogo({ team, size = 24 }) {
     loadIndex()
       .then((index) => {
         // Duplicate names across competitions are intentionally left unmatched.
-        const candidate = resolveLogo(index, key);
+        const candidate = resolveLogo(index, key, context);
         if (active && candidate) setEntry({ ...candidate, index });
       })
       .catch(() => {});
 
     return () => { active = false; };
-  }, [team]);
+  }, [team, context]);
 
   if (!entry) return null;
   const { index, x, y } = entry;
@@ -104,10 +124,10 @@ export function TeamLogo({ team, size = 24 }) {
   );
 }
 
-export function TeamNameWithLogo({ team, logoTeam = team, size = 24, className = "" }) {
+export function TeamNameWithLogo({ team, logoTeam = team, context = "", size = 24, className = "" }) {
   return (
     <span className={`ft-team-with-logo ${className}`.trim()}>
-      <TeamLogo team={logoTeam} size={size} />
+      <TeamLogo team={logoTeam} context={context} size={size} />
       <span>{team}</span>
     </span>
   );

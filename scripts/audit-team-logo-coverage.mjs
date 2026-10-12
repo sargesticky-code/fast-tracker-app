@@ -1,5 +1,8 @@
+import registry from "../data/team-logo-aliases.json" with { type: "json" };
+
 const snapshotUrl = "https://fast-tracker-dashboard-production.up.railway.app/snapshot";
 const storageBase = "https://hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos";
+const indexVersion = process.argv[2] || "v20261012";
 
 function normalize(name) {
   return String(name || "")
@@ -18,12 +21,29 @@ const suffixes = new Set([
   "uae", "qat", "oma", "irq", "irn", "uzb", "tha", "vie", "chn", "jor",
 ]);
 
-function resolve(index, name) {
+function resolve(index, name, context = "") {
   const key = normalize(name);
-  const aliases = index.aliases || {};
-  const lookup = (candidate) => aliases[candidate] || candidate;
+  const normalizedContext = normalize(context);
+  const scopedTargets = (registry.contextualAliases?.[key] || [])
+    .filter((entry) => normalizedContext.includes(normalize(entry.competitionContains)))
+    .map((entry) => entry.target);
+  if (scopedTargets.length === 1) {
+    const scopedLogo = index.logos?.[scopedTargets[0]];
+    return Array.isArray(scopedLogo) && scopedLogo.length === 1 ? scopedTargets[0] : null;
+  }
+  if (scopedTargets.length > 1) return null;
+  const lookup = (candidate) => registry.aliases?.[candidate] || index.aliases?.[candidate] || candidate;
+  const logoFor = (target) => {
+    const direct = index.logos?.[target];
+    if (Array.isArray(direct)) return direct.length === 1 ? direct[0] : null;
+    const disambiguation = registry.disambiguatedLogos?.[target];
+    if (!disambiguation) return null;
+    return (index.logos?.[disambiguation.sourceKey] || []).find((entry) => entry.source === disambiguation.source) || null;
+  };
   const direct = index.logos?.[lookup(key)];
   if (Array.isArray(direct)) return direct.length === 1 ? lookup(key) : null;
+  const directMapped = logoFor(lookup(key));
+  if (directMapped) return lookup(key);
 
   const variants = new Set();
   let parts = key.split(" ");
@@ -38,8 +58,8 @@ function resolve(index, name) {
   for (const variant of variants) {
     const base = lookup(variant);
     for (const candidate of [base, `${base} national team`]) {
-      const logos = index.logos?.[candidate];
-      if (Array.isArray(logos) && logos.length === 1) matches.add(candidate);
+      const logo = logoFor(candidate);
+      if (logo) matches.add(candidate);
     }
   }
   return matches.size === 1 ? [...matches][0] : null;
@@ -47,19 +67,33 @@ function resolve(index, name) {
 
 const [snapshotResponse, indexResponse] = await Promise.all([
   fetch(snapshotUrl, { cache: "no-store" }),
-  fetch(`${storageBase}/team-logo-index-v20261012.json`, { cache: "no-store" }),
+  fetch(`${storageBase}/team-logo-index-${indexVersion}.json`, { cache: "no-store" }),
 ]);
 if (!snapshotResponse.ok) throw new Error(`Production snapshot returned ${snapshotResponse.status}`);
 if (!indexResponse.ok) throw new Error(`Team logo index returned ${indexResponse.status}`);
 
 const [snapshot, index] = await Promise.all([snapshotResponse.json(), indexResponse.json()]);
-const teams = [...new Set((snapshot.fixtures || []).flatMap((fixture) => [fixture.home, fixture.away]).filter(Boolean))].sort();
-const unresolved = teams.filter((team) => !resolve(index, team));
+// `discovered` is the full raw Flashscore feed. `fixtures` is a smaller, filtered
+// subset used by other dashboard features and undercounts the displayed matches.
+const sourceFixtures = Array.isArray(snapshot.discovered) ? snapshot.discovered : snapshot.fixtures || [];
+const teams = [...new Set(sourceFixtures.flatMap((fixture) => [fixture.home, fixture.away]).filter(Boolean))].sort();
+const contexts = new Map();
+for (const fixture of sourceFixtures) {
+  for (const team of [fixture.home, fixture.away]) {
+    if (!team) continue;
+    const key = normalize(team);
+    if (!contexts.has(key)) contexts.set(key, []);
+    contexts.get(key).push(fixture.competition || "");
+  }
+}
+const unresolved = teams.filter((team) => !(contexts.get(normalize(team)) || []).some((context) => resolve(index, team, context)));
 console.log(JSON.stringify({
   snapshotCapturedAt: snapshot.captured_at,
-  fixtures: snapshot.fixtures?.length || 0,
+  displayedFixtures: sourceFixtures.length,
+  filteredFixtures: snapshot.fixtures?.length || 0,
   uniqueTeams: teams.length,
   matchedTeams: teams.length - unresolved.length,
+  coveragePercent: teams.length ? Number(((teams.length - unresolved.length) * 100 / teams.length).toFixed(1)) : 100,
   unresolvedTeams: unresolved,
   atlas: index.atlas,
   indexedAssets: index.count,
