@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import matchingRegistry from "@/data/team-logo-aliases.json";
 
 const STORAGE_BASE = "https://hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos";
-const INDEX_URL = `${STORAGE_BASE}/team-logo-index-v20261012.json`;
+const INDEX_URL = `${STORAGE_BASE}/team-logo-index-v20261012b.json`;
+const FALLBACK_INDEX_URL = `${STORAGE_BASE}/team-logo-index-v20261012.json`;
 let indexPromise;
 
 const IGNORABLE_SUFFIXES = new Set([
@@ -28,6 +29,12 @@ function loadIndex() {
   if (!indexPromise) {
     indexPromise = fetch(INDEX_URL, { cache: "force-cache" })
       .then((response) => {
+        if (response.status === 404) {
+          return fetch(FALLBACK_INDEX_URL, { cache: "force-cache" }).then((fallback) => {
+            if (!fallback.ok) throw new Error(`Logo index returned ${fallback.status}`);
+            return fallback.json();
+          });
+        }
         if (!response.ok) throw new Error(`Logo index returned ${response.status}`);
         return response.json();
       })
