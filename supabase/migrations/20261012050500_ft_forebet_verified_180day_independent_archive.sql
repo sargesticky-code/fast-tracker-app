@@ -60,10 +60,10 @@ BEGIN
         corner_predicted_score=COALESCE(public.forebet_archive.corner_predicted_score,excluded.corner_predicted_score),
         avg_corners=COALESCE(public.forebet_archive.avg_corners,excluded.avg_corners),
         forebet_detail_url=COALESCE(public.forebet_archive.forebet_detail_url,excluded.forebet_detail_url)
-    WHERE public.forebet_archive.prob_over25 IS NULL
-      AND excluded.prob_over25 IS NOT NULL
-      OR public.forebet_archive.corner_prob_over95 IS NULL
-      AND excluded.corner_prob_over95 IS NOT NULL;
+    WHERE (public.forebet_archive.prob_over25 IS NULL
+      AND excluded.prob_over25 IS NOT NULL)
+      OR (public.forebet_archive.corner_prob_over95 IS NULL
+      AND excluded.corner_prob_over95 IS NOT NULL);
 END
 $f$;
 
