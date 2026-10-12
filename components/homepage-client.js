@@ -106,7 +106,7 @@ export default function HomepageClient() {
       <p>{matches.length ? `${visible.length} fixtures shown` : "Waiting for source data"}</p>
       <div className="ft-table-wrap"><div className="ft-table-head"><div>Fixture</div><div>Flashscore source fields</div><div>Bet365 H / D / A raw odds</div></div>
         {visible.map(m => <a className="ft-match-row" href={`/details?id=${encodeURIComponent(m.id)}`} key={m.id}>
-          <div className="ft-team-cell"><div className="ft-team-names"><small>{m.league}</small><strong><TeamNameWithLogo team={m.home} logoTeam={m.home} size={22} /></strong><span><TeamNameWithLogo team={m.away} logoTeam={m.away} size={22} /></span><small>Flashscore event {m.providerEventId}</small></div></div>
+          <div className="ft-team-cell"><div className="ft-team-names"><small>{m.league}</small><strong><TeamNameWithLogo team={m.home} logoTeam={m.home} context={m.league} size={22} /></strong><span><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22} /></span><small>Flashscore event {m.providerEventId}</small></div></div>
           <div className="ft-source-cell"><span>{m.sourceDate || "Date not supplied"}</span><small>{m.sourceTimeStatus==="VERIFIED_CANONICAL_KICKOFF"
             ? "Canonical kickoff "+m.sourceTime+" UTC"
             : m.sourceTime ? `Source time ${m.sourceTime} (zone unverified)` : "Time not supplied"}</small><CompactEvidence evidence={verified?.byId.get(m.id) || null}/></div>
