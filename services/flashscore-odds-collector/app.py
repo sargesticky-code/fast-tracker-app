@@ -10,6 +10,7 @@ from playwright.async_api import async_playwright
 from day_budget import day_plan, allocate
 from browser_resources import should_abort_browser_resource
 from odds_batch import bounded_map
+from forebet_capture import collect_forebet_listing_snapshot
 
 FLASH_URL = os.getenv("FLASH_URL", "https://www.flashscore.co.uk/")
 ODDS_URL = os.getenv("ODDS_URL", "https://global.ds.lsapp.eu/odds/pq_graphql")
@@ -19,6 +20,9 @@ DAYS_AHEAD = max(0, min(3, int(os.getenv("DAYS_AHEAD", "2"))))
 MAX_FIXTURES = max(10, min(600, int(os.getenv("MAX_FIXTURES", "360"))))
 ODDS_CONCURRENCY = max(1, min(2, int(os.getenv("ODDS_CONCURRENCY", "2"))))
 ODDS_PHASE_TIMEOUT_SECONDS = 180
+# Separate low-frequency Forebet source lane; no additional Flashscore requests.
+FOREBET_SECONDS = max(10800, int(os.getenv("FOREBET_SECONDS", "14400")))
+FOREBET_ENABLED = os.getenv("FOREBET_ENABLED", "1") == "1"
 
 app = Flask(__name__)
 _lock = threading.Lock()
@@ -31,6 +35,12 @@ _state = {
     "complete_hda": 0,
     "snapshot": [],
     "discovered": [],
+}
+
+_forebet_lock = threading.Lock()
+_forebet_state = {
+    "last_started_at": None, "last_completed_at": None,
+    "last_error": None, "refreshing": False, "capture": None
 }
 
 @app.after_request
@@ -326,6 +336,63 @@ def loop():
         elapsed = time.monotonic() - started
         time.sleep(max(0.0, REFRESH_SECONDS - elapsed))
 
+def forebet_loop():
+    # Delay source work until the initial odds browser has settled.
+    time.sleep(90)
+    while True:
+        started = time.monotonic()
+        with _forebet_lock:
+            _forebet_state["refreshing"] = True
+            _forebet_state["last_started_at"] = utcnow()
+        try:
+            payload = asyncio.run(collect_forebet_listing_snapshot())
+            with _forebet_lock:
+                _forebet_state["last_completed_at"] = utcnow()
+                if payload["ok"]:
+                    _forebet_state["capture"] = payload
+                    _forebet_state["last_error"] = None
+                else:
+                    _forebet_state["last_error"] = "FOREBET_PARTIAL_OR_BLOCKED"
+            print(f"[forebet] capture ok={payload['ok']} rows={len(payload['rows'])} failed={len(payload['surfaces_failed'])}",flush=True)
+        except Exception as e:
+            with _forebet_lock:
+                _forebet_state["last_error"] = f"{type(e).__name__}: {e}"[:170]
+        finally:
+            with _forebet_lock:
+                _forebet_state["refreshing"] = False
+        time.sleep(max(0.0, FOREBET_SECONDS-(time.monotonic()-started)))
+
+@app.get("/forebet-health")
+def forebet_health():
+    with _forebet_lock:
+        capture = _forebet_state["capture"]
+        age = (datetime.now(timezone.utc) -
+               datetime.fromisoformat(capture["captured_at"])).total_seconds() if capture else None
+        return jsonify({
+            "source":"FOREBET_DIRECT_LISTINGS","enabled":FOREBET_ENABLED,
+            "refreshing":_forebet_state["refreshing"],
+            "last_started_at":_forebet_state["last_started_at"],
+            "last_completed_at":_forebet_state["last_completed_at"],
+            "last_error":_forebet_state["last_error"],
+            "last_good_capture_at":capture["captured_at"] if capture else None,
+            "last_good_rows":len(capture["rows"]) if capture else 0,
+            "snapshot_stale":age is None or age>FOREBET_SECONDS+3600
+        })
+
+@app.get("/forebet-snapshot")
+def forebet_snapshot():
+    with _forebet_lock:
+        capture = _forebet_state["capture"]
+        if not capture:
+            return jsonify({"source":"FOREBET_DIRECT_LISTINGS","ok":False,
+                            "captured_at":None,"rows":[]})
+        age = (datetime.now(timezone.utc) -
+               datetime.fromisoformat(capture["captured_at"])).total_seconds()
+        # Do not pass stale source data to a publisher as a fresh pregame forecast.
+        return jsonify(capture if age <= FOREBET_SECONDS+3600 else {
+            "source":"FOREBET_DIRECT_LISTINGS","ok":False,
+            "captured_at":capture["captured_at"],"rows":[]})
+
 @app.get("/health")
 def health():
     with _lock:
@@ -369,6 +436,8 @@ def refresh():
 # The isolated worker imports app.refresh_once; never recurse into a loop.
 if os.getenv("FT_COLLECTOR_CHILD") != "1":
     threading.Thread(target=loop, daemon=True).start()
+    if FOREBET_ENABLED:
+        threading.Thread(target=forebet_loop, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
