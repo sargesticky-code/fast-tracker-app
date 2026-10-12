@@ -9,7 +9,7 @@ DO $job$
 DECLARE v_name text;v_schedule text;v_command text;
 BEGIN
  SELECT jobname,schedule,command INTO v_name,v_schedule,v_command
- FROM cron.job WHERE jobid=32 FOR UPDATE;
+ FROM cron.job WHERE jobid=32;
  IF v_name IS DISTINCT FROM 'phase2-lineup-source-refresh'
     OR v_schedule IS DISTINCT FROM '12,22,32,42,52 * * * *'
     OR v_command NOT LIKE '%phase15-flashscore-scout%'
