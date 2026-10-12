@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedMatch, matchObservation } from "@/lib/verified-evidence-feed";
 import FormationPitch from "@/components/formation-pitch";
+import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
@@ -164,6 +165,9 @@ export default function FlashscoreRawMatch() {
         <small>{m.evidence_value||m.manager_key||m.manager_name||"Unknown"} · {m.source_name||analysis?.humanFactors?.managerProvenance?.source||"Source unavailable"}</small>
       </div>)}</div>
     </section>}
+    {lineups.length > 0 && <FotMobPlayerInsights lineup={lineups}
+      stats={analysis?.humanFactors?.playerMatchStats}
+      homeTeam={home} awayTeam={away} />}
     {analysis && <PlayerStats data={analysis}/>}
     {match && <details><summary>Original Flashscore source fields</summary>
       <pre>{JSON.stringify({fixture:match.raw,quote:match.rawQuote},null,2)}</pre></details>}
