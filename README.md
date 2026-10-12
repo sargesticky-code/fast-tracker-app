@@ -32,9 +32,9 @@ The collector limits concurrent odds requests to two, enforces a wall-clock dead
 
 ## Team logo matching
 
-Team names are normalized and resolved from the public Supabase `football-logos` index. Reviewed aliases for the current Flashscore feed are kept in `data/team-logo-aliases.json` and published in that index; the browser does not keep a separate hardcoded alias list. The sprite keeps each badge in a 22 px tile to limit storage and page transfer size. Additional assets and their source/license notes are recorded in `data/team-logo-supplements.json` and the bucket `NOTICE.txt`.
+Team names are normalized and resolved from the public Supabase `football-logos` index. The persistent source-name-to-logo mapping is version-controlled in `data/team-logo-aliases.json` and bundled with the dashboard; a reviewed alias is added once and then applies to every later refresh. League-scoped aliases handle names shared by clubs in different countries. The sprite keeps each badge in a 22 px tile to limit storage and page transfer size. Additional assets and their source/license notes are recorded in `data/team-logo-supplements.json` and the bucket `NOTICE.txt`.
 
-Run `node scripts/audit-team-logo-coverage.mjs` to compare the current production snapshot with the published index. It reports new or ambiguous team names before a dashboard release. Exact names and safe suffix variants continue to resolve automatically; new abbreviations should be added once to the reviewed alias registry and published index.
+Run `node scripts/audit-team-logo-coverage.mjs` to compare the full current `discovered` feed (not the smaller filtered `fixtures` list) with the Supabase sprite index and the bundled alias registry. It reports new, ambiguous, or currently unavailable badges before a release. Add each verified source name once to the registry, include league context for ambiguous names, and deploy the dashboard; no index upload or sprite rebuild is required for a name alias. Do not map ambiguous names to a badge unless the source feed context identifies the club; leave them unmatched until an explicit unique mapping or badge is available.
 
 ## Current scope
 
