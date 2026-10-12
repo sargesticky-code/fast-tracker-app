@@ -276,15 +276,20 @@ Deno.serve(async (req)=>{
 
     // Use the same active alias authority as Phase-2 lineup matching.
     // Fail closed if one normalized FotMob alias points at >1 canonical name.
-    const fmMapRes=await db.from("team_alias_current")
-      .select("alias,canonical_name,confidence")
-      .eq("source","FOTMOB")
-      .eq("status","ACTIVE")
-      .gte("confidence",0.94)
-      .range(0,1999);
-    if(fmMapRes.error) console.warn("fotmob_alias_query_failed",fmMapRes.error.message);
+    const fmAliasRows:any[]=[];
+    for(let offset=0;offset<2000;offset+=1000){
+      const page=await db.from("team_alias_current")
+        .select("alias,canonical_name,confidence")
+        .eq("source","FOTMOB")
+        .eq("status","ACTIVE")
+        .gte("confidence",0.94)
+        .range(offset,offset+999);
+      if(page.error){console.warn("fotmob_alias_query_failed",page.error.message);break;}
+      fmAliasRows.push(...(page.data||[]));
+      if((page.data||[]).length<1000) break;
+    }
     const fmTargets=new Map<string,Set<string>>();
-    for(const x of fmMapRes.data||[]){
+    for(const x of fmAliasRows){
       const alias=keyName(x.alias),canonical=keyName(x.canonical_name);
       if(!alias||!canonical) continue;
       if(!fmTargets.has(alias)) fmTargets.set(alias,new Set());
@@ -432,7 +437,7 @@ Deno.serve(async (req)=>{
       last_probe_at:nowIso,last_success_at:nowIso,last_failure_at:null,
       consecutive_success:prevS+1,consecutive_failure:0,total_records:rows.length,
       schema_fingerprint:schema,last_seen_at:nowIso,updated_at:nowIso,
-      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmMapRes.data?.length||0,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
+      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
     }).eq("source_key",SOURCE);
 
     await db.from("source_health").upsert({
@@ -441,10 +446,10 @@ Deno.serve(async (req)=>{
       status:rows.length>0?"OK":"WARN",
       notes:"Experimental shadow-only scout. No betting-model influence until trust promotion.",
       observed_at:new Date().toISOString(),
-      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmMapRes.data?.length||0,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
+      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
     },{onConflict:"source,metric"});
 
-    return Response.json({ok:true,source:SOURCE,mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmMapRes.data?.length||0,ambiguousAliasCount,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
+    return Response.json({ok:true,source:SOURCE,mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
   }catch(e){
     const message=e instanceof Error?e.message:(typeof e==="object"?JSON.stringify(e):String(e));
     const reg=await db.from("phase15_source_registry").select("consecutive_failure").eq("source_key",SOURCE).maybeSingle();
