@@ -71,7 +71,7 @@ test("Flashscore team names use the matching Supabase logo sprite tiles",async({
   }
  },headers:cors}));
  await page.goto("http://127.0.0.1:4173/");
- const firstRow=page.locator(".ft-match-row").first();
+ const firstRow=page.locator(".ft-match-row").filter({hasText:"Coventry"}).first();
  await expect(firstRow.getByText("Coventry",{exact:true})).toBeVisible();
  await expect(firstRow.getByText("Newcastle",{exact:true})).toBeVisible();
  await expect(firstRow.locator(".ft-team-logo")).toHaveCount(2);
@@ -87,19 +87,20 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   mockEndpoints(page);
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
-  await expect(page.getByTestId("verified-status")).toContainText("2 exact Flashscore IDs linked");
+  await expect(page.getByTestId("verified-status")).toContainText("2 matches with verified insights");
   expect(external.some(url=>url.includes("/app-phase1-feed?view=compact&hours=48"))).toBeTruthy();
-  await expect(page.getByRole("button",{name:"2026-10-11 · 35"})).toBeVisible();
-  await expect(page.getByText("Time not supplied")).toBeVisible();
-  await expect(page.getByText("Forebet predicted score", {exact:false}).first()).toBeVisible();
-  await expect(page.getByText("Forebet Goals 2.5", {exact:false}).first()).toBeVisible();
-  await expect(page.getByText("Forebet Corners 9.5", {exact:false}).first()).toBeVisible();
-  await expect(page.getByTestId("historical-match-stats").first()).toContainText("Not final/live totals");
+  await expect(page.getByRole("button",{name:/10-11/}).first()).toBeVisible();
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
+  await expect(page.getByTestId("match-prediction").first()).toContainText("2-1");
+  await expect(page.getByTestId("forebet-goals-25").first()).toContainText("O 62%");
+  await expect(page.getByTestId("forebet-corners-95").first()).toContainText("U 56%");
+  await expect(page.getByTestId("confirmed-xi").first()).toContainText("XI");
+  await expect(page.locator(".ft-match-list")).not.toContainText("Flashscore event");
   await page.screenshot({path:"test-results/enriched-board-"+viewport.width+".png",fullPage:true});
 
-  await page.getByRole("button",{name:"2026-10-12 · 5"}).click();
+  await page.getByRole("button",{name:/10-12/}).first().click();
   await expect(page.locator(".ft-match-row")).toHaveCount(5);
-  await page.getByRole("button",{name:"All fixtures · 40"}).click();
+  await page.getByRole("button",{name:"All days"}).click();
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   await expect(page.locator(".ft-match-row")).toHaveCount(11);
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
@@ -155,7 +156,7 @@ test("raw remains available when verified analysis fails",async({page})=>{
   mockEndpoints(page,{source:null,deep:null});
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
-  await expect(page.getByTestId("verified-status")).toContainText("temporarily unavailable");
+  await expect(page.getByTestId("verified-status")).toContainText("insights currently unavailable");
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   await page.locator(".ft-match-row").click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
@@ -164,8 +165,8 @@ test("raw remains available when verified analysis fails",async({page})=>{
 test("unavailable raw source does not invent fixture counts",async({page})=>{
   mockEndpoints(page,{raw:null,source:null,deep:null});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.locator("p[role=alert]")).toContainText("Fixture counts are unknown");
-  await expect(page.getByRole("button",{name:"All fixtures · —"})).toBeVisible();
+  await expect(page.locator("p[role=alert]")).toContainText("Fixtures temporarily unavailable");
+  await expect(page.getByTestId("fixture-row")).toHaveCount(0);
 });
 test("mismatched analysis identity is rejected, not joined by team names",async({page})=>{
   mockEndpoints(page,{deep:{...detail,id:"FS:wrong",fixture:{...detail.fixture,match_id:"FS:wrong"}}});
@@ -178,10 +179,10 @@ test("mismatched analysis identity is rejected, not joined by team names",async(
 test("cold or stale raw snapshot uses exact canonical source fallback without invented quotes",async({page})=>{
   mockEndpoints(page,{raw:{...snapshot,captured_at:null,discovered:[],fixtures:[],count:0}});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("canonical-fallback")).toContainText("2 verified Flashscore canonical fixtures");
+  await expect(page.getByTestId("canonical-fallback")).toContainText("2 verified fixtures");
   await expect(page.locator(".ft-match-row")).toHaveCount(2);
-  await expect(page.getByText("Canonical kickoff 15:30 UTC")).toBeVisible();
-  await expect(page.locator(".ft-raw-odds").first()).toContainText("—");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
+  await expect(page.locator(".ft-odds-cell").first()).toContainText("No fresh odds");
   await page.locator(".ft-match-row").first().click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
@@ -194,8 +195,8 @@ test("stale raw bookmaker prices are suppressed without hiding the fixture",asyn
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
-  await expect(row.locator(".ft-raw-odds")).toContainText("Odds unavailable");
-  await expect(row.locator(".ft-raw-odds")).not.toContainText("2.2");
+  await expect(row.locator(".ft-odds-cell")).toContainText("No fresh odds");
+  await expect(row.locator(".ft-odds-cell")).not.toContainText("2.2");
 });
 test("fresh complete bookmaker reference prices display but are never called live",async({page})=>{
   const captured=new Date().toISOString();
@@ -205,9 +206,9 @@ test("fresh complete bookmaker reference prices display but are never called liv
   await page.goto("http://127.0.0.1:4173/");
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
-  await expect(row.locator(".ft-raw-odds")).toContainText("2.2");
-  await expect(row.locator(".ft-raw-odds")).not.toContainText("captured");
-  await expect(row.locator(".ft-raw-odds")).not.toContainText("live");
+  await expect(row.locator(".ft-odds-cell")).toContainText("2.2");
+  await expect(row.locator(".ft-odds-cell")).not.toContainText("captured");
+  await expect(row.locator(".ft-odds-cell")).not.toContainText("live");
 });
 test("incomplete Forebet HDA remains unknown instead of treating null as zero",async({page})=>{
   const invalid={...summary,matches:[
@@ -215,11 +216,11 @@ test("incomplete Forebet HDA remains unknown instead of treating null as zero",a
   ]};
   mockEndpoints(page,{source:invalid,deep:null});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("verified-status")).toContainText("1 exact Flashscore IDs linked");
+  await expect(page.getByTestId("verified-status")).toContainText("1 matches with verified insights");
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   const row=page.locator(".ft-match-row").first();
-  await expect(row).toContainText("Forebet predicted score");
-  await expect(row).not.toContainText("Forebet H/D/A");
+  await expect(row.getByTestId("match-prediction")).toContainText("2-1");
+  await expect(row.getByTestId("forebet-hda")).toHaveCount(0);
 });
 
 test("invalid incomplete Forebet market pair remains unknown",async({page})=>{
@@ -232,8 +233,8 @@ test("invalid incomplete Forebet market pair remains unknown",async({page})=>{
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   const row=page.locator(".ft-match-row").first();
-  await expect(row).not.toContainText("Forebet Goals 2.5");
-  await expect(row).not.toContainText("Forebet Corners 9.5");
+  await expect(row.getByTestId("forebet-goals-25")).toHaveCount(0);
+  await expect(row.getByTestId("forebet-corners-95")).toHaveCount(0);
 });
 
 test("source-backed FotMob coordinates plot all 22 starters without inventing positions",async({page})=>{
