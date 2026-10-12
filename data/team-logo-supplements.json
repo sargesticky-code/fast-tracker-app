@@ -2,11 +2,60 @@
   "version": 1,
   "assets": [
     {
+      "key": "al hussein",
+      "file": "team-logo-supplemental-assets/al-hussein.webp",
+      "source": "official Al Hussein Sport Club website favicon / club shield",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://alhussein.club/wp-content/uploads/2026/05/cropped-cropped-alhussein.club_-2-1-192x192.jpg"
+    },
+    {
+      "key": "banks o dee",
+      "file": "team-logo-supplemental-assets/banks-o-dee.webp",
+      "source": "Banks o’ Dee official club site (Pitchero club logo)",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://images.pitchero.com/club_logos/72256/XVbqv05mSdGOmLOhDF0x_BOD_Purple.png"
+    },
+    {
+      "key": "berwick rangers",
+      "file": "team-logo-supplemental-assets/berwick-rangers.webp",
+      "source": "Berwick Rangers official club site badge",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://berwickrangers.com/wp-content/themes/gf/berwick_rangers-logo-192x192.png"
+    },
+    {
+      "key": "clydebank",
+      "file": "team-logo-supplemental-assets/clydebank.webp",
+      "source": "Clydebank FC official club site logo",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://www.clydebankfc.com/wp-content/uploads/2021/09/logo-clydebank.png"
+    },
+    {
       "key": "crb",
       "file": "crb.png",
       "source": "commons: File:CRB logo.svg",
       "license": "public domain (PD-textlogo)",
       "source_url": "https://commons.wikimedia.org/wiki/File:CRB_logo.svg"
+    },
+    {
+      "key": "cumbernauld colts",
+      "file": "team-logo-supplemental-assets/cumbernauld-colts.webp",
+      "source": "Cumbernauld Colts official club site logo",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://cumbernauldcoltsfc.com/wp-content/uploads/2023/11/cumbernauld-colts-logo.jpg"
+    },
+    {
+      "key": "eskhata",
+      "file": "team-logo-supplemental-assets/eskhata.webp",
+      "source": "FC Eskhata official club site team logo",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://eskhata-fc.tj/wp-content/fnw-languages/team-logos/eskhata.png"
+    },
+    {
+      "key": "formartine united",
+      "file": "team-logo-supplemental-assets/formartine-united.webp",
+      "source": "Formartine United FC official site logo",
+      "license": "Official club site asset; downscaled, no recoloring. No reuse license stated.",
+      "source_url": "https://cdn.prod.website-files.com/632c1c18033fb94873a6f57b/632c24e2d7b61c3360b5d30a_Formartine%20Logo.svg"
     },
     {
       "key": "gimnasia mendoza",
@@ -23,6 +72,20 @@
       "source_url": "https://commons.wikimedia.org/wiki/File:Escudo_GV_Club_Deportivo_San_Jos%C3%A9_PNG.png"
     },
     {
+      "key": "lynx",
+      "file": "team-logo-supplemental-assets/lynx.webp",
+      "source": "Lynx FC official site logo",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://static.wixstatic.com/media/11ca43_52b0424f8452492485763f23ab2dcd15~mv2.png/v1/fill/w_261,h_261,al_c,q_85/Lynx_football_club.png"
+    },
+    {
+      "key": "mons calpe",
+      "file": "team-logo-supplemental-assets/mons-calpe.webp",
+      "source": "Mons Calpe SC official site logo",
+      "license": "Official club site asset; used without alteration. No reuse license stated.",
+      "source_url": "https://www.vamons.com/mons.png"
+    },
+    {
       "key": "nacional asuncion",
       "file": "nacional-asuncion.png",
       "source": "commons: File:Club Nacional de Paraguay.png",
@@ -35,6 +98,13 @@
       "source": "official Sarıyer Spor Kulübü corporate identity page",
       "license": "official club asset; use unaltered",
       "source_url": "https://www.sariyersporkulubu.com.tr/kulup/kurumsal-kimlik"
+    },
+    {
+      "key": "unan managua",
+      "file": "team-logo-supplemental-assets/unan-managua.webp",
+      "source": "Wikimedia Commons File:Escudo UNAN Managua.png; author UNAN Managua",
+      "license": "CC BY-SA 4.0; resized to 22px without other changes. Attribution: UNAN Managua; source and license link retained here.",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Escudo_UNAN_Managua.png"
     },
     {
       "key": "van spor fk",

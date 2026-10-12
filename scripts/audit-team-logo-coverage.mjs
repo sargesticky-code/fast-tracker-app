@@ -1,8 +1,11 @@
 import registry from "../data/team-logo-aliases.json" with { type: "json" };
+import { readFile } from "node:fs/promises";
 
 const snapshotUrl = "https://fast-tracker-dashboard-production.up.railway.app/snapshot";
 const storageBase = "https://hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos";
-const indexVersion = process.argv[2] || "v20261012";
+const indexArgument = process.argv[2] || "v20261012b";
+const localIndexPath = indexArgument.endsWith(".json") ? indexArgument : null;
+const indexVersion = localIndexPath ? null : indexArgument;
 
 function normalize(name) {
   return String(name || "")
@@ -67,7 +70,9 @@ function resolve(index, name, context = "") {
 
 const [snapshotResponse, indexResponse] = await Promise.all([
   fetch(snapshotUrl, { cache: "no-store" }),
-  fetch(`${storageBase}/team-logo-index-${indexVersion}.json`, { cache: "no-store" }),
+  localIndexPath
+    ? readFile(localIndexPath, "utf8").then((body) => ({ ok: true, json: async () => JSON.parse(body) }))
+    : fetch(`${storageBase}/team-logo-index-${indexVersion}.json`, { cache: "no-store" }),
 ]);
 if (!snapshotResponse.ok) throw new Error(`Production snapshot returned ${snapshotResponse.status}`);
 if (!indexResponse.ok) throw new Error(`Team logo index returned ${indexResponse.status}`);

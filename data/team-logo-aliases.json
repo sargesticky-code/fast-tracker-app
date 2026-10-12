@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "Flashscore raw Bet365 snapshot",
-  "snapshotCapturedAt": "2026-10-12T05:31:43.207633+00:00",
+  "snapshotCapturedAt": "2026-10-12T06:31:38.187256+00:00",
   "teamCount": 637,
   "aliases": {
     "2 de mayo": "2 de mayo",
@@ -326,7 +326,17 @@
     "wycombe u21": "wycombe wanderers",
     "zed": "zed fc",
     "zorya": "zorya luhansk",
-    "zrinjski u19": "zrinjski mostar"
+    "zrinjski u19": "zrinjski mostar",
+    "al hussein jor": "al hussein",
+    "banks o dee": "banks o dee",
+    "berwick": "berwick rangers",
+    "clydebank fc": "clydebank",
+    "cumbernauld colts": "cumbernauld colts",
+    "eskhata": "eskhata",
+    "formartine utd": "formartine united",
+    "lynx": "lynx",
+    "mons calpe": "mons calpe",
+    "unan managua": "unan managua"
   },
   "contextualAliases": {
     "antigua": [

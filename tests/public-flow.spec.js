@@ -62,7 +62,7 @@ test("Flashscore team names use the matching Supabase logo sprite tiles",async({
  const raw={...snapshot,discovered:snapshot.discovered.map(f=>f.provider_event_id==="event0"
    ?{...f,home:"Coventry",away:"Newcastle"}:f)};
  mockEndpoints(page,{raw});
- page.route("**/storage/v1/object/public/football-logos/team-logo-index-v20261012.json",r=>r.fulfill({json:{
+ page.route("**/storage/v1/object/public/football-logos/team-logo-index-v20261012b.json",r=>r.fulfill({json:{
   atlas:"football-logo-atlas.webp",columns:64,rows:73,aliases:{},logos:{
    "coventry city":[{x:1,y:0}],newcastle:[{x:2,y:0}]
   }
@@ -72,7 +72,7 @@ test("Flashscore team names use the matching Supabase logo sprite tiles",async({
  await expect(firstRow.getByText("Coventry",{exact:true})).toBeVisible();
  await expect(firstRow.getByText("Newcastle",{exact:true})).toBeVisible();
  await expect(firstRow.locator(".ft-team-logo")).toHaveCount(2);
- await expect(firstRow.locator(".ft-team-logo").first()).toHaveCSS("background-image",/football-logo-atlas(?:-v\d{8})?\.webp/);
+ await expect(firstRow.locator(".ft-team-logo").first()).toHaveCSS("background-image",/football-logo-atlas(?:-v\d{8}b?)?\.webp/);
 });
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
  test("raw with exact-ID verified enrichment "+viewport.width,async({page})=>{
