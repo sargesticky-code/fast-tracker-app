@@ -287,3 +287,47 @@ test("FotMob player insights reject mismatched profile identifiers",async({page}
   await expect(drawer.getByTestId("fotmob-profile-unavailable")).toBeVisible();
   await expect(drawer.getByRole("link",{name:/FotMob/})).toHaveCount(0);
 });
+
+
+for (const sourceName of ["FOTMOB_OFFICIAL","FLASHSCORE_OFFICIAL"]) {
+  for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+    test(sourceName+" left/right pitch orientation is anatomically correct on "+viewport.width,async({page})=>{
+      await page.setViewportSize(viewport);
+      const positions={0:"Keeper",1:"Right Back",4:"Left Back",7:"Right Winger",9:"Left Winger"};
+      const layout = lineups.map((player,i)=>{
+        const side=i<11?"Home":"Away", slot=i%11, position=positions[slot];
+        const sourceSlot=slot===0?"1:3":slot===1?"2:1":slot===4?"2:5":slot===7?"4:1":slot===9?"4:5":null;
+        const sourceX=slot===0?0.5:slot===1?0.125:slot===4?0.875:slot===7?0.162:slot===9?0.837:null;
+        return {...player,player_name:side+" "+(position||"Player "+slot),
+          source_name:sourceName,formation_slot:sourceSlot,
+          position_x:sourceName==="FOTMOB_OFFICIAL"?sourceX:null,
+          position_y:sourceName==="FOTMOB_OFFICIAL" && sourceX!==null?(slot<5?0.3:0.7):null};
+      });
+      mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:layout}}});
+      await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+      const pitch=page.getByTestId("official-xi-pitch");
+      for (const team of ["Home","Away"]) {
+        const side=pitch.locator(team==="Home"?".ft-xi-side-home":".ft-xi-side-away");
+        const horizontal=async name=>{
+          const marker=side.getByRole("button",{name:"View player profile: "+team+" "+name,exact:true});
+          await expect(marker).toBeVisible();
+          return Number.parseFloat(await marker.evaluate(el=>el.style.left));
+        };
+        const keeper=await horizontal("Keeper");
+        const rb=await horizontal("Right Back");
+        const lb=await horizontal("Left Back");
+        const rw=await horizontal("Right Winger");
+        const lw=await horizontal("Left Winger");
+        expect(keeper).toBe(50);
+        expect(rb).toBeGreaterThan(keeper);
+        expect(rw).toBeGreaterThan(keeper);
+        expect(lb).toBeLessThan(keeper);
+        expect(lw).toBeLessThan(keeper);
+        // Must preserve the source-specific geometry, not swap player names/IDs.
+        expect(rb).toBe(sourceName==="FOTMOB_OFFICIAL"?83:90);
+        expect(lb).toBe(sourceName==="FOTMOB_OFFICIAL"?17:10);
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    });
+  }
+}

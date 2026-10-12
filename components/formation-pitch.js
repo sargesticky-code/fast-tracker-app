@@ -7,12 +7,14 @@ import React from "react";
 // order, player name, or a formation label.
 function sourcePosition(player) {
   // FotMob's stored normalized coordinates are source-supplied, not inferred.
-  // x/y refer to the original pitch orientation (keeper at low y).
+  // FotMob x and Flashscore grid columns run from player right to player left.
+// The pitch shows goalkeeper at the bottom and attackers at the top, so mirror
+// that source horizontal axis: right backs/wingers RIGHT; left backs/wingers LEFT.
   const x = player?.position_x, y = player?.position_y;
   if (typeof x === "number" && typeof y === "number" &&
       Number.isFinite(x) && Number.isFinite(y) &&
       x >= 0 && x <= 1 && y >= 0 && y <= 1) {
-    return { left: (6 + 88 * x) + "%", top: (94 - 88 * y) + "%" };
+    return { left: (94 - 88 * x) + "%", top: (94 - 88 * y) + "%" };
   }
   // Flashscore provides a verified positional grid instead of coordinates.
   const slots = [
@@ -23,7 +25,7 @@ function sourcePosition(player) {
     const match = String(value ?? "").trim().match(/^([1-5])\s*[:.-]\s*([1-5])$/);
     if (!match) continue;
     const row = Number(match[1]), column = Number(match[2]);
-    return { left: (10 + (column - 1) * 20) + "%", top: (90 - (row - 1) * 20) + "%" };
+    return { left: (90 - (column - 1) * 20) + "%", top: (90 - (row - 1) * 20) + "%" };
   }
   return null;
 }
