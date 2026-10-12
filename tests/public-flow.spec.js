@@ -347,9 +347,19 @@ test("homepage excludes terminal, verified-finished and old-date fixtures withou
   mockEndpoints(page,{raw,source});
   await page.goto("http://127.0.0.1:4173/");
   await expect(page.locator(".ft-match-row")).toHaveCount(36);
-  await expect(page.getByRole("button",{name:"Active fixtures · 36"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Active matches · 36"})).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByRole("button",{name:"Ended matches · 4"})).toBeVisible();
   await expect(page.locator('.ft-match-row[href="/details?id=FS%3Aevent0"]')).toHaveCount(0);
   await expect(page.locator('.ft-match-row[href="/details?id=FS%3Aevent1"]')).toHaveCount(1);
+  await page.getByRole("button",{name:"Ended matches · 4"}).click();
+  await expect(page.getByRole("button",{name:"Ended matches · 4"})).toHaveAttribute("aria-pressed","true");
+  await expect(page.locator(".ft-match-row")).toHaveCount(4);
+  await expect(page.locator('.ft-match-row[href="/details?id=FS%3Aevent0"]')).toHaveCount(1);
+  await expect(page.locator('.ft-match-row[href="/details?id=FS%3Aevent1"]')).toHaveCount(0);
+  await expect(page.getByTestId("ended-match-note")).toContainText("not confirmation of a final result");
+  await page.getByRole("button",{name:"Active matches · 36"}).click();
+  await expect(page.locator(".ft-match-row")).toHaveCount(36);
+  await expect(page.getByTestId("ended-match-note")).toHaveCount(0);
   // Historical direct links must keep functioning after homepage suppression.
   await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
