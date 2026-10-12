@@ -1,6 +1,6 @@
 -- Harden existing internally scheduled data collectors, preserving job 32.
 -- The established fast_tracker_cron_secret is held in Supabase Vault;
--- neither a key value nor an expression resolving it is stored in source control.
+-- The only source-controlled content is a Vault lookup expression, never the token value.
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 
