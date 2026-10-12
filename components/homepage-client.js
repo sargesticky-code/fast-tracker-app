@@ -61,17 +61,20 @@ function parseLeague(rawName) {
   return {label:title, country, priority,featured:priority<=11,
     display: title+(country?" · "+country[0]+country.slice(1).toLowerCase():"")};
 }
-function explicitStatus(row) {
-  const raw=String(row?.raw?.status || row?.raw?.match_status || row?.raw?.status_text || "").trim().toUpperCase();
-  if (["LIVE","IN PLAY","INPLAY","1H","2H","HT","HALF TIME","HALF-TIME","1ST HALF","2ND HALF","EXTRA TIME","ET"].includes(raw)) return "live";
+function explicitStatus(row,evidence) {
+  // "LIVE" requires a verified provider event, never just kickoff elapsed.
+  if(evidence?.liveNow===true) return "live";
+  const raw=String(evidence?.matchStatus || row?.raw?.status || row?.raw?.match_status || row?.raw?.status_text || "").trim().toUpperCase();
+  // In-play strings without current verified live evidence are not sufficient.
+  if (["LIVE","IN PLAY","INPLAY","1H","2H","HT","HALF TIME","HALF-TIME","1ST HALF","2ND HALF","EXTRA TIME","ET"].includes(raw)) return null;
   if (["FT","FINISHED","FULL TIME","FULL-TIME","AFTER EXTRA TIME"].includes(raw)) return "finished";
   if (["NS","NOT STARTED","UPCOMING","SCHEDULED"].includes(raw)) return "upcoming";
   return null;
 }
 // Only an absolute UTC/offset timestamp may be translated into UK local time.
 // A raw Flashscore browser clock is not a timezone and must not be re-labelled.
-function verifiedKickoff(row, evidence) {
-  const value=evidence?.canonicalRow?.kickoff
+function verifiedKickoff(row, evidence, fixtureKickoffs) {
+  const value=fixtureKickoffs?.get(row.id) || evidence?.canonicalRow?.kickoff
     || (row.sourceTimeStatus==="VERIFIED_CANONICAL_KICKOFF" ? row.kickoff : null);
   if (typeof value!=="string" || !/(Z|[+-]\d{2}:\d{2})$/i.test(value)) return null;
   const ms=Date.parse(value);
@@ -81,10 +84,10 @@ function ukDay(ms) {
   const parts=Object.fromEntries(ukDateParts.formatToParts(ms).map(p=>[p.type,p.value]));
   return [parts.year,parts.month,parts.day].join("-");
 }
-function enrich(row,evidence,now) {
+function enrich(row,evidence,now,fixtureKickoffs) {
   const info=parseLeague(row.league);
-  const kickoffMs=verifiedKickoff(row,evidence);
-  const status=explicitStatus(row);
+  const kickoffMs=verifiedKickoff(row,evidence,fixtureKickoffs);
+  const status=explicitStatus(row,evidence);
   const phase=status || (kickoffMs===null?"unknown":kickoffMs>now?"upcoming":"started");
   const UKTime=kickoffMs===null?null:ukClock.format(kickoffMs);
   const tz=kickoffMs===null?null:ukZone.formatToParts(kickoffMs).find(p=>p.type==="timeZoneName")?.value||null;
@@ -162,10 +165,10 @@ export default function HomepageClient() {
     &&Array.isArray(feed?.matches)&&feed.matches.length>0;
   const usingCanonicalFallback=!rawReady&&(verified?.fallbackMatches?.length||0)>0;
   const rows=rawReady?feed.matches:(verified?.fallbackMatches||[]);
-  const matches=useMemo(()=>rows.map(m=>enrich(m,verified?.byId.get(m.id)||null,now)),[rows,verified,now]);
+  const matches=useMemo(()=>rows.map(m=>enrich(m,verified?.byId.get(m.id)||null,now,verified?.fixtureKickoffs)),[rows,verified,now]);
   const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
-  const liveKnown=matches.some(m=>m.phase==="live"||m.phase==="finished"||explicitStatus(m));
+  const liveKnown=matches.some(m=>m.phase==="live");
   const counts={all:matches.length,top:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
     xi:matches.filter(m=>m.evidence?.confirmedXI).length,prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
     odds:matches.filter(m=>oddsText(m)).length};
@@ -248,7 +251,7 @@ export default function HomepageClient() {
       <div className="ft-list-meta"><strong>{visible.length} matches</strong>
         <small>UK times: verified kickoffs only · Unverified times: —</small>
       </div>
-      {!liveKnown&&phase==="live"&&<p role="status" className="ft-filter-note">Live status has not been verified by the available match feed.</p>}
+      {!liveKnown&&phase==="live"&&<p role="status" className="ft-filter-note">No verified live matches in the latest available source.</p>}
       <div className="ft-match-list" data-testid="fixture-list">
         {groups.map(g=><section className="ft-fixture-group" key={g.key} data-testid="league-group">
           <div className="ft-league-heading">
