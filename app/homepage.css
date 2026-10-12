@@ -46,24 +46,41 @@
 .ft-xi-empty-roster{margin:8px 12px;color:#536c83;font-size:12px}
 @media(max-width:720px){.ft-xi-pitch-columns{grid-template-columns:1fr;padding:9px;gap:10px}.ft-xi-pitch{min-height:390px}.ft-xi-side-head{flex-wrap:wrap}.ft-xi-side-head span{text-align:left}}
 
-/* Saved FotMob profiles: an on-demand detail panel, no per-player requests. */
-.ft-player-insights-body{display:grid;grid-template-columns:minmax(210px,34%) minmax(0,1fr);gap:14px}
-.ft-player-picker{min-width:0;max-height:560px;overflow:auto;border:1px solid #dce6f0;border-radius:7px;padding:11px;background:#f7fafc}
-.ft-player-team+.ft-player-team{margin-top:14px}.ft-player-team>b{display:block;font-size:13px;margin-bottom:8px}
-.ft-player-buttons{display:grid;grid-template-columns:1fr;gap:5px}
-.ft-player-select{border:1px solid transparent;border-radius:6px;padding:8px;background:#edf3f9;color:#1b3854;text-align:left;display:flex;align-items:center;gap:8px;font-size:12px}
-.ft-player-select:hover{background:#e3edf8}.ft-player-select[aria-pressed=true]{background:#153d64;color:white;border-color:#153d64}
-.ft-player-select>span{border-radius:4px;background:#fff;color:#1b3854;font-size:11px;font-weight:700;min-width:26px;text-align:center;padding:4px}
-.ft-player-insight-detail{min-width:0;border:1px solid #dce6f0;background:#fff;border-radius:7px;padding:14px}
-.ft-player-detail-heading{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.ft-player-detail-heading h3{font-size:20px;margin:0 0 5px;color:#153d64}
-.ft-player-detail-heading small{font-size:11px;color:#566c80}
-.ft-player-detail-heading a{font-weight:700;font-size:12px;color:#1163a4}
-.ft-player-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.ft-player-metric{background:#f5f8fb;border:1px solid #e1eaf3;border-radius:6px;padding:9px;min-width:0;overflow-wrap:anywhere}
-.ft-player-metric small{font-size:10px;color:#60778a;margin:0 0 4px;display:block}
-.ft-player-metric b{font-size:14px;color:#17324d}
-.ft-player-insight-detail h4{font-size:13px;margin:16px 0 10px;color:#214b72}
-.ft-player-insight-detail h4 small{font-size:10px;font-weight:normal}
-.ft-player-insight-detail>.ft-player-asof{font-size:10px;color:#6b7e8f;margin-top:12px}
-@media(max-width:720px){.ft-player-insights-body{grid-template-columns:1fr}.ft-player-picker{max-height:260px}.ft-player-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.ft-player-insight-detail{padding:10px}}
+
+/* Source-backed XI actions; visually identical pitch positioning, keyboard accessible. */
+.ft-xi-player-action{font:inherit;border:0;cursor:pointer}
+.ft-xi-marker.ft-xi-player-action{padding:0;background:transparent}
+.ft-xi-roster-player.ft-xi-player-action{width:100%;text-align:left}
+.ft-xi-player-action:hover .ft-xi-shirt{border-color:#f7d66a;box-shadow:0 0 0 2px #f7d66a}
+.ft-xi-player-action:focus-visible{outline:3px solid #ffd34b;outline-offset:4px;z-index:5}
+
+/* One shared drawer for official XI players. Desktop right rail, mobile bottom sheet. */
+.ft-player-overlay{position:fixed;inset:0;z-index:1000;display:flex;justify-content:flex-end}
+.ft-player-backdrop{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:rgba(6,25,42,.64);cursor:pointer}
+.ft-player-drawer{position:relative;z-index:1;display:flex;flex-direction:column;width:min(460px,100vw);height:100dvh;background:#fff;box-shadow:-8px 0 30px #0b264752;min-width:0}
+.ft-player-drawer-head{background:#133b62;color:#fff;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:22px 20px}
+.ft-player-drawer-head small{font-size:11px;color:#cae0f6}
+.ft-player-drawer-head h2{font-size:23px;margin:5px 0 8px;line-height:1.22;overflow-wrap:anywhere}
+.ft-player-source{font-size:11px;color:#daebff}
+.ft-player-drawer-close{display:grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid #86a8c8;background:#204c72;color:#fff;font-size:27px;line-height:1;border-radius:7px;cursor:pointer}
+.ft-player-drawer-close:focus-visible,.ft-player-fotmob-link:focus-visible{outline:3px solid #e7bd45;outline-offset:3px}
+.ft-player-drawer-scroll{padding:19px 20px 30px;overflow-y:auto;overscroll-behavior:contain}
+.ft-player-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.ft-player-metric{background:#f5f8fb;border:1px solid #e1eaf3;border-radius:6px;padding:10px;min-width:0;overflow-wrap:anywhere}
+.ft-player-metric small{font-size:11px;color:#60778a;margin:0 0 4px;display:block}
+.ft-player-metric b{font-size:15px;color:#17324d}
+.ft-player-drawer-section{margin-top:21px}
+.ft-player-drawer-section h3{font-size:15px;color:#153b5f;margin:0 0 12px}
+.ft-player-drawer-section h3 small{font-size:11px;font-weight:400}
+.ft-player-drawer-section p,.ft-player-asof,.ft-player-no-profile{font-size:12px;line-height:1.7;color:#586e82}
+.ft-player-asof{margin-top:20px}
+.ft-player-no-profile{padding:15px;background:#f3f6f9;border-radius:6px}
+.ft-player-fotmob-link{display:inline-block;margin-top:14px;border-radius:6px;padding:11px 13px;background:#143c60;color:#fff;text-decoration:none;font-weight:700;font-size:13px}
+.ft-player-fotmob-link:hover{background:#1d568a}
+@media(max-width:720px){
+ .ft-player-overlay{align-items:flex-end}
+ .ft-player-drawer{width:100vw;height:auto;max-height:87dvh;min-height:40dvh;border-radius:18px 18px 0 0;box-shadow:0 -10px 32px #0b264752}
+ .ft-player-drawer-head{padding:17px 16px;border-radius:18px 18px 0 0}
+ .ft-player-drawer-head h2{font-size:21px}
+ .ft-player-drawer-scroll{padding:16px 14px 28px}
+}
