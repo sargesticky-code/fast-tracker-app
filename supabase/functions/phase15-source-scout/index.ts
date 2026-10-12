@@ -280,7 +280,8 @@ Deno.serve(async (req)=>{
       .select("alias,canonical_name,confidence")
       .eq("source","FOTMOB")
       .eq("status","ACTIVE")
-      .gte("confidence",0.94);
+      .gte("confidence",0.94)
+      .range(0,1999);
     if(fmMapRes.error) console.warn("fotmob_alias_query_failed",fmMapRes.error.message);
     const fmTargets=new Map<string,Set<string>>();
     for(const x of fmMapRes.data||[]){
