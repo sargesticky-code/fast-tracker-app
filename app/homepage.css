@@ -84,3 +84,98 @@
  .ft-player-drawer-head h2{font-size:21px}
  .ft-player-drawer-scroll{padding:16px 14px 28px}
 }
+
+
+/* Public match centre: readable, source-honest, and touch friendly. */
+.ft-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.ft-page-heading h1{font-size:29px;line-height:1.1;color:#102d50}
+.ft-page-heading p{font-size:13px;color:#59728b}
+.ft-timezone-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #bed1e4;background:#fff;color:#174776;border-radius:6px;padding:9px 11px;white-space:nowrap;font-size:12px;font-weight:800}
+.ft-source-link{color:#d8e9fa;text-decoration:none;font-size:12px}
+.ft-status-line{margin:10px 0 14px;color:#68809a!important;font-size:11px!important}
+.ft-filter-section{background:#fff;border:1px solid #d6e3f0;border-radius:10px;padding:14px;margin:10px 0 10px;box-shadow:0 2px 8px #173d6609}
+.ft-filter-inputs{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:10px;margin-bottom:13px}
+.ft-filter-inputs>label{display:flex;align-items:center;gap:9px;min-width:0;background:#f8fbff;border:1px solid #ccdaeb;border-radius:7px;color:#42648a;padding:0 12px}
+.ft-filter-inputs input,.ft-filter-inputs select{min-width:0;width:100%;height:40px;border:0;background:transparent;color:#173651;font-size:13px;outline:none}
+.ft-filter-inputs>label:focus-within{border-color:#1f68ab;box-shadow:0 0 0 2px #8fbbef50}
+.ft-filter-row{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:5px 0}
+.ft-filter-row>strong{display:flex;align-items:center;gap:6px;width:80px;flex:0 0 80px;color:#4d6782;font-size:12px}
+.ft-filter-pill{display:inline-flex;gap:5px;align-items:center;justify-content:center;min-height:34px;border:1px solid #d4e2f0;border-radius:7px;background:#f6f9fc;color:#234563;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer}
+.ft-filter-pill:hover{background:#e7f1fd}
+.ft-filter-pill[aria-pressed=true]{border-color:#123d6e;background:#123d6e;color:white}
+.ft-filter-pill span{font-size:10px;opacity:.8;border-radius:5px}
+.ft-filter-pill:focus-visible,.ft-clear-filters:focus-visible,.ft-match-row:focus-visible{outline:3px solid #edba3d;outline-offset:2px}
+.ft-clear-filters{background:none;border:0;color:#a2453a;font-size:12px;font-weight:700;padding:7px 5px;cursor:pointer}
+.ft-daybar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 10px;color:#53718e}
+.ft-daybar .ft-filter-pill{font-variant-numeric:tabular-nums}
+.ft-list-meta{display:flex;justify-content:space-between;gap:9px;align-items:center;padding:10px 2px;color:#193f64;font-size:12px}
+.ft-list-meta small{font-size:11px;color:#7389a0}
+.ft-filter-note{border-left:3px solid #f4c35c;padding:10px 12px;background:#fff9ed;font-size:12px}
+.ft-match-list{border:1px solid #d0dfed;border-radius:10px;overflow:hidden;background:#fff}
+.ft-fixture-group+.ft-fixture-group{border-top:5px solid #edf3f9}
+.ft-league-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 15px;background:#123c6c;color:#fff}
+.ft-league-heading h2{font-size:13px;line-height:1.3;margin:0;overflow-wrap:anywhere}
+.ft-league-heading>span{font-size:11px;color:#c9dfef;white-space:nowrap}
+.ft-top-league-star{color:#f9d35f;margin-right:7px;font-size:14px}
+.ft-match-list .ft-match-row{display:grid;grid-template-columns:minmax(0,1fr) 125px 175px 12px;gap:12px;align-items:center;min-height:72px;padding:10px 16px;border-bottom:1px solid #e3ebf3;background:#fff;text-decoration:none;color:#152f48;font-size:13px}
+.ft-fixture-group .ft-match-row:last-child{border-bottom:0}
+.ft-match-list .ft-match-row:hover{background:#f3f8fd}
+.ft-match-list .ft-match-row>div{padding:0;min-width:0}
+.ft-fixture-main{display:flex;flex-wrap:wrap;align-items:center;gap:12px;min-width:0}
+.ft-fixture-teams{display:grid;gap:5px;min-width:170px;max-width:100%;flex:1 1 170px}
+.ft-fixture-teams strong,.ft-fixture-teams>span{display:block;min-width:0;font-weight:700;color:#163858;font-size:13px}
+.ft-fixture-teams>span{font-weight:500}
+.ft-fixture-teams .ft-team-with-logo{gap:7px;max-width:100%}
+.ft-fixture-teams .ft-team-with-logo>span:last-child{min-width:0;overflow-wrap:anywhere}
+.ft-match-chips{display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex:1 1 220px;min-width:0}
+.ft-match-chip{display:inline-flex;align-items:center;gap:4px;max-width:100%;border:1px solid #dce6f0;border-radius:5px;background:#f6f9fc;padding:5px 6px;color:#284e70;white-space:nowrap}
+.ft-match-chip i{font-size:12px;font-style:normal;color:#1a70b1}
+.ft-match-chip b{font-size:11px;font-weight:800}
+.ft-match-chip small{font-size:9px;color:#657e95}
+.ft-kickoff-cell{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.ft-kickoff-value{font-size:17px;font-weight:800;letter-spacing:.015em;white-space:nowrap;color:#10365b;font-variant-numeric:tabular-nums}
+.ft-kickoff-cell small{font-size:10px;color:#788ba0;white-space:nowrap}
+.ft-match-state{font-size:10px;font-weight:750;color:#637b92}
+.ft-match-state-live{color:#bf3025}.ft-match-state-upcoming{color:#2c6c9f}
+.ft-match-state-started{color:#735a9c}.ft-match-state-finished{color:#5b6980}
+.ft-live-dot{width:7px;height:7px;display:inline-block;margin-right:3px;border-radius:50%;background:#d12a27}
+.ft-odds-cell{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.ft-odds-cell>small{font-size:10px;color:#7d90a3}
+.ft-odds-mini{display:flex;gap:5px;min-width:0;flex-wrap:wrap}
+.ft-odds-mini>span{display:inline-flex;gap:4px;align-items:center;background:#ecf5fd;border:1px solid #d8e8f7;border-radius:5px;padding:5px 7px;color:#123c65}
+.ft-odds-mini small{font-size:10px;color:#6d879e}.ft-odds-mini b{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.ft-odds-unavailable{color:#b3bfcd;font-size:14px}
+.ft-row-arrow{font-size:26px;color:#87a0b9;justify-self:end}
+.ft-empty-state{display:flex;flex-direction:column;align-items:center;gap:12px;margin:18px auto;padding:35px 10px;color:#365a7a}
+.ft-empty-state button{border:1px solid #2a5a87;background:#143c6c;color:#fff;padding:9px 15px;border-radius:6px;cursor:pointer}
+@media(max-width:800px){
+ .ft-match-list .ft-match-row{grid-template-columns:minmax(0,1fr) 112px 135px 9px;gap:9px;padding:10px}
+ .ft-match-chips{flex-basis:100%}
+ .ft-odds-mini>span{padding:4px 5px}
+}
+@media(max-width:650px){
+ .ft-page-heading{align-items:center}.ft-page-heading h1{font-size:24px}
+ .ft-page-heading p{font-size:11px}
+ .ft-timezone-badge{font-size:10px;padding:6px 8px;white-space:normal;max-width:100px}
+ .ft-filter-section{padding:10px 8px}
+ .ft-filter-inputs{grid-template-columns:1fr;gap:6px}
+ .ft-filter-row{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:7px 1px}
+ .ft-filter-row>strong{position:sticky;left:0;z-index:1;background:#fff;width:68px;flex-basis:68px;font-size:11px}
+ .ft-filter-pill{flex:0 0 auto;min-height:35px;padding:7px 9px}
+ .ft-daybar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding:5px 0}
+ .ft-list-meta{align-items:flex-start;flex-direction:column;gap:3px}
+ .ft-league-heading{padding:10px 11px}
+ .ft-match-list .ft-match-row{grid-template-columns:minmax(0,1fr) 95px 10px;grid-template-areas:"team kickoff arrow" "odds odds arrow";column-gap:8px;row-gap:6px;padding:10px;min-height:90px}
+ .ft-match-list .ft-match-row>.ft-fixture-main{grid-area:team;padding:0}
+ .ft-match-list .ft-match-row>.ft-kickoff-cell{grid-area:kickoff;padding:0}
+ .ft-match-list .ft-match-row>.ft-odds-cell{grid-area:odds;padding:0}
+ .ft-row-arrow{grid-area:arrow}
+ .ft-fixture-teams{min-width:0;flex-basis:100%}
+ .ft-fixture-teams strong,.ft-fixture-teams>span{font-size:12px}
+ .ft-match-chips{flex-basis:100%;gap:4px}
+ .ft-match-chip{padding:3px 4px}.ft-match-chip small{font-size:8px}
+ .ft-kickoff-value{font-size:15px}
+ .ft-odds-cell{width:auto}
+ .ft-odds-mini>span{padding:3px 7px}
+ .ft-raw-board{padding:13px 9px}
+}
