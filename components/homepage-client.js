@@ -88,7 +88,6 @@ export default function HomepageClient() {
     <header className="ft-top"><div className="ft-brand"><strong>FAST TRACKER <em>2026</em></strong><small>FLASHSCORE · VERIFIED WHERE AVAILABLE</small></div><a href="/health">Source status</a></header>
     <section className="ft-raw-board">
       <div className="ft-page-heading"><h1>Flashscore fixtures</h1><p>Raw provider fixtures are preferred. Verified canonical Flashscore fixtures appear during collector restart or stale snapshots.</p></div>
-      <p>Snapshot captured: {feed?.generatedAt || "unknown"}. Displayed time zone is unverified.</p>
       <p data-testid="verified-status">
         Verified analysis: {verifiedStatus==="ready"
           ? `${matches.filter(m=>verified?.byId.has(m.id)).length} exact Flashscore IDs linked · bookmaker snapshot ${verified?.bookmakerHealth||"UNKNOWN"}`
@@ -110,10 +109,7 @@ export default function HomepageClient() {
           <div className="ft-source-cell"><span>{m.sourceDate || "Date not supplied"}</span><small>{m.sourceTimeStatus==="VERIFIED_CANONICAL_KICKOFF"
             ? "Canonical kickoff "+m.sourceTime+" UTC"
             : m.sourceTime ? `Source time ${m.sourceTime} (zone unverified)` : "Time not supplied"}</small><CompactEvidence evidence={verified?.byId.get(m.id) || null}/></div>
-          <div className="ft-raw-odds"><span><b>H</b>{m.odds.home ?? "—"}</span><span><b>D</b>{m.odds.draw ?? "—"}</span><span><b>A</b>{m.odds.away ?? "—"}</span><small>{m.quoteStatus==="STALE" ? `Stale quote hidden · last captured ${m.oddsCapturedAt}`
-            :m.quoteStatus==="INVALID"?"Invalid bookmaker quote suppressed"
-            :m.quoteStatus==="FRESH" ? `Reference captured ${m.oddsCapturedAt}`
-            :"Quote not supplied"}</small></div>
+          <div className="ft-raw-odds"><span><b>H</b>{m.odds.home ?? "—"}</span><span><b>D</b>{m.odds.draw ?? "—"}</span><span><b>A</b>{m.odds.away ?? "—"}</span>{m.quoteStatus!=="FRESH" && <small>Odds unavailable</small>}</div>
         </a>)}
       </div>
       {feed && !visible.length && <p>No fixtures match these filters.</p>}

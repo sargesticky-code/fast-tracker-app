@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedMatch, matchObservation } from "@/lib/verified-evidence-feed";
+import FormationPitch from "@/components/formation-pitch";
 
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
@@ -83,13 +84,9 @@ export default function FlashscoreRawMatch() {
     {score && <p className="ft-key-evidence"><b>Verified Flashscore score: {score}</b> · {fixture?.status||"status unknown"}</p>}
 
     {match && <section className="ft-enriched-panel">
-      <h2>Bet365 H / D / A · raw snapshot reference</h2>
+      <h2>Bet365 H / D / A · prematch odds</h2>
       <p>Raw prices: {match.odds.home??"—"} / {match.odds.draw??"—"} / {match.odds.away??"—"}</p>
-      <small>{match.quoteStatus==="STALE"
-        ? "Stale quote hidden · last captured "+match.oddsCapturedAt
-        : match.quoteStatus==="INVALID"?"Invalid bookmaker prices suppressed"
-        : match.quoteStatus==="FRESH"?"Captured "+match.oddsCapturedAt+" · prematch reference only"
-        :"Quote not supplied"} · No verified in-play bookmaker odds.</small>
+      {match.quoteStatus!=="FRESH" && <small>Odds unavailable</small>}
     </section>}
 
     {!analysis && <p role="status">Verified analysis unavailable. Raw fixture fields remain visible.</p>}
@@ -146,16 +143,19 @@ export default function FlashscoreRawMatch() {
       </div>
     </section>}
 
-    {validXI && <section className="ft-enriched-panel" data-testid="official-xi">
-      <h2>Official starting XI</h2>
-      <p>Source: {lineupProvenance.source||"official"} · Observed {lineupProvenance.confirmedAt||"unknown"}.
-        {lineupProvenance.canonicalIdentitiesVerified?" Player identities verified.":" Source XI confirmed; some canonical player identities remain unresolved."}</p>
-      <div className="ft-xi-columns">
-        {["H","A"].map(side=><div key={side}>
-          <b>{side==="H"?home:away}</b>
-          <ul>{lineups.filter(p=>p.team_side===side).map((p,i)=><li key={p.player_key||side+i}>{p.player_name||"Name unknown"}</li>)}</ul>
-        </div>)}
-      </div>
+    {lineups.length>0 && <section className="ft-enriched-panel" data-testid="official-xi">
+      <h2>{validXI ? "Official starting XI" : "Available source lineup"}</h2>
+      <p>{lineupProvenance?.sourceConfirmed === true ? "Source-confirmed starters." : "Incomplete source lineup."}
+        {lineupProvenance?.canonicalIdentitiesVerified === true ? " Canonical player identities verified." : " Player identities not fully canonicalized."}</p>
+      <FormationPitch
+        home={lineups.filter(p=>p.team_side==="H")}
+        away={lineups.filter(p=>p.team_side==="A")}
+        homeTeam={home}
+        awayTeam={away}
+        homeFormation={analysis?.humanFactors?.homeFormation || analysis?.humanFactors?.formation?.home || null}
+        awayFormation={analysis?.humanFactors?.awayFormation || analysis?.humanFactors?.formation?.away || null}
+        confirmed={validXI}
+      />
     </section>}
     {managers.length>0 && <section className="ft-enriched-panel">
       <h2>Manager evidence</h2>
