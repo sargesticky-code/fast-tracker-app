@@ -90,8 +90,7 @@ for(const item of [
  "ON CONFLICT(match_id) DO NOTHING",
  "raw->>'AB'='3'",
  "raw->>'AC'='3'",
- "league_external_id~'^[A-Za-z0-9]{6,16}
-",
+ "league_external_id",
  "source_captured_at<=p_asof",
  "d.fetched_at<=p_asof",
  "s.detail_fetched_at>=s.kickoff_utc+interval '120 minutes'",
