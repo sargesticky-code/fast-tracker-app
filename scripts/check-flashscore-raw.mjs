@@ -20,4 +20,18 @@ for(const root of ["app","components","lib","services"]){
  const retired = String.fromCharCode(104, 107, 106, 99);
  const walk=p=>{for(const e of fs.readdirSync(p,{withFileTypes:true})){const f=`${p}/${e.name}`;if(e.isDirectory()&&!e.name.startsWith("."))walk(f);else if(/\.(js|ts|py|css)$/.test(f)) assert.ok(!new RegExp(retired,"i").test(fs.readFileSync(f,"utf8")),`Retired provider in ${f}`);}};walk(root);
 }
+const dbFix=fs.readFileSync("supabase/migrations/20261012015445_ft_flashscore_registry_from_verified_shadow_in_existing_bookmaker_job_20261012.sql","utf8");
+for (const clause of [
+  "ft_stage_verified_flashscore_from_snapshot",
+  "SOURCE_INVALID","SNAPSHOT_FIXTURE_BUDGET_INVALID",
+  "s.kickoff_utc<now()+interval '48 hours'",
+  "s.fetched_at>=now()-interval '45 minutes'",
+  "ON CONFLICT(canonical_event_id) DO NOTHING",
+  "to_timestamp(provider_epoch::double precision)>now()",
+  "NO_UPCOMING_BOOKMAKER_QUOTES",
+  "greatest(1,ceil(coalesce(v_upcoming,0)*0.90)::int)",
+  "REVOKE ALL ON FUNCTION private.ft_stage_verified_flashscore_from_snapshot"
+]) assert.ok(dbFix.includes(clause),"Missing canonical safety clause: "+clause);
+assert.equal((dbFix.match(/CREATE OR REPLACE FUNCTION/g)||[]).length,2,"Only two bounded functions may change");
+assert.ok(!dbFix.includes("cron.schedule"),"No new cron schedule allowed");
 console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
