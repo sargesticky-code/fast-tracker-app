@@ -247,6 +247,14 @@ Deno.serve(async (req)=>{
   const supabaseUrl=Deno.env.get("SUPABASE_URL")||"", sk=serviceKey();
   if(!supabaseUrl||!sk) return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(supabaseUrl,sk,{auth:{persistSession:false,autoRefreshToken:false}});
+  // Internal cron authentication. Token is read from Vault by pg_net,
+  // never embedded in the repository, response or application logs.
+  if(req.method!=="GET") return Response.json({ok:false,error:"method_not_allowed"},{status:405});
+  const cronKey=req.headers.get("x-ft-cron-key")||"";
+  if(!cronKey) return Response.json({ok:false,error:"unauthorized"},{status:401});
+  const cronAuth=await db.rpc("ft_internal_cron_key_matches",{p_key:cronKey});
+  if(cronAuth.error||cronAuth.data!==true)
+    return Response.json({ok:false,error:"unauthorized"},{status:401});
   const now=new Date(), nowIso=now.toISOString();
   try{
     const reg=await db.from("phase15_source_registry")
