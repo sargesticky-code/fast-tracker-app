@@ -34,4 +34,23 @@ for (const clause of [
 ]) assert.ok(dbFix.includes(clause),"Missing canonical safety clause: "+clause);
 assert.equal((dbFix.match(/CREATE OR REPLACE FUNCTION/g)||[]).length,2,"Only two bounded functions may change");
 assert.ok(!dbFix.includes("cron.schedule"),"No new cron schedule allowed");
+const archiveSQL = fs.readFileSync("supabase/migrations/20261012050500_ft_forebet_verified_180day_independent_archive.sql","utf8");
+for(const contract of [
+  "DROP CONSTRAINT forebet_archive_hkjc_event_id_fkey",
+  "ft_archive_verified_forebet_event",
+  "AFTER INSERT OR UPDATE ON public.forebet_predictions",
+  "f.fetched_at <= m.kickoff_hkt",
+  "COALESCE(f.match_score,0)>=0.94",
+  "ON CONFLICT(match_id,captured_at) DO UPDATE",
+  "cron.alter_job(48",
+  "180 days",
+  "REVOKE ALL ON FUNCTION private.ft_archive_verified_forebet_event"
+]) assert.ok(archiveSQL.includes(contract),"Missing durable archive contract: "+contract);
+assert.ok(!archiveSQL.includes("cron.schedule"),"Do not add a second archive job");
+const feedSource=fs.readFileSync("supabase/functions/app-phase1-feed/index.ts","utf8");
+const sourceClient=fs.readFileSync("lib/verified-evidence-feed.js","utf8");
+for(const contract of ["verifiedCompactSummaryRow","compactOnly?matches.map(verifiedCompactSummaryRow):matches", 'view:compactOnly?"compact":"summary"'])
+  assert.ok(feedSource.includes(contract),"Missing compact fast-RPC contract: "+contract);
+assert.ok(sourceClient.includes("view=compact&hours=48"));
+assert.ok(sourceClient.includes("verified_summary_contract_invalid"));
 console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
