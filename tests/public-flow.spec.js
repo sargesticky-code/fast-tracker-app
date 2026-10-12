@@ -58,6 +58,22 @@ function mockEndpoints(page,{raw=snapshot,source=summary,deep=detail}={}){
   page.route("**/functions/v1/app-phase1-feed**",r=>source===null?r.fulfill({status:503,body:"Unavailable",headers:cors}):r.fulfill({json:source,headers:cors}));
   page.route("**/functions/v1/app-match-detail**",r=>deep===null?r.fulfill({status:503,body:"Unavailable",headers:cors}):r.fulfill({json:deep,headers:cors}));
 }
+test("Flashscore team names use the matching Supabase logo sprite tiles",async({page})=>{
+ const raw={...snapshot,discovered:snapshot.discovered.map(f=>f.provider_event_id==="event0"
+   ?{...f,home:"Coventry",away:"Newcastle"}:f)};
+ mockEndpoints(page,{raw});
+ page.route("**/storage/v1/object/public/football-logos/team-logo-index.json",r=>r.fulfill({json:{
+  atlas:"football-logo-atlas.webp",columns:64,rows:73,aliases:{},logos:{
+   "coventry city":[{x:1,y:0}],newcastle:[{x:2,y:0}]
+  }
+ },headers:cors}));
+ await page.goto("http://127.0.0.1:4173/");
+ const firstRow=page.locator(".ft-match-row").first();
+ await expect(firstRow.getByText("Coventry",{exact:true})).toBeVisible();
+ await expect(firstRow.getByText("Newcastle",{exact:true})).toBeVisible();
+ await expect(firstRow.locator(".ft-team-logo")).toHaveCount(2);
+ await expect(firstRow.locator(".ft-team-logo").first()).toHaveCSS("background-image",/football-logo-atlas\.webp/);
+});
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
  test("raw with exact-ID verified enrichment "+viewport.width,async({page})=>{
   await page.setViewportSize(viewport);
@@ -96,7 +112,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await page.getByText("Original Flashscore source fields").click();
   await expect(page.locator("pre")).toContainText('"time_text": null');
   expect(external.every(url=>url.includes("fast-tracker-dashboard-production.up.railway.app/snapshot")
-    ||url.includes("hekqxhgjexzxnecwhyao.supabase.co/functions/v1/"))).toBeTruthy();
+    ||url.includes("hekqxhgjexzxnecwhyao.supabase.co/functions/v1/")
+    ||url.includes("hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos/"))).toBeTruthy();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await page.screenshot({path:"test-results/enriched-detail-"+viewport.width+".png",fullPage:true});
  });
