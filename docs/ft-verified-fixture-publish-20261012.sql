@@ -159,7 +159,8 @@ BEGIN
     -- Snapshot includes started/completed matches; they are not eligible
     -- for publication and must not inflate the acceptance denominator.
     SELECT count(*)::integer n FROM mapped
-    WHERE provider_epoch ~ '^[0-9]{10}
+    WHERE provider_epoch ~ '^[0-9]{10}$'
+      AND to_timestamp(provider_epoch::double precision)>now()
   )
   SELECT count(*)::integer,count(distinct candidate)::integer,
     jsonb_agg(jsonb_build_object(
@@ -190,53 +191,6 @@ BEGIN
       'captured_at',v_captured,'total_provider_rows',v_total);
   END IF;
   IF v_count < greatest(1,ceil(coalesce(v_upcoming,0)*0.90)::int)
-     OR v_count<>v_distinct OR v_rows IS NULL THEN
-    RAISE EXCEPTION 'flashscore_snapshot_identity_gate_failed rows_% provider_total_% upcoming_% distinct_%',
-      v_count,v_total,v_upcoming,v_distinct;
-  END IF;
-  v_result:=public.ft_publish_flashscore_hda_current(
-     v_rows,
-     jsonb_build_object('publication_mode','DIRECT_DATABASE_VERIFIED_PROVIDER_SNAPSHOT',
-       'captured_at',v_captured,'total_provider_rows',v_total,
-       'eligible_upcoming_provider_rows',v_upcoming,
-       'matched_verified_upcoming_rows',v_count,
-       'source_http','RAILWAY_COLLECTOR_SNAPSHOT')
-  );
-  RETURN v_result || jsonb_build_object(
-    'captured_at',v_captured,
-    'total_provider_rows',v_total,
-    'eligible_upcoming_provider_rows',v_upcoming,
-    'verified_upcoming_rows',v_count);
-END
-$function$
-
-      AND to_timestamp(provider_epoch::double precision)>now()
-  )
-  SELECT count(*)::integer,count(distinct candidate)::integer,
-    jsonb_agg(jsonb_build_object(
-      'match_id',candidate,
-      'fetched_at',v_captured,
-      'match_date',to_char(kickoff_hkt AT TIME ZONE 'UTC','YYYY-MM-DD'),
-      'kickoff_hkt',kickoff_hkt,
-      'league',tournament,
-      'home',home_en,'away',away_en,
-      'home_odds',home_price,'draw_odds',draw_price,'away_odds',away_price,
-      'provider_fixture_id',event_id,
-      'match_quality', CASE WHEN redirect_confidence IS NOT NULL
-        THEN redirect_confidence WHEN match_confidence IS NOT NULL
-        THEN greatest(match_confidence,0.94) ELSE 0.995 END,
-      'raw',jsonb_build_object(
-        'capture',item,
-        'provider_epoch',provider_epoch,
-        'publication_mode','DIRECT_DATABASE_VERIFIED_PROVIDER_SNAPSHOT'
-      ),
-      'updated_at',now()
-    )),
-    max(source_upcoming.n)
-  INTO v_count,v_distinct,v_rows,v_upcoming
-  FROM approved CROSS JOIN source_upcoming;
-
-  IF coalesce(v_upcoming,0) < 10 OR v_count < greatest(10,ceil(coalesce(v_upcoming,0)*0.90)::int)
      OR v_count<>v_distinct OR v_rows IS NULL THEN
     RAISE EXCEPTION 'flashscore_snapshot_identity_gate_failed rows_% provider_total_% upcoming_% distinct_%',
       v_count,v_total,v_upcoming,v_distinct;
