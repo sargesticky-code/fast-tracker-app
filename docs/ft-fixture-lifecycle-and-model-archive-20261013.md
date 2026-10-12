@@ -1,7 +1,7 @@
-# 2026-10-13 Fast Tracker: hide completed fixtures, preserve prospective accuracy evidence
+# 2026-10-13 Fast Tracker: separate active/ended fixtures, preserve prospective accuracy evidence
 
 ## Approval and scope
-Owner approved removing concluded matches from the primary dashboard while retaining compact verified historical results and frozen pre-kickoff forecasts for future accuracy checks. This patch targets the existing `release/ft-advisors-fotmob-20261011` frontend. It does not modify Supabase, cron, providers, detail routes, historical records, odds capture, or production settings.
+Owner approved moving concluded matches into a dedicated Ended matches tab while retaining compact verified historical results and frozen pre-kickoff forecasts for future accuracy checks. This patch targets the existing `release/ft-advisors-fotmob-20261011` frontend. It does not modify Supabase, cron, providers, detail routes, historical records, odds capture, or production settings.
 
 ## Source-backed diagnosis
 - Before the patch, `components/homepage-client.js` rendered the entire raw `snapshot.discovered` list, and `lib/flashscore-raw-feed.js` deliberately preserved all discovered rows without status filtering.
@@ -10,10 +10,10 @@ Owner approved removing concluded matches from the primary dashboard while retai
 - Some raw fixture time text has ambiguous/unknown timezone or nonstandard suffixes (for example `13:30FRO`); do not interpret its clock value as UTC or invent a terminal result.
 
 ## Change
-- Introduce a display-only `showFixtureOnDashboard` gate. Hide explicit terminal/inactive statuses (`FT`, `FINISHED`, `AET`, `PEN`, cancellation/abandonment etc.) immediately when actually supplied by the provider/verified summary.
-- If verified absolute kickoff exists, retain up to five hours beyond kickoff to avoid hiding live/extra-time games due to a stale upstream `PREEVENT` status. This is a conservative fallback **not a verified full-time detector**.
-- When neither status nor timezone-safe kickoff exists, exclude source calendar days older than yesterday UTC; do not infer sourceTime timezone.
-- Apply the filter to homepage listing, dates, competitions, match counts, and search only. The raw event remains retrievable on its detail route and from preserved private archives.
+- Introduce a display-only `showFixtureOnDashboard` gate. Move explicit terminal/inactive statuses to Ended matches (`FT`, `FINISHED`, `AET`, `PEN`, cancellation/abandonment etc.) immediately when actually supplied by the provider/verified summary.
+- If verified absolute kickoff exists, retain up to three hours beyond kickoff to avoid hiding live/extra-time games due to a stale upstream `PREEVENT` status. This is a conservative fallback **not a verified full-time detector**.
+- When neither status nor timezone-safe kickoff exists, move source calendar days older than yesterday UTC to Ended matches; do not infer sourceTime timezone.
+- Apply the Active/Ended view filter to homepage listing, dates, competitions, match counts, and search only. The Ended matches tab displays available collected records, not the complete private results archive. The raw event remains retrievable on its detail route and from preserved private archives.
 - Pass through verified exact-provider-ID kickoff and explicit status; scores alone do not imply a terminal match.
 - Update Playwright baselines to future-relative match dates, add a terminal-status/homepage-vs-detail regression, add deterministic lifecycle checks to `check:raw`.
 
