@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 30316)
+Total output lines: 1097
+
 # Dashboard Redesign Handover — 2026-10-03
 
 ## Scope completed in this batch
@@ -573,19 +576,7 @@ The behavior review was intentionally iterative rather than treating the first m
 #### Final behavior evidence
 
 Final rendered suite: **31/31 passed in 24.0s**. In addition to the prior desktop/mobile product-flow cases, the behavior suite now demonstrates:
-- delayed Phase-1 feed lane remains single-flight under repeated refresh triggers;
-- delayed detail endpoint remains page-level single-flight across both `MatchDetailClient` and `LineupPanel`;
-- delayed live lane remains single-flight while pending;
-- delayed analysis and story lanes remain single-flight across accelerated repeated timer ticks;
-- test-only forced AbortSignal expiry reaches `finally`, clears the gate, permits a later retry and does not allow the old aborted response to overwrite the later result;
-- a transport/read 503 renders `Match data is currently unavailable` and does not become a false canonical-fixture-absent state;
-- a conclusive `fixtureSource:MISSING` detail result cannot be resurrected by an older delayed Phase-1 feed;
-- authoritative stale/terminal detail remains ahead of an older prematch feed, including the visible source state;
-- homepage fixture identity + predicted score carry into the detail route, and when the English story endpoint is unavailable the English evidence fallback remains readable while legacy Chinese analysis prose is suppressed.
-
-All existing safety contracts remained green: English story cache/fallback, provider/market, real-evidence safety, evidence independence, player identity, static build/routes and rendered desktop/mobile product flow.
-
-CI artifact: `11280132390`, `dashboard-redesign-ab12c4bf97717219d1cd3266264f255d6eddbe16`, SHA256 `fd09c8802a336cf12d2664e3214e892afe7375bca6bf53cd554cd588a94eae2e`.
+- delayed Phase-1 feed lane remains single-flight under …316 tokens truncated…artifact: `11280132390`, `dashboard-redesign-ab12c4bf97717219d1cd3266264f255d6eddbe16`, SHA256 `fd09c8802a336cf12d2664e3214e892afe7375bca6bf53cd554cd588a94eae2e`.
 
 #### Combined review semantics
 
@@ -1038,3 +1029,60 @@ No cron schedule or DB-writing function has been changed, disabled or manually f
 - [x] PR41 `Translate live WATCH rationale cleanly` merged as `6019f7a35ba8f4a95bde59a2d54f2a40c19676d0`; app-match-analysis v38 Edge SHA `005ea910d5d959557a8e4db7cfe32273978b4137cb4ef2b9a9b6b0cc63c5251c` deployed. FB6144 read-only verification remained `WATCH`, 0 CJK, and now returns a grammatical English rationale while preserving EV, evidence-family and auto-stake gates.
 - [x] Database scheduler stability continued through 10:55 UTC: 648 natural pg_cron runs since 06:38 UTC, all 648 succeeded, 0 failed, 0 startup timeout.
 - [ ] The targeted Forebet-success -> Static Data Push `workflow_run` bridge is source-controlled and the Static Push workflow itself passed run #291, but the 10:45 UTC scheduled Forebet producer had not entered the GitHub Actions queue by 10:55 UTC. Keep this as scheduler-level natural acceptance pending; do not replace it with a manual producer dispatch.
+
+### Phase 1 probability safety — 2026-10-05
+
+- Baseline main: `60dcd75231c5620491dce4a1879ba3de00f3661b`; branch `fix/phase1-missing-probabilities`.
+- Missing H/D/A values now fail closed; a valid fallback model remains visible. Homepage and EV share normalization. Null average goals remain unknown.
+- Seven local contract/safety checks and static export build passed. Real full feed: 34 fixtures, 26 modelled, eight unknown, zero invalid revised distributions.
+- Local Chromium download failed; desktop/mobile tests and screenshots await draft PR CI. No production change.
+- Full continuation state and next fixture-window gap: `docs/phase1-checkpoint-2026-10-05.md`.
+
+- PR42 executable head `af24bd4e4d002e2a2a043f1607a391ea15b02cd4`: CI `37244231413` SUCCESS. Screenshot artifact `11318033739`; new desktop/mobile unknown/fallback cases visually reviewed. Production remains unchanged.
+
+### Phase 1 fixture navigation — iteration 2
+
+- Extends draft PR42 from accepted parent `577769417e4c2cfefe952c66760a1953d625f163`.
+- Removes silent 30-row truncation, requests supported 48h window, fixes static/calendar date drift and separates live from upcoming filters.
+- Current real summary: 34 unique fixtures / three live; Oct5=14, Oct6=19, Oct7=1 HKT.
+- Local checks/build passed; responsive CI and screenshot acceptance pending. No release/database/schedule/provider changes.
+- Detailed continuation: `docs/phase1-checkpoint-2026-10-05.md`.
+
+- Iteration 2 accepted executable `3cebf6ee2c0268aa65afdd7b825eb3abbde31fc0`: CI `37245034168` SUCCESS, 36/36 cases. Artifact `11318463911`, desktop/mobile navigation screenshots reviewed.
+- Responsive regression exposed hidden mobile search; field/layout repaired. Prematch EV is suppressed in live right rail. Real 48h request added four canonical fixtures versus 24h (30 -> 34).
+- No merge/deployment. Next: audit homepage nominal value classification against candidate bands and quote timestamps. Wider +2-day provider window remains unavailable.
+
+### Phase 1 quote attribution — iteration 4
+
+Continues PR42 accepted parent a0d62b99a1417ef9d76fc2590f8564dd582b7d86. Homepage HDA labels now follow explicit quote metadata, preserve evidenced legacy prematch HKJC attribution and fail closed to Source unverified for unknown/live attribution. Read-only 04:39:48Z snapshot has 39 legacy rows, no explicit international quote metadata. Seven checks/build pass; desktop/mobile source-attribution CI pending. Full continuation in docs/phase1-checkpoint-2026-10-05.md. No DB write, provider release, merge or deployment.
+
+### Phase 1 mobile card meanings — iteration 5
+
+Accepted attribution/freshness head eb5952f9bd800556ddddb5eaccb1091968fd2642, CI 37264830851 SUCCESS. Current batch adds small English labels to mobile numeric card cells; desktop layout and real-data calculations preserved. Existing 390px flow asserts all five labels. Local checks/build pass; CI screenshot acceptance pending. No release or database mutation. Durable checkpoint remains docs/phase1-checkpoint-2026-10-05.md.
+
+- Iteration 5 accepted executable ab2aa3ed46cbe93d4f8cd7e77486774959a5134c: CI 37271080985 SUCCESS, 40/40 tests, artifact 11327534116; 1440px/390px screenshots inspected. Mobile value meanings are clear; desktop unchanged.
+- Real 06:10:42Z full feed: 39 unique fixtures / 24 valid probability triplets / zero score predictions / all average goals unknown. Next inspect existing internal/form goal-model output and joins for honest coverage, preserving probability and fixture gates. No production change.
+
+### Phase 1 goal-output wiring — iteration 6
+
+Executable 822a007c8e73783f85b9fe1637820d7f6aa95398, CI 37272765696 SUCCESS; 40-case flow/build/contracts pass, artifact 11328912124 desktop/mobile inspected. Existing Forebet structured score/average goals now display; valid FORM_MODELED expected-goals pairs recover average goals without inferring score. Fresh 06:30:45Z snapshot: 38 unique fixtures, 16 supported average-goals estimates, zero published scores. Remaining score-source gap honest. Next inspect detail/goal provenance consistency. No deployment/DB mutation.
+
+### Phase 1 detail goal consistency — iteration 7
+
+Executable 704eb25716d9a3bf7b446f35a7988c172f7b148e; CI 37274487219 SUCCESS, 40-case suite; artifact 11329444235 desktop/mobile detail hero inspected. Shared score/average-goals summary with source text now survives homepage-to-detail journey. Real FB6279 authoritative detail at 06:50:43Z retains FORM_MODELED expected goals 1.14563/1.06879. Next inspect deep-only model hydration and null movement coercion. No database change, release or merge.
+
+### Phase 1 detail-only goals — iteration 8
+
+Executable 435e09b7de362c7a2605bd9fc3da86544fac7b64, CI 37276307386 SUCCESS (42/42, 32.2s); artifact 11330576031 desktop/mobile inspected. Goal summary recovers strictly matched canonical authoritative models during empty feed, without creating a predicted score or bet recommendation. Saved real FB6279 produces 2.21442 goals. Next detail-only availability banner/count remains NO MODEL/0 inputs despite valid Form probabilities; repair shared hydration/counting with existing identity/market gates. No release or DB mutation.
+
+### Phase 1 Form availability — iteration 9
+
+Executable b07ce190b4d8d23d238424df812d5760fe393be9; CI 37278145804 SUCCESS, 42-case flow/contracts/build. Artifact 11331381537 desktop/mobile inspected. Strictly matched FORM_MODELED probabilities appear in detail core table; false NO MODEL banner removed, independent recommendation/price gates unchanged. Saved FB6279 real detail validates 37.433/28.990/33.577%. Next null movement normalization. No merge/deployment/DB mutation.
+
+### Phase 1 movement safety — iteration 10
+
+Executable 15f34a672be2cd02bbb254bf0fa3c686d3d7d700, CI 37280064573 SUCCESS (44-case flow/contracts/build). Artifact 11332240800 desktop/mobile reviewed. Null/blank/invalid move no longer becomes Stable/0%; genuine zero retained; implied-probability changes labelled pp. Fresh 07:51:11Z feed has 40 fixtures and zero movement objects, so next investigate existing producer/join/freshness rather than manufacture history. No database mutation or release.
+
+### Phase 1 movement importer — iteration 11
+
+Executable 75d8db13939fef715b6343d5eca35d05501826c8, CI 37282463703 SUCCESS: ingestion identity/freshness/unknown gates, build/routes and 44/44 browser cases (41.0s). Source-only restoration of missing optional movement CSV importer; core sync hashes include movement and failed importer is not marked applied. DB 147 rows last captured Sept22; producer 22 rows latest Oct5 13:56 HKT; only two recent strict rows accepted, no baselines. No production recovery claimed. Review Deno packaging/compile, concurrent-writer monotonicity and Edge release/natural-run acceptance before deployment. No write/trigger/merge/release.

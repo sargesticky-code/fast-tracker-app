@@ -10,7 +10,7 @@ const paths=["hkjc_current.csv","forebet_current.csv","model_current.csv","team_
 const ALLOWED_PATHS=new Map(paths.map(x=>[`data/${x}`,x]));
 const CORE_SYNC_PATHS=new Set([
   "hkjc_current.csv","forebet_current.csv","model_current.csv","team_alias_registry.csv",
-  "form_current.csv","prediction_fallback_current.csv","forebet_availability.csv","h2h_summary.csv"
+  "form_current.csv","prediction_fallback_current.csv","forebet_availability.csv","h2h_summary.csv","odds_movement.csv"
 ]);
 const JWKS=createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks`));
 const MAX_FILE_BYTES=4_500_000;

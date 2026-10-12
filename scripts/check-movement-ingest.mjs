@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const {movementRowsForFixtures} = await import('data:text/javascript;base64,'+fs.readFileSync('supabase/functions/_shared/prematch-movement.js').toString('base64'));
+const now=Date.parse('2026-10-05T08:00:00Z');
+const fixture={hkjc_event_id:'CANONICAL',home_en:'Home Team',away_en:'Away Team',kickoff_hkt:'2026-10-05T10:00:00Z'};
+const row={hkjc_event_id:'CANONICAL',home:'Home Team',away:'Away Team',kickoff_hkt:fixture.kickoff_hkt,captured_at_hkt:'2026-10-05T07:00:00Z',now_odds:'2.2',movement_side:'H',match_confidence:'1',odds_24h:'',move_24h_pp:''};
+const accepted=movementRowsForFixtures([row],[fixture],now);
+assert.equal(accepted.length,1);assert.equal(accepted[0].odds_24h,null);assert.equal(accepted[0].move_24h_pp,null);assert.equal(Date.parse(accepted[0].captured_at),Date.parse(row.captured_at_hkt));
+for(const patch of [{home:'Other'},{kickoff_hkt:'2026-10-06T10:00:00Z'},{hkjc_event_id:'OTHER'},{captured_at_hkt:'2026-09-22T07:00:00Z'},{captured_at_hkt:'2026-10-06T07:00:00Z'},{match_confidence:'0.9'},{now_odds:null},{movement_side:'UNKNOWN'}]) assert.equal(movementRowsForFixtures([{...row,...patch}],[fixture],now).length,0);
+assert.equal(movementRowsForFixtures([row,row],[fixture],now).length,0);
+assert.equal(movementRowsForFixtures([row],[fixture,fixture],now).length,0);
+console.log('Movement ingestion gates passed: strict identity, freshness, duplicate fail-closed and unknown baselines.');

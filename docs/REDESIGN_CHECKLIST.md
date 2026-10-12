@@ -2,6 +2,9 @@
 
 ## Completed foundation
 
+- [x] Phase 1 probability gate rejects missing values and preserves valid fallback models and no-model fixtures.
+- [x] PR42 CI 37244231413 and desktop/mobile missing-probability screenshots verified; production release separate.
+
 - [x] English public homepage
 - [x] Today / Live / Value / Tomorrow / All football navigation
 - [x] navy / blue / yellow public visual system
@@ -124,3 +127,47 @@ Before stopping a redesign session, record:
   - A current live-feed ID `FB6174` still returned `fixtureSource=MISSING` from `app-match-detail` despite auxiliary model/player evidence, so the canonical fixture/detail acceptance gap remains real.
 - Real-device mobile acceptance is still open: the available browser connector does not expose device/viewport emulation for the live deployed app, and the reviewed source is not released. CI mobile screenshots are deterministic mocked coverage only.
 - No merge, deployment, Edge release, migration, DB write, feed publication, access expansion or spending occurred.
+
+## Phase 1 fixture navigation — iteration 2
+
+- [x] Use current Hong Kong date, preserving separate calendar selection.
+- [x] Request supported 48h feed and show all returned rows.
+- [x] Separate live from upcoming date/value/weekend filters.
+- [x] Label partial date-window coverage; preserve unknown metadata.
+- [x] Navigation CI 37245034168: 36/36 passed; 1440px/390px screenshots reviewed. Mobile search now accessible.
+
+## Phase 1 quote attribution — iteration 4
+
+- [x] Remove unconditional HKJC HDA label; explicit quote metadata wins.
+- [x] Unknown source and live quotes cannot inherit prematch bookmaker attribution.
+- [x] Preserve genuine legacy feed attribution (39/39 current rows); no claimed international coverage.
+- [ ] Record source-attribution desktop/mobile CI and screenshots.
+
+- [x] Final quote source/freshness CI 37264830851 passed; screenshots verified.
+- [x] Add mobile-only meanings for prediction, score, goals, EV and live-score cells.
+- [ ] Record final mobile-card label CI/screenshots.
+
+- [x] Mobile-card label CI 37271080985: 40/40 passed; artifact 11327534116 desktop/mobile reviewed.
+- [ ] Recover genuinely supported predicted-score/average-goals output: real 39-row feed currently has neither, despite 24 valid probability triplets.
+
+- [x] Structured published score/goal fields wired to homepage; valid Team Form per-team expected goals summed with model gates.
+- [x] Iteration 6 CI 37272765696 SUCCESS; artifact 11328912124 desktop/mobile inspected. Fresh real coverage 16/38 average goals, zero published scores.
+
+- [x] Match detail hero uses shared goal summary; source text and unknown dash preserved.
+- [x] Iteration 7 CI 37274487219 SUCCESS; artifact 11329444235 desktop/mobile hero inspected.
+- [ ] Verify authoritative detail-only model hydration for goal summary; repair null movement normalization.
+
+- [x] Strictly matched authoritative detail-only goal summary fallback; conflicting fixture/model IDs rejected.
+- [x] CI 37276307386: 42/42 passed; artifact 11330576031 desktop/mobile inspected.
+- [ ] Correct detail-only model availability banner/counts while preserving price/actionability gates.
+
+- [x] Detail-only authoritative Form availability: identity/quality/probability gates, truthful hero and core table.
+- [x] CI 37278145804 SUCCESS; artifact 11331381537 desktop/mobile inspected.
+
+- [x] Missing movement remains unavailable; true zero preserved; implied-probability change uses pp.
+- [x] CI 37280064573 SUCCESS; artifact 11332240800 desktop/mobile null/zero screenshots reviewed.
+- [ ] Repair genuine movement coverage: current 40-fixture feed has zero movement objects.
+
+- [x] Diagnose movement gap: current producer CSV, stale DB; deployed sync lacks importer.
+- [x] Implement strict optional movement importer and core hash tracking; CI 37282463703 ingestion/build/44-case suite passed.
+- [ ] Reviewed Edge compilation/release and natural movement acceptance; concurrent-writer monotonicity review remains open.

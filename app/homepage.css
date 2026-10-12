@@ -534,3 +534,22 @@ button,input{font:inherit}
   .ft-footer-banner{display:none}
   .ft-home{padding-bottom:14px}
 }
+
+/* Keep fixture search usable on phones and tablets. */
+@media(max-width:900px){
+  .ft-top{height:100px;flex-wrap:wrap;gap:6px;padding:8px 10px}
+  .ft-brand{margin-right:auto}
+  .ft-search{display:flex;order:3;flex-basis:100%;width:100%;margin:0}
+  .ft-search input{min-width:0;font-size:16px}
+  .ft-filterbar{top:100px}
+}
+
+.ft-value-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.ft-value-state>small{font-size:9px;color:var(--ft-muted);line-height:1.1}
+.ft-featured-meta small{display:block;color:var(--ft-muted);font-size:10px;margin-top:3px}
+
+/* Card cells retain their meaning when desktop column headings are hidden. */
+@media(max-width:900px){
+  .ft-match-row>div[data-label]{position:relative;padding-top:23px;min-height:54px}
+  .ft-match-row>div[data-label]::before{content:attr(data-label);position:absolute;top:5px;left:7px;right:7px;font-size:9px;line-height:12px;color:var(--ft-muted);font-weight:600;text-align:center}
+}
