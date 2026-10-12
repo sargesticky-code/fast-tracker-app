@@ -240,6 +240,31 @@ function observedFlashscoreStats(detail:any,kickoff:any){
     semantics:"OBSERVED_MATCH_STATS_NOT_VERIFIED_LIVE_STATUS",stats};
 }
 
+// Homepage only needs exact-ID forecast badges and canonical fallback context.
+// This response shape is deliberately compact and requires NO additional SQL.
+function verifiedCompactSummaryRow(m: any) {
+  const src=m?.sourceContext??{};
+  const c=src.lineupCoverage??{};
+  const detail=m?.forebetDetail??{};
+  return {
+    id:m.id,kickoff:m.kickoff,league:m.league,home:m.home,away:m.away,
+    scoreHome:m.scoreHome,scoreAway:m.scoreAway,scoreSource:m.scoreSource,
+    forebet:m.forebet??null,
+    forebetDetail:{
+      predictedScore:detail.predictedScore??null,
+      ou25:detail.ou25??null,
+      corners95:detail.corners95??null
+    },
+    sourceContext:{
+      source:src.source??null,
+      lineupAvailable:src.lineupAvailable===true,
+      lineupCoverage:{homeStarters:c.homeStarters??null,awayStarters:c.awayStarters??null,
+        updatedAt:c.updatedAt??null},
+      observedStats:src.observedStats??null
+    }
+  };
+}
+
 function directAuthoritySummaryRow(r: any, liveNow = false) {
   const freshness = authorityFreshness(r.fetched_at);
   const pricesFresh = freshness.status === "FRESH" && new Date(String(r.kickoff_hkt||0)).getTime()>Date.now();
@@ -661,7 +686,9 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const requested = Number(url.searchParams.get("hours") ?? "24");
     const hours = Math.max(1, Math.min(48, Number.isFinite(requested) ? requested : 24));
-    const summaryOnly = String(url.searchParams.get("view") ?? "").toLowerCase() === "summary";
+    const requestedView = String(url.searchParams.get("view") ?? "").toLowerCase();
+    const compactOnly = requestedView === "compact";
+    const summaryOnly = requestedView === "summary" || compactOnly;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serverKey = getServerKey();
@@ -712,8 +739,9 @@ Deno.serve(async (req: Request) => {
         return Response.json({
           generatedAt:new Date().toISOString(),
           source:"flashscore-single-rpc-canonical",
-          view:"summary",windowHours:hours,
-          count:matches.length,matches,
+          view:compactOnly?"compact":"summary",windowHours:hours,
+          count:matches.length,
+          matches:compactOnly?matches.map(verifiedCompactSummaryRow):matches,
           systemHealth:{
             FLASHSCORE_BET365:{
               status:publisherStatus,
