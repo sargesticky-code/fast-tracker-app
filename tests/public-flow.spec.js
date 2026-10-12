@@ -1044,3 +1044,78 @@ test("authoritative stale detail remains ahead of a delayed prematch feed", asyn
   await expect(page.getByText("SUPABASE · fresh", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stale-price protection is active.")).toBeVisible();
 });
+
+
+test("production authority v2 restores English homepage fixtures", async ({ browser }) => {
+  test.setTimeout(90000);
+  const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
+  const page = await context.newPage();
+
+  const endpointStarted = Date.now();
+  const endpoint = await page.request.get(
+    "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?hours=24&view=summary",
+    { timeout: 30000 }
+  );
+  const endpointMs = Date.now() - endpointStarted;
+  let feed = null;
+  try { feed = await endpoint.json(); } catch {}
+
+  let nav = null;
+  let feedResponse = null;
+  const feedPromise = page.waitForResponse(
+    (res) => res.url().includes("/functions/v1/app-phase1-feed") && res.url().includes("view=summary"),
+    { timeout: 30000 }
+  ).catch(() => null);
+
+  nav = await page.goto(
+    "https://fast-tracker-app.sargesticky.workers.dev/?authorityv2=" + Date.now(),
+    { waitUntil: "domcontentloaded", timeout: 30000 }
+  );
+  feedResponse = await feedPromise;
+  await page.waitForTimeout(3000);
+
+  const body = await page.locator("body").innerText().catch(() => "");
+  const rows = await page.locator(".ft-match-row").count();
+  const firstRow = rows ? await page.locator(".ft-match-row").first().innerText().catch(() => "") : "";
+  let browserFeed = null;
+  if (feedResponse?.ok()) {
+    try { browserFeed = await feedResponse.json(); } catch {}
+  }
+
+  const evidence = {
+    directEndpoint: {
+      status: endpoint.status(),
+      ms: endpointMs,
+      source: feed?.source ?? null,
+      count: Array.isArray(feed?.matches) ? feed.matches.length : null,
+      first: Array.isArray(feed?.matches) && feed.matches[0] ? {
+        id: feed.matches[0].id,
+        home: feed.matches[0].home,
+        away: feed.matches[0].away,
+        kickoff: feed.matches[0].kickoff,
+        odds: feed.matches[0].odds,
+        hkjcFreshness: feed.matches[0].health?.hkjcFreshness ?? null,
+      } : null,
+    },
+    cloudflare: {
+      status: nav?.status() ?? null,
+      feedStatus: feedResponse?.status() ?? null,
+      feedSource: browserFeed?.source ?? null,
+      feedCount: Array.isArray(browserFeed?.matches) ? browserFeed.matches.length : null,
+      renderedRows: rows,
+      unavailable: body.includes("Fixture feed temporarily unavailable"),
+      firstRow: firstRow.slice(0, 500),
+    },
+  };
+  console.log("AUTHORITY_V2_ACCEPTANCE " + JSON.stringify(evidence));
+
+  expect(endpoint.status()).toBe(200);
+  expect(["hkjc-official-direct","hkjc-authority-snapshot"]).toContain(feed?.source);
+  expect(Array.isArray(feed?.matches) ? feed.matches.length : 0).toBeGreaterThan(0);
+  expect(nav?.status()).toBe(200);
+  expect(feedResponse?.status()).toBe(200);
+  expect(rows).toBeGreaterThan(0);
+  expect(body.includes("Fixture feed temporarily unavailable")).toBeFalsy();
+
+  await context.close();
+});
