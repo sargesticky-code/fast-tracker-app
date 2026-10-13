@@ -123,3 +123,10 @@
 - Rechecked draft PR #104: it remains open, draft, and mergeable against `release/ft-advisors-fotmob-20261011`. Published head `fc5e5cb41e46018782dfa74d32c12dda52dfe552` passed exact-head GitHub Actions run [38407122146](https://github.com/sargesticky-code/fast-tracker-app/actions/runs/38407122146) (run 735). Updated the acceptance matrix to remove the stale CI blocker.
 - No source files or live data changed in this checkpoint. The newest bounded read-only source sample remains the 2026-10-13 21:17 HKT sample above; it is not deployed UI acceptance evidence.
 - Next: keep the draft reviewable and monitor for review feedback or new exact-ID source evidence; do not repeat successful CI/build/browser checks unless code changes. Public rendered deployment revision remains unknown. Production deployment and migration application still require separate approval. User-authorized hourly continuation remains through 09:00 HKT on 2026-10-14.
+
+
+## Live coverage continuation — 2026-10-13 22:52 HKT
+
+- Bounded, read-only source refresh: compact API generated at `2026-10-13T14:52:08Z` returned 321 fixtures (18 LIVE, 28 FINISHED, 3 STATUS_UNVERIFIED, 272 SCHEDULED); 35 fixtures had complete 11+11 lineups. This is up from the prior 27/322 sample. The raw snapshot captured at `2026-10-13T14:47:05Z` retained 241 discovered fixtures and 105/105 complete valid 1X2 quote records younger than 20 minutes (up from 104).
+- The compact sample still had 0/321 complete H/D/A forecast triplets, predicted scores, Forebet O/U 2.5 pairs, and Forebet corner pairs; domestic historical form remained 12 home, 11 away, 11 both. These are live API counts, not proof the deployed dashboard revision is current. PR #104 has no new comments or review submissions.
+- Updated the acceptance matrix with this source delta. Next: verify exact-head CI for the documentation update, then wait for independent review, changed source coverage, or explicit release approval. Do not repeat full build/browser checks absent code changes; no production release or migration application is authorized.
