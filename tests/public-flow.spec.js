@@ -488,6 +488,8 @@ test("previous captured odds display honestly, including opening comparison, not
   for(const value of ["4.33","3.80","1.76","Opened 3.50","Opened 3.30","Opened 2.01"])
     await expect(panel).toContainText(value);
   await expect(panel).toContainText("not live");
+  await expect(panel).toContainText("UK");
+  await expect(panel).not.toContainText("null");
 });
 test("strict prematch gate keeps invalid or stale odds out of current-price panel",async({page})=>{
   const at=new Date(Date.now()-48*3600_000).toISOString();
