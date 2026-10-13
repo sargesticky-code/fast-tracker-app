@@ -171,7 +171,7 @@ test("raw remains available when verified analysis fails",async({page})=>{
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   await page.locator(".ft-match-row").click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
-  await expect(page.getByText("Verified analysis unavailable. Raw fixture fields remain visible.")).toBeVisible();
+  await expect(page.getByText("More match details are not available yet.")).toBeVisible();
 });
 test("unavailable raw source does not invent fixture counts",async({page})=>{
   mockEndpoints(page,{raw:null,source:null,deep:null});
@@ -183,7 +183,7 @@ test("mismatched analysis identity is rejected, not joined by team names",async(
   mockEndpoints(page,{deep:{...detail,id:"FS:wrong",fixture:{...detail.fixture,match_id:"FS:wrong"}}});
   await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
-  await expect(page.getByText("Verified analysis unavailable. Raw fixture fields remain visible.")).toBeVisible();
+  await expect(page.getByText("More match details are not available yet.")).toBeVisible();
   await expect(page.getByTestId("official-xi")).toHaveCount(0);
 });
 
