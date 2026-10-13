@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { spawnSync } = require("node:child_process");
 const fs = require("fs");
 fs.mkdirSync("test-results",{recursive:true});
 const snapshot = {
@@ -598,4 +599,13 @@ test("unverified canonical source cannot be mislabelled as Bet365 odds on match 
   mockEndpoints(page,{deep,raw:{...snapshot,fixtures:[]}});
   await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
   await expect(page.getByTestId("match-odds")).toContainText("No recorded odds");
+});
+
+test("bounded bookmaker selection keeps major leagues and full quota under budget",async()=>{
+  // This is a pure Python test suite; no network, browser captures or production writes.
+  const run=spawnSync("python3",["-m","unittest","discover",
+    "-s","services/flashscore-odds-collector","-p","test_day_budget.py"],{
+    encoding:"utf8",timeout:10000
+  });
+  expect(run.status,run.stderr||run.stdout||String(run.error)).toBe(0);
 });
