@@ -56,7 +56,7 @@ function OddsPanel({match,fixture}) {
         </div>)}
       </div>
       <p className="ft-odds-note">{showFresh?"Recent prematch quote":"Recorded earlier · not live"}
-        {reasonableTime?" · "+ukDate(time):""}</p>
+        {reasonableTime?" · "+ukDate(match.rawQuote?.captured_at||match.oddsCapturedAt):""}</p>
     </>:<p className="ft-odds-note" data-testid="odds-missing">No recorded odds available for this match.</p>}
   </section>;
 }
