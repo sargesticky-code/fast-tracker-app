@@ -14,6 +14,52 @@ function percentDecimal(v) { return v==null ? "—" : knownNumber(Number(v)*100,
 function scoredPair(h,a) {
   return Number.isInteger(h) && Number.isInteger(a) ? h+"–"+a : null;
 }
+function priceTriplet(source) {
+  if(!source || typeof source!=="object") return null;
+  const values=["home","draw","away"].map(key=>source[key]);
+  if(values.some(v=>v===null||v===undefined||v===""||!Number.isFinite(Number(v))
+    ||Number(v)<1.01||Number(v)>100)) return null;
+  return values.map(v=>Number(v));
+}
+function ukDate(value) {
+  const timestamp=Date.parse(String(value||""));
+  if(!Number.isFinite(timestamp)) return null;
+  return new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Europe/London",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+  }).format(new Date(timestamp))+" UK";
+}
+function OddsPanel({match,fixture}) {
+  if(!match) return null;
+  const recorded=match.rawQuote?.provider_event_id===match.providerEventId
+    ?priceTriplet(match.rawQuote?.hda):null;
+  const fresh=priceTriplet(match.odds);
+  const time=Date.parse(String(match.rawQuote?.captured_at||match.oddsCapturedAt||""));
+  const reasonableTime=Number.isFinite(time)&&time<=Date.now()+60_000&&time>=Date.now()-7*86400000;
+  const kickoff=Date.parse(String(fixture?.kickoff_hkt||""));
+  const future=Number.isFinite(kickoff)&&kickoff>Date.now();
+  const showFresh=future&&match.quoteStatus==="FRESH"&&fresh!==null;
+  const prices=showFresh?fresh:(reasonableTime?recorded:null);
+  const opening=reasonableTime&&recorded?priceTriplet({
+    home:match.rawQuote?.hda?.opening_home,
+    draw:match.rawQuote?.hda?.opening_draw,
+    away:match.rawQuote?.hda?.opening_away
+  }):null;
+  return <section className="ft-enriched-panel ft-match-odds" data-testid="match-odds">
+    <div className="ft-panel-title-row"><h2>{showFresh?"Recent prematch odds":prices?"Previous odds":"Match odds"}</h2>
+      <span className="ft-panel-source">{prices?"Bet365-labelled snapshot":""}</span>
+    </div>
+    {prices ? <>
+      <div className="ft-match-prices" aria-label="Stored home, draw and away prices">
+        {["Home","Draw","Away"].map((label,i)=><div key={label} className="ft-match-price">
+          <small>{label}</small><strong>{prices[i].toFixed(2)}</strong>
+          {opening && <span>Opened {opening[i].toFixed(2)}</span>}
+        </div>)}
+      </div>
+      <p className="ft-odds-note">{showFresh?"Recent prematch quote":"Recorded earlier · not live"}
+        {reasonableTime?" · "+ukDate(match.rawQuote?.captured_at||match.oddsCapturedAt):""}</p>
+    </>:<p className="ft-odds-note" data-testid="odds-missing">No recorded odds available for this match.</p>}
+  </section>;
+}
 function PlayerStats({ data }) {
   const list=Array.isArray(data?.humanFactors?.playerMatchStats)
     ? data.humanFactors.playerMatchStats.filter(p=>p?.playerId&&p?.playerName)
@@ -29,8 +75,7 @@ function PlayerStats({ data }) {
   </div>;
   return <section className="ft-enriched-panel" data-testid="fotmob-player-stats">
     <h2>Match player performance · FotMob</h2>
-    <p>Source observed: {data?.humanFactors?.playerMatchStatsMeta?.observedAt||"unknown"} · {list.length} player records.
-       Official-XI joins use exact FotMob player IDs; unknown statistics remain blank.</p>
+    <p>{list.length} recorded player performances</p>
     {rated.length>0 && <div className="ft-stats-grid">{rated.map(row)}</div>}
     <details><summary>All {list.length} player records</summary><div className="ft-stats-grid">{list.map(row)}</div></details>
   </section>;
@@ -81,27 +126,22 @@ export default function FlashscoreRawMatch() {
     && lineups.filter(p=>p.team_side==="H").length===11 && lineups.filter(p=>p.team_side==="A").length===11;
   return <main className="ft-home ft-raw-detail">
     <a href="/">← All fixtures</a>
-    <p>{match?.league||fixture?.tournament||"Football"} · Flashscore ID {id}</p>
+    <p className="ft-match-competition">{String(match?.league||fixture?.tournament||"Football").replace(/:\s*(?:Live Standings|Standings|Draw|Results)$/i,"")}</p>
     <h1>{home} vs {away}</h1>
-    {match && <p>Raw source date: {match.sourceDate||"—"} · displayed time: {match.sourceTime||"not supplied"} · time zone unverified</p>}
-    {fixture?.kickoff_hkt && <p>Canonical fixture kickoff: {fixture.kickoff_hkt}</p>}
-    {score && <p className="ft-key-evidence"><b>Verified Flashscore score: {score}</b> · {fixture?.status||"status unknown"}</p>}
+    <p className="ft-match-when">{ukDate(fixture?.kickoff_hkt) || "Kickoff time unavailable"}
+      {score && <strong> · {score}</strong>}</p>
 
-    {match && <section className="ft-enriched-panel">
-      <h2>Bet365 H / D / A · prematch odds</h2>
-      <p>Raw prices: {match.odds.home??"—"} / {match.odds.draw??"—"} / {match.odds.away??"—"}</p>
-      {match.quoteStatus!=="FRESH" && <small>Odds unavailable</small>}
-    </section>}
+    <OddsPanel match={match} fixture={fixture}/>
 
-    {!analysis && <p role="status">Verified analysis unavailable. Raw fixture fields remain visible.</p>}
+    {!analysis && <p role="status">More match details are not available yet.</p>}
     {analysis && <section className="ft-enriched-panel" data-testid="verified-match-analysis">
-      <h2>Verified predictions</h2>
+      <h2>Match predictions</h2>
       {forebet ? <div className="ft-stats-grid">
         <div><b>Forebet predicted score: {forebet.predicted_score||"—"}</b>
-          <small>Average goals: {knownNumber(forebet.avg_goals,2)} · Captured {forebet.fetched_at||"unknown"}</small></div>
+          <small>Average goals: {knownNumber(forebet.avg_goals,2)}</small></div>
         <div><b>Forebet H / D / A</b>
           <small>{knownNumber(forebet.prob_home,1)}% / {knownNumber(forebet.prob_draw,1)}% / {knownNumber(forebet.prob_away,1)}%</small></div>
-      </div>: <p>Forebet forecast unavailable for this exact canonical event.</p>}
+      </div>: null}
       {forebet && [forebet.prob_over25,forebet.prob_under25].every(v=>v!=null && Number.isFinite(Number(v)))
         && Math.abs(Number(forebet.prob_over25)+Number(forebet.prob_under25)-100)<=2 && (
         <div className="ft-stats-grid" data-testid="forebet-goals-25">
@@ -124,8 +164,7 @@ export default function FlashscoreRawMatch() {
       {model && <p>Qualified internal model (DC) · H {percentDecimal(model.dc_prob_home)}% /
         D {percentDecimal(model.dc_prob_draw)}% /
         A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
-      {!model && <p>Internal model not verified for this match.</p>}
-      <p>Goal-line and corner predictions are shown only when real source fields exist. Unknown values remain unknown.</p>
+      {!forebet && !model && <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
     </section>}
 
     {observed && <section className="ft-enriched-panel" data-testid="historical-flashscore-stats">
@@ -149,8 +188,7 @@ export default function FlashscoreRawMatch() {
 
     {lineups.length>0 && <section className="ft-enriched-panel" data-testid="official-xi">
       <h2>{validXI ? "Official starting XI" : "Available source lineup"}</h2>
-      <p>{lineupProvenance?.sourceConfirmed === true ? "Source-confirmed starters." : "Incomplete source lineup."}
-        {lineupProvenance?.canonicalIdentitiesVerified === true ? " Canonical player identities verified." : " Player identities not fully canonicalized."}</p>
+      <p>{validXI?"Tap any player for their profile.":"Available players are shown below."}</p>
       <FormationPitch
         home={lineups.filter(p=>p.team_side==="H")}
         away={lineups.filter(p=>p.team_side==="A")}
@@ -162,12 +200,19 @@ export default function FlashscoreRawMatch() {
         onPlayerSelect={setSelectedPlayer}
       />
     </section>}
-    {managers.length>0 && <section className="ft-enriched-panel">
-      <h2>Manager evidence</h2>
-      <div className="ft-stats-grid">{managers.map((m,i)=><div key={m.team_side||i}>
-        <b>{m.team_side==="H"?"Home":"Away"} coach</b>
-        <small>{m.evidence_value||m.manager_key||m.manager_name||"Unknown"} · {m.source_name||analysis?.humanFactors?.managerProvenance?.source||"Source unavailable"}</small>
-      </div>)}</div>
+    {managers.some(m=>m.team_side==="H"||m.team_side==="A") && <section className="ft-enriched-panel" data-testid="match-coaches">
+      <h2>Coaches</h2>
+      <div className="ft-coach-grid">
+        {["H","A"].map(side=>{
+          const coach=managers.find(m=>m.team_side===side &&
+            (m.evidence_value||m.manager_name||m.manager_key));
+          return coach?<div key={side} className={"ft-coach-card "+(side==="H"?"ft-coach-home":"ft-coach-away")}>
+            <small>{side==="H"?"Home":"Away"} coach</small>
+            <strong>{coach.evidence_value||coach.manager_name||coach.manager_key}</strong>
+            <span>{side==="H"?home:away}</span>
+          </div>:null;
+        })}
+      </div>
     </section>}
     {selectedPlayer && <FotMobPlayerInsights
       player={selectedPlayer}
@@ -175,7 +220,5 @@ export default function FlashscoreRawMatch() {
       homeTeam={home} awayTeam={away}
       onClose={closePlayerProfile} />}
     {analysis && <PlayerStats data={analysis}/>}
-    {match && <details><summary>Original Flashscore source fields</summary>
-      <pre>{JSON.stringify({fixture:match.raw,quote:match.rawQuote},null,2)}</pre></details>}
   </main>;
 }
