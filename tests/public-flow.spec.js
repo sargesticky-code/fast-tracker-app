@@ -687,3 +687,57 @@ test("expired, malformed and legacy-source model never appears as current advice
     await expect(page.getByTestId("prediction-unavailable")).toHaveText("No prediction for this match yet.");
   }
 });
+
+test("compact advisors show verified DC and PI when fixture and source are current, but not retired Form",async({page})=>{
+  const future=new Date(Date.now()+6*3600000).toISOString(),captured=new Date().toISOString();
+  const source={...summary,matches:[{
+    ...summary.matches[0],kickoff:future,forebet:null,forebetDetail:{},
+    advisors:{
+      dc:{home:0.49,draw:0.27,away:0.24},
+      pi:{home:0.45,draw:0.28,away:0.27},
+      form:{home:0.5,draw:0.3,away:0.2},
+      dcMeta:{quality:"MODELED",source:"football-data.co.uk main / penaltyblog 1.12.2",fetchedAt:captured,trainingMatches:90},
+      formMeta:{quality:"FORM_MODELED",source:"OLD_RETIRED_HISTORY",fetchedAt:captured}
+    }
+  }]};
+  mockEndpoints(page,{source,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  const row=page.getByTestId("fixture-row").filter({hasText:"Home 0"}).first();
+  await expect(row.getByTestId("advisor-dc-hda")).toContainText("49/27/24%");
+  await expect(row.getByTestId("advisor-pi-hda")).toContainText("45/28/27%");
+  await expect(row.getByTestId("advisor-form-hda")).toHaveCount(0);
+  await expect(page.getByTestId("advisor-dc-summary")).toContainText("1 verified forecasts");
+  await expect(page.getByTestId("advisor-pi-summary")).toContainText("1 (same model source)");
+  await expect(page.getByTestId("advisor-forebet-summary")).toContainText("0 saved forecasts");
+});
+test("the compact advisor feed never turns stale or malformed model values into picks",async({page})=>{
+  const future=new Date(Date.now()+4*3600000).toISOString(),
+    expired=new Date(Date.now()-8*86400000).toISOString();
+  const source={...summary,matches:[{...summary.matches[0],kickoff:future,forebet:null,forebetDetail:{},
+    advisors:{dc:{home:0.6,draw:0.25,away:0.15},pi:{home:0.4,draw:0.3,away:0.3},
+      dcMeta:{quality:"MODELED",source:"football-data.co.uk main / penaltyblog 1.12.2",fetchedAt:expired}}}]};
+  mockEndpoints(page,{source,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("advisor-dc-summary")).toContainText("0 verified forecasts");
+  const row=page.getByTestId("fixture-row").filter({hasText:"Home 0"}).first();
+  await expect(row.getByTestId("advisor-dc-hda")).toHaveCount(0);
+  await expect(row.getByTestId("advisor-pi-hda")).toHaveCount(0);
+});
+test("canonical fallback admits only fresh individually exact-identity verified fixtures",async({page})=>{
+  const source={source:"supabase-lightweight-enrichment-recovery",
+    recoveryMode:"LIGHTWEIGHT_CANONICAL_EVIDENCE",
+    generatedAt:new Date().toISOString(),
+    matches:[
+      {...summary.matches[0],sourceContext:{
+        ...summary.matches[0].sourceContext,identityStatus:"EXACT_CANONICAL_PROVIDER_FIXTURE"}},
+      {...summary.matches[1],sourceContext:{
+        ...summary.matches[1].sourceContext,identityStatus:"SOURCE_NAME_ONLY"}}
+    ]};
+  mockEndpoints(page,{source,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("overview-details")).toContainText("1");
+  const bad={...source,generatedAt:new Date(Date.now()-3600000).toISOString()};
+  mockEndpoints(page,{source:bad,deep:null});
+  await page.reload();
+  await expect(page.getByTestId("overview-insight-status")).toContainText("Stats limited");
+});
