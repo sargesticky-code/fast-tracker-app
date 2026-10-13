@@ -134,10 +134,13 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
   if (!evidence) return null;
   const chips=[];
   if (evidence.score) chips.push({label:"Actual score",value:evidence.score.home+"–"+evidence.score.away,mark:"⚽",test:"match-score"});
-  if (evidence.prediction) chips.push({label:"Predicted score",value:evidence.prediction,mark:"◇",test:"match-prediction"});
-  if (evidence.forebet) chips.push({label:"Forebet H/D/A",value:[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>Math.round(p*100)).join("/")+"%",mark:"%",test:"forebet-hda"});
+  if (evidence.prediction) chips.push({label:evidence.forebetCurrent?"Forebet predicted score":"Saved Forebet score",value:evidence.prediction,mark:"◇",test:"match-prediction"});
+  if (evidence.forebet) chips.push({label:evidence.forebetCurrent?"Forebet H/D/A":"Saved Forebet H/D/A",value:[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>Math.round(p*100)).join("/")+"%",mark:"%",test:"forebet-hda"});
   if (evidence.forebetOU25) chips.push({label:"Forebet O/U 2.5",value:(evidence.forebetOU25.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetOU25.pick==="Over"?evidence.forebetOU25.over:evidence.forebetOU25.under)*100)+"%",mark:"↗",test:"forebet-goals-25"});
   if (evidence.forebetCorners95) chips.push({label:"Forebet corners 9.5",value:(evidence.forebetCorners95.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetCorners95.pick==="Over"?evidence.forebetCorners95.over:evidence.forebetCorners95.under)*100)+"%",mark:"⚑",test:"forebet-corners-95"});
+  if (evidence.dc) chips.push({label:"Dixon–Coles (verified source)",value:[evidence.dc.home,evidence.dc.draw,evidence.dc.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◈",test:"advisor-dc-hda"});
+  if (evidence.pi) chips.push({label:"Power Index (same source as DC)",value:[evidence.pi.home,evidence.pi.draw,evidence.pi.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◇",test:"advisor-pi-hda"});
+  if (evidence.form) chips.push({label:"Verified Form model",value:[evidence.form.home,evidence.form.draw,evidence.form.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"○",test:"advisor-form-hda"});
   const homeForm=evidence.historicalForm?.home, awayForm=evidence.historicalForm?.away;
   if(homeForm||awayForm) chips.push({label:"Last results",value:`H ${homeForm?.results||"—"} · A ${awayForm?.results||"—"}`,mark:"↗",test:"historical-form"});
   if (evidence.confirmedXI) chips.push({label:"Official XI",value:"XI",mark:"♟",test:"confirmed-xi"});
@@ -285,14 +288,19 @@ export default function HomepageClient() {
   const counts={all:matches.length,featured:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
     details:matches.filter(m=>Boolean(m.evidence)).length,
     live:matches.filter(m=>m.phase==="live").length,
-    xi:matches.filter(m=>m.evidence?.confirmedXI).length,prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
+    xi:matches.filter(m=>m.evidence?.confirmedXI).length,
+    forebet:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
+    dc:matches.filter(m=>m.evidence?.dc).length,
+    pi:matches.filter(m=>m.evidence?.pi).length,
+    form:matches.filter(m=>m.evidence?.form).length,
+    prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form).length,
     odds:matches.filter(m=>oddsText(m)).length,
     recentOdds:matches.filter(m=>m.quote?.type==="recent").length};
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="featured"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
-    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
+    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>(a.phase==="live"?0:1)-(b.phase==="live"?0:1)
     ||a.info.priority-b.info.priority
@@ -365,9 +373,10 @@ export default function HomepageClient() {
         </div>
         <div className="ft-advisor-overview" data-testid="advisor-coverage" aria-label="Prediction advisor sources">
           <strong>Prediction sources</strong>
-          <span data-testid="advisor-forebet-summary"><i aria-hidden="true">◇</i> Forebet · {verifiedStatus==="ready"?counts.prediction:"—"} matches with saved forecast</span>
-          <span><i aria-hidden="true">◈</i> Dixon–Coles · Match details only when verified</span>
-          <span><i aria-hidden="true">○</i> Form · Legacy, inactive</span>
+          <span data-testid="advisor-forebet-summary"><i aria-hidden="true">◇</i> Forebet · {verifiedStatus==="ready"?counts.forebet:"—"} saved forecasts</span>
+          <span data-testid="advisor-dc-summary"><i aria-hidden="true">◈</i> Dixon–Coles · {verifiedStatus==="ready"?counts.dc:"—"} verified forecasts</span>
+          <span data-testid="advisor-pi-summary"><i aria-hidden="true">◇</i> Power Index · {verifiedStatus==="ready"?counts.pi:"—"} (same model source)</span>
+          <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"Legacy inactive"}</span>
           <span><i aria-hidden="true">○</i> BetClan · Not connected</span>
           <span><i aria-hidden="true">○</i> SportyTrader · Not connected</span>
           <small>Prices are bookmaker quotes, not independent predictions. Missing or retired sources do not count as picks.</small>
