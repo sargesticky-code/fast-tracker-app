@@ -197,7 +197,7 @@ test("cold or stale raw snapshot uses exact canonical source fallback without in
   await page.locator(".ft-match-row").filter({hasText:"Home 0"}).first().click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
-  await expect(page.getByTestId("match-odds")).toHaveCount(0);
+  await expect(page.getByTestId("match-odds")).toContainText("No recorded odds available");
 });
 
 test("stale raw bookmaker prices are suppressed without hiding the fixture",async({page})=>{
