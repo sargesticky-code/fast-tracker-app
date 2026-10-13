@@ -1,9 +1,10 @@
 """Does not touch network, Supabase, APIs or real source pages."""
 import sys
 import unittest
+from datetime import datetime, timezone, date
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from day_budget import day_plan,allocate,league_priority
+from day_budget import day_plan,allocate,league_priority,collector_calendar_date
 
 def virtual(league,home,away):
     return any(x in (league+" "+home+" "+away).lower() for x in ("virtual","esoccer"))
@@ -83,6 +84,15 @@ class DayBudgetTests(unittest.TestCase):
         selection=allocate(rows,4,set(),"2026-10-13",virtual)
         self.assertEqual([x["event_id"] for x in selection],
                          ["earlier","early","later","late"])
+
+    def test_uk_calendar_boundary_and_gmt_switch(self):
+        self.assertEqual(
+            collector_calendar_date(datetime(2026,10,13,23,30,tzinfo=timezone.utc)),
+            date(2026,10,14))  # UK still BST; tomorrow has already begun
+        self.assertEqual(
+            collector_calendar_date(datetime(2026,11,1,23,30,tzinfo=timezone.utc)),
+            date(2026,11,1))  # UK now GMT
+        self.assertRaises(ValueError,collector_calendar_date,datetime(2026,10,13,23,30))
 
     def test_single_day_or_small_capacity(self):
         self.assertEqual(day_plan(0,360),[(0,360)])
