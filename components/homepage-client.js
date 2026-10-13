@@ -10,8 +10,9 @@ const COUNTRIES=["SOUTH AMERICA","NORTH AMERICA","UNITED STATES","CZECH REPUBLIC
   "SAUDI ARABIA","NEW ZEALAND","ENGLAND","SCOTLAND","NETHERLANDS","PORTUGAL","ARGENTINA",
   "AUSTRALIA","BELGIUM","COLOMBIA","COSTA RICA","CYPRUS","DENMARK","ECUADOR","EGYPT",
   "ESTONIA","FRANCE","GERMANY","GUATEMALA","HONG KONG","HUNGARY","INDIA","IRAN","IRELAND",
-  "ITALY","JAMAICA","JAPAN","MALTA","MEXICO","MOROCCO","NICARAGUA","NORWAY","PARAGUAY",
+  "ITALY","JAMAICA","JAPAN","KAZAKHSTAN","MALTA","MEXICO","MOROCCO","NICARAGUA","NORWAY","PARAGUAY",
   "POLAND","RUSSIA","SPAIN","SWEDEN","SWITZERLAND","TURKEY","URUGUAY","USA","WALES","BRAZIL",
+  "ALGERIA","BELARUS","GREECE",
   "AFRICA","ASIA","EUROPE","WORLD"];
 const alphaCollator=new Intl.Collator("en",{sensitivity:"base",numeric:true});
 const normalizeCompetition=value=>String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
@@ -75,7 +76,7 @@ function Icon({name}) {
 function parseLeague(rawName) {
   const raw=String(rawName||"Football").trim();
   let clean=raw.replace(/\s*:\s*(?:Live Standings|Standings|Draw|Playoffs|Fixtures|Results)\s*$/i,"")
-    .replace(/\u00a0/g," ").trim();
+    .replace(/\u00a0/g," ").replace(/[:\s]+$/g,"").trim();
   let country="";
   for (const candidate of COUNTRIES) {
     if (clean.toUpperCase().endsWith(candidate) && clean.length>candidate.length) {

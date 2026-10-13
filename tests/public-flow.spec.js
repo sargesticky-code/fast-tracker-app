@@ -427,7 +427,12 @@ test("remove Standings and source navigation text; group major leagues above les
     {provider_event_id:"event2",home:"Bremen",away:"Stuttgart",competition:"BundesligaGERMANY: Live Standings",fixture_date:"2026-10-13",time_text:null},
     {provider_event_id:"event3",home:"Paris FC",away:"Lyon",competition:"Ligue 1FRANCE: Live Standings",fixture_date:"2026-10-13",time_text:null},
     {provider_event_id:"event4",home:"Some Team",away:"Another Team",competition:"Premier LeagueJAMAICA: Live Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event5",home:"Bragantino",away:"Cruzeiro",competition:"Serie ABRAZIL: Live Standings",fixture_date:"2026-10-13",time_text:null}
+    {provider_event_id:"event5",home:"Bragantino",away:"Cruzeiro",competition:"Serie ABRAZIL: Live Standings",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event6",home:"Team A",away:"Team B",competition:"Ligue 1ALGERIA",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event7",home:"Team C",away:"Team D",competition:"Premier LeagueKAZAKHSTAN: Standings",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event8",home:"Team E",away:"Team F",competition:"Super League 2GREECE",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event9",home:"Team G",away:"Team H",competition:"Vysshaya LigaBELARUS",fixture_date:"2026-10-13",time_text:null},
+    {provider_event_id:"event10",home:"Team I",away:"Team J",competition:"Friendly International WomenWORLD:",fixture_date:"2026-10-13",time_text:null}
   ],fixtures:[]};
   mockEndpoints(page,{raw,source:null});
   await page.goto("http://127.0.0.1:4173/");
@@ -440,12 +445,14 @@ test("remove Standings and source navigation text; group major leagues above les
   expect(names.join(" ")).not.toMatch(/Standings|: Draw/);
   await expect(page.getByTestId("fixture-list")).not.toContainText("Flashscore event");
   await page.getByTestId("scope-other").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(2);
+  await expect(page.getByTestId("fixture-row")).toHaveCount(7);
   const otherNames=await page.locator(".ft-league-heading h2").allTextContents();
   expect(otherNames.some(n=>n.includes("Jamaica"))).toBeTruthy();
   expect(otherNames.some(n=>n.includes("Brazil"))).toBeTruthy();
+  for(const name of ["Ligue 1 · Algeria","Premier League · Kazakhstan","Super League 2 · Greece","Vysshaya Liga · Belarus","Friendly International Women · World"]) expect(otherNames.join(" ")).toContain(name);
+  expect(otherNames.join(" ")).not.toMatch(/ALGERIA|KAZAKHSTAN|GREECE|BELARUS|WORLD:|Standings/);
   await page.getByTestId("scope-all").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(6);
+  await expect(page.getByTestId("fixture-row")).toHaveCount(11);
 });
 test("status and insights filters distinguish completed from elapsed but unverified fixtures",async({page})=>{
   const source={...summary,matches:[{...summary.matches[0],status:"SCHEDULED"},
