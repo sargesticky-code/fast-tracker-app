@@ -193,7 +193,7 @@ test("cold or stale raw snapshot uses exact canonical source fallback without in
   await expect(page.getByTestId("canonical-fallback")).toContainText("2 saved matches");
   await expect(page.locator(".ft-match-row")).toHaveCount(2);
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
-  await expect(page.locator(".ft-odds-cell").first()).toContainText("No fresh odds");
+  await expect(page.locator(".ft-odds-cell").first()).toContainText("No recorded odds");
   await page.locator(".ft-match-row").filter({hasText:"Home 0"}).first().click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
@@ -206,18 +206,21 @@ test("stale raw bookmaker prices are suppressed without hiding the fixture",asyn
   await expect(page.locator(".ft-match-row")).toHaveCount(40);
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
-  await expect(row.locator(".ft-odds-cell")).toContainText("No fresh odds");
+  await expect(row.locator(".ft-odds-cell")).toContainText("No recorded odds");
   await expect(row.locator(".ft-odds-cell")).not.toContainText("2.2");
 });
 test("fresh complete bookmaker reference prices display but are never called live",async({page})=>{
   const captured=new Date().toISOString();
   const raw={...snapshot,captured_at:captured,
     fixtures:[{provider_event_id:"event1",hda:{home:2.2,draw:3.3,away:4.4},captured_at:captured}]};
-  mockEndpoints(page,{raw,source:null,deep:null});
+  const kickoff=new Date(Date.now()+3*3600000).toISOString();
+  const source={...summary,fixtureKickoffs:[{id:"FS:event1",kickoff}]};
+  mockEndpoints(page,{raw,source,deep:null});
   await page.goto("http://127.0.0.1:4173/");
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
-  await expect(row.locator(".ft-odds-cell")).toContainText("2.2");
+  await expect(row.locator(".ft-odds-cell")).toContainText("2.20");
+  await expect(row.getByTestId("match-odds-status")).toContainText("Recent");
   await expect(row.locator(".ft-odds-cell")).not.toContainText("captured");
   await expect(row.locator(".ft-odds-cell")).not.toContainText("live");
 });
@@ -500,4 +503,73 @@ test("strict prematch gate keeps invalid or stale odds out of current-price pane
   await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
   await expect(page.getByTestId("match-odds")).toContainText("Previous odds");
   await expect(page.getByTestId("match-odds")).not.toContainText("Recent prematch odds");
+});
+
+
+test("exact-ID compact prices are visible even when raw provider quote is absent",async({page})=>{
+  const at=new Date().toISOString();
+  const kickoff=new Date(Date.now()+5*3600000).toISOString();
+  const source={...summary,fixtureKickoffs:[{id:"FS:event0",kickoff}],
+    matches:[{...summary.matches[0],kickoff,odds:{home:2.15,draw:3.36,away:4.6},
+      oddsCapturedAt:at,oddsLabel:"Bookmaker reference"}]};
+  const raw={...snapshot,fixtures:[]};
+  mockEndpoints(page,{source,raw});
+  await page.goto("http://127.0.0.1:4173/");
+  await page.getByLabel("Search",{exact:true}).fill("Home 0");
+  const row=page.getByTestId("fixture-row").filter({hasText:"Home 0"}).first();
+  await expect(row.locator(".ft-odds-mini")).toContainText("2.15");
+  await expect(row.locator(".ft-odds-mini")).toContainText("3.36");
+  await expect(row.locator(".ft-odds-mini")).toContainText("4.60");
+  await expect(row.getByTestId("match-odds-status")).toContainText("Bookmaker reference");
+  await expect(row.getByTestId("match-odds-status")).toContainText("Recent");
+  await expect(page.getByTestId("overview-odds")).toContainText("1");
+  await page.getByRole("button",{name:/Recent/}).last().click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(1);
+});
+test("previous exact-ID collector quote remains visible with a clear age label",async({page})=>{
+  const previous=new Date(Date.now()-35*60000).toISOString();
+  const kickoff=new Date(Date.now()+5*3600000).toISOString();
+  const raw={...snapshot,fixtures:[{provider_event_id:"event1",captured_at:previous,
+    hda:{home:3.65,draw:3.25,away:2.01}}]};
+  const source={...summary,fixtureKickoffs:[{id:"FS:event1",kickoff}]};
+  mockEndpoints(page,{source,raw});
+  await page.goto("http://127.0.0.1:4173/");
+  await page.getByLabel("Search",{exact:true}).fill("Home 1");
+  const row=page.getByTestId("fixture-row").first();
+  await expect(row.locator(".ft-odds-mini")).toContainText("3.65");
+  await expect(row.getByTestId("match-odds-status")).toContainText("Earlier");
+  await expect(row.getByTestId("match-odds-status")).toContainText("Bet365-labelled");
+  await expect(row.getByTestId("match-odds-status")).not.toContainText("Live");
+  await page.getByRole("button",{name:/Recent/}).last().click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(0);
+  await page.getByTestId("overview-odds").click();
+  await expect(page.getByTestId("fixture-row")).toHaveCount(1);
+});
+test("no bogus current prices with past kickoff, wrong event ID, or invalid triplets",async({page})=>{
+  const at=new Date().toISOString();
+  const past=new Date(Date.now()-5*60*1000).toISOString();
+  const future=new Date(Date.now()+2*3600000).toISOString();
+  const source={...summary,fixtureKickoffs:[{id:"FS:event0",kickoff:past},{id:"FS:event1",kickoff:future}],
+    matches:[{...summary.matches[0],kickoff:past,
+      odds:{home:2.2,draw:3.2,away:3.3},oddsCapturedAt:at},
+      {...summary.matches[1],kickoff:future,
+      odds:{home:2.2,draw:null,away:3.3},oddsCapturedAt:at}]};
+  const raw={...snapshot,fixtures:[{provider_event_id:"other1",captured_at:at,
+    hda:{home:2.5,draw:3.5,away:2.9}}]};
+  mockEndpoints(page,{raw,source});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("overview-odds")).toContainText("0");
+  await expect(page.getByTestId("fixture-list").locator(".ft-odds-mini")).toHaveCount(0);
+});
+test("distinct China 500 odds provenance remains clear",async({page})=>{
+  const at=new Date().toISOString(),kickoff=new Date(Date.now()+3600000).toISOString();
+  mockEndpoints(page,{source:{...summary,
+    fixtureKickoffs:[{id:"FS:event0",kickoff}],
+    matches:[{...summary.matches[0],kickoff,
+      odds:{home:2.6,draw:3.1,away:2.95},oddsCapturedAt:at,
+      oddsLabel:"China 500 reference"}]},raw:{...snapshot,fixtures:[]}});
+  await page.goto("http://127.0.0.1:4173/");
+  await page.getByLabel("Search",{exact:true}).fill("Home 0");
+  await expect(page.getByTestId("match-odds-status")).toContainText("China 500 reference");
+  await expect(page.getByTestId("match-odds-status")).not.toContainText("Bet365");
 });
