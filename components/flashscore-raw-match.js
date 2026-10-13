@@ -33,7 +33,7 @@ function OddsPanel({match,fixture}) {
   const now=Date.now();
   const kickoff=Date.parse(String(fixture?.kickoff_hkt||""));
   const future=Number.isFinite(kickoff)&&kickoff>now;
-  const recorded=match?.rawQuote?.provider_event_id===match?.providerEventId
+  const recorded=Boolean(match) && match.rawQuote?.provider_event_id===match.providerEventId
     ?priceTriplet(match.rawQuote?.hda):null;
   const rawTime=Date.parse(String(match?.rawQuote?.captured_at||match?.oddsCapturedAt||""));
   const validRawTime=Number.isFinite(rawTime)&&rawTime<=now+60_000
