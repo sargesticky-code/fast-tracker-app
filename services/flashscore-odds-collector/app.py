@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from flask import Flask, jsonify, request
 from playwright.async_api import async_playwright
-from day_budget import day_plan, allocate
+from day_budget import day_plan, allocate, collector_calendar_date
 from browser_resources import should_abort_browser_resource
 from odds_batch import bounded_map
 
@@ -60,7 +60,7 @@ def as_price(value):
         return None
 
 async def collect_fixture_rows(page, target_date):
-    today = datetime.now().date()
+    today = collector_calendar_date()
     delta = (target_date - today).days
     # The real Flashscore tomorrow URL is already used by the site's day picker.
     # Start there directly for future dates instead of reloading today and
@@ -187,7 +187,7 @@ async def refresh_once():
         # images, fonts and media do not contribute to the captured data.
         await page.route("**/*", trim_browser_resources)
         try:
-            today = datetime.now().date()
+            today = collector_calendar_date()
             seen = set()
             # At most today's and tomorrow's board. Yesterday's first 360
             # rows used to consume the entire quote budget (552 today alone).
