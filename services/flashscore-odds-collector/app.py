@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import threading
 import time
@@ -130,8 +131,24 @@ async def fetch_bet365_hda(client, fixture):
         return {"reason": HTTP_FAILED, "hda": None}
     return quote_result(data, BOOKMAKER_ID)
 
+def source_selection_ids(name):
+    # These hints are local memory from the last completed parent capture.
+    # Bad or absent hints fall back to the established priority order.
+    try:
+        values = json.loads(os.environ.get(name, "[]"))
+    except (ValueError, TypeError):
+        return set()
+    if not isinstance(values, list):
+        return set()
+    return {value for value in values if isinstance(value,str)
+            and 1 <= len(value) <= 32 and value.isascii()
+            and all(c.isalnum() or c in "_-" for c in value)}
+
+
 async def refresh_once():
     fixtures = []
+    previously_priced = source_selection_ids("FT_LAST_PRICED_IDS")
+    previously_unpriced = source_selection_ids("FT_LAST_UNPRICED_IDS") - previously_priced
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
         context = await browser.new_context(
@@ -168,7 +185,9 @@ async def refresh_once():
                         flush=True,
                     )
                     break
-                added=allocate(rows,quota,seen,target_date.isoformat(),is_virtual)
+                added=allocate(rows,quota,seen,target_date.isoformat(),is_virtual,
+                               previous_priced=previously_priced,
+                               previous_unpriced=previously_unpriced)
                 fixtures.extend(added)
                 print(
                     f"[flashscore-odds] day_allocation day={target_date.isoformat()} "
@@ -244,6 +263,13 @@ def run_refresh():
         _state["refreshing"] = True
         _state["last_started_at"] = utcnow()
         _state["last_error"] = None
+        prior_rows = _state["discovered"]
+        prior_quotes = _state["snapshot"]
+        prior_ids = {row.get("provider_event_id") for row in prior_rows
+                     if isinstance(row,dict) and row.get("provider_event_id")}
+        prior_successes = {row.get("provider_event_id") for row in prior_quotes
+                           if isinstance(row,dict) and row.get("provider_event_id")}
+        prior_misses = prior_ids - prior_successes
     try:
         # One original bounded capture, not duplicate attempts. A hung browser
         # or HTTP odds request dies with its isolated child process at 300s.
@@ -251,6 +277,8 @@ def run_refresh():
         fixtures, snapshot, gap_reasons = run_bounded_capture(
             os.path.join(os.path.dirname(__file__), "collector_worker.py"),
             timeout_seconds=300,
+            previous_priced=prior_successes,
+            previous_unpriced=prior_misses,
         )
         if len(fixtures) > MAX_FIXTURES or len(snapshot) > MAX_FIXTURES:
             raise ValueError("BOOKMAKER_QUOTE_BUDGET_EXCEEDED")
@@ -272,6 +300,11 @@ def run_refresh():
             _state["discovered"] = discovered
             _state["gap_reasons"] = gap_reasons
             _state["last_completed_at"] = completed_at
+        print(
+            f"[flashscore-odds] source_hints prior_success={len(prior_successes)} "
+            f"prior_gap={len(prior_misses)} used={len(fixtures)}",
+            flush=True,
+        )
         print(
             f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} "
             f"complete_hda={len(snapshot)} gap_reasons={gap_reasons}",

@@ -15,11 +15,22 @@ class CaptureTimeout(RuntimeError):
     pass
 
 
-def run_bounded_capture(worker_path, timeout_seconds=300):
+def run_bounded_capture(worker_path, timeout_seconds=300, *,
+                        previous_priced=(), previous_unpriced=()):
     worker_path = Path(worker_path).resolve()
     with tempfile.TemporaryDirectory(prefix="ft-capture-") as d:
         target = Path(d) / "capture.json"
         env = dict(os.environ, FT_COLLECTOR_CHILD="1")
+        # Only bounded, exact prior Flashscore event IDs. Child remains the
+        # sole collector, without extra calls or shared DB writes.
+        def safe_ids(ids):
+            return sorted({
+                x for x in ids
+                if isinstance(x,str) and 1 <= len(x) <= 32
+                and all(c.isascii() and (c.isalnum() or c in "_-") for c in x)
+            })[:600]
+        env["FT_LAST_PRICED_IDS"] = json.dumps(safe_ids(previous_priced))
+        env["FT_LAST_UNPRICED_IDS"] = json.dumps(safe_ids(previous_unpriced))
         proc = subprocess.Popen(
             [sys.executable, str(worker_path), str(target)],
             cwd=str(worker_path.parent),
