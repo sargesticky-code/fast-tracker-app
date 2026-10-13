@@ -2,6 +2,7 @@ import asyncio
 import os
 import threading
 import time
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -10,6 +11,7 @@ from playwright.async_api import async_playwright
 from day_budget import day_plan, allocate, collector_calendar_date
 from browser_resources import should_abort_browser_resource
 from odds_batch import bounded_map
+from odds_market import quote_result, HTTP_FAILED, UNEXPECTED_FAILURE, REASONS
 
 FLASH_URL = os.getenv("FLASH_URL", "https://www.flashscore.co.uk/")
 ODDS_URL = os.getenv("ODDS_URL", "https://global.ds.lsapp.eu/odds/pq_graphql")
@@ -31,6 +33,7 @@ _state = {
     "complete_hda": 0,
     "snapshot": [],
     "discovered": [],
+    "gap_reasons": {},
 }
 
 @app.after_request
@@ -119,55 +122,13 @@ async def fetch_bet365_hda(client, fixture):
     event_id = fixture["event_id"]
     url = f"{ODDS_URL}?_hash=oce&eventId={event_id}&projectId=5&geoIpCode=US&geoIpSubdivisionCode=USCA"
     try:
-        r = await client.get(url)
-        r.raise_for_status()
-        data = r.json()
+        response = await client.get(url)
+        response.raise_for_status()
+        data = response.json()
     except Exception:
-        return None
-
-    entries = (((data or {}).get("data") or {}).get("findOddsByEventId") or {}).get("odds") or []
-    candidates = [
-        x for x in entries
-        if x.get("bookmakerId") == BOOKMAKER_ID
-        and x.get("bettingType") == "HOME_DRAW_AWAY"
-        and (x.get("bettingScope") in (None, "FULL_TIME"))
-    ]
-    if not candidates:
-        return None
-
-    for entry in candidates:
-        items = entry.get("odds") or []
-        participant_order = []
-        for item in items:
-            pid = item.get("eventParticipantId")
-            if pid is not None and pid not in participant_order:
-                participant_order.append(pid)
-
-        home = draw = away = None
-        for item in items:
-            if item.get("active") is False:
-                continue
-            price = as_price(item.get("value"))
-            if price is None:
-                continue
-            pid = item.get("eventParticipantId")
-            if pid is None:
-                draw = price
-            elif len(participant_order) >= 2 and pid == participant_order[0]:
-                home = price
-            elif len(participant_order) >= 2 and pid == participant_order[1]:
-                away = price
-
-        if home and draw and away:
-            return {
-                "home": home,
-                "draw": draw,
-                "away": away,
-                "opening_home": next((as_price(i.get("opening")) for i in items if i.get("eventParticipantId") == participant_order[0]), None) if len(participant_order) >= 2 else None,
-                "opening_draw": next((as_price(i.get("opening")) for i in items if i.get("eventParticipantId") is None), None),
-                "opening_away": next((as_price(i.get("opening")) for i in items if i.get("eventParticipantId") == participant_order[1]), None) if len(participant_order) >= 2 else None,
-            }
-    return None
+        # Do not misclassify network failure as an unavailable market.
+        return {"reason": HTTP_FAILED, "hda": None}
+    return quote_result(data, BOOKMAKER_ID)
 
 async def refresh_once():
     fixtures = []
@@ -252,7 +213,12 @@ async def refresh_once():
 
     captured_at = utcnow()
     out = []
-    for fixture, hda in zip(fixtures, odds):
+    reasons = Counter()
+    for fixture, result in zip(fixtures, odds):
+        if not isinstance(result, dict) or result.get("reason") not in REASONS:
+            result = {"reason": UNEXPECTED_FAILURE, "hda": None}
+        reasons[result["reason"]] += 1
+        hda = result.get("hda")
         if not hda:
             continue
         out.append({
@@ -267,7 +233,9 @@ async def refresh_once():
             "captured_at": captured_at,
             "hda": hda,
         })
-    return fixtures, out
+    if sum(reasons.values()) != len(fixtures):
+        raise ValueError("ODDS_DIAGNOSTIC_COUNT_MISMATCH")
+    return fixtures, out, dict(reasons)
 
 def run_refresh():
     with _lock:
@@ -280,7 +248,7 @@ def run_refresh():
         # One original bounded capture, not duplicate attempts. A hung browser
         # or HTTP odds request dies with its isolated child process at 300s.
         from bounded_capture import run_bounded_capture
-        fixtures, snapshot = run_bounded_capture(
+        fixtures, snapshot, gap_reasons = run_bounded_capture(
             os.path.join(os.path.dirname(__file__), "collector_worker.py"),
             timeout_seconds=300,
         )
@@ -302,8 +270,13 @@ def run_refresh():
             _state["complete_hda"] = len(snapshot)
             _state["snapshot"] = snapshot
             _state["discovered"] = discovered
+            _state["gap_reasons"] = gap_reasons
             _state["last_completed_at"] = completed_at
-        print(f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} complete_hda={len(snapshot)}", flush=True)
+        print(
+            f"[flashscore-odds] refresh complete fixtures_seen={len(fixtures)} "
+            f"complete_hda={len(snapshot)} gap_reasons={gap_reasons}",
+            flush=True,
+        )
         # Consumers read the completed snapshot; no callback or duplicate ingestion.
     except Exception as e:
         message = f"{type(e).__name__}: {e}"
@@ -339,6 +312,7 @@ def health():
             "fixtures_seen": _state["fixtures_seen"],
             "complete_hda": _state["complete_hda"],
             "discovered_count": len(_state["discovered"]),
+            "odds_gap_reasons": dict(_state["gap_reasons"]),
             "snapshot_stale": (
                 _state["last_completed_at"] is None
                 or (datetime.now(timezone.utc) -
@@ -360,11 +334,9 @@ def snapshot():
 
 @app.post("/refresh")
 def refresh():
-    with _lock:
-        busy = _state["refreshing"]
-    if not busy:
-        threading.Thread(target=run_refresh, daemon=True).start()
-    return jsonify({"accepted": not busy, "refreshing": True}), 202
+    # No public/manual capture endpoint: only the existing internal 15m loop
+    # may invoke the bookmaker provider. Avoid unbounded external triggering.
+    return jsonify({"error": "scheduled_refresh_only"}), 410
 
 # The isolated worker imports app.refresh_once; never recurse into a loop.
 if os.getenv("FT_COLLECTOR_CHILD") != "1":
