@@ -29,6 +29,8 @@ function Icon({name}) {
     {name==="players" && <><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 6a3 3 0 0 1 0 6M19 20v-2a5 5 0 0 0-3-4.5"/></>}
     {name==="chart" && <><path d="M4 19V5M4 19h17M8 15l4-5 4 2 4-7"/></>}
     {name==="filter" && <><path d="M4 6h16M7 12h10M10 18h4"/></>}
+    {name==="check" && <><path d="M4 12l5 5L20 6"/></>}
+    {name==="target" && <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></>}
   </svg>;
 }
 function parseLeague(rawName) {
@@ -111,6 +113,16 @@ function MatchChips({evidence}) {
 function FilterButton({active,children,onClick,testId,disabled=false}) {
   return <button type="button" className="ft-filter-pill" aria-pressed={active} disabled={disabled} onClick={onClick} data-testid={testId}>{children}</button>;
 }
+function OverviewCard({icon,label,value,hint,active,onClick,testId,theme="normal"}) {
+  return <button type="button" className={"ft-overview-card ft-overview-card-"+theme}
+    aria-pressed={active} data-testid={testId} onClick={onClick}
+    title={hint} aria-label={label+": "+value+". "+hint}>
+    <span className="ft-overview-card-top"><span className="ft-overview-icon"><Icon name={icon}/></span>
+      <span className="ft-overview-card-label">{label}</span></span>
+    <strong className="ft-overview-number">{value}</strong>
+    <span className="ft-overview-card-hint">{hint}</span>
+  </button>;
+}
 function oddsText(row) {
   if(row.quoteStatus!=="FRESH" || !row.odds || [row.odds.home,row.odds.draw,row.odds.away].some(n=>n==null)) return null;
   return [row.odds.home,row.odds.draw,row.odds.away].map(n=>Number(n).toFixed(2).replace(/0$/,"").replace(/\.$/,""));
@@ -170,13 +182,15 @@ export default function HomepageClient() {
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
   const liveKnown=matches.some(m=>m.phase==="live");
   const counts={all:matches.length,top:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
+    details:matches.filter(m=>Boolean(m.evidence)).length,
+    live:matches.filter(m=>m.phase==="live").length,
     xi:matches.filter(m=>m.evidence?.confirmedXI).length,prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
     odds:matches.filter(m=>oddsText(m)).length};
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="top"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
-    &&(feature==="all"||(feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet):oddsText(m)))
+    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet):oddsText(m)))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>a.info.priority-b.info.priority
     ||alphaCollator.compare(a.info.display,b.info.display)
@@ -196,6 +210,29 @@ export default function HomepageClient() {
   }
   const clear=()=>{setQuery("");setDate("");setLeague("");setScope("all");setPhase("all");setFeature("all");};
   const hasFilters=Boolean(query||date||league||scope!=="all"||phase!=="all"||feature!=="all");
+  // Dashboard numbers describe the complete loaded snapshot, not the subset
+  // currently filtered. All shortcuts clear conflicting filters before applying.
+  const selectOverview=(target)=>{
+    setQuery("");setDate("");setLeague("");setScope("all");
+    if(target==="all"){setPhase("all");setFeature("all");}
+    else if(target==="live"){setFeature("all");setPhase(old=>old==="live"?"all":"live");}
+    else {setPhase("all");setFeature(old=>old===target?"all":target);}
+  };
+  const fixtureCount=(feed||usingCanonicalFallback)?counts.all:(status==="loading"?"…":"—");
+  const detailsValue=verifiedStatus==="ready"?counts.details:"—";
+  const liveValue=verifiedStatus==="ready"?counts.live:"—";
+  const forecastValue=verifiedStatus==="ready"?counts.prediction:"—";
+  const lineupsValue=verifiedStatus==="ready"?counts.xi:"—";
+  const priceValue=(rawReady||usingCanonicalFallback)?counts.odds:"—";
+  const fixturesReady=rawReady||usingCanonicalFallback;
+  const overviewCards=[
+    {key:"all",icon:"calendar",label:"Matches",value:fixtureCount,hint:"All fixtures",active:phase==="all"&&feature==="all"&&!hasFilters,test:"overview-matches"},
+    {key:"details",icon:"target",label:"More details",value:detailsValue,hint:"Games with extra info",active:feature==="details"&&phase==="all",test:"overview-details"},
+    {key:"live",icon:"live",label:"Live now",value:liveValue,hint:"Confirmed live games",active:phase==="live",test:"overview-live",theme:"live"},
+    {key:"prediction",icon:"chart",label:"Predictions",value:forecastValue,hint:"Games with predictions",active:feature==="prediction"&&phase==="all",test:"overview-predictions"},
+    {key:"xi",icon:"players",label:"Lineups",value:lineupsValue,hint:"Full starting XIs",active:feature==="xi"&&phase==="all",test:"overview-lineups"},
+    {key:"odds",icon:"grid",label:"Odds",value:priceValue,hint:"Fresh match odds",active:feature==="odds"&&phase==="all",test:"overview-odds"}
+  ];
 
   return <main className="ft-home">
     <header className="ft-top">
@@ -204,17 +241,33 @@ export default function HomepageClient() {
     </header>
     <section className="ft-raw-board">
       <div className="ft-page-heading">
-        <div><h1>Matches</h1><p>Big leagues first · Kickoffs in UK time when verified</p></div>
+        <div><h1>Football matches</h1><p>Find a match. Tap to see its details.</p></div>
         <span className="ft-timezone-badge"><Icon name="clock"/> UK · GMT/BST</span>
       </div>
-      <p data-testid="verified-status" className="ft-status-line">
-        {verifiedStatus==="ready"?matches.filter(m=>m.evidence).length+" matches with verified insights"
-          :verifiedStatus==="unavailable"?"Some insights currently unavailable":"Checking insights"}
-        {" · "}{matches.length} fixtures
-      </p>
+      <section className="ft-overview" aria-label="Football dashboard overview" data-testid="match-overview">
+        <div className="ft-overview-heading">
+          <h2>At a glance</h2>
+          <div className="ft-overview-health" aria-label="Data availability">
+            <span data-testid="overview-feed-status" className={"ft-health-pill"+(fixturesReady?" ft-health-good":"")}>
+              <i aria-hidden="true"/>{fixturesReady?"Matches ready":status==="loading"?"Loading matches":"Matches unavailable"}
+            </span>
+            <span data-testid="overview-insight-status" className={"ft-health-pill"+(verifiedStatus==="ready"?" ft-health-good":"")}>
+              <i aria-hidden="true"/>{verifiedStatus==="ready"?"Stats ready":verifiedStatus==="loading"?"Loading stats":"Stats limited"}
+            </span>
+            <a href="/health" aria-label="See detailed data status">Details <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div className="ft-overview-grid">
+          {overviewCards.map(card=><OverviewCard key={card.key}
+            icon={card.icon} label={card.label} value={card.value} hint={card.hint}
+            active={card.active} theme={card.theme||"normal"}
+            testId={card.test} onClick={()=>selectOverview(card.key)}/>)}
+        </div>
+        <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
+      </section>
       {status==="loading"&&!feed&&<p role="status">Loading matches…</p>}
       {status==="error"&&!usingCanonicalFallback&&<p role="alert">Fixtures temporarily unavailable. Please retry shortly.</p>}
-      {usingCanonicalFallback&&<p role="status" data-testid="canonical-fallback">Showing {matches.length} verified fixtures while match feed reconnects.</p>}
+      {usingCanonicalFallback&&<p role="status" data-testid="canonical-fallback">Showing {matches.length} saved matches while the latest results load.</p>}
 
       <div className="ft-filter-section">
         <div className="ft-filter-inputs">
@@ -251,7 +304,7 @@ export default function HomepageClient() {
       <div className="ft-list-meta"><strong>{visible.length} matches</strong>
         <small>UK times: verified kickoffs only · Unverified times: —</small>
       </div>
-      {!liveKnown&&phase==="live"&&<p role="status" className="ft-filter-note">No verified live matches in the latest available source.</p>}
+      {!liveKnown&&phase==="live"&&<p role="status" className="ft-filter-note">No confirmed live matches at the moment.</p>}
       <div className="ft-match-list" data-testid="fixture-list">
         {groups.map(g=><section className="ft-fixture-group" key={g.key} data-testid="league-group">
           <div className="ft-league-heading">
