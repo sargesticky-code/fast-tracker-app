@@ -4,6 +4,17 @@ Selection changes WHICH fixtures receive the same bounded number of requests.
 No extra odds calls, days, workers, or retries are introduced.
 """
 import re
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+
+def collector_calendar_date(now_utc=None):
+    """Use the Flashscore UK fixture-day calendar, including BST/GMT changes."""
+    at = now_utc if now_utc is not None else datetime.now(timezone.utc)
+    if at.tzinfo is None:
+        raise ValueError("COLLECTOR_CALENDAR_REQUIRES_AWARE_UTC_TIME")
+    return at.astimezone(ZoneInfo("Europe/London")).date()
+
 
 
 def day_plan(days_ahead, capacity):
