@@ -363,6 +363,15 @@ export default function HomepageClient() {
             active={card.active} theme={card.theme||"normal"}
             testId={card.test} onClick={()=>selectOverview(card.key)}/>)}
         </div>
+        <div className="ft-advisor-overview" data-testid="advisor-coverage" aria-label="Prediction advisor sources">
+          <strong>Prediction sources</strong>
+          <span data-testid="advisor-forebet-summary"><i aria-hidden="true">◇</i> Forebet · {verifiedStatus==="ready"?counts.prediction:"—"} matches with saved forecast</span>
+          <span><i aria-hidden="true">◈</i> Dixon–Coles · Match details only when verified</span>
+          <span><i aria-hidden="true">○</i> Form · Legacy, inactive</span>
+          <span><i aria-hidden="true">○</i> BetClan · Not connected</span>
+          <span><i aria-hidden="true">○</i> SportyTrader · Not connected</span>
+          <small>Prices are bookmaker quotes, not independent predictions. Missing or retired sources do not count as picks.</small>
+        </div>
         <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
       </section>
       {status==="loading"&&!feed&&<p role="status">Loading matches…</p>}
@@ -419,8 +428,8 @@ export default function HomepageClient() {
               <a className="ft-match-row" data-testid="fixture-row" href={"/details?id="+encodeURIComponent(m.id)}>
               <div className="ft-fixture-main">
                 <div className="ft-fixture-teams">
-                  <strong><TeamNameWithLogo team={m.home} logoTeam={m.home} context={m.league} size={22}/></strong>
-                  <span><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
+                  <span className="ft-team-home" data-testid="home-team-name"><TeamNameWithLogo team={m.home} logoTeam={m.home} context={m.league} size={22}/></span>
+                  <span className="ft-team-away" data-testid="away-team-name"><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
                 </div>
                 <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away}/>
               </div>
