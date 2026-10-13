@@ -28,6 +28,27 @@ function ukDate(value) {
     timeZone:"Europe/London",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",hourCycle:"h23"
   }).format(new Date(timestamp))+" UK";
 }
+function verifiedInternalForecast(model, fixture, now=Date.now()) {
+  if (model?.quality!=="MODELED" || !fixture) return null;
+  const kickoff=Date.parse(String(fixture.kickoff_hkt||""));
+  const captured=Date.parse(String(model.fetched_at||""));
+  if(!Number.isFinite(kickoff)||kickoff<=now||!Number.isFinite(captured)
+    ||captured>now+60000||captured>=kickoff||captured<now-72*3600000) return null;
+  // Only accept exact approved result-history provenance. Old, retired
+  // provider labels or unknown model sources never become current advice.
+  if(String(model.model_source||"")!=="VERIFIED_RESULTS_HISTORY")return null;
+  const probs=[model.dc_prob_home,model.dc_prob_draw,model.dc_prob_away];
+  if(probs.some(p=>p===null||p===undefined||!Number.isFinite(Number(p))
+    ||Number(p)<0||Number(p)>1))return null;
+  const sum=probs.reduce((a,b)=>a+Number(b),0);
+  return sum>=0.98&&sum<=1.02 ? model : null;
+}
+function recentPrediction(record, fixture, now=Date.now()){
+  const time=Date.parse(String(record?.fetched_at||""));
+  const kickoff=Date.parse(String(fixture?.kickoff_hkt||""));
+  return Number.isFinite(time)&&Number.isFinite(kickoff)&&kickoff>now
+    &&time<=now+60000&&time<kickoff&&time>=now-72*3600000;
+}
 function OddsPanel({match,fixture}) {
   if(!match && !fixture)return null;
   const now=Date.now();
@@ -128,7 +149,8 @@ export default function FlashscoreRawMatch() {
 
   const fixture=analysis?.fixture||null;
   const forebet=analysis?.models?.forebet||null;
-  const model=analysis?.models?.internal?.quality==="MODELED"?analysis.models.internal:null;
+  const model=verifiedInternalForecast(analysis?.models?.internal,fixture);
+  const forebetRecent=recentPrediction(forebet,fixture);
   const lineups=Array.isArray(analysis?.humanFactors?.lineup)?analysis.humanFactors.lineup:[];
   const lineupProvenance=analysis?.humanFactors?.lineupProvenance;
   const managers=Array.isArray(analysis?.humanFactors?.managers)?analysis.humanFactors.managers:[];
@@ -150,6 +172,31 @@ export default function FlashscoreRawMatch() {
     {!analysis && <p role="status">More match details are not available yet.</p>}
     {analysis && <section className="ft-enriched-panel" data-testid="verified-match-analysis">
       <h2>Match predictions</h2>
+      <div className="ft-advisor-card-grid" data-testid="advisor-source-status">
+        <div className="ft-advisor-card" data-testid="advisor-forebet">
+          <strong>◇ Forebet</strong>
+          <span className={"ft-advisor-state"+(forebetRecent?" ft-advisor-state-ready":"")}>{forebetRecent?"Verified forecast":forebet?"Saved forecast · not current":"No matched forecast"}</span>
+          <small>1X2, predicted score, goals and corners only if supplied</small>
+        </div>
+        <div className="ft-advisor-card" data-testid="advisor-dc">
+          <strong>◈ Dixon–Coles</strong>
+          <span className={"ft-advisor-state"+(model?" ft-advisor-state-ready":"")}>{model?"Verified model":"No current qualified model"}</span>
+          <small>Internal results-based probability model; separate from Forebet</small>
+        </div>
+        <div className="ft-advisor-card" data-testid="advisor-form">
+          <strong>○ Team Form</strong><span className="ft-advisor-state">Legacy model inactive</span>
+          <small>Old predictions excluded until rebuilt from approved match results</small>
+        </div>
+        <div className="ft-advisor-card" data-testid="advisor-betclan">
+          <strong>○ BetClan</strong><span className="ft-advisor-state">Not connected</span>
+          <small>No verified per-match predictions in the current feed</small>
+        </div>
+        <div className="ft-advisor-card" data-testid="advisor-sportytrader">
+          <strong>○ SportyTrader</strong><span className="ft-advisor-state">Not connected</span>
+          <small>No verified per-match predictions in the current feed</small>
+        </div>
+      </div>
+      {forebet && <p className="ft-odds-note">{forebetRecent?"Verified prematch source forecast":"Saved Forebet record · not a current betting recommendation"}</p>}
       {forebet ? <div className="ft-stats-grid">
         <div><b>Forebet predicted score: {forebet.predicted_score||"—"}</b>
           <small>Average goals: {knownNumber(forebet.avg_goals,2)}</small></div>
