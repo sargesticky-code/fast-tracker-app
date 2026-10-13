@@ -115,7 +115,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await page.getByLabel("Search",{exact:true}).fill("Home 0");
   await page.locator(".ft-match-row").click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
-  await expect(page.getByText("Raw prices: — / — / —")).toBeVisible();
+  await expect(page.getByTestId("match-odds")).toContainText("No recorded odds available");
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
   await expect(page.getByTestId("forebet-goals-25")).toContainText("Over 62%");
   await expect(page.getByTestId("forebet-corners-95")).toContainText("Under 56%");
@@ -152,8 +152,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("fotmob-player-stats")).toContainText("Player 0");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("not verified final totals");
   await expect(page.getByTestId("historical-flashscore-stats")).toContainText("Expected goals (xG)");
-  await page.getByText("Original Flashscore source fields").click();
-  await expect(page.locator("pre")).toContainText('"time_text": null');
+  await expect(page.getByText("Original Flashscore source fields")).toHaveCount(0);
+  await expect(page.locator(".ft-raw-detail pre")).toHaveCount(0);
   expect(external.every(url=>url.includes("fast-tracker-dashboard-production.up.railway.app/snapshot")
     ||url.includes("hekqxhgjexzxnecwhyao.supabase.co/functions/v1/")
     ||url.includes("hekqxhgjexzxnecwhyao.supabase.co/storage/v1/object/public/football-logos/"))).toBeTruthy();
@@ -197,7 +197,7 @@ test("cold or stale raw snapshot uses exact canonical source fallback without in
   await page.locator(".ft-match-row").filter({hasText:"Home 0"}).first().click();
   await expect(page.getByRole("heading",{name:"Home 0 vs Away 0"})).toBeVisible();
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Forebet predicted score: 2-1");
-  await expect(page.getByText("Raw prices: — / — / —")).toHaveCount(0);
+  await expect(page.getByTestId("match-odds")).toHaveCount(0);
 });
 
 test("stale raw bookmaker prices are suppressed without hiding the fixture",async({page})=>{
@@ -445,4 +445,57 @@ test("overview shows unavailable rather than zero when neither source can answer
   await expect(page.getByTestId("overview-details")).toContainText("—");
   await expect(page.getByTestId("overview-live")).toContainText("—");
   await expect(page.getByTestId("overview-odds")).toContainText("—");
+});
+
+
+test("match detail keeps home coach LEFT and away coach RIGHT regardless provider order",async({page})=>{
+  const input={...detail,humanFactors:{...detail.humanFactors,
+    managers:[{team_side:"A",manager_name:"Away Manager",source_name:"FOTMOB"},
+      {team_side:"H",manager_name:"Home Manager",source_name:"FLASHSCORE"}]}};
+  mockEndpoints(page,{deep:input});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  const coaches=page.getByTestId("match-coaches");
+  await expect(coaches.locator(".ft-coach-card")).toHaveCount(2);
+  await expect(coaches.locator(".ft-coach-card").first()).toContainText("Home Manager");
+  await expect(coaches.locator(".ft-coach-card").last()).toContainText("Away Manager");
+  const home=await coaches.locator(".ft-coach-home").boundingBox();
+  const away=await coaches.locator(".ft-coach-away").boundingBox();
+  expect(home.x).toBeLessThan(away.x);
+  await expect(coaches).not.toContainText("FOTMOB");
+});
+test("missing forecasts show one simple note, without developer warnings or raw JSON",async({page})=>{
+  const noPred={...detail,models:{forebet:null,internal:{quality:"NOT_VERIFIED"}}};
+  mockEndpoints(page,{deep:noPred});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("prediction-unavailable")).toHaveText("No prediction for this match yet.");
+  await expect(page.locator(".ft-raw-detail")).not.toContainText("canonical event");
+  await expect(page.locator(".ft-raw-detail")).not.toContainText("Internal model not verified");
+  await expect(page.locator(".ft-raw-detail")).not.toContainText("Unknown values remain unknown");
+  await expect(page.locator(".ft-raw-detail")).not.toContainText("Original Flashscore source fields");
+  await expect(page.locator(".ft-raw-detail pre")).toHaveCount(0);
+});
+test("previous captured odds display honestly, including opening comparison, not as live",async({page})=>{
+  const at=new Date().toISOString();
+  const raw={...snapshot,captured_at:at,
+    fixtures:[{provider_event_id:"event0",bookmaker:"bet365",captured_at:at,
+      hda:{home:4.33,draw:3.8,away:1.76,
+        opening_home:3.5,opening_draw:3.3,opening_away:2.01}}]};
+  mockEndpoints(page,{raw});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  const panel=page.getByTestId("match-odds");
+  await expect(panel).toContainText("Previous odds");
+  await expect(panel).toContainText("Bet365-labelled snapshot");
+  for(const value of ["4.33","3.80","1.76","Opened 3.50","Opened 3.30","Opened 2.01"])
+    await expect(panel).toContainText(value);
+  await expect(panel).toContainText("not live");
+});
+test("strict prematch gate keeps invalid or stale odds out of current-price panel",async({page})=>{
+  const at=new Date(Date.now()-48*3600_000).toISOString();
+  const raw={...snapshot,captured_at:at,
+    fixtures:[{provider_event_id:"event0",captured_at:at,
+      hda:{home:2.5,draw:3.1,away:2.9}}]};
+  mockEndpoints(page,{raw});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("match-odds")).toContainText("Previous odds");
+  await expect(page.getByTestId("match-odds")).not.toContainText("Recent prematch odds");
 });
