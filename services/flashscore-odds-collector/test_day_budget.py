@@ -94,6 +94,47 @@ class DayBudgetTests(unittest.TestCase):
             date(2026,11,1))  # UK now GMT
         self.assertRaises(ValueError,collector_calendar_date,datetime(2026,10,13,23,30))
 
+    def test_source_aware_selection_preserves_previous_prices_and_samples_unseen(self):
+        # 210 source fixtures, 120 daily requests (unchanged): yesterday's
+        # 44 successful markets survive while 76 old gaps give 90 unknown
+        # fixtures an opportunity without increasing total requests.
+        rows=[{"event_id":"good"+str(i),"home":"A","away":"B",
+               "league":"Z League","time_text":"20:00"} for i in range(44)]
+        rows += [{"event_id":"missing"+str(i),"home":"A","away":"B",
+                  "league":"A League","time_text":"20:00"} for i in range(76)]
+        rows += [{"event_id":"new"+str(i),"home":"A","away":"B",
+                  "league":"M League","time_text":"20:00"} for i in range(90)]
+        selected=allocate(rows,120,set(),"2026-10-13",virtual,
+            previous_priced={"good"+str(i) for i in range(44)},
+            previous_unpriced={"missing"+str(i) for i in range(76)})
+        ids={x["event_id"] for x in selected}
+        self.assertEqual(len(ids),120)
+        self.assertTrue(all("good"+str(i) in ids for i in range(44)))
+        self.assertEqual(sum(x.startswith("new") for x in ids),76)
+        self.assertFalse(any(x.startswith("missing") for x in ids))
+
+    def test_source_gap_is_deprioritized_not_permanently_excluded(self):
+        rows=[{"event_id":"had_gap","home":"A","away":"B","league":"A Cup"},
+              {"event_id":"not_tried","home":"A","away":"B","league":"Z Cup"}]
+        first=allocate(rows,1,set(),"2026-10-13",virtual,
+                       previous_unpriced={"had_gap"})
+        self.assertEqual(first[0]["event_id"],"not_tried")
+        # Next cycle, the previously omitted gap was not probed, so it
+        # becomes untried; the previously selected event becomes the old gap.
+        second=allocate(rows,1,set(),"2026-10-13",virtual,
+                        previous_unpriced={"not_tried"})
+        self.assertEqual(second[0]["event_id"],"had_gap")
+
+    def test_major_competition_always_precedes_lower_league_prior_success(self):
+        rows=[{"event_id":"minor_success","home":"A","away":"B",
+               "league":"A Friendly"},
+              {"event_id":"ucl_gap","home":"A","away":"B",
+               "league":"Champions League - League phaseEUROPE: Standings"}]
+        result=allocate(rows,1,set(),"2026-10-13",virtual,
+                        previous_priced={"minor_success"},
+                        previous_unpriced={"ucl_gap"})
+        self.assertEqual(result[0]["event_id"],"ucl_gap")
+
     def test_single_day_or_small_capacity(self):
         self.assertEqual(day_plan(0,360),[(0,360)])
         self.assertEqual(day_plan(3,60),[(0,20),(1,40)])
