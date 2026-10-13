@@ -29,20 +29,34 @@ function ukDate(value) {
   }).format(new Date(timestamp))+" UK";
 }
 function OddsPanel({match,fixture}) {
-  if(!match) return null;
-  const recorded=match.rawQuote?.provider_event_id===match.providerEventId
-    ?priceTriplet(match.rawQuote?.hda):null;
-  const fresh=priceTriplet(match.odds);
-  const time=Date.parse(String(match.rawQuote?.captured_at||match.oddsCapturedAt||""));
-  const reasonableTime=Number.isFinite(time)&&time<=Date.now()+60_000&&time>=Date.now()-7*86400000;
+  if(!match && !fixture)return null;
+  const now=Date.now();
   const kickoff=Date.parse(String(fixture?.kickoff_hkt||""));
-  const future=Number.isFinite(kickoff)&&kickoff>Date.now();
-  const showFresh=future&&match.quoteStatus==="FRESH"&&fresh!==null;
-  const prices=showFresh?fresh:(reasonableTime?recorded:null);
-  const opening=reasonableTime&&recorded?priceTriplet({
-    home:match.rawQuote?.hda?.opening_home,
-    draw:match.rawQuote?.hda?.opening_draw,
-    away:match.rawQuote?.hda?.opening_away
+  const future=Number.isFinite(kickoff)&&kickoff>now;
+  const recorded=match?.rawQuote?.provider_event_id===match?.providerEventId
+    ?priceTriplet(match.rawQuote?.hda):null;
+  const rawTime=Date.parse(String(match?.rawQuote?.captured_at||match?.oddsCapturedAt||""));
+  const validRawTime=Number.isFinite(rawTime)&&rawTime<=now+60_000
+    &&rawTime>=now-7*86400_000;
+  const rawCurrent=Boolean(future&&match?.quoteStatus==="FRESH"
+    &&validRawTime&&rawTime>=now-20*60_000&&rawTime<kickoff
+    &&priceTriplet(match?.odds));
+  // The exact-match detail RPC already returns qualified canonical odds.
+  // Do not require an extra HTTP request or substitute similarly named teams.
+  const canonical=fixture?.bookmaker_source==="FLASHSCORE_BET365"
+    ?priceTriplet({home:fixture.had_home,draw:fixture.had_draw,away:fixture.had_away})
+    :null;
+  const canonTime=Date.parse(String(fixture?.odds_updated_at||""));
+  const canonCurrent=Boolean(future&&canonical&&Number.isFinite(canonTime)
+    &&canonTime>=now-20*60_000&&canonTime<=now+60_000&&canonTime<kickoff);
+  const selectCanonical=canonCurrent&&(!rawCurrent||canonTime>rawTime);
+  const showFresh=canonCurrent||rawCurrent;
+  const prices=selectCanonical?canonical:rawCurrent?priceTriplet(match?.odds):validRawTime?recorded:null;
+  const captured=selectCanonical?fixture.odds_updated_at:match?.rawQuote?.captured_at||match?.oddsCapturedAt||null;
+  const opening=prices&&recorded&&!selectCanonical?priceTriplet({
+    home:match?.rawQuote?.hda?.opening_home,
+    draw:match?.rawQuote?.hda?.opening_draw,
+    away:match?.rawQuote?.hda?.opening_away
   }):null;
   return <section className="ft-enriched-panel ft-match-odds" data-testid="match-odds">
     <div className="ft-panel-title-row"><h2>{showFresh?"Recent prematch odds":prices?"Previous odds":"Match odds"}</h2>
@@ -56,7 +70,7 @@ function OddsPanel({match,fixture}) {
         </div>)}
       </div>
       <p className="ft-odds-note">{showFresh?"Recent prematch quote":"Recorded earlier · not live"}
-        {reasonableTime?" · "+ukDate(match.rawQuote?.captured_at||match.oddsCapturedAt):""}</p>
+        {captured?" · "+(ukDate(captured)||""):""}</p>
     </>:<p className="ft-odds-note" data-testid="odds-missing">No recorded odds available for this match.</p>}
   </section>;
 }
