@@ -628,3 +628,62 @@ test("odds publish timing stays at twelve cron reads per hour, never creates a s
   expect(sql).not.toContain("cron.schedule(");
   expect(sql).not.toContain("net.http_get(");
 });
+
+test("home and away names have identical visual emphasis, not implicit advice",async({page})=>{
+  mockEndpoints(page);
+  await page.goto("http://127.0.0.1:4173/");
+  const first=page.getByTestId("fixture-row").first();
+  const home=first.getByTestId("home-team-name");
+  const away=first.getByTestId("away-team-name");
+  await expect(home).toBeVisible();
+  await expect(away).toBeVisible();
+  const homeWeight=await home.evaluate(e=>getComputedStyle(e).fontWeight);
+  const awayWeight=await away.evaluate(e=>getComputedStyle(e).fontWeight);
+  expect(homeWeight).toBe(awayWeight);
+  expect(first.locator(".ft-fixture-teams > strong")).toHaveCount(0);
+  await expect(page.getByTestId("advisor-coverage")).toContainText("BetClan");
+  await expect(page.getByTestId("advisor-coverage")).toContainText("SportyTrader");
+  await expect(page.getByTestId("advisor-coverage")).toContainText("Not connected");
+});
+test("match advisor panel differentiates archived forecast from verified live model",async({page})=>{
+  mockEndpoints(page);
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("advisor-forebet")).toContainText("Saved forecast · not current");
+  await expect(page.getByTestId("advisor-dc")).toContainText("No current qualified model");
+  await expect(page.getByTestId("advisor-form")).toContainText("Legacy model inactive");
+  await expect(page.getByTestId("advisor-betclan")).toContainText("Not connected");
+  await expect(page.getByTestId("advisor-sportytrader")).toContainText("Not connected");
+  await expect(page.getByTestId("verified-match-analysis")).toContainText("Saved Forebet record");
+  await expect(page.getByTestId("verified-match-analysis")).not.toContainText("Qualified internal model");
+});
+test("verified prematch DC advisor is shown only with fresh complete source-backed probabilities",async({page})=>{
+  const now=new Date().toISOString();
+  const kickoff=new Date(Date.now()+4*3600000).toISOString();
+  const d={...detail,
+    fixture:{...detail.fixture,kickoff_hkt:kickoff,status:"SCHEDULED"},
+    models:{forebet:null,internal:{
+      quality:"MODELED",model_source:"VERIFIED_RESULTS_HISTORY",fetched_at:now,
+      dc_prob_home:0.46,dc_prob_draw:0.30,dc_prob_away:0.24
+    }}
+  };
+  mockEndpoints(page,{deep:d});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("advisor-dc")).toContainText("Verified model");
+  await expect(page.getByTestId("verified-match-analysis")).toContainText("Qualified internal model (DC)");
+  await expect(page.getByTestId("advisor-forebet")).toContainText("No matched forecast");
+});
+test("expired, malformed and legacy-source model never appears as current advice",async({page})=>{
+  const kickoff=new Date(Date.now()+5*3600000).toISOString();
+  const stale=new Date(Date.now()-9*86400000).toISOString();
+  for(const internal of [
+    {quality:"MODELED",model_source:"VERIFIED_RESULTS_HISTORY",fetched_at:stale,dc_prob_home:0.4,dc_prob_draw:0.3,dc_prob_away:0.3},
+    {quality:"MODELED",model_source:"VERIFIED_RESULTS_HISTORY",fetched_at:new Date().toISOString(),dc_prob_home:0.4,dc_prob_draw:null,dc_prob_away:0.6},
+    {quality:"MODELED",model_source:"HKJC historical",fetched_at:new Date().toISOString(),dc_prob_home:0.4,dc_prob_draw:0.3,dc_prob_away:0.3}
+  ]){
+    mockEndpoints(page,{deep:{...detail,fixture:{...detail.fixture,kickoff_hkt:kickoff},
+      models:{forebet:null,internal}}});
+    await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+    await expect(page.getByTestId("advisor-dc")).toContainText("No current qualified model");
+    await expect(page.getByTestId("prediction-unavailable")).toHaveText("No prediction for this match yet.");
+  }
+});
