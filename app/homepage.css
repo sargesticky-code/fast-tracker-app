@@ -244,3 +244,25 @@
 .ft-odds-mini.ft-odds-previous>span{background:#f5f6f8;border-color:#e0e4eb;color:#53677b}
 .ft-odds-cell [data-testid="match-odds-status"]{font-size:10px;line-height:1.45;color:#697f95;overflow-wrap:anywhere}
 @media(max-width:650px){.ft-odds-cell [data-testid="match-odds-status"]{font-size:9px}}
+
+/* Team emphasis is never a betting recommendation. Both sides use equal weight. */
+.ft-fixture-teams>.ft-team-home,.ft-fixture-teams>.ft-team-away{
+ display:block;min-width:0;font-size:13px;font-weight:600;color:#163858
+}
+.ft-advisor-overview{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+ margin:12px 0 0;padding:11px 12px;background:#f7fafe;border:1px solid #e0eaf4;border-radius:8px}
+.ft-advisor-overview>strong{font-size:12px;color:#123c62;margin-right:5px}
+.ft-advisor-overview>span{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;
+ background:white;border:1px solid #dce6f0;border-radius:5px;font-size:11px;
+ font-weight:600;color:#385a77}
+.ft-advisor-overview i{font-style:normal;color:#427ba4}
+.ft-advisor-overview>small{flex-basis:100%;font-size:10px;color:#65809a;line-height:1.5}
+.ft-advisor-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
+ gap:9px;margin:10px 0}
+.ft-advisor-card{border:1px solid #dce6f0;background:#f8fbff;border-radius:8px;
+ padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.ft-advisor-card strong{font-size:13px;color:#173e65}
+.ft-advisor-card small{color:#68819a;font-size:11px;line-height:1.4}
+.ft-advisor-card .ft-advisor-state{font-size:11px;font-weight:700;color:#536c84}
+.ft-advisor-card .ft-advisor-state-ready{color:#217751}
+@media(max-width:650px){.ft-advisor-overview{gap:6px}.ft-advisor-overview>span{font-size:10px}}
