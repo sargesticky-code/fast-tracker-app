@@ -93,7 +93,8 @@ function enrich(row,evidence,now,fixtureKickoffs) {
   const phase=status || (kickoffMs===null?"unknown":kickoffMs>now?"upcoming":"started");
   const UKTime=kickoffMs===null?null:ukClock.format(kickoffMs);
   const tz=kickoffMs===null?null:ukZone.formatToParts(kickoffMs).find(p=>p.type==="timeZoneName")?.value||null;
-  return {...row,info, evidence, kickoffMs, UKTime, tz, phase,
+  const quote=availableQuote(row,evidence,now,kickoffMs,phase);
+  return {...row,info, evidence, kickoffMs, UKTime, tz, phase,quote,
     dateKey:kickoffMs===null?row.sourceDate:ukDay(kickoffMs)};
 }
 function MatchChips({evidence}) {
@@ -123,9 +124,41 @@ function OverviewCard({icon,label,value,hint,active,onClick,testId,theme="normal
     <span className="ft-overview-card-hint">{hint}</span>
   </button>;
 }
+// Treat bookmaker values as reference quotes. A valid source ID, full 1X2
+// triplet, capture timestamp and future kickoff are all required. Never infer
+// a quote by matching club names or show prematch prices as live.
+function quoteValues(o) {
+  const values=["home","draw","away"].map(k=>o?.[k]);
+  return values.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=1.01&&v<=100)?values:null;
+}
+const quoteTimeUK = new Intl.DateTimeFormat("en-GB", {
+  timeZone:UK_TIME,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
+  day:"2-digit",month:"short"
+});
+function availableQuote(row,evidence,now,kickoffMs,phase) {
+  if(kickoffMs===null || kickoffMs<=now || phase!=="upcoming") return null;
+  const candidates=[];
+  function push(source,values,capturedAt) {
+    const triplet=quoteValues(values);
+    const time=Date.parse(String(capturedAt||""));
+    if(!triplet||!Number.isFinite(time)||time>now+60_000||time>=kickoffMs) return;
+    const age=now-time;
+    if(age<0||age>24*60*60_000)return;
+    candidates.push({prices:triplet,source,capturedAt:time,
+      type:age<=20*60_000?"recent":"previous"});
+  }
+  if(evidence?.quote)push(evidence.quote.label,evidence.quote,evidence.quote.capturedAt);
+  if(row.rawQuote?.provider_event_id===row.providerEventId)
+    push("Bet365-labelled",row.rawQuote.hda,row.rawQuote.captured_at);
+  if(row.quoteStatus==="FRESH" && row.oddsCapturedAt && row.rawQuote==null)
+    push("Bookmaker reference",row.odds,row.oddsCapturedAt);
+  // Prefer the newest actual capture, not the API response time.
+  candidates.sort((a,b)=>b.capturedAt-a.capturedAt || (a.type==="recent"?-1:1));
+  return candidates[0]||null;
+}
 function oddsText(row) {
-  if(row.quoteStatus!=="FRESH" || !row.odds || [row.odds.home,row.odds.draw,row.odds.away].some(n=>n==null)) return null;
-  return [row.odds.home,row.odds.draw,row.odds.away].map(n=>Number(n).toFixed(2).replace(/0$/,"").replace(/\.$/,""));
+  const q=row.quote;
+  return q?q.prices.map(n=>n.toFixed(2)):null;
 }
 export default function HomepageClient() {
   const [feed,setFeed]=useState(null);
@@ -185,12 +218,13 @@ export default function HomepageClient() {
     details:matches.filter(m=>Boolean(m.evidence)).length,
     live:matches.filter(m=>m.phase==="live").length,
     xi:matches.filter(m=>m.evidence?.confirmedXI).length,prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
-    odds:matches.filter(m=>oddsText(m)).length};
+    odds:matches.filter(m=>oddsText(m)).length,
+    recentOdds:matches.filter(m=>m.quote?.type==="recent").length};
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="top"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
-    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet):oddsText(m)))
+    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>a.info.priority-b.info.priority
     ||alphaCollator.compare(a.info.display,b.info.display)
@@ -231,7 +265,7 @@ export default function HomepageClient() {
     {key:"live",icon:"live",label:"Live now",value:liveValue,hint:"Confirmed live games",active:phase==="live",test:"overview-live",theme:"live"},
     {key:"prediction",icon:"chart",label:"Predictions",value:forecastValue,hint:"Games with predictions",active:feature==="prediction"&&phase==="all",test:"overview-predictions"},
     {key:"xi",icon:"players",label:"Lineups",value:lineupsValue,hint:"Full starting XIs",active:feature==="xi"&&phase==="all",test:"overview-lineups"},
-    {key:"odds",icon:"grid",label:"Odds",value:priceValue,hint:"Fresh match odds",active:feature==="odds"&&phase==="all",test:"overview-odds"}
+    {key:"odds",icon:"grid",label:"Odds",value:priceValue,hint:"Recent & earlier quotes",active:feature==="odds"&&phase==="all",test:"overview-odds"}
   ];
 
   return <main className="ft-home">
@@ -294,6 +328,7 @@ export default function HomepageClient() {
           <FilterButton active={feature==="xi"} onClick={()=>setFeature("xi")}><Icon name="players"/> XI <span>{counts.xi}</span></FilterButton>
           <FilterButton active={feature==="prediction"} onClick={()=>setFeature("prediction")}><Icon name="chart"/> Predictions <span>{counts.prediction}</span></FilterButton>
           <FilterButton active={feature==="odds"} onClick={()=>setFeature("odds")}>H/D/A <span>{counts.odds}</span></FilterButton>
+          <FilterButton active={feature==="fresh-odds"} onClick={()=>setFeature("fresh-odds")}>Recent <span>{counts.recentOdds}</span></FilterButton>
           {hasFilters&&<button type="button" className="ft-clear-filters" onClick={clear}>Clear ×</button>}
         </div>
       </div>
@@ -328,10 +363,10 @@ export default function HomepageClient() {
                 <small>{m.UKTime?(m.tz||"UK")+" · UK": "UK time unverified"}</small>
               </div>
               <div className="ft-odds-cell">
-                {odds?<><div className="ft-odds-mini" aria-label="Fresh H/D/A odds">
+                {odds?<><div className={"ft-odds-mini"+(m.quote?.type==="previous"?" ft-odds-previous":"")} aria-label={(m.quote?.type==="recent"?"Recent":"Earlier")+" H/D/A odds"}>
                   {["H","D","A"].map((type,i)=><span key={type}><small>{type}</small><b>{odds[i]}</b></span>)}
-                </div><small>Prematch odds</small></>:
-                <span className="ft-odds-unavailable">— <small>No fresh odds</small></span>}
+                </div><small data-testid="match-odds-status">{m.quote?.type==="recent"?"Recent":"Earlier"} · {m.quote?.source} · {quoteTimeUK.format(m.quote.capturedAt)} UK</small></>:
+                <span className="ft-odds-unavailable">— <small>No recorded odds</small></span>}
               </div>
               <span className="ft-row-arrow" aria-hidden="true">›</span>
             </a>;

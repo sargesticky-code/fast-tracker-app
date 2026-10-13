@@ -239,3 +239,8 @@
 .ft-coach-card>span{font-size:12px;color:#56758f;overflow-wrap:anywhere}
 .ft-coach-home{grid-column:1}.ft-coach-away{grid-column:2}
 @media(max-width:650px){.ft-match-prices{gap:6px}.ft-match-price{padding:10px 6px}.ft-match-price strong{font-size:20px}.ft-coach-grid{gap:7px}.ft-coach-card{padding:9px}.ft-coach-card strong{font-size:13px}}
+
+/* Historical reference quotes are visibly distinct from recent captures. */
+.ft-odds-mini.ft-odds-previous>span{background:#f5f6f8;border-color:#e0e4eb;color:#53677b}
+.ft-odds-cell [data-testid="match-odds-status"]{font-size:10px;line-height:1.45;color:#697f95;overflow-wrap:anywhere}
+@media(max-width:650px){.ft-odds-cell [data-testid="match-odds-status"]{font-size:9px}}
