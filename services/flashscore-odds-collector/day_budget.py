@@ -76,6 +76,7 @@ _FINAL_STATUS = re.compile(
     r"CANCELLED|POSTPONED|ABANDONED|WALKOVER)$", re.I,
 )
 _CLOCK = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+_IN_PLAY = re.compile(r"^(?:(?:\d{1,3})(?:\+\d{1,2})?'|HT|HALF.?TIME|1ST HALF|2ND HALF)$", re.I)
 
 
 def _sort_key(item):
@@ -83,8 +84,9 @@ def _sort_key(item):
     time = str(item.get("time_text") or "").strip()
     # Finished/cancelled matches should never displace unplayed fixtures.
     ended = bool(_FINAL_STATUS.fullmatch(time))
+    status_rank = 0 if _IN_PLAY.fullmatch(time) else (1 if _CLOCK.fullmatch(time) else 2)
     kickoff = time if _CLOCK.fullmatch(time) else "99:99"
-    return (int(ended), league_priority(league), league.casefold(), kickoff)
+    return (int(ended), league_priority(league), league.casefold(), status_rank, kickoff)
 
 
 def allocate(rows, limit, seen, date, is_virtual):
