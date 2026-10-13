@@ -51,8 +51,18 @@ def run_bounded_capture(worker_path, timeout_seconds=300):
         payload = json.loads(target.read_text(encoding="utf-8"))
         fixtures = payload.get("fixtures")
         snapshot = payload.get("snapshot")
+        gap_reasons = payload.get("gap_reasons")
         if not isinstance(fixtures, list) or not isinstance(snapshot, list):
             raise RuntimeError("COLLECTOR_CHILD_INVALID_SHAPE")
         if len(snapshot) > len(fixtures):
             raise RuntimeError("COLLECTOR_CHILD_INVALID_COUNTS")
-        return fixtures, snapshot
+        if not isinstance(gap_reasons, dict):
+            raise RuntimeError("COLLECTOR_CHILD_MISSING_GAP_DIAGNOSTICS")
+        if any(not isinstance(k, str) or not isinstance(v, int) or v < 0
+               for k, v in gap_reasons.items()):
+            raise RuntimeError("COLLECTOR_CHILD_INVALID_GAP_DIAGNOSTICS")
+        if sum(gap_reasons.values()) != len(fixtures):
+            raise RuntimeError("COLLECTOR_CHILD_DIAGNOSTICS_COUNT_MISMATCH")
+        if gap_reasons.get("COMPLETE", 0) != len(snapshot):
+            raise RuntimeError("COLLECTOR_CHILD_SUCCESS_COUNT_MISMATCH")
+        return fixtures, snapshot, gap_reasons
