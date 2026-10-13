@@ -11,11 +11,11 @@ from app import refresh_once  # noqa: E402
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         raise SystemExit("Expected an output path")
-    fixtures, snapshot = asyncio.run(refresh_once())
+    fixtures, snapshot, gap_reasons = asyncio.run(refresh_once())
     dest = Path(sys.argv[1])
     tmp = dest.with_suffix(".tmp")
     tmp.write_text(
-        json.dumps({"fixtures": fixtures, "snapshot": snapshot}, ensure_ascii=False),
+        json.dumps({"fixtures": fixtures, "snapshot": snapshot, "gap_reasons": gap_reasons}, ensure_ascii=False),
         encoding="utf-8",
     )
     tmp.replace(dest)
