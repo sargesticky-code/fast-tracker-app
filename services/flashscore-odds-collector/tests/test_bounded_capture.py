@@ -80,12 +80,14 @@ class TestBoundedCollector(unittest.TestCase):
                 "import json,sys;from pathlib import Path;"
                 "Path(sys.argv[1]).write_text(json.dumps({"
                 "'fixtures':[{'event_id':'ABC123'}],"
-                "'snapshot':[{'event_id':'ABC123'}]}))",
+                "'snapshot':[{'event_id':'ABC123'}],"
+                "'gap_reasons':{'COMPLETE':1}}))",
                 encoding="utf-8",
             )
-            fixtures, snapshot = run_bounded_capture(path, 3)
+            fixtures, snapshot, reasons = run_bounded_capture(path, 3)
             self.assertEqual(fixtures[0]["event_id"], "ABC123")
             self.assertEqual(len(snapshot), 1)
+            self.assertEqual(reasons, {"COMPLETE": 1})
 
     def test_kills_stalled_child_without_locking_service(self):
         with tempfile.TemporaryDirectory() as tmp:
