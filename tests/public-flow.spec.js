@@ -937,3 +937,18 @@ test("canonical fallback admits only fresh individually exact-identity verified 
   await page.reload();
   await expect(page.getByTestId("overview-insight-status")).toContainText("Stats limited");
 });
+
+test("a new verified result-backed Form forecast can appear without reviving legacy-source records",async({page})=>{
+  const future=new Date(Date.now()+5*3600000).toISOString();
+  const captured=new Date().toISOString();
+  const source={...summary,matches:[{...summary.matches[0],kickoff:future,
+    forebet:null,forebetDetail:{},
+    advisors:{form:{home:0.48,draw:0.30,away:0.22},
+      formMeta:{quality:"FORM_MODELED",source:"VERIFIED_RESULTS_HISTORY",fetchedAt:captured}}
+  }]};
+  mockEndpoints(page,{source,deep:null});
+  await page.goto("http://127.0.0.1:4173/");
+  await expect(page.getByTestId("advisor-form-summary")).toContainText("1 verified forecasts");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).first()
+    .getByTestId("advisor-form-hda")).toContainText("48/30/22%");
+});
