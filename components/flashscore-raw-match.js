@@ -34,8 +34,9 @@ function verifiedInternalForecast(model, fixture, now=Date.now()) {
   const captured=Date.parse(String(model.fetched_at||""));
   if(!Number.isFinite(kickoff)||kickoff<=now||!Number.isFinite(captured)
     ||captured>now+60000||captured>=kickoff||captured<now-72*3600000) return null;
-  // Retired historical dependencies cannot silently reappear as live advice.
-  if(/HKJC/i.test(String(model.model_source||""))) return null;
+  // Only accept exact approved result-history provenance. Old, retired
+  // provider labels or unknown model sources never become current advice.
+  if(String(model.model_source||"")!=="VERIFIED_RESULTS_HISTORY")return null;
   const probs=[model.dc_prob_home,model.dc_prob_draw,model.dc_prob_away];
   if(probs.some(p=>p===null||p===undefined||!Number.isFinite(Number(p))
     ||Number(p)<0||Number(p)>1))return null;
