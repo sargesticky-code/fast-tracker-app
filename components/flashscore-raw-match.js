@@ -220,5 +220,5 @@ export default function FlashscoreRawMatch() {
       homeTeam={home} awayTeam={away}
       onClose={closePlayerProfile} />}
     {analysis && <PlayerStats data={analysis}/>}
-  </main>;  </main>;
+  </main>;
 }
