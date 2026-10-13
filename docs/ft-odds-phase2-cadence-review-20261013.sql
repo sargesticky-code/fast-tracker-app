@@ -14,7 +14,7 @@ DO $phase_align_odds$
 DECLARE
   job_record cron.job%ROWTYPE;
 BEGIN
-  SELECT * INTO job_record FROM cron.job WHERE jobid=38 FOR UPDATE;
+  SELECT * INTO job_record FROM cron.job WHERE jobid=38;
   IF NOT FOUND
      OR job_record.schedule <> '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
      OR job_record.command <> 'select private.ft_flashscore_direct_publication_cycle();'
