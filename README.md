@@ -1,15 +1,16 @@
 # Fast Tracker
 
-A read-only football dashboard that displays the Flashscore collector's raw fixture and odds snapshot. It does not calculate picks, probabilities, goals or corner forecasts.
+A read-only, English football dashboard that combines the Flashscore fixture snapshot with exact-ID canonical match evidence already stored by the existing services. It may display provider forecasts and historical result summaries when their source records pass validation; it does not turn historical results into current odds or forecasts.
 
 ## Data flow
 
 - Public dashboard: Railway — <https://fast-tracker-public-production.up.railway.app/>
 - Snapshot collector: Railway — <https://fast-tracker-dashboard-production.up.railway.app/>
-- The browser makes one snapshot request. The dashboard preserves source values, fixture identifiers and unknown fields; it does not synthesize missing times, prices, scores or statistics.
-- Dates and competitions in the filters come from the returned fixtures. Match details retain the source payload.
+- The browser reads the raw fixture snapshot and a compact canonical evidence response. Exact fixture IDs are required for joins; missing enrichment does not remove a fixture.
+- The dashboard preserves source values and provenance. It does not synthesize missing kickoff times, prices, scores, statistics, lineups, or predictions.
+- Match details retain the source payload and expose available odds, forecasts, historical observations, lineup evidence, and player statistics.
 - `/health` and `/system` show snapshot availability and source timing.
-- Supabase is retained for the canonical production store and existing collection services. It is not an odds or prediction source in the public dashboard.
+- Supabase provides canonical fixture identity and existing stored match evidence, odds, and forecasts through read-only public endpoints. It does not authorize new data collection by itself.
 
 ## Local development
 
@@ -38,4 +39,4 @@ Run `node scripts/audit-team-logo-coverage.mjs` to compare the full current `dis
 
 ## Current scope
 
-The public experience is intentionally raw and source-backed. Missing values remain missing. Do not present absent goals/corners or odds as zero, forecasts, or derived data. Historical database migrations are retained to preserve the applied schema history; provider-specific production objects and retired collection jobs were removed by the 2026-10-11 cleanup migrations.
+The public experience is source-backed and read-only. Missing values remain unavailable. Clearly separate actual results, provider forecasts, historical frequencies, and internal model output. Historical database migrations remain tracked as schema history; provider-specific production objects and retired collection jobs were removed by the 2026-10-11 cleanup migrations. HKJC remains retired. Do not add providers, speculative models, expanded scraping, or paid services.
