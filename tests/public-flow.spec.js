@@ -573,3 +573,29 @@ test("distinct China 500 odds provenance remains clear",async({page})=>{
   await expect(page.getByTestId("match-odds-status")).toContainText("China 500 reference");
   await expect(page.getByTestId("match-odds-status")).not.toContainText("Bet365");
 });
+
+test("match detail uses qualified canonical bookmaker prices even without raw quote",async({page})=>{
+  const now=new Date().toISOString();
+  const kickoff=new Date(Date.now()+3*3600000).toISOString();
+  const deep={...detail,fixture:{...detail.fixture,kickoff_hkt:kickoff,
+    bookmaker_source:"FLASHSCORE_BET365",odds_updated_at:now,
+    had_home:1.92,had_draw:3.42,had_away:4.81}};
+  mockEndpoints(page,{deep,raw:{...snapshot,fixtures:[]}});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  const odds=page.getByTestId("match-odds");
+  await expect(odds).toContainText("Recent prematch odds");
+  await expect(odds).toContainText("1.92");
+  await expect(odds).toContainText("3.42");
+  await expect(odds).toContainText("4.81");
+  await expect(odds).not.toContainText("Previous odds");
+  await expect(odds).not.toContainText("live");
+});
+test("unverified canonical source cannot be mislabelled as Bet365 odds on match detail",async({page})=>{
+  const now=new Date().toISOString(),kickoff=new Date(Date.now()+3600000).toISOString();
+  const deep={...detail,fixture:{...detail.fixture,kickoff_hkt:kickoff,
+    bookmaker_source:null,odds_updated_at:now,
+    had_home:2.05,had_draw:3.3,had_away:3.77}};
+  mockEndpoints(page,{deep,raw:{...snapshot,fixtures:[]}});
+  await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+  await expect(page.getByTestId("match-odds")).toContainText("No recorded odds");
+});
