@@ -262,7 +262,28 @@ function verifiedCompactSummaryRow(m: any) {
     forebetDetail:{
       predictedScore:detail.predictedScore??null,
       ou25:detail.ou25??null,
-      corners95:detail.corners95??null
+      corners95:detail.corners95??null,
+      fetchedAt:detail.fetchedAt??null
+    },
+    // The full summary already joins these exact canonical match IDs.
+    // Project minimal provenance into the existing compact response instead
+    // of inventing a second fetch or treating sibling models as independent
+    // external sources. The browser must independently enforce freshness.
+    advisors:{
+      dc:m.dc??null,
+      pi:m.pi??null,
+      form:m.form??null,
+      dcMeta:m.dcDetail?{
+        quality:m.dcDetail.quality??null,
+        source:m.dcDetail.source??null,
+        fetchedAt:m.dcDetail.fetchedAt??null,
+        trainingMatches:m.dcDetail.trainingMatches??null
+      }:null,
+      formMeta:m.formDetail?{
+        quality:m.formDetail.quality??null,
+        source:m.formDetail.source??null,
+        fetchedAt:m.formDetail.fetchedAt??null
+      }:null
     },
     sourceContext:{
       source:src.source??null,
