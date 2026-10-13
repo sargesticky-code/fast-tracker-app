@@ -601,10 +601,10 @@ test("unverified canonical source cannot be mislabelled as Bet365 odds on match 
   await expect(page.getByTestId("match-odds")).toContainText("No recorded odds");
 });
 
-test("bounded bookmaker selection keeps major leagues and full quota under budget",async()=>{
+test("bounded collector selection and honest bookmaker gap diagnostics pass offline tests",async()=>{
   // This is a pure Python test suite; no network, browser captures or production writes.
   const run=spawnSync("python3",["-m","unittest","discover",
-    "-s","services/flashscore-odds-collector","-p","test_day_budget.py"],{
+    "-s","services/flashscore-odds-collector","-p","test_*.py"],{
     encoding:"utf8",timeout:10000
   });
   expect(run.status,run.stderr||run.stdout||String(run.error)).toBe(0);
