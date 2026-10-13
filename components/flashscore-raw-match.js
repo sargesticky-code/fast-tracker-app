@@ -14,6 +14,51 @@ function percentDecimal(v) { return v==null ? "—" : knownNumber(Number(v)*100,
 function scoredPair(h,a) {
   return Number.isInteger(h) && Number.isInteger(a) ? h+"–"+a : null;
 }
+function MatchContext({analysis,home,away}) {
+  const claims=Array.isArray(analysis?.humanFactors?.playerStatus)
+    ?analysis.humanFactors.playerStatus.filter(row=>
+      (row?.team_side==="H"||row?.team_side==="A")
+      &&typeof row?.status_type==="string"&&row.status_type.trim()
+      &&typeof row?.status_value==="string"&&row.status_value.trim())
+    :[];
+  const h2h=analysis?.h2h;
+  const games=h2h?.h2h_games;
+  const homeWins=h2h?.home_wins,draws=h2h?.draws,awayWins=h2h?.away_wins;
+  const validH2H=h2h?.status==="OK"&&Number.isInteger(games)&&games>0;
+  const validRecord=[homeWins,draws,awayWins].every(v=>Number.isInteger(v)&&v>=0)
+    &&homeWins+draws+awayWins===games;
+  const homeGoals=h2h?.home_goals,awayGoals=h2h?.away_goals;
+  const validGoals=Number.isInteger(homeGoals)&&homeGoals>=0&&Number.isInteger(awayGoals)&&awayGoals>=0;
+  const avg=h2h?.avg_total_goals;
+  const validAverage=typeof avg==="number"&&Number.isFinite(avg)&&avg>=0&&avg<=20;
+  const recent=typeof h2h?.last5==="string"&&/^[WDL]{1,5}$/.test(h2h.last5)?h2h.last5:null;
+  if(!claims.length&&!validH2H)return null;
+  return <>
+    {claims.length>0&&<section className="ft-enriched-panel" data-testid="player-status-evidence">
+      <h2>Player availability evidence</h2>
+      <p>Match-linked source claims. Confirmation and player identity are shown as recorded.</p>
+      <div className="ft-stats-grid">{claims.map((row,index)=>{
+        const side=row.team_side==="H"?"Home":"Away";
+        const status=String(row.status_type).trim()+": "+String(row.status_value).trim();
+        const fact=row.fact_status==="CONFIRMED"?"Confirmed and canonically matched"
+          :row.fact_status==="SOURCE_CONFIRMED_IDENTITY_UNRESOLVED"?"Source-confirmed · identity unresolved"
+          :row.confirmed===true?"Source-confirmed · identity not verified":"Unconfirmed source claim";
+        return <div className="ft-stat-row" key={row.evidence_key||index}>
+          <b>{row.player_name||"Player identity unavailable"} · {side}</b>
+          <small>{home} vs {away} · {status} · {fact}</small>
+        </div>;
+      })}</div>
+    </section>}
+    {validH2H&&<section className="ft-enriched-panel" data-testid="verified-h2h">
+      <h2>Previous meetings</h2>
+      <p>Verified results history · {games} meetings for {home} vs {away}.</p>
+      {validRecord&&<p>{home} wins {homeWins} · Draws {draws} · {away} wins {awayWins}</p>}
+      {validGoals&&<p>Goals: {home} {homeGoals} · {away} {awayGoals}</p>}
+      {validAverage&&<p>Average total goals: {avg.toFixed(1)}</p>}
+      {recent&&<p>Recent results, newest first: {recent.split("").join(" · ")}</p>}
+    </section>}
+  </>;
+}
 function priceTriplet(source) {
   if(!source || typeof source!=="object") return null;
   const values=["home","draw","away"].map(key=>source[key]);
@@ -71,7 +116,7 @@ function OddsPanel({match,fixture}) {
       </div>
       <p className="ft-odds-note">{showFresh?"Recent prematch quote":"Recorded earlier · not live"}
         {captured?" · "+(ukDate(captured)||""):""}</p>
-    </>:<p className="ft-odds-note" data-testid="odds-missing">No recorded odds available for this match.</p>}
+    </>:<p className="ft-odds-note" data-testid="odds-missing">{match?.quoteStatus==="STALE"?"Stale odds are unavailable for this match.":match?.quoteStatus==="INVALID"?"Invalid bookmaker prices were suppressed.":"No recorded odds available for this match."}</p>}
   </section>;
 }
 function PlayerStats({ data }) {
@@ -138,12 +183,15 @@ export default function FlashscoreRawMatch() {
   const away=match?.away||fixture?.away_en||"Away unknown";
   const validXI=lineups.length===22 && lineupProvenance?.sourceConfirmed===true
     && lineups.filter(p=>p.team_side==="H").length===11 && lineups.filter(p=>p.team_side==="A").length===11;
+  const predictedXI=lineupProvenance?.predicted===true
+    ||lineupProvenance?.status==="PREDICTED"
+    ||lineups.some(player=>player?.predicted===true);
   return <main className="ft-home ft-raw-detail">
     <a href="/">← All fixtures</a>
     <p className="ft-match-competition">{String(match?.league||fixture?.tournament||"Football").replace(/:\s*(?:Live Standings|Standings|Draw|Results)$/i,"")}</p>
     <h1>{home} vs {away}</h1>
     <p className="ft-match-when">{ukDate(fixture?.kickoff_hkt) || "Kickoff time unavailable"}
-      {score && <strong> · {score}</strong>}</p>
+      {score && <strong> · {fixture?.status==="FINISHED"?"Final score":"Actual score"} {score}</strong>}</p>
 
     <OddsPanel match={match} fixture={fixture}/>
 
@@ -201,8 +249,10 @@ export default function FlashscoreRawMatch() {
     </section>}
 
     {lineups.length>0 && <section className="ft-enriched-panel" data-testid="official-xi">
-      <h2>{validXI ? "Official starting XI" : "Available source lineup"}</h2>
-      <p>{validXI?"Tap any player for their profile.":"Available players are shown below."}</p>
+      <h2>{validXI ? "Confirmed starting XI" : predictedXI ? "Predicted starting XI" : "Available source lineup"}</h2>
+      <p>{lineupProvenance?.sourceConfirmed===true?"Starting XI confirmed by the source.":predictedXI?"Predicted lineup; not confirmed by the source.":"Lineup confirmation is unavailable."}
+        {lineupProvenance?.canonicalIdentitiesVerified===false?" Source player identities have not been resolved to canonical player records.":""}
+        {validXI?" Tap a player for available profile details.":" Source player rows are preserved."}</p>
       <FormationPitch
         home={lineups.filter(p=>p.team_side==="H")}
         away={lineups.filter(p=>p.team_side==="A")}
@@ -214,6 +264,7 @@ export default function FlashscoreRawMatch() {
         onPlayerSelect={setSelectedPlayer}
       />
     </section>}
+    {analysis&&<MatchContext analysis={analysis} home={home} away={away}/>}
     {managers.some(m=>m.team_side==="H"||m.team_side==="A") && <section className="ft-enriched-panel" data-testid="match-coaches">
       <h2>Coaches</h2>
       <div className="ft-coach-grid">
