@@ -31,7 +31,7 @@ def league_priority(value):
     AFC Champions League is NOT UEFA Champions League.
     """
     league = re.sub(
-        r":\\s*(?:Live Standings|Standings|Draw|Results|Fixtures)\\s*$", "",
+        r":\s*(?:Live Standings|Standings|Draw|Results|Fixtures)\s*$", "",
         str(value or "").strip(), flags=re.I,
     ).upper().strip()
     country = ""
@@ -41,7 +41,7 @@ def league_priority(value):
             league = league[:-len(suffix)].strip()
             break
     league = re.sub(r"[._-]+", " ", league)
-    league = re.sub(r"\\s+", " ", league).strip()
+    league = re.sub(r"\s+", " ", league).strip()
     if league in ("PREMIER LEAGUE", "ENGLISH PREMIER LEAGUE") and country == "ENGLAND":
         return 0
     if league in ("LA LIGA", "LALIGA", "PRIMERA DIVISION", "LA LIGA EA SPORTS") and country == "SPAIN":
@@ -75,7 +75,7 @@ _FINAL_STATUS = re.compile(
     r"^(?:FT|FULL.?TIME|FINISHED|AET|AFTER PEN(?:ALTIES)?|"
     r"CANCELLED|POSTPONED|ABANDONED|WALKOVER)$", re.I,
 )
-_CLOCK = re.compile(r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+_CLOCK = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 
 
 def _sort_key(item):
