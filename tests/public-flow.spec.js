@@ -609,3 +609,22 @@ test("bounded bookmaker selection keeps major leagues and full quota under budge
   });
   expect(run.status,run.stderr||run.stdout||String(run.error)).toBe(0);
 });
+
+test("odds publish timing stays at twelve cron reads per hour, never creates a second job",async()=>{
+  const name="ft_odds_phase2_cadence_20261013";
+  const existing=fs.readdirSync("supabase/migrations").filter(x=>x.includes(name));
+  const file=existing.length===1?"supabase/migrations/"+existing[0]:
+    "docs/ft-odds-phase2-cadence-review-20261013.sql";
+  const sql=fs.readFileSync(file,"utf8");
+  const matched=sql.match(/schedule\s*:=\s*'(\d+(?:,\d+)*\s+\*\s+\*\s+\*\s+\*)'/);
+  expect(matched,"expected pg_cron schedule update").not.toBeNull();
+  const minutes=matched[1].split(" ")[0].split(",").map(Number);
+  expect(minutes).toHaveLength(12);
+  expect(minutes.every((v,i)=>v>=0&&v<60&&(i===0||v-minutes[i-1]===5))).toBe(true);
+  expect(sql).toContain("jobid=38");
+  expect(sql).toContain("private.ft_flashscore_direct_publication_cycle()");
+  expect(sql).toContain("odds_publish_job_38_schedule_or_command_drift");
+  expect(sql).toContain("cron.alter_job(");
+  expect(sql).not.toContain("cron.schedule(");
+  expect(sql).not.toContain("net.http_get(");
+});
