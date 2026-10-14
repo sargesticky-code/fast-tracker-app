@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedSummary } from "@/lib/verified-evidence-feed";
+import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
 // Source competition names can contain "COUNTRY: Live Standings". Keep the
@@ -155,6 +156,19 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
     {chips.map(c=><span key={c.test} className="ft-match-chip" data-testid={c.test} title={c.label+": "+c.value}><i aria-hidden="true">{c.mark}</i><b>{c.value}</b><small>{c.label}</small></span>)}
   </div>;
 }
+function ProvisionalChip({candidate,verified}) {
+  if (!candidate || verified) return null;
+  const side=candidate.matchedSide==="HOME"?"Home":"Away";
+  return <div className="ft-provisional-chip" data-testid="forebet-provisional"
+    title="Unverified opposite team: this is not a confirmed Forebet–Flashscore identity">
+    <span>◇ Forebet provisional · only {side} verified</span>
+    <strong>H/D/A {candidate.probs.map(v=>Math.round(v)).join("/")}%
+      {" · "}Score {candidate.predictedScore} · Avg {candidate.avgGoals.toFixed(2)}</strong>
+    <small>Rechecked automatically; disconnected if fixture/source identity changes.
+      Not counted as a verified adviser prediction.</small>
+  </div>;
+}
+
 function HistoricalFormDisclosure({evidence,homeName,awayName}) {
   const sides=[{name:homeName,label:"Home",form:evidence?.historicalForm?.home},
     {name:awayName,label:"Away",form:evidence?.historicalForm?.away}];
@@ -240,6 +254,8 @@ export default function HomepageClient() {
   const [status,setStatus]=useState("loading");
   const [verified,setVerified]=useState(null);
   const [verifiedStatus,setVerifiedStatus]=useState("loading");
+  const [provisional,setProvisional]=useState(new Map());
+  const [provisionalStatus,setProvisionalStatus]=useState("loading");
   const [query,setQuery]=useState("");
   const [date,setDate]=useState("");
   const [league,setLeague]=useState("");
@@ -281,13 +297,36 @@ export default function HomepageClient() {
     document.addEventListener("visibilitychange",refreshVerified);
     return()=>{cancelled=true;controller.abort();clearInterval(timer);document.removeEventListener("visibilitychange",refreshVerified);};
   },[]);
+  useEffect(()=>{
+    let cancelled=false,inFlight=false;
+    const controller=new AbortController();
+    async function refreshProvisional(){
+      if(cancelled||inFlight||document.visibilityState!=="visible")return;
+      inFlight=true;
+      try{
+        const current=await fetchForebetProvisional(controller.signal);
+        if(!cancelled){setProvisional(current);setProvisionalStatus("ready");}
+      }catch{if(!cancelled){setProvisional(new Map());setProvisionalStatus("unavailable");}}
+      finally{inFlight=false;}
+    }
+    refreshProvisional();
+    const timer=setInterval(refreshProvisional,300000);
+    document.addEventListener("visibilitychange",refreshProvisional);
+    return()=>{cancelled=true;controller.abort();clearInterval(timer);
+      document.removeEventListener("visibilitychange",refreshProvisional);};
+  },[]);
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),60000);return()=>clearInterval(timer);},[]);
   const rawCaptured=Date.parse(String(feed?.generatedAt||""));
   const rawReady=Number.isFinite(rawCaptured)&&now-rawCaptured>=-60000&&now-rawCaptured<=30*60000
     &&Array.isArray(feed?.matches)&&feed.matches.length>0;
   const usingCanonicalFallback=!rawReady&&(verified?.fallbackMatches?.length||0)>0;
   const rows=rawReady?feed.matches:(verified?.fallbackMatches||[]);
-  const matches=useMemo(()=>rows.map(m=>enrich(m,verified?.byId.get(m.id)||null,now,verified?.fixtureKickoffs)),[rows,verified,now]);
+  const matches=useMemo(()=>rows.map(m=>{
+    const full=enrich(m,verified?.byId.get(m.id)||null,now,verified?.fixtureKickoffs);
+    const candidate=provisional.get(m.id);
+    // Keep the model/odds/accuracy pipeline untouched. This is display only.
+    return {...full,provisional:candidate && !full.evidence?.forebet ? candidate:null};
+  }),[rows,verified,provisional,now]);
   const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
   const liveKnown=matches.some(m=>m.phase==="live");
@@ -296,17 +335,18 @@ export default function HomepageClient() {
     live:matches.filter(m=>m.phase==="live").length,
     xi:matches.filter(m=>m.evidence?.confirmedXI).length,
     forebet:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
+    provisional:matches.filter(m=>m.provisional).length,
     dc:matches.filter(m=>m.evidence?.dc).length,
     pi:matches.filter(m=>m.evidence?.pi).length,
     form:matches.filter(m=>m.evidence?.form).length,
-    prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form).length,
+    prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.provisional).length,
     odds:matches.filter(m=>oddsText(m)).length,
     recentOdds:matches.filter(m=>m.quote?.type==="recent").length};
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="featured"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
-    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
+    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.provisional):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>(a.phase==="live"?0:1)-(b.phase==="live"?0:1)
     ||a.info.priority-b.info.priority
@@ -380,6 +420,7 @@ export default function HomepageClient() {
         <div className="ft-advisor-overview" data-testid="advisor-coverage" aria-label="Prediction advisor sources">
           <strong>Prediction sources</strong>
           <span data-testid="advisor-forebet-summary"><i aria-hidden="true">◇</i> Forebet · {verifiedStatus==="ready"?counts.forebet:"—"} saved forecasts</span>
+          <span data-testid="advisor-forebet-provisional-summary"><i aria-hidden="true">?</i> Forebet tentative · {provisionalStatus==="ready"?counts.provisional:"—"} one-team links (not verified)</span>
           <span data-testid="advisor-dc-summary"><i aria-hidden="true">◈</i> Dixon–Coles · {verifiedStatus==="ready"?counts.dc:"—"} verified forecasts</span>
           <span data-testid="advisor-pi-summary"><i aria-hidden="true">◇</i> Power Index · {verifiedStatus==="ready"?counts.pi:"—"} (same model source)</span>
           <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"Legacy inactive"}</span>
@@ -447,6 +488,7 @@ export default function HomepageClient() {
                   <span className="ft-team-away" data-testid="away-team-name"><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
                 </div>
                 <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away}/>
+                <ProvisionalChip candidate={m.provisional} verified={m.evidence?.forebet}/>
               </div>
               <div className="ft-kickoff-cell">
                 <span className={"ft-match-state ft-match-state-"+m.phase}>{m.phase==="live"&&<i className="ft-live-dot"/>}{statusLabel}</span>
