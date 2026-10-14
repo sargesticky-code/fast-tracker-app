@@ -457,6 +457,11 @@ for (const device of [
     await page.goto("http://127.0.0.1:4173/");
     await expect(page.getByText("Mathematical Football Predictions and Statistics")).toBeVisible();
     await expect(page.getByText("Northbridge FC").first()).toBeVisible();
+    const sourceBar = page.getByRole("region", { name: "Prediction provider coverage" });
+    await expect(sourceBar).toContainText("Forebet: 1 stored");
+    await expect(sourceBar).toContainText("BetClan: pending");
+    await expect(sourceBar).toContainText("SportyTrader: pending");
+    await expect(page.locator(".ft-team-names .ft-advisor-label").first()).toContainText("capture time unverified");
     await expect(page.getByRole("button", { name: "HDA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Goals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Corners" })).toBeVisible();
@@ -471,6 +476,9 @@ for (const device of [
 
     await expect(page).toHaveURL(/details.*FBTEST1/);
     await expect(page.getByText("FAST TRACKER MATCH ANALYSIS")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".detail-advisor-status")).toContainText("Forebet");
+    await expect(page.locator(".detail-advisor-status")).toContainText("BetClan Awaiting verified match");
+    await expect(page.locator(".detail-advisor-status")).toContainText("SportyTrader Awaiting verified match");
     await expect(page.getByText("Northbridge vs Riverside: home value, but lineup confirmation still matters")).toBeVisible();
     await expect(page.getByText("Hong Kong Jockey Club")).toBeVisible();
     await expect(page.locator("#analysis").getByText("2.20", { exact: true })).toBeVisible();
