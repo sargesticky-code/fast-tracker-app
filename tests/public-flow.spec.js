@@ -84,6 +84,7 @@ test("reversible Forebet one-team match is visible but never classed as verified
     }]
   },headers:cors}));
   await page.goto("http://127.0.0.1:4173/");
+  await page.getByTestId("scope-all").click();
   const fixture=page.getByTestId("fixture-row").filter({hasText:"Home 1"}).first();
   await expect(fixture.getByTestId("forebet-provisional")).toContainText("only Home verified");
   await expect(fixture.getByTestId("forebet-provisional")).toContainText("48/28/24%");
