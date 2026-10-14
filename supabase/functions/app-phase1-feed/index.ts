@@ -240,6 +240,28 @@ function observedFlashscoreStats(detail:any,kickoff:any){
     semantics:"OBSERVED_MATCH_STATS_NOT_VERIFIED_LIVE_STATUS",stats};
 }
 
+// Optional external advisers share the existing response and exact fixture IDs.
+// Failure here must never remove fixtures, prices or the existing advisers.
+async function withExternalAdvisers(db:any,matches:any[]) {
+  try {
+    const {data,error}=await db.from("adviser_prediction_current")
+      .select("provider,source_event_id,canonical_event_id,source_url,source_home,source_away,source_kickoff,last_seen_at,observation")
+      .limit(240);
+    if(error||!Array.isArray(data))return matches;
+    const byId=new Map<string,any[]>();
+    for(const r of data){
+      const rows=byId.get(r.canonical_event_id)||[];
+      rows.push({provider:r.provider,eventId:r.source_event_id,id:r.canonical_event_id,
+        sourceUrl:r.source_url,sourceHome:r.source_home,sourceAway:r.source_away,
+        kickoff:r.source_kickoff,capturedAt:r.last_seen_at,identityStatus:"VERIFIED",
+        hda:r.observation?.hda??null,predictedScore:r.observation?.predicted_score??null,
+        over25:r.observation?.over25??null,bttsYes:r.observation?.btts_yes??null,
+        tip:r.observation?.tip??null});byId.set(r.canonical_event_id,rows);
+    }
+    return matches.map(m=>({...m,externalAdvisers:byId.get(m.id)||[]}));
+  } catch {return matches;}
+}
+
 // Homepage only needs exact-ID forecast badges and canonical fallback context.
 // This response shape is deliberately compact and requires NO additional SQL.
 function verifiedCompactSummaryRow(m: any) {
@@ -257,6 +279,7 @@ function verifiedCompactSummaryRow(m: any) {
     oddsCapturedAt:m.health?.authorityFetchedAt??null,
     oddsLabel:m.sourceContext?.marketAuthority==="CHINA_500_SPF"
       ? "China 500 reference" : "Bookmaker reference",
+    externalAdvisers:m.externalAdvisers??[],
     historicalForm:m.historicalForm??null,
     forebet:m.forebet??null,
     forebetDetail:{
@@ -725,6 +748,7 @@ Deno.serve(async (req: Request) => {
     if (!supabaseUrl || !serverKey) throw new Error("server_config_missing");
 
     const db = createReadClient(supabaseUrl, serverKey);
+    const adviserDb=createReadClientWithTimeout(supabaseUrl,serverKey,4_000);
     const fullRpcDb = createReadClientWithTimeout(supabaseUrl,serverKey,8_000);
 
     if (summaryOnly) {
@@ -777,7 +801,7 @@ Deno.serve(async (req: Request) => {
           source:"flashscore-single-rpc-canonical",
           view:compactOnly?"compact":"summary",windowHours:hours,
           count:matches.length,
-          matches:compactOnly?matches.map(verifiedCompactSummaryRow):matches,
+          matches:await withExternalAdvisers(adviserDb,compactOnly?matches.map(verifiedCompactSummaryRow):matches),
           fixtureKickoffs: Array.isArray(fixtureTimesResult.data)
             ? fixtureTimesResult.data.filter((r:any)=>/^FS:[A-Za-z0-9_-]{5,32}$/.test(String(r.match_id||""))
                 && typeof r.kickoff_hkt==="string")
@@ -937,7 +961,7 @@ Deno.serve(async (req: Request) => {
             raw:bet365Heartbeat?.raw??{}
           }
         },
-        matches:directMatches,
+        matches:await withExternalAdvisers(adviserDb,compactOnly?directMatches.map(verifiedCompactSummaryRow):directMatches),
       },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
     }
 
@@ -951,6 +975,7 @@ Deno.serve(async (req: Request) => {
       const recovered = await lightweightFullRecovery(
         supabaseUrl, serverKey, createReadClientWithTimeout(supabaseUrl, serverKey, 8_000), hours
       );
+      recovered.matches=await withExternalAdvisers(adviserDb,recovered.matches||[]);
       return Response.json(recovered, {
         headers: { ...corsHeaders, "Cache-Control": "public, max-age=10, stale-while-revalidate=40" },
       });
@@ -962,6 +987,7 @@ Deno.serve(async (req: Request) => {
     if (error) {
       console.error("full_feed_rpc_degraded", error);
       const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,createReadClientWithTimeout(supabaseUrl,serverKey,8_000),hours);
+      recovered.matches=await withExternalAdvisers(adviserDb,recovered.matches||[]);
       return Response.json(recovered,{
         headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"},
       });
@@ -970,6 +996,7 @@ Deno.serve(async (req: Request) => {
     const rows = Array.isArray(data) ? data : [];
     if (!rows.length) {
       const recovered=await lightweightFullRecovery(supabaseUrl,serverKey,createReadClientWithTimeout(supabaseUrl,serverKey,8_000),hours);
+      recovered.matches=await withExternalAdvisers(adviserDb,recovered.matches||[]);
       return Response.json(recovered,{
         headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"},
       });
@@ -1786,7 +1813,7 @@ Deno.serve(async (req: Request) => {
       windowHours: hours,
       count: matches.length,
       systemHealth,
-      matches,
+      matches:await withExternalAdvisers(adviserDb,matches),
     }, {
       headers: { ...corsHeaders, "Cache-Control": "public, max-age=5, stale-while-revalidate=15" },
     });

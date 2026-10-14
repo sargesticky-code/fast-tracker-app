@@ -880,7 +880,7 @@ test("home and away names have identical visual emphasis, not implicit advice",a
   expect(first.locator(".ft-fixture-teams > strong")).toHaveCount(0);
   await expect(page.getByTestId("advisor-coverage")).toContainText("BetClan");
   await expect(page.getByTestId("advisor-coverage")).toContainText("SportyTrader");
-  await expect(page.getByTestId("advisor-coverage")).toContainText("Not connected");
+  await expect(page.getByTestId("advisor-coverage")).toContainText("0 verified forecasts");
 });
 test("match advisor panel differentiates archived forecast from verified live model",async({page})=>{
   mockEndpoints(page);
@@ -888,8 +888,8 @@ test("match advisor panel differentiates archived forecast from verified live mo
   await expect(page.getByTestId("advisor-forebet")).toContainText("Saved forecast · not current");
   await expect(page.getByTestId("advisor-dc")).toContainText("No current qualified model");
   await expect(page.getByTestId("advisor-form")).toContainText("Legacy model inactive");
-  await expect(page.getByTestId("advisor-betclan")).toContainText("Not connected");
-  await expect(page.getByTestId("advisor-sportytrader")).toContainText("Not connected");
+  await expect(page.getByTestId("advisor-betclan")).toContainText("No current matched forecast");
+  await expect(page.getByTestId("advisor-sportytrader")).toContainText("No current matched forecast");
   await expect(page.getByTestId("verified-match-analysis")).toContainText("Saved Forebet record");
   await expect(page.getByTestId("verified-match-analysis")).not.toContainText("Qualified internal model");
 });
@@ -992,4 +992,35 @@ test("a new verified result-backed Form forecast can appear without reviving leg
   await expect(page.getByTestId("advisor-form-summary")).toContainText("1 verified forecasts");
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).first()
     .getByTestId("advisor-form-hda")).toContainText("48/30/22%");
+});
+
+for(const width of [1440,390]) test('verified BetClan source values survive compact feed '+width,async({page})=>{
+ await page.setViewportSize({width,height:900});
+ const kickoff=new Date(Date.now()+24*3600000).toISOString();
+ const a={provider:'BETCLAN',id:'FS:event1',eventId:'1513647',identityStatus:'VERIFIED',
+   sourceUrl:'https://www.betclan.com/predictionsdetails/football/1513647/paide-v-tammeka-prediction/',
+   capturedAt:new Date().toISOString(),kickoff,hda:{home:.6,draw:.2,away:.2},predictedScore:'3-1',over25:.63,bttsYes:.61};
+ const raw={...snapshot,discovered:snapshot.discovered.map(x=>({...x,fixture_date:kickoff.slice(0,10)}))};
+ const source={...summary,matches:summary.matches.map(x=>({...x,kickoff,externalAdvisers:x.id==='FS:event1'?[a]:[]}))};
+ mockEndpoints(page,{raw,source});
+ await page.goto('http://127.0.0.1:4173/');await page.getByTestId('scope-all').click();
+ const row=page.locator('[data-fixture-id="FS:event1"] [data-testid="fixture-row"]');
+ await expect(row.getByTestId('betclan-hda')).toContainText('60/20/20%');
+ await expect(row.getByTestId('betclan-score')).toContainText('3-1');
+ await expect(row.getByTestId('betclan-over25')).toContainText('63%');
+ await expect(row.getByTestId('betclan-btts')).toContainText('61%');
+ await page.screenshot({path:'test-results/betclan-'+width+'.png',fullPage:true});
+});
+
+test('verified external adviser remains visible on match detail with source link',async({page})=>{
+ const kickoff=new Date(Date.now()+24*3600000).toISOString();
+ const a={provider:'BETCLAN',id:'FS:event0',eventId:'1513647',identityStatus:'VERIFIED',
+ sourceUrl:'https://www.betclan.com/predictionsdetails/football/1513647/paide-v-tammeka-prediction/',
+ capturedAt:new Date().toISOString(),kickoff,hda:{home:.6,draw:.2,away:.2},predictedScore:'3-1',over25:.63,bttsYes:.61};
+ mockEndpoints(page,{deep:{...detail,fixture:{...detail.fixture,kickoff_hkt:kickoff},externalAdvisers:[a]}});
+ await page.goto('http://127.0.0.1:4173/details?id=FS%3Aevent0');
+ const card=page.getByTestId('advisor-betclan');
+ await expect(card).toContainText('Verified forecast');await expect(card).toContainText('60% / 20% / 20%');
+ await expect(card.getByRole('link',{name:'Source prediction'})).toHaveAttribute('href',a.sourceUrl);
+ await card.screenshot({path:'test-results/betclan-detail.png'});
 });
