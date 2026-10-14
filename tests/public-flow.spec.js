@@ -62,7 +62,36 @@ function mockEndpoints(page,{raw=snapshot,source=summary,deep=detail}={}){
   page.route("**/snapshot",r=>raw===null?r.fulfill({status:503,body:"Unavailable",headers:cors}):r.fulfill({json:raw,headers:cors}));
   page.route("**/functions/v1/app-phase1-feed**",r=>source===null?r.fulfill({status:503,body:"Unavailable",headers:cors}):r.fulfill({json:source,headers:cors}));
   page.route("**/functions/v1/app-match-detail**",r=>deep===null?r.fulfill({status:503,body:"Unavailable",headers:cors}):r.fulfill({json:deep,headers:cors}));
+  page.route("**/functions/v1/forebet-provisional-feed**",r=>r.fulfill({json:{
+    source:"FOREBET_PROVISIONAL",quality:"PROVISIONAL_NOT_VERIFIED",
+    generatedAt:new Date().toISOString(),rows:[]},headers:cors}));
 }
+test("reversible Forebet one-team match is visible but never classed as verified",async({page})=>{
+  const kickoff=new Date(Date.now()+24*3600000).toISOString();
+  const raw={...snapshot,discovered:snapshot.discovered.map(x=>x.provider_event_id==="event1"
+    ? {...x,fixture_date:kickoff.slice(0,10)}:x)};
+  const source={...summary,generatedAt:new Date().toISOString(),
+    matches:summary.matches.map(x=>x.id==="FS:event1"?{...x,kickoff}:x)};
+  mockEndpoints(page,{raw,source});
+  page.route("**/functions/v1/forebet-provisional-feed**",r=>r.fulfill({json:{
+    source:"FOREBET_PROVISIONAL",quality:"PROVISIONAL_NOT_VERIFIED",
+    generatedAt:new Date().toISOString(),rows:[{
+      id:"FS:event1",kickoff,home:"Home 1",away:"Away 1",
+      sourceHome:"Home 1",sourceAway:"Source Away Alias",matchedSide:"HOME",
+      pick:"1",probabilities:[48,28,24],predictedScore:"2-0",
+      avgGoals:2.7,sourceUrl:"https://www.forebet.com/en/football/matches/h1-sa-123456",
+      lastChecked:new Date().toISOString(),status:"PROVISIONAL_NOT_VERIFIED"
+    }]
+  },headers:cors}));
+  await page.goto("http://127.0.0.1:4173/");
+  const fixture=page.getByTestId("fixture-row").filter({hasText:"Home 1"}).first();
+  await expect(fixture.getByTestId("forebet-provisional")).toContainText("only Home verified");
+  await expect(fixture.getByTestId("forebet-provisional")).toContainText("48/28/24%");
+  await expect(fixture.getByTestId("forebet-hda")).toHaveCount(0);
+  await expect(page.getByTestId("advisor-forebet-provisional-summary")).toContainText("1 one-team links");
+  await expect(page.getByTestId("advisor-forebet-summary")).not.toContainText("3 saved");
+});
+
 test("Flashscore team names use the matching Supabase logo sprite tiles",async({page})=>{
  const raw={...snapshot,discovered:snapshot.discovered.map(f=>f.provider_event_id==="event0"
    ?{...f,home:"Coventry",away:"Newcastle"}:f)};
