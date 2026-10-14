@@ -47,6 +47,22 @@ for(const contract of [
   "REVOKE ALL ON FUNCTION private.ft_archive_verified_forebet_event"
 ]) assert.ok(archiveSQL.includes(contract),"Missing durable archive contract: "+contract);
 assert.ok(!archiveSQL.includes("cron.schedule"),"Do not add a second archive job");
+// The public Railway release branch is the source of truth for deployed Edge
+// code. This gate prevents an accidental merge from the legacy main branch
+// from resurrecting retired authority endpoints or losing Forebet fields.
+for (const slug of ["app-phase1-feed","app-match-detail","app-live-feed"]) {
+  const source=fs.readFileSync(`supabase/functions/${slug}/index.ts`,"utf8");
+  assert.ok(!/hkjc/i.test(source), "Retired HKJC source found in public release: "+slug);
+  assert.ok(source.includes("match_id"), "Missing exact canonical identity in "+slug);
+}
+const phase1Source=fs.readFileSync("supabase/functions/app-phase1-feed/index.ts","utf8");
+for(const field of ["flashscore-single-rpc-canonical","forebet_captured_at","forebet_avg_goals","forebet_predicted_score"]) {
+  assert.ok(phase1Source.includes(field), "Lost compact Forebet/Flashscore source field: "+field);
+}
+const uiSummary=fs.readFileSync("lib/verified-evidence-feed.js","utf8");
+assert.ok(uiSummary.includes("forebetAvgGoals") && uiSummary.includes("forebetCurrent"),
+  "Public release must carry the real Forebet mean and source-capture freshness");
+
 const feedSource=fs.readFileSync("supabase/functions/app-phase1-feed/index.ts","utf8");
 const sourceClient=fs.readFileSync("lib/verified-evidence-feed.js","utf8");
 for(const contract of ["verifiedCompactSummaryRow","compactOnly?matches.map(verifiedCompactSummaryRow):matches", 'view:compactOnly?"compact":"summary"'])
