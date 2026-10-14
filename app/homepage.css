@@ -245,6 +245,19 @@
 .ft-odds-cell [data-testid="match-odds-status"]{font-size:10px;line-height:1.45;color:#697f95;overflow-wrap:anywhere}
 @media(max-width:650px){.ft-odds-cell [data-testid="match-odds-status"]{font-size:9px}}
 
+.ft-fixture-card{border-bottom:1px solid #e3ebf3;background:#fff}
+.ft-fixture-group .ft-fixture-card:last-child{border-bottom:0}
+.ft-match-list .ft-fixture-card .ft-match-row{border-bottom:0}
+.ft-fixture-card:hover .ft-match-row{background:#f3f8fd}
+.ft-form-disclosure{padding:0 16px 11px;border-top:1px solid #edf2f7;background:#fbfdff;color:#294761}
+.ft-form-disclosure>summary{width:max-content;max-width:100%;padding:8px 0;color:#164a7b;font-size:11px;font-weight:800;cursor:pointer}
+.ft-form-disclosure>summary:focus-visible{outline:3px solid #edba3d;outline-offset:3px;border-radius:2px}
+.ft-form-provenance{margin:0 0 8px;color:#536c83;font-size:11px;line-height:1.5}
+.ft-form-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ft-form-sides section{min-width:0;padding:10px;background:#f0f5fa;border:1px solid #dce7f1;border-radius:6px;overflow-wrap:anywhere}
+.ft-form-sides h3{margin:0 0 5px;color:#153b5f;font-size:12px}
+.ft-form-sides p{margin:4px 0;font-size:11px;line-height:1.55;color:#405b73}
+@media(max-width:650px){.ft-form-disclosure{padding:0 10px 9px}.ft-form-sides{grid-template-columns:1fr}}
 /* Team emphasis is never a betting recommendation. Both sides use equal weight. */
 .ft-fixture-teams>.ft-team-home,.ft-fixture-teams>.ft-team-away{
  display:block;min-width:0;font-size:13px;font-weight:600;color:#163858

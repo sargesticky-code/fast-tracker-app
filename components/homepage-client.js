@@ -6,12 +6,52 @@ import { TeamNameWithLogo } from "@/components/team-logo";
 
 // Source competition names can contain "COUNTRY: Live Standings". Keep the
 // identity untouched for searches/joins while displaying a clean league label.
-const COUNTRIES=["ENGLAND","SPAIN","GERMANY","ITALY","FRANCE","EUROPE","WORLD","BRAZIL",
-  "NETHERLANDS","PORTUGAL","JAMAICA","SCOTLAND","AFRICA","ASIA","USA","UNITED STATES",
-  "AUSTRALIA","JAPAN","BELGIUM","ARGENTINA","TURKEY","MEXICO","IRELAND","WALES","SWEDEN",
-  "NORWAY","DENMARK","SWITZERLAND","AUSTRIA","COLOMBIA","ECUADOR","SAUDI ARABIA",
-  "POLAND","CZECH REPUBLIC","SOUTH KOREA","CHINA","INDIA","CHILE"];
+const COUNTRIES=["SOUTH AMERICA","NORTH AMERICA","UNITED STATES","CZECH REPUBLIC","SOUTH KOREA",
+  "SAUDI ARABIA","NEW ZEALAND","ENGLAND","SCOTLAND","NETHERLANDS","PORTUGAL","ARGENTINA",
+  "AUSTRALIA","BELGIUM","COLOMBIA","COSTA RICA","CYPRUS","DENMARK","ECUADOR","EGYPT",
+  "ESTONIA","FRANCE","GERMANY","GUATEMALA","HONG KONG","HUNGARY","INDIA","IRAN","IRELAND",
+  "ITALY","JAMAICA","JAPAN","KAZAKHSTAN","MALTA","MEXICO","MOROCCO","NICARAGUA","NORWAY","PARAGUAY",
+  "POLAND","RUSSIA","SPAIN","SWEDEN","SWITZERLAND","TURKEY","URUGUAY","USA","WALES","BRAZIL",
+  "ALGERIA","BELARUS","GREECE",
+  "AFRICA","ASIA","EUROPE","WORLD"];
 const alphaCollator=new Intl.Collator("en",{sensitivity:"base",numeric:true});
+const normalizeCompetition=value=>String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
+  .toUpperCase().replace(/[^A-Z0-9]/g,"");
+const PRIORITY_COMPETITIONS=[
+  {label:"Premier League",country:"ENGLAND",aliases:["Premier League","English Premier League"]},
+  {label:"Champions League",country:"EUROPE",aliases:["UEFA Champions League","Champions League","Champions League - League phase"]},
+  {label:"La Liga",country:"SPAIN",aliases:["LaLiga","La Liga","Primera Division","La Liga EA Sports"]},
+  {label:"Bundesliga",country:"GERMANY",aliases:["Bundesliga"]},
+  {label:"Serie A",country:"ITALY",aliases:["Serie A"]},
+  {label:"Ligue 1",country:"FRANCE",aliases:["Ligue 1","Ligue 1 Uber Eats","Ligue 1 Mc Donalds"]},
+  {label:"Europa League",country:"EUROPE",aliases:["UEFA Europa League","Europa League","Europa League - League phase"]},
+  {label:"Conference League",country:"EUROPE",aliases:["UEFA Conference League","Conference League","Conference League - League phase"]},
+  {label:"AFC Champions League",country:"ASIA",aliases:["AFC Champions League","AFC Champions League - League phase"]},
+  {label:"AFC Champions League 2",country:"ASIA",aliases:["AFC Champions League 2"]},
+  {label:"Copa Libertadores",country:"SOUTH AMERICA",aliases:["Copa Libertadores"]},
+  {label:"Copa Sudamericana",country:"SOUTH AMERICA",aliases:["Copa Sudamericana","Copa Sudamericana - Play Offs"]},
+  {label:"World Cup",country:"WORLD",aliases:["FIFA World Cup","World Cup","World Cup - Qualification","World Cup - Qualification - Play Offs"]},
+  {label:"World Cup Women",country:"WORLD",aliases:["FIFA World Cup Women","World Cup Women","World Cup Women - Qualification"]},
+  {label:"European Championship",country:"EUROPE",aliases:["UEFA European Championship","European Championship","European Championship - Qualification"]},
+  {label:"Africa Cup of Nations",country:"AFRICA",aliases:["Africa Cup of Nations","Africa Cup of Nations - Qualification"]},
+  {label:"AFC Asian Cup",country:"ASIA",aliases:["AFC Asian Cup","Asian Cup"]},
+  {label:"Copa America",country:"SOUTH AMERICA",aliases:["Copa America"]},
+  {label:"Gold Cup",country:"NORTH AMERICA",aliases:["CONCACAF Gold Cup","Gold Cup"]},
+  {label:"FA Cup",country:"ENGLAND",aliases:["FA Cup"]},
+  {label:"EFL Cup",country:"ENGLAND",aliases:["EFL Cup","Carabao Cup","League Cup"]},
+  {label:"Copa del Rey",country:"SPAIN",aliases:["Copa del Rey"]},
+  {label:"DFB-Pokal",country:"GERMANY",aliases:["DFB Pokal","DFB-Pokal"]},
+  {label:"Coppa Italia",country:"ITALY",aliases:["Coppa Italia"]},
+  {label:"Coupe de France",country:"FRANCE",aliases:["Coupe de France"]},
+  {label:"Taça de Portugal",country:"PORTUGAL",aliases:["Taca de Portugal","Taça de Portugal"]},
+  {label:"Scottish Cup",country:"SCOTLAND",aliases:["Scottish Cup"]},
+  {label:"Championship",country:"ENGLAND",aliases:["Championship"]},
+  {label:"Eredivisie",country:"NETHERLANDS",aliases:["Eredivisie"]},
+  {label:"Primeira Liga",country:"PORTUGAL",aliases:["Primeira Liga","Liga Portugal"]}
+];
+const GLOBAL_PRIORITY=new Map(["UEFA Champions League","Champions League","UEFA Europa League","Europa League",
+  "UEFA Conference League","Conference League","FIFA World Cup","World Cup"]
+  .map(title=>[normalizeCompetition(title),title.replace(/^UEFA /,"" )]));
 const UK_TIME = "Europe/London";
 const ukClock = new Intl.DateTimeFormat("en-GB", {timeZone:UK_TIME,hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
 const ukZone = new Intl.DateTimeFormat("en-GB",{timeZone:UK_TIME,timeZoneName:"short"});
@@ -35,7 +75,8 @@ function Icon({name}) {
 }
 function parseLeague(rawName) {
   const raw=String(rawName||"Football").trim();
-  let clean=raw.replace(/\s*:\s*(?:Live Standings|Standings|Draw|Playoffs|Fixtures|Results)\s*$/i,"").trim();
+  let clean=raw.replace(/\s*:\s*(?:Live Standings|Standings|Draw|Playoffs|Fixtures|Results)\s*$/i,"")
+    .replace(/\u00a0/g," ").replace(/[:\s]+$/g,"").trim();
   let country="";
   for (const candidate of COUNTRIES) {
     if (clean.toUpperCase().endsWith(candidate) && clean.length>candidate.length) {
@@ -45,23 +86,16 @@ function parseLeague(rawName) {
     }
   }
   const title=clean || "Football";
-  const upper=title.toUpperCase().replace(/[-_.]/g," ").replace(/\s+/g," ").trim();
-  const inCountry=(c)=>country===c || !country;
-  let priority=100;
-  if (inCountry("ENGLAND") && /^(PREMIER LEAGUE|ENGLISH PREMIER LEAGUE)$/.test(upper)) priority=0;
-  else if (inCountry("SPAIN") && /^(LA ?LIGA|PRIMERA DIVISION|LA LIGA EA SPORTS)$/.test(upper)) priority=1;
-  else if (inCountry("GERMANY") && /^BUNDESLIGA$/.test(upper)) priority=2;
-  else if (inCountry("ITALY") && /^SERIE A$/.test(upper)) priority=3;
-  else if (inCountry("FRANCE") && /^LIGUE 1( UBER EATS| MC DONALDS)?$/.test(upper)) priority=4;
-  else if (inCountry("EUROPE") && /^(UEFA )?CHAMPIONS LEAGUE$/.test(upper)) priority=5;
-  else if (inCountry("EUROPE") && /^(UEFA )?EUROPA LEAGUE$/.test(upper)) priority=6;
-  else if (inCountry("EUROPE") && /^(UEFA )?CONFERENCE LEAGUE$/.test(upper)) priority=7;
-  else if (inCountry("NETHERLANDS") && /^EREDIVISIE$/.test(upper)) priority=8;
-  else if (inCountry("PORTUGAL") && /^(PRIMEIRA LIGA|LIGA PORTUGAL)$/.test(upper)) priority=9;
-  else if (inCountry("ENGLAND") && /^CHAMPIONSHIP$/.test(upper)) priority=10;
-  else if (inCountry("WORLD") && /^WORLD CUP( QUALIFICATION)?/.test(upper)) priority=11;
-  return {label:title, country, priority,featured:priority<=11,
-    display: title+(country?" · "+country[0]+country.slice(1).toLowerCase():"")};
+  const titleKey=normalizeCompetition(title), countryKey=normalizeCompetition(country);
+  const globalLabel=GLOBAL_PRIORITY.get(titleKey);
+  const configured=PRIORITY_COMPETITIONS.find(entry=>normalizeCompetition(entry.country)===countryKey
+    &&entry.aliases.some(alias=>normalizeCompetition(alias)===titleKey));
+  const ranked=Boolean(configured||globalLabel);
+  const label=configured?.label||globalLabel||title;
+  const rankedLabel=configured?.label||globalLabel;
+  const priority=rankedLabel?PRIORITY_COMPETITIONS.findIndex(entry=>entry.label===rankedLabel):1000;
+  const display=label+(country?" · "+country[0]+country.slice(1).toLowerCase():"");
+  return {label,country,priority,featured:ranked,display};
 }
 function explicitStatus(row,evidence) {
   // "LIVE" requires a verified provider event, never just kickoff elapsed.
@@ -97,22 +131,45 @@ function enrich(row,evidence,now,fixtureKickoffs) {
   return {...row,info, evidence, kickoffMs, UKTime, tz, phase,quote,
     dateKey:kickoffMs===null?row.sourceDate:ukDay(kickoffMs)};
 }
-function MatchChips({evidence}) {
+function MatchChips({evidence,homeTeam,awayTeam}) {
   if (!evidence) return null;
   const chips=[];
-  if (evidence.score) chips.push({label:"Score",value:evidence.score.home+"–"+evidence.score.away,mark:"⚽",test:"match-score"});
+  if (evidence.score) chips.push({label:"Actual score",value:evidence.score.home+"–"+evidence.score.away,mark:"⚽",test:"match-score"});
   if (evidence.prediction) chips.push({label:evidence.forebetCurrent?"Forebet predicted score":"Saved Forebet score",value:evidence.prediction,mark:"◇",test:"match-prediction"});
   if (evidence.forebet) chips.push({label:evidence.forebetCurrent?"Forebet H/D/A":"Saved Forebet H/D/A",value:[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>Math.round(p*100)).join("/")+"%",mark:"%",test:"forebet-hda"});
-  if (evidence.forebetOU25) chips.push({label:"O/U 2.5",value:(evidence.forebetOU25.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetOU25.pick==="Over"?evidence.forebetOU25.over:evidence.forebetOU25.under)*100)+"%",mark:"↗",test:"forebet-goals-25"});
-  if (evidence.forebetCorners95) chips.push({label:"Corners 9.5",value:(evidence.forebetCorners95.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetCorners95.pick==="Over"?evidence.forebetCorners95.over:evidence.forebetCorners95.under)*100)+"%",mark:"⚑",test:"forebet-corners-95"});
+  if (evidence.forebetOU25) chips.push({label:"Forebet O/U 2.5",value:(evidence.forebetOU25.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetOU25.pick==="Over"?evidence.forebetOU25.over:evidence.forebetOU25.under)*100)+"%",mark:"↗",test:"forebet-goals-25"});
+  if (evidence.forebetCorners95) chips.push({label:"Forebet corners 9.5",value:(evidence.forebetCorners95.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetCorners95.pick==="Over"?evidence.forebetCorners95.over:evidence.forebetCorners95.under)*100)+"%",mark:"⚑",test:"forebet-corners-95"});
   if (evidence.dc) chips.push({label:"Dixon–Coles (verified source)",value:[evidence.dc.home,evidence.dc.draw,evidence.dc.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◈",test:"advisor-dc-hda"});
   if (evidence.pi) chips.push({label:"Power Index (same source as DC)",value:[evidence.pi.home,evidence.pi.draw,evidence.pi.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◇",test:"advisor-pi-hda"});
   if (evidence.form) chips.push({label:"Verified Form model",value:[evidence.form.home,evidence.form.draw,evidence.form.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"○",test:"advisor-form-hda"});
+  const homeForm=evidence.historicalForm?.home, awayForm=evidence.historicalForm?.away;
+  if(homeForm||awayForm) chips.push({label:"Last results",value:`H ${homeForm?.results||"—"} · A ${awayForm?.results||"—"}`,mark:"↗",test:"historical-form"});
   if (evidence.confirmedXI) chips.push({label:"Official XI",value:"XI",mark:"♟",test:"confirmed-xi"});
   if (!chips.length) return null;
   return <div className="ft-match-chips" data-testid="verified-evidence">
     {chips.map(c=><span key={c.test} className="ft-match-chip" data-testid={c.test} title={c.label+": "+c.value}><i aria-hidden="true">{c.mark}</i><b>{c.value}</b><small>{c.label}</small></span>)}
   </div>;
+}
+function HistoricalFormDisclosure({evidence,homeName,awayName}) {
+  const sides=[{name:homeName,label:"Home",form:evidence?.historicalForm?.home},
+    {name:awayName,label:"Away",form:evidence?.historicalForm?.away}];
+  if(!sides.some(side=>side.form)) return null;
+  return <details className="ft-form-disclosure" data-testid="historical-form-disclosure">
+    <summary>Recent team form and recorded results</summary>
+    <p className="ft-form-provenance">Historical domestic-league results from football-data.co.uk. These are past outcomes, not forecasts.</p>
+    <div className="ft-form-sides">{sides.map(side=>{
+      const f=side.form;
+      return <section key={side.label} data-testid={"historical-form-"+side.label.toLowerCase()}>
+        <h3>{side.name} · {side.label}</h3>
+        {f?<>
+          <p>Last {f.matches} completed matches · newest first: <b>{f.results.split("").join(" · ")}</b></p>
+          <p>Through {f.throughDate} · W-D-L {f.wins}-{f.draws}-{f.losses} · Goals {f.goalsFor} for / {f.goalsAgainst} against · average total goals {f.averageGoals??"unavailable"}.</p>
+          <p>Over 2.5 goals {f.over25Count??"unavailable"}/{f.matches}{f.over25Rate===undefined?"":" ("+f.over25Rate+"%)"} · BTTS {f.bttsCount??"unavailable"}/{f.matches}{f.bttsRate===undefined?"":" ("+f.bttsRate+"%)"}.</p>
+          <p>Corners sample {f.matchesWithCorners??"unavailable"}/{f.matches} · for/against/total averages {f.averageCornersFor??"—"}/{f.averageCornersAgainst??"—"}/{f.averageTotalCorners??"—"} · O/U 9.5 {f.over95CornersCount??"—"}/{f.under95CornersCount??"—"}.</p>
+        </>:<p>No qualifying history is available for this team.</p>}
+      </section>;
+    })}</div>
+  </details>;
 }
 function FilterButton({active,children,onClick,testId,disabled=false}) {
   return <button type="button" className="ft-filter-pill" aria-pressed={active} disabled={disabled} onClick={onClick} data-testid={testId}>{children}</button>;
@@ -163,6 +220,16 @@ function oddsText(row) {
   const q=row.quote;
   return q?q.prices.map(n=>n.toFixed(2)):null;
 }
+function oddsUnavailableText(row) {
+  if(row.quoteStatus==="STALE") return "Stale quote unavailable";
+  if(row.quoteStatus==="INVALID") return "Invalid quote unavailable";
+  return "Unavailable · no verified quote";
+}
+function evidenceCoverage(row) {
+  const e=row.evidence;
+  return [e?.score,e?.prediction,e?.forebet,e?.forebetOU25,e?.forebetCorners95,e?.quote,
+    e?.confirmedXI,e?.historicalForm?.home,e?.historicalForm?.away,e?.observedStats].filter(Boolean).length;
+}
 export default function HomepageClient() {
   const [feed,setFeed]=useState(null);
   const [status,setStatus]=useState("loading");
@@ -171,7 +238,7 @@ export default function HomepageClient() {
   const [query,setQuery]=useState("");
   const [date,setDate]=useState("");
   const [league,setLeague]=useState("");
-  const [scope,setScope]=useState("all");
+  const [scope,setScope]=useState("featured");
   const [phase,setPhase]=useState("all");
   const [feature,setFeature]=useState("all");
   const [now,setNow]=useState(()=>Date.now());
@@ -187,7 +254,9 @@ export default function HomepageClient() {
       finally{inFlight=false;}
     }
     refresh();
-    const timer=setInterval(refresh,120000);
+    // 5-minute browser polling makes 12 requests per visible hour, down from
+    // 30 at the prior 2-minute interval; recovery may take up to 3 minutes longer.
+    const timer=setInterval(refresh,300000);
     document.addEventListener("visibilitychange",refresh);
     return()=>{cancelled=true;controller.abort();clearInterval(timer);document.removeEventListener("visibilitychange",refresh);};
   },[]);
@@ -217,7 +286,7 @@ export default function HomepageClient() {
   const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
   const liveKnown=matches.some(m=>m.phase==="live");
-  const counts={all:matches.length,top:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
+  const counts={all:matches.length,featured:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
     details:matches.filter(m=>Boolean(m.evidence)).length,
     live:matches.filter(m=>m.phase==="live").length,
     xi:matches.filter(m=>m.evidence?.confirmedXI).length,
@@ -230,19 +299,17 @@ export default function HomepageClient() {
     recentOdds:matches.filter(m=>m.quote?.type==="recent").length};
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
-    &&(scope==="all"||(scope==="top"?m.info.featured:!m.info.featured))
+    &&(scope==="all"||(scope==="featured"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
     &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
-  ).sort((a,b)=>a.info.priority-b.info.priority
-    ||alphaCollator.compare(a.info.display,b.info.display)
-    ||({"live":0,"upcoming":1,"started":2,"finished":3,"unknown":4}[a.phase]-{"live":0,"upcoming":1,"started":2,"finished":3,"unknown":4}[b.phase])
+  ).sort((a,b)=>(a.phase==="live"?0:1)-(b.phase==="live"?0:1)
+    ||a.info.priority-b.info.priority
     ||(a.kickoffMs===null?1:0)-(b.kickoffMs===null?1:0)
-    ||(a.kickoffMs!==null&&b.kickoffMs!==null?a.kickoffMs-b.kickoffMs:0)
-    ||String(a.sourceDate||"").localeCompare(String(b.sourceDate||""))
-    ||String(a.sourceTime||"").localeCompare(String(b.sourceTime||""))
-    ||alphaCollator.compare(a.home,b.home)
-  ),[matches,date,league,scope,phase,feature,query]);
+    ||(a.kickoffMs!==null&&b.kickoffMs!==null?Math.abs(a.kickoffMs-now)-Math.abs(b.kickoffMs-now):0)
+    ||evidenceCoverage(b)-evidenceCoverage(a)
+    ||(String(a.id)<String(b.id)?-1:String(a.id)>String(b.id)?1:0)
+  ),[matches,date,league,scope,phase,feature,query,now]);
   const groups=[];
   for(const row of visible){
     const key=row.info.display;
@@ -250,8 +317,8 @@ export default function HomepageClient() {
     if(!group){group={key,info:row.info,fixtures:[]};groups.push(group);}
     group.fixtures.push(row);
   }
-  const clear=()=>{setQuery("");setDate("");setLeague("");setScope("all");setPhase("all");setFeature("all");};
-  const hasFilters=Boolean(query||date||league||scope!=="all"||phase!=="all"||feature!=="all");
+  const clear=()=>{setQuery("");setDate("");setLeague("");setScope("featured");setPhase("all");setFeature("all");};
+  const hasFilters=Boolean(query||date||league||scope!=="featured"||phase!=="all"||feature!=="all");
   // Dashboard numbers describe the complete loaded snapshot, not the subset
   // currently filtered. All shortcuts clear conflicting filters before applying.
   const selectOverview=(target)=>{
@@ -268,7 +335,7 @@ export default function HomepageClient() {
   const priceValue=(rawReady||usingCanonicalFallback)?counts.odds:"—";
   const fixturesReady=rawReady||usingCanonicalFallback;
   const overviewCards=[
-    {key:"all",icon:"calendar",label:"Matches",value:fixtureCount,hint:"All fixtures",active:phase==="all"&&feature==="all"&&!hasFilters,test:"overview-matches"},
+    {key:"all",icon:"calendar",label:"Matches",value:fixtureCount,hint:"All fixtures",active:scope==="all"&&phase==="all"&&feature==="all"&&!query&&!date&&!league,test:"overview-matches"},
     {key:"details",icon:"target",label:"More details",value:detailsValue,hint:"Games with extra info",active:feature==="details"&&phase==="all",test:"overview-details"},
     {key:"live",icon:"live",label:"Live now",value:liveValue,hint:"Confirmed live games",active:phase==="live",test:"overview-live",theme:"live"},
     {key:"prediction",icon:"chart",label:"Predictions",value:forecastValue,hint:"Games with predictions",active:feature==="prediction"&&phase==="all",test:"overview-predictions"},
@@ -330,10 +397,10 @@ export default function HomepageClient() {
           </select></label>
         </div>
         <div className="ft-filter-row" aria-label="League priority">
-          <strong><Icon name="trophy"/> Leagues</strong>
-          <FilterButton active={scope==="all"} onClick={()=>setScope("all")} testId="scope-all">All <span>{counts.all}</span></FilterButton>
-          <FilterButton active={scope==="top"} onClick={()=>setScope("top")} testId="scope-top">★ Top <span>{counts.top}</span></FilterButton>
+          <strong><Icon name="trophy"/> View</strong>
+          <FilterButton active={scope==="featured"} onClick={()=>setScope("featured")} testId="scope-featured">★ Featured <span>{counts.featured}</span></FilterButton>
           <FilterButton active={scope==="other"} onClick={()=>setScope("other")} testId="scope-other">Other <span>{counts.other}</span></FilterButton>
+          <FilterButton active={scope==="all"} onClick={()=>setScope("all")} testId="scope-all">All <span>{counts.all}</span></FilterButton>
         </div>
         <div className="ft-filter-row" aria-label="Match status">
           <strong><Icon name="live"/> Status</strong>
@@ -367,13 +434,14 @@ export default function HomepageClient() {
           {g.fixtures.map(m=>{
             const odds=oddsText(m);
             const statusLabel=({"live":"LIVE","upcoming":"Upcoming","started":"Started","finished":"FT","unknown":"Time TBC"})[m.phase];
-            return <a className="ft-match-row" data-testid="fixture-row" href={"/details?id="+encodeURIComponent(m.id)} key={m.id}>
+            return <div className="ft-fixture-card" key={m.id} data-fixture-id={m.id}>
+              <a className="ft-match-row" data-testid="fixture-row" href={"/details?id="+encodeURIComponent(m.id)}>
               <div className="ft-fixture-main">
                 <div className="ft-fixture-teams">
                   <span className="ft-team-home" data-testid="home-team-name"><TeamNameWithLogo team={m.home} logoTeam={m.home} context={m.league} size={22}/></span>
                   <span className="ft-team-away" data-testid="away-team-name"><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
                 </div>
-                <MatchChips evidence={m.evidence}/>
+                <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away}/>
               </div>
               <div className="ft-kickoff-cell">
                 <span className={"ft-match-state ft-match-state-"+m.phase}>{m.phase==="live"&&<i className="ft-live-dot"/>}{statusLabel}</span>
@@ -383,17 +451,19 @@ export default function HomepageClient() {
               <div className="ft-odds-cell">
                 {odds?<><div className={"ft-odds-mini"+(m.quote?.type==="previous"?" ft-odds-previous":"")} aria-label={(m.quote?.type==="recent"?"Recent":"Earlier")+" H/D/A odds"}>
                   {["H","D","A"].map((type,i)=><span key={type}><small>{type}</small><b>{odds[i]}</b></span>)}
-                </div><small data-testid="match-odds-status">{m.quote?.type==="recent"?"Recent":"Earlier"} · {m.quote?.source} · {quoteTimeUK.format(m.quote.capturedAt)} UK</small></>:
-                <span className="ft-odds-unavailable">— <small>No recorded odds</small></span>}
+                </div><small data-testid="match-odds-status">{m.quote?.type==="recent"?"Recent prematch reference":"Earlier · stale reference"} · {m.quote?.source} · {quoteTimeUK.format(m.quote.capturedAt)} UK</small></>:
+                <span className="ft-odds-unavailable" data-testid="match-odds-status">— <small>{oddsUnavailableText(m)}</small></span>}
               </div>
               <span className="ft-row-arrow" aria-hidden="true">›</span>
-            </a>;
+              </a>
+              <HistoricalFormDisclosure evidence={m.evidence} homeName={m.home} awayName={m.away}/>
+            </div>;
           })}
         </section>)}
       </div>
       {!visible.length&&status!=="loading"&&<div className="ft-empty-state" role="status">
         <Icon name="filter"/><strong>No matches match these filters.</strong>
-        <button onClick={clear} type="button">Show all matches</button>
+        <button onClick={clear} type="button">Show Featured matches</button>
       </div>}
     </section>
   </main>;

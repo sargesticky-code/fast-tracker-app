@@ -98,4 +98,20 @@ for(const item of [
  "730 days"
 ]) assert.ok(nativeDocs.some(d=>d.includes(item)),"Native verified training missing "+item);
 for(const d of nativeDocs) assert.ok(!d.includes("cron.schedule("),"No extra recurring crawler or cron");
-console.log("Raw fixture identity, missing data, complete enumeration and provider removal checks passed");
+const historySource=fs.readFileSync("supabase/migrations/20261012142630_ft_historical_team_market_stats_compact.sql","utf8");
+assert.ok(historySource.includes("ft_historical_form_by_team"),"Missing restored production historical-form function source");
+const frequencyFile=fs.readdirSync("supabase/migrations").find(file=>file.endsWith("_ft_historical_team_market_frequencies.sql"));
+assert.ok(frequencyFile,"Missing review migration for historical outcome frequencies");
+const frequencySql=fs.readFileSync(`supabase/migrations/${frequencyFile}`,"utf8");
+for(const contract of [
+  "m.match_date<(p_fixture_kickoff AT TIME ZONE 'Europe/London')::date",
+  "m.source_kind='RESULTS'","LIMIT 5","WHERE goals_for>0 AND goals_against>0",
+  "total_corners>9.5","total_corners<=9.5","'bttsCount'","'over95CornersCount'",
+  "'under95CornersCount'","'matchesWithCorners'","'limitedToFileCoverage',true"
+]) assert.ok(frequencySql.includes(contract),"Historical frequency SQL missing "+contract);
+assert.ok(!frequencySql.includes("SECURITY DEFINER"),"Historical form remains invoker-context SQL");
+assert.ok(!frequencySql.includes("cron.schedule"),"Historical metrics add no collection schedule");
+for(const contract of ["verifiedHistoricalForm","source?.scope!==\"domestic-league-results-only\"",
+  "source.throughDate>=targetDate","over95CornersCount","bttsCount"])
+  assert.ok(sourceClient.includes(contract),"Historical client validation missing "+contract);
+console.log("Fixture identity, source gaps, historical frequencies and provider-safety checks passed");
