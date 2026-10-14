@@ -9,8 +9,6 @@ const detailApi = fs.readFileSync("supabase/functions/app-match-detail/index.ts"
 const phase1Feed = fs.readFileSync("supabase/functions/app-phase1-feed/index.ts", "utf8");
 const storyApi = fs.readFileSync("supabase/functions/app-match-story/index.ts", "utf8");
 const liveFeedApi = fs.readFileSync("supabase/functions/app-live-feed/index.ts", "utf8");
-const hkjcUpcoming = fs.readFileSync("supabase/functions/hkjc-upcoming-direct/index.ts", "utf8");
-const hkjcLive = fs.readFileSync("supabase/functions/hkjc-live-direct/index.ts", "utf8");
 const lineupPanel = fs.readFileSync("components/lineup-panel.js", "utf8");
 const singleFlight = fs.readFileSync("lib/single-flight-fetch.js", "utf8");
 const publicLogic = fs.readFileSync("lib/fast-tracker.js", "utf8");
@@ -18,7 +16,9 @@ const fotmobLineups = fs.readFileSync("supabase/functions/phase2-fotmob-lineups/
 const liveScoreDirect = fs.readFileSync("supabase/functions/live-score-direct/index.ts", "utf8");
 const liveSourceShadow = fs.readFileSync("supabase/functions/live-source-shadow/index.ts", "utf8");
 
+// Retired HKJC Edge Functions were deliberately deleted; the source safety contract must not load them.
 const checks = [
+  [phase1Feed.includes("flashscore-single-rpc-canonical") && phase1Feed.includes("supabase-lightweight-enrichment-recovery"), "canonical Flashscore authority and bounded recovery mode must remain declared"],
   [analysis.includes("function statusIsTerminal"), "analysis must recognize terminal match states"],
   [analysis.includes("prematchPriceAgeSeconds"), "analysis must calculate prematch price age"],
   [analysis.includes("!kickoffStarted"), "prematch price must not remain actionable after kickoff"],
@@ -71,9 +71,6 @@ const checks = [
   [phase1Feed.includes('decision: null') && phase1Feed.includes('decisionEdge: null'), "authority-only summary must not fabricate betting decisions or edge"],
   [phase1Feed.includes('lightweightFullRecovery') && phase1Feed.includes('prediction_evidence_current') && phase1Feed.includes('quality==="MODELED"'), "full-feed degradation must recover canonical evidence without promoting unmodeled DC/Pi"],
   [analysis.includes('createReadClientWithTimeout') && analysis.includes('optionalDb') && detailApi.includes('createReadClientWithTimeout') && detailApi.includes('AUTHORITY_SUMMARY'), "detail and analysis must isolate optional enrichment pressure from canonical fixture/model recovery"],
-  [[hkjcUpcoming,hkjcLive].every((src)=>src.includes("DB_TIMEOUT_MS = 12_000") && src.includes("db: { retry:false }") && src.includes("global: { fetch: boundedDbFetch }")), "HKJC authority refresh functions must bound database operations and disable retry amplification"],
-  [hkjcUpcoming.includes('mode")==="summary"') && hkjcUpcoming.includes('HKJC_OFFICIAL_GRAPHQL_READ_ONLY') && hkjcUpcoming.includes('requests:1'), "HKJC upcoming must expose a database-free one-request summary mode"],
-  [hkjcLive.includes('mode")==="summary"') && hkjcLive.includes('gql(["HAD","EHA"],9000)') && hkjcLive.includes('mode:"summary"'), "HKJC live must expose a database-free bounded summary mode"],
   [liveFeedApi.includes('hkjc-live-direct?mode=summary') && liveFeedApi.includes('marketSource = "HKJC_DIRECT_UPSTREAM"') && liveFeedApi.includes('marketSource = "DATABASE_SNAPSHOT"'), "live feed must prefer direct HKJC authority and use DB only as fallback"],
   [!liveFeedApi.includes('error: String(error?.message') && liveFeedApi.includes('reason: "db_read_failed"'), "public live read-health must avoid exposing raw database error text"],
   [detail.includes('fetchWithDeadline(LIVE_FEED_URL') && detail.includes("35000"), "live client deadline must remain outside the bounded two-phase live server read window"],
