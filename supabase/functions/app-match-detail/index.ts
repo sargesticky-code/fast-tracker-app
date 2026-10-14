@@ -304,6 +304,27 @@ function compactFlashscoreMatchStats(raw:any, fetchedAt:any, kickoff:any) {
   };
 }
 
+async function withExternalAdvisers(db:any,matches:any[]) {
+  try {
+    const {data,error}=await db.from("adviser_prediction_current")
+      .select("provider,source_event_id,canonical_event_id,source_url,source_home,source_away,source_kickoff,last_seen_at,observation")
+      .eq("canonical_event_id",matches[0]?.id).limit(8);
+    if(error||!Array.isArray(data))return matches;
+    const byId=new Map<string,any[]>();
+    for(const r of data){
+      const rows=byId.get(r.canonical_event_id)||[];
+      rows.push({provider:r.provider,eventId:r.source_event_id,id:r.canonical_event_id,
+        sourceUrl:r.source_url,sourceHome:r.source_home,sourceAway:r.source_away,
+        kickoff:r.source_kickoff,capturedAt:r.last_seen_at,identityStatus:"VERIFIED",
+        hda:r.observation?.hda??null,predictedScore:r.observation?.predicted_score??null,
+        over25:r.observation?.over25??null,bttsYes:r.observation?.btts_yes??null,
+        tip:r.observation?.tip??null});byId.set(r.canonical_event_id,rows);
+    }
+    return matches.map(m=>({...m,externalAdvisers:byId.get(m.id)||[]}));
+  } catch {return matches;}
+}
+
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   if(req.method!=="GET") return Response.json({error:"method_not_allowed"},{status:405,headers:{...cors,"Cache-Control":"no-store"}});
@@ -385,6 +406,7 @@ Deno.serve(async(req:Request)=>{
           score_fetched_at:row.fs_score_fetched_at??null,
           score_source:row.fs_home_score!=null&&row.fs_away_score!=null?"FLASHSCORE":null,
         },
+        externalAdvisers:(await withExternalAdvisers(optionalDb,[{id:requestedId}]))[0]?.externalAdvisers||[],
         flashscoreStats:stats,
         models:{internal:row.internal_model??null,forebet:row.forebet_prediction??null,form:null,opta:null,multisource:null,evidence:[]},
         humanFactors:{
@@ -775,6 +797,7 @@ Deno.serve(async(req:Request)=>{
     redirect:fixtureRedirect,
     fixture:fixture.data,
     fixtureSource,
+    externalAdvisers:(await withExternalAdvisers(optionalDb,[{id}]))[0]?.externalAdvisers||[],
     flashscoreStats,
     models:{
       internal:publicModel,

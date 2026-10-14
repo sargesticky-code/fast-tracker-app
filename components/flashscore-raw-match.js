@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
-import { fetchVerifiedMatch, matchObservation } from "@/lib/verified-evidence-feed";
+import { fetchVerifiedMatch, matchObservation, currentExternalAdvisers } from "@/lib/verified-evidence-feed";
 import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 
@@ -193,6 +193,7 @@ export default function FlashscoreRawMatch() {
     <a href="/">Back to fixtures</a></main>;
 
   const fixture=analysis?.fixture||null;
+  const external=currentExternalAdvisers({id,kickoff:fixture?.kickoff_hkt,externalAdvisers:analysis?.externalAdvisers});
   const forebet=analysis?.models?.forebet||null;
   const model=verifiedInternalForecast(analysis?.models?.internal,fixture);
   const forebetRecent=recentPrediction(forebet,fixture);
@@ -235,14 +236,19 @@ export default function FlashscoreRawMatch() {
           <strong>○ Team Form</strong><span className="ft-advisor-state">Legacy model inactive</span>
           <small>Old predictions excluded until rebuilt from approved match results</small>
         </div>
-        <div className="ft-advisor-card" data-testid="advisor-betclan">
-          <strong>○ BetClan</strong><span className="ft-advisor-state">Not connected</span>
-          <small>No verified per-match predictions in the current feed</small>
-        </div>
-        <div className="ft-advisor-card" data-testid="advisor-sportytrader">
-          <strong>○ SportyTrader</strong><span className="ft-advisor-state">Not connected</span>
-          <small>No verified per-match predictions in the current feed</small>
-        </div>
+        {["BETCLAN","SPORTYTRADER"].map(provider=>{
+          const a=external.find(x=>x.provider===provider),name=provider==="BETCLAN"?"BetClan":"SportyTrader";
+          return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()} key={provider}>
+            <strong>○ {name}</strong><span className="ft-advisor-state">{a?"Verified forecast":"No current matched forecast"}</span>
+            {a?.hda&&<small>H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(v=>Math.round(v*100)+"%").join(" / ")}</small>}
+            {a?.predictedScore&&<small>Predicted score: {a.predictedScore}</small>}
+            {a&&a.over25!==null&&<small>Over 2.5: {Math.round(a.over25*100)}%</small>}
+            {a&&a.bttsYes!==null&&<small>BTTS Yes: {Math.round(a.bttsYes*100)}%</small>}
+            {a?.tip&&<small>Source tip: {a.tip}</small>}
+            {a&&<small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Source prediction</a> · Captured {new Date(a.capturedAt).toISOString()}</small>}
+          </div>;
+        })}
+
       </div>
       {forebet && <p className="ft-odds-note">{forebetRecent?"Verified prematch source forecast":"Saved Forebet record · not a current betting recommendation"}</p>}
       {forebet ? <div className="ft-stats-grid">
