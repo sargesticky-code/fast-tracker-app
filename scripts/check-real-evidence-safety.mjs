@@ -18,7 +18,7 @@ const liveSourceShadow = fs.readFileSync("supabase/functions/live-source-shadow/
 
 // Retired HKJC Edge Functions were deliberately deleted; the source safety contract must not load them.
 const checks = [
-  [phase1Feed.includes("flashscore-single-rpc-canonical") && phase1Feed.includes("supabase-lightweight-enrichment-recovery"), "canonical Flashscore authority and bounded recovery mode must remain declared"],
+  [phase1Feed.includes("supabase-lightweight-enrichment-recovery") && phase1Feed.includes("prediction_evidence_current") && phase1Feed.includes("LIGHTWEIGHT_CANONICAL_EVIDENCE"), "lightweight source-evidence recovery must preserve bounded canonical-evidence identity semantics"],
   [analysis.includes("function statusIsTerminal"), "analysis must recognize terminal match states"],
   [analysis.includes("prematchPriceAgeSeconds"), "analysis must calculate prematch price age"],
   [analysis.includes("!kickoffStarted"), "prematch price must not remain actionable after kickoff"],
