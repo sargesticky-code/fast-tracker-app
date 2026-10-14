@@ -253,3 +253,11 @@
 - Final deployed browser render: 214 fixtures, 212 with details, 6 live, 0 predictions, 6 full XIs and 106 odds. All 214 selected; Top 4 and Other 210 unselected. Featured is still not deployed. The same malformed competition forms remain visible. The viewport and document width both measured 1265px. These counts are deployed-page evidence and differ in scope from the 232-row compact API view.
 - PR #104 remains open, draft and mergeable with no reviews or inline threads. Its last completed exact-head verification is run 760 at head `564e6a96bcf502ed99e6516d23d28258a0521912`, which passed. The release base and latest successful Railway deployment remain `822e402c0dcbaff4d7190b82b18e27bd203449b3` and `e56711da-c564-48d5-af62-8b9a554e54b1`. No code, production, database, schedule, or service changes were made.
 - Remaining blockers at the authorization deadline: current model forecast rows are absent upstream; imported historical coverage remains partial; public Featured/label changes require a separately approved release; prepared migration and any production rollout require explicit approval. No further work is scheduled under this authorization.
+
+
+## Post-merge review — 2026-10-14
+
+- PR #104 was merged after owner approval into `release/ft-advisors-fotmob-20261011` as merge commit `caab523d7d1c7102aef61457f158e6362605020f`; source head `bf0ce34527ea9d70db958f59a8896a6fb49b941b` passed exact-head GitHub Actions run 761.
+- Post-merge local verification of the identical source tree passed `npm run build` and `npx playwright test tests/public-flow.spec.js --workers=1 --reporter=line` (56/56). Browser tests use deterministic mocked fixtures. Manual review found no code or SQL issue requiring a rollback; the historical-form SQL remains review-only and was not applied.
+- Merge changed the release branch only. No Railway deployment, database migration, Edge Function release, schedule change, or service change occurred. HKJC remains retired. The hourly continuation automation was deleted.
+- The checklist release row was corrected in a docs-only follow-up branch because it still described PR #104 as open/draft. Upstream forecast rows remain absent, historical source coverage remains partial, and production needs separate deployment authorization.
