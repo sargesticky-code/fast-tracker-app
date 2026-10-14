@@ -104,6 +104,10 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("uk-kickoff")).toHaveText("16:30");
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("match-score")).toHaveAttribute("title","Actual score: 1–0");
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("match-prediction")).toContainText("2-1");
+  // The compact feed carries verified Forebet avg_goals; never replace an
+  // absent value with 0, an unrelated historical mean, or a Poisson guess.
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("forebet-average-goals")).toContainText("3.08");
+  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 1"}).getByTestId("forebet-average-goals")).toHaveCount(0);
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("forebet-goals-25")).toContainText("O 62%");
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("forebet-corners-95")).toContainText("U 56%");
   await expect(page.getByTestId("fixture-row").filter({hasText:"Home 0"}).getByTestId("confirmed-xi")).toContainText("XI");

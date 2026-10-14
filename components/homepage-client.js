@@ -136,9 +136,14 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
   const chips=[];
   if (evidence.score) chips.push({label:"Actual score",value:evidence.score.home+"–"+evidence.score.away,mark:"⚽",test:"match-score"});
   if (evidence.prediction) chips.push({label:evidence.forebetCurrent?"Forebet predicted score":"Saved Forebet score",value:evidence.prediction,mark:"◇",test:"match-prediction"});
+  if(evidence.forebet && typeof evidence.forebetAvgGoals==="number"
+      &&Number.isFinite(evidence.forebetAvgGoals)&&evidence.forebetAvgGoals>0) {
+    chips.push({label:evidence.forebetCurrent?"Forebet average goals":"Saved Forebet average goals",
+      value:evidence.forebetAvgGoals.toFixed(2),mark:"Σ",test:"forebet-average-goals"});
+  }
   if (evidence.forebet) chips.push({label:evidence.forebetCurrent?"Forebet H/D/A":"Saved Forebet H/D/A",value:[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>Math.round(p*100)).join("/")+"%",mark:"%",test:"forebet-hda"});
-  if (evidence.forebetOU25) chips.push({label:"Forebet O/U 2.5",value:(evidence.forebetOU25.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetOU25.pick==="Over"?evidence.forebetOU25.over:evidence.forebetOU25.under)*100)+"%",mark:"↗",test:"forebet-goals-25"});
-  if (evidence.forebetCorners95) chips.push({label:"Forebet corners 9.5",value:(evidence.forebetCorners95.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetCorners95.pick==="Over"?evidence.forebetCorners95.over:evidence.forebetCorners95.under)*100)+"%",mark:"⚑",test:"forebet-corners-95"});
+  if (evidence.forebetOU25) chips.push({label:evidence.forebetCurrent?"Forebet O/U 2.5":"Saved Forebet O/U 2.5",value:(evidence.forebetOU25.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetOU25.pick==="Over"?evidence.forebetOU25.over:evidence.forebetOU25.under)*100)+"%",mark:"↗",test:"forebet-goals-25"});
+  if (evidence.forebetCorners95) chips.push({label:evidence.forebetCurrent?"Forebet corners 9.5":"Saved Forebet corners 9.5",value:(evidence.forebetCorners95.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetCorners95.pick==="Over"?evidence.forebetCorners95.over:evidence.forebetCorners95.under)*100)+"%",mark:"⚑",test:"forebet-corners-95"});
   if (evidence.dc) chips.push({label:"Dixon–Coles (verified source)",value:[evidence.dc.home,evidence.dc.draw,evidence.dc.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◈",test:"advisor-dc-hda"});
   if (evidence.pi) chips.push({label:"Power Index (same source as DC)",value:[evidence.pi.home,evidence.pi.draw,evidence.pi.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◇",test:"advisor-pi-hda"});
   if (evidence.form) chips.push({label:"Verified Form model",value:[evidence.form.home,evidence.form.draw,evidence.form.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"○",test:"advisor-form-hda"});
