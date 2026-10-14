@@ -163,9 +163,59 @@ function englishLeagueName(match) {
   return "Football";
 }
 
+function hasModelTriplet(model) {
+  if (!model) return false;
+  return ["home", "draw", "away"].every((key) => {
+    const value = model[key];
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+  });
+}
+
+function verifiedAdvisor(match, source) {
+  // UI must never promote unmatched collector output to an independent adviser.
+  const row = match?.advisors?.[source] || null;
+  if (!row || row.verified !== true ||
+      row.identityStatus !== "VERIFIED" ||
+      row.canonicalMatchId !== match?.id ||
+      !row.capturedAt) return false;
+  const captured = Date.parse(row.capturedAt);
+  return Number.isFinite(captured) && captured <= Date.now() + 60000 &&
+    captured >= Date.now() - 36 * 3600000;
+}
+
+function ForebetSourceStatus({ match }) {
+  const captured = match?.forebet?.capturedAt || match?.forebetCapturedAt;
+  const capturedMs = captured ? Date.parse(captured) : NaN;
+  const verifiedCapture = Number.isFinite(capturedMs) && capturedMs <= Date.now() + 60000 &&
+    capturedMs >= Date.now() - 36 * 3600000;
+  if (!hasModelTriplet(match?.forebet)) {
+    return <span className="ft-advisor-label is-pending">Forebet: no verified forecast</span>;
+  }
+  // A model value in the feed is NOT proof of a recent source capture.
+  return <span className={"ft-advisor-label " + (verifiedCapture ? "is-confirmed" : "is-pending")}>
+    Forebet: {verifiedCapture ? "current source record" : "stored · capture time unverified"}
+  </span>;
+}
+
+function AdvisorSourceBar({ matches, feedState }) {
+  const forebetStored = matches.filter((m) => hasModelTriplet(m?.forebet)).length;
+  const betclanVerified = matches.filter((m) => verifiedAdvisor(m, "BETCLAN")).length;
+  const sportyVerified = matches.filter((m) => verifiedAdvisor(m, "SPORTYTRADER")).length;
+  const known = feedState?.status === "ready";
+  return (
+    <section className="ft-advisor-bar" aria-label="Prediction provider coverage">
+      <strong>Prediction sources</strong>
+      <span>Forebet: {known ? forebetStored + " stored" : "unverified"}</span>
+      <span>BetClan: {known && betclanVerified ? betclanVerified + " verified" : "pending"}</span>
+      <span>SportyTrader: {known && sportyVerified ? sportyVerified + " verified" : "pending"}</span>
+      <small>Stored predictions are not proof of a fresh capture. Unmatched sources never count as model votes.</small>
+    </section>
+  );
+}
+
 function normalizedTriplet(match) {
   const model = preferredModel(match);
-  if (!model) return null;
+  if (!hasModelTriplet(model)) return null;
   const vals = [Number(model.home), Number(model.draw), Number(model.away)];
   if (!vals.every(Number.isFinite)) return null;
   const adjusted = vals.map((v) => (v > 1.5 ? v / 100 : v));
@@ -390,8 +440,10 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           const model = normalizedTriplet(match);
           const edge = match.liveNow ? null : valueEdge(match);
           const market = match.market || fairMarket(match.odds);
-          const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
-          const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
+          const rawAvgGoals = match?.forebetDetail?.ou25?.avgGoals ?? match?.forebet?.avgGoals ??
+            match?.multi?.avgGoals ?? match?.expectedGoals;
+          const avgGoals = rawAvgGoals === null || rawAvgGoals === undefined || rawAvgGoals === "" ? null : Number(rawAvgGoals);
+          const predictedScore = match?.forebetDetail?.predictedScore || match?.forebet?.score || match?.predictedScore || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
 
           const rowClasses = [
@@ -407,12 +459,13 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                   <strong>{match.home || match.homeZh || "Home"}</strong>
                   <span>{match.away || match.awayZh || "Away"}</span>
                   <small>{shortTime(match.kickoff)} · {dateKey(match.kickoff)}</small>
+                  <ForebetSourceStatus match={match} />
                 </div>
               </div>
               <div className="ft-probs"><ProbabilityStrip model={model} /></div>
               <div><span className="ft-pred-pill">{sideFromTriplet(model)}</span></div>
               <div>{predictedScore}</div>
-              <div className="ft-goal-number">{Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
+              <div className="ft-goal-number">{avgGoals !== null && Number.isFinite(avgGoals) ? avgGoals.toFixed(2) : "—"}</div>
               <div><span className={edge?.expectedValue > 0.04 ? "ft-edge strong" : "ft-edge"}>{Number.isFinite(edge?.expectedValue) ? `${edge.expectedValue >= 0 ? "+" : ""}${(edge.expectedValue * 100).toFixed(1)}%` : "—"}</span></div>
               <div className="ft-score-cell">
                 {match.liveNow && <small className="ft-live-tag">{liveLabel(match)}</small>}
@@ -743,6 +796,8 @@ export default function HomepageClient({ initialFeed, nowMs }) {
                 : " matches shown"}
             </div>
           </div>
+
+          <AdvisorSourceBar matches={visible} feedState={feedState} />
 
           {feedState.status === "error" && matches.length > 0 ? (
             <section className="ft-form-note" role="status">
