@@ -57,6 +57,24 @@ function probabilityAvailable(values) {
   });
 }
 
+function advisorDetailVerified(match, key) {
+  const row = match?.advisors?.[key];
+  if (!row || row.verified !== true || row.identityStatus !== "VERIFIED" ||
+      row.canonicalMatchId !== match?.id || !row.capturedAt) return false;
+  const at = Date.parse(row.capturedAt);
+  return Number.isFinite(at) && at <= Date.now() + 60000 && at >= Date.now() - 36 * 3600000;
+}
+
+function ForebetCaptureLabel({ match }) {
+  if (!probabilityAvailable(match?.forebet)) return <>No matched forecast</>;
+  const observed = match?.forebet?.capturedAt || match?.forebetCapturedAt;
+  const at = observed ? Date.parse(observed) : NaN;
+  if (Number.isFinite(at) && at <= Date.now() + 60000 && at >= Date.now() - 36 * 3600000) {
+    return <>Current source record</>;
+  }
+  return <>Stored model · capture time unverified</>;
+}
+
 function coreModelValues(match, key, market) {
   if (key === "HKJC") return market;
   if (key === "FOREBET") return match.forebet;
@@ -1332,6 +1350,13 @@ export default function MatchDetailClient() {
         </div>
       </section>
 
+      <section className="detail-advisor-status" aria-label="Prediction advisor source coverage">
+        <strong>Prediction sources</strong>
+        <span><b>Forebet</b> <ForebetCaptureLabel match={match} /></span>
+        <span><b>BetClan</b> {advisorDetailVerified(match, "BETCLAN") ? "Verified match record" : "Awaiting verified match"}</span>
+        <span><b>SportyTrader</b> {advisorDetailVerified(match, "SPORTYTRADER") ? "Verified match record" : "Awaiting verified match"}</span>
+      </section>
+
       {(sourceContextVerified || evidenceCount === 0) ? (
         <section
           className="panel"
@@ -2185,7 +2210,7 @@ export default function MatchDetailClient() {
             stateReason={match.health?.forebetCoverageStatus || match.health?.forebetState}
             metrics={[
               { label: "Predicted score", value: forebetDeep.predicted_score || match.forebetDetail?.predictedScore || "—" },
-              { label: "Average goals", value: forebetDeep.avg_goals == null ? "—" : numText(forebetDeep.avg_goals, 2) },
+              { label: "Average goals", value: numText(forebetDeep.avg_goals ?? match.forebetDetail?.ou25?.avgGoals, 2) },
               { label: "O2.5 / U2.5", value: `${pct(forebetDeep.prob_over25 ?? match.forebetDetail?.ou25?.over, 0)} / ${pct(forebetDeep.prob_under25 ?? match.forebetDetail?.ou25?.under, 0)}` },
               { label: "Corner prediction", value: forebetDeep.corner_predicted_score || forebetDeep.corner_prediction || "—" },
               { label: "O9.5 / U9.5", value: `${pct(forebetDeep.corner_prob_over95 ?? match.forebetDetail?.corners95?.over, 0)} / ${pct(forebetDeep.corner_prob_under95 ?? match.forebetDetail?.corners95?.under, 0)}` },
