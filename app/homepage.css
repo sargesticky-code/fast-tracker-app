@@ -534,3 +534,19 @@ button,input{font:inherit}
   .ft-footer-banner{display:none}
   .ft-home{padding-bottom:14px}
 }
+
+
+/* Provider presence is not evidence of fresh forecasts. Keep the note legible
+   on compact/mobile boards without adding a new full-width table column. */
+.ft-advisor-bar{display:flex;align-items:center;flex-wrap:wrap;gap:7px 10px;background:#fff;border:1px solid var(--ft-line);border-radius:9px;padding:9px 12px;margin:8px 0 12px;font-size:11px}
+.ft-advisor-bar>strong{font-weight:800;color:var(--ft-navy);margin-right:2px}
+.ft-advisor-bar>span{color:#3e5a72;background:#eef4f9;border:1px solid #dce6ef;border-radius:12px;padding:3px 8px;font-weight:700}
+.ft-advisor-bar>small{width:100%;color:var(--ft-muted);font-size:10px;line-height:1.4}
+.ft-team-names .ft-advisor-label{font-size:9px;font-weight:600;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+.ft-advisor-label.is-pending{color:#7d6673}
+.ft-advisor-label.is-confirmed{color:#176c4c}
+.ft-team-names strong,.ft-team-names span:not(.ft-advisor-label){font-weight:700;color:var(--ft-text)}
+@media(max-width:900px){
+  .ft-advisor-bar{margin:8px 0 10px;padding:8px 10px}
+  .ft-advisor-bar>small{line-height:1.45}
+}

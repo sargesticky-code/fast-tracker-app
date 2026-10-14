@@ -3666,3 +3666,11 @@
   }
   .detail-shell .totals-state-details{grid-column:1}
 }
+
+
+/* Clear source-level accountability; pending collectors are never model votes. */
+.detail-advisor-status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #dae4ee;border-radius:9px;padding:9px 12px;margin:11px 0;color:#30455c;font-size:11px}
+.detail-advisor-status>strong{font-size:12px}
+.detail-advisor-status>span{padding:5px 8px;background:#f3f7fb;border:1px solid #e1e9f1;border-radius:8px}
+.detail-advisor-status>span b{margin-right:5px;color:#193b57}
+@media(max-width:650px){.detail-advisor-status{gap:6px;padding:9px}.detail-advisor-status>span{width:100%;display:flex;justify-content:space-between;gap:8px}}
