@@ -1024,3 +1024,20 @@ test('verified external adviser remains visible on match detail with source link
  await expect(card.getByRole('link',{name:'Source prediction'})).toHaveAttribute('href',a.sourceUrl);
  await card.screenshot({path:'test-results/betclan-detail.png'});
 });
+
+test("open match detail refreshes its verified fixture once a minute",async({page})=>{
+ await page.clock.install({time:new Date("2026-10-11T00:59:00Z")});
+ mockEndpoints(page);
+ let detailReads=0;
+ page.route("**/functions/v1/app-match-detail**",route=>{
+  detailReads++;
+  const response=detailReads===1?detail:{...detail,fixture:{...detail.fixture,score_home:2,score_away:1}};
+  return route.fulfill({json:response,headers:cors});
+ });
+ await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
+ await expect(page.locator(".ft-match-when")).toContainText("Final score 1–0");
+ await expect(page.getByRole("status")).toContainText("refreshes every minute");
+ await page.clock.fastForward(60_000);
+ await expect(page.locator(".ft-match-when")).toContainText("Final score 2–1");
+ expect(detailReads).toBeGreaterThan(1);
+});
