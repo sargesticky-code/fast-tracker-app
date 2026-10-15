@@ -201,6 +201,15 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
   await page.screenshot({path:"test-results/enriched-detail-"+viewport.width+".png",fullPage:true});
  });
 }
+test("actual score freshness is visible when the compact source timestamp is available",async({page})=>{
+ await page.clock.install({time:new Date("2026-10-11T01:00:00Z")});
+ const raw={...snapshot,discovered:[snapshot.discovered[0]]};
+ const source={...summary,matches:[{...summary.matches[0],scoreCapturedAt:"2026-10-11T00:59:30Z"}]};
+ mockEndpoints(page,{raw,source});
+ await page.goto("http://127.0.0.1:4173/");
+ await expect(page.getByTestId("match-score")).toContainText("captured just now");
+});
+
 test("official player names remain visible when canonical player identity is unresolved",async({page})=>{
   const unresolved=lineups.map(row=>({...row,source_name:"FLASHSCORE_OFFICIAL",fotmob_profile:null,
     canonical_player_key:null,canonical_player_name:null}));
