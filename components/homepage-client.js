@@ -132,10 +132,21 @@ function enrich(row,evidence,now,fixtureKickoffs) {
   return {...row,info, evidence, kickoffMs, UKTime, tz, phase,quote,
     dateKey:kickoffMs===null?row.sourceDate:ukDay(kickoffMs)};
 }
+function scoreCaptureAge(capturedAt,now=Date.now()) {
+  const at=Date.parse(String(capturedAt||""));
+  if(!Number.isFinite(at)||at>now+60000)return null;
+  const minutes=Math.max(0,Math.floor((now-at)/60000));
+  if(minutes<1)return "captured just now";
+  if(minutes<60)return `captured ${minutes}m ago`;
+  const hours=Math.floor(minutes/60);
+  if(hours<24)return `captured ${hours}h ${minutes%60}m ago`;
+  return `captured ${Math.floor(hours/24)}d ${hours%24}h ago`;
+}
 function MatchChips({evidence,homeTeam,awayTeam}) {
   if (!evidence) return null;
   const chips=[];
-  if (evidence.score) chips.push({label:"Actual score",value:evidence.score.home+"–"+evidence.score.away,mark:"⚽",test:"match-score"});
+  if (evidence.score) chips.push({label:"Actual score",age:scoreCaptureAge(evidence.scoreCapturedAt),
+    value:evidence.score.home+"–"+evidence.score.away,mark:"⚽",test:"match-score"});
   if (evidence.prediction) chips.push({label:evidence.forebetCurrent?"Forebet predicted score":"Saved Forebet score",value:evidence.prediction,mark:"◇",test:"match-prediction"});
   if(evidence.forebet && typeof evidence.forebetAvgGoals==="number"
       &&Number.isFinite(evidence.forebetAvgGoals)&&evidence.forebetAvgGoals>0) {
@@ -163,7 +174,7 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
   if (evidence.confirmedXI) chips.push({label:"Official XI",value:"XI",mark:"♟",test:"confirmed-xi"});
   if (!chips.length) return null;
   return <div className="ft-match-chips" data-testid="verified-evidence">
-    {chips.map(c=><span key={c.test} className="ft-match-chip" data-testid={c.test} title={c.label+": "+c.value}><i aria-hidden="true">{c.mark}</i><b>{c.value}</b><small>{c.label}</small></span>)}
+    {chips.map(c=><span key={c.test} className="ft-match-chip" data-testid={c.test} title={c.label+": "+c.value}><i aria-hidden="true">{c.mark}</i><b>{c.value}</b><small>{c.label}{c.age?" · "+c.age:""}</small></span>)}
   </div>;
 }
 function ProvisionalChip({candidate,verified}) {
