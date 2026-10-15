@@ -171,19 +171,37 @@ export default function FlashscoreRawMatch() {
   useEffect(()=>{
     setSelectedPlayer(null);
     let cancelled=false;
-    const controller=new AbortController();
-    Promise.allSettled([
-      fetchFlashscoreRawFeed(controller.signal),
-      fetchVerifiedMatch(id,controller.signal)
-    ]).then(([raw,deep])=>{
-      if(cancelled)return;
-      const match=raw.status==="fulfilled"
-        ? (raw.value.matches.find(row=>row.id===id)||null) : null;
-      const analysis=deep.status==="fulfilled"?deep.value:null;
-      const unavailable=raw.status==="rejected"&&deep.status==="rejected";
-      setState({status:(match||analysis)?"ready":unavailable?"error":"missing",match,analysis});
-    });
-    return ()=>{cancelled=true;controller.abort();};
+    let inFlight=false;
+    let controller=null;
+    const refresh=async()=>{
+      if(cancelled||inFlight||document.visibilityState==="hidden")return;
+      inFlight=true;
+      controller=new AbortController();
+      const [raw,deep]=await Promise.allSettled([
+        fetchFlashscoreRawFeed(controller.signal),
+        fetchVerifiedMatch(id,controller.signal)
+      ]);
+      if(!cancelled){
+        const match=raw.status==="fulfilled"
+          ? (raw.value.matches.find(row=>row.id===id)||null) : null;
+        const analysis=deep.status==="fulfilled"?deep.value:null;
+        const unavailable=raw.status==="rejected"&&deep.status==="rejected";
+        setState(previous=>{
+          const nextMatch=match||previous.match;
+          const nextAnalysis=analysis||previous.analysis;
+          return {
+            status:(nextMatch||nextAnalysis)?"ready":unavailable?"error":"missing",
+            match:nextMatch,
+            analysis:nextAnalysis,
+            checkedAt:new Date().toISOString()
+          };
+        });
+      }
+      inFlight=false;
+    };
+    void refresh();
+    const timer=setInterval(()=>void refresh(),60_000);
+    return ()=>{cancelled=true;clearInterval(timer);controller?.abort();};
   },[id]);
 
   const match=state.match, analysis=state.analysis;
@@ -215,6 +233,7 @@ export default function FlashscoreRawMatch() {
     <h1>{home} vs {away}</h1>
     <p className="ft-match-when">{ukDate(fixture?.kickoff_hkt) || "Kickoff time unavailable"}
       {score && <strong> · {fixture?.status==="FINISHED"?"Final score":"Actual score"} {score}</strong>}</p>
+    {state.checkedAt&&<small role="status">Checked {new Date(state.checkedAt).toLocaleTimeString("en-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",second:"2-digit"})} HKT · refreshes every minute while this page is open</small>}
 
     <OddsPanel match={match} fixture={fixture}/>
 
