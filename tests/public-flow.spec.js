@@ -1026,11 +1026,14 @@ test('verified external adviser remains visible on match detail with source link
  const a={provider:'BETCLAN',id:'FS:event0',eventId:'1513647',identityStatus:'VERIFIED',
  sourceUrl:'https://www.betclan.com/predictionsdetails/football/1513647/paide-v-tammeka-prediction/',
  capturedAt:new Date().toISOString(),kickoff,hda:{home:.6,draw:.2,away:.2},predictedScore:'3-1',over25:.63,bttsYes:.61};
- mockEndpoints(page,{deep:{...detail,fixture:{...detail.fixture,kickoff_hkt:kickoff},externalAdvisers:[a]}});
+ const sporty={...a,provider:'SPORTYTRADER',eventId:'379501',sourceUrl:'https://www.sportytrader.com/en/betting-tips/aberdeen-st-mirren-379501/',hda:{home:.4895,draw:.1537,away:.3568},predictedScore:null,over25:null,bttsYes:null,tip:'Under 2.5 goals'};
+ mockEndpoints(page,{deep:{...detail,fixture:{...detail.fixture,kickoff_hkt:kickoff},externalAdvisers:[a,sporty]}});
  await page.goto('http://127.0.0.1:4173/details?id=FS%3Aevent0');
  const card=page.getByTestId('advisor-betclan');
  await expect(card).toContainText('Verified forecast');await expect(card).toContainText('60% / 20% / 20%');
  await expect(card.getByRole('link',{name:'Source prediction'})).toHaveAttribute('href',a.sourceUrl);
+ await expect(page.getByTestId('advisor-sportytrader')).toContainText('48.95% / 15.37% / 35.68%');
+ await expect(page.getByTestId('advisor-sportytrader')).toContainText('Source tip: Under 2.5 goals');
  await card.screenshot({path:'test-results/betclan-detail.png'});
 });
 
