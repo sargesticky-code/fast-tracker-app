@@ -261,3 +261,7 @@
 - Post-merge local verification of the identical source tree passed `npm run build` and `npx playwright test tests/public-flow.spec.js --workers=1 --reporter=line` (56/56). Browser tests use deterministic mocked fixtures. Manual review found no code or SQL issue requiring a rollback; the historical-form SQL remains review-only and was not applied.
 - Merge changed the release branch only. No Railway deployment, database migration, Edge Function release, schedule change, or service change occurred. HKJC remains retired. The hourly continuation automation was deleted.
 - The checklist release row was corrected in a docs-only follow-up branch because it still described PR #104 as open/draft. Upstream forecast rows remain absent, historical source coverage remains partial, and production needs separate deployment authorization.
+
+
+## Source precision follow-up 16 October 2026
+Authorized recovery now has genuine SportyTrader379501 onFS:CQHDQkp4. Public API preserves48.95/15.37/35.68%, while UI rounded to49/15/36. Shared external-adviser percentage formatting preserves up to two decimals on homepage/detail, including supplied goals/BTTS probabilities. No prediction calculation or source safety changes. Full build passed. Initial browser attempt hit a leftover static server from score-capture worktree; stopped that specific server and started the current build on4173, then reran the complete suite. Exact production verification and final source SHA are recorded in docs/flashscore-native-identity-20261016.md.

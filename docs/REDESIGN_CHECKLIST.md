@@ -22,3 +22,5 @@
 - [x] Static build and desktop/mobile/source-error checks
 - [ ] Exact commit deployment and real public browser acceptance
 - [ ] Physical removal of four remote retired Edge Functions (CLI login required)
+
+- [x] External adviser probabilities retain up to two source percentage decimals on fixture/detail cards; integer percentages stay compact.

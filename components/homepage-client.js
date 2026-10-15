@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
-import { fetchVerifiedSummary } from "@/lib/verified-evidence-feed";
+import { fetchVerifiedSummary, adviserPercentValue } from "@/lib/verified-evidence-feed";
 import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
@@ -162,10 +162,10 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
   for(const a of evidence.externalAdvisers||[]) {
     const name=a.provider==="BETCLAN"?"BetClan":"SportyTrader";
     const key=a.provider.toLowerCase();
-    if(a.hda)chips.push({label:name+" H/D/A",value:[a.hda.home,a.hda.draw,a.hda.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"%",test:key+"-hda"});
+    if(a.hda)chips.push({label:name+" H/D/A",value:[a.hda.home,a.hda.draw,a.hda.away].map(adviserPercentValue).join("/")+"%",mark:"%",test:key+"-hda"});
     if(a.predictedScore)chips.push({label:name+" predicted score",value:a.predictedScore,mark:"◇",test:key+"-score"});
-    if(a.over25!==null)chips.push({label:name+" Over 2.5",value:Math.round(a.over25*100)+"%",mark:"↗",test:key+"-over25"});
-    if(a.bttsYes!==null)chips.push({label:name+" BTTS Yes",value:Math.round(a.bttsYes*100)+"%",mark:"↗",test:key+"-btts"});
+    if(a.over25!==null)chips.push({label:name+" Over 2.5",value:adviserPercentValue(a.over25)+"%",mark:"↗",test:key+"-over25"});
+    if(a.bttsYes!==null)chips.push({label:name+" BTTS Yes",value:adviserPercentValue(a.bttsYes)+"%",mark:"↗",test:key+"-btts"});
     if(a.tip)chips.push({label:name+" source tip",value:a.tip,mark:"◇",test:key+"-tip"});
     chips.push({label:name+" captured (UTC)",value:new Date(a.capturedAt).toISOString().slice(0,16).replace("T"," "),mark:"◷",test:key+"-timestamp"});
   }

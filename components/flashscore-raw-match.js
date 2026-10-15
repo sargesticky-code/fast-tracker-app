@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
-import { fetchVerifiedMatch, matchObservation, currentExternalAdvisers } from "@/lib/verified-evidence-feed";
+import { fetchVerifiedMatch, matchObservation, currentExternalAdvisers, adviserPercentValue } from "@/lib/verified-evidence-feed";
 import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 
@@ -259,10 +259,10 @@ export default function FlashscoreRawMatch() {
           const a=external.find(x=>x.provider===provider),name=provider==="BETCLAN"?"BetClan":"SportyTrader";
           return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()} key={provider}>
             <strong>○ {name}</strong><span className="ft-advisor-state">{a?"Verified forecast":"No current matched forecast"}</span>
-            {a?.hda&&<small>H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(v=>Math.round(v*100)+"%").join(" / ")}</small>}
+            {a?.hda&&<small>H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / ")}</small>}
             {a?.predictedScore&&<small>Predicted score: {a.predictedScore}</small>}
-            {a&&a.over25!==null&&<small>Over 2.5: {Math.round(a.over25*100)}%</small>}
-            {a&&a.bttsYes!==null&&<small>BTTS Yes: {Math.round(a.bttsYes*100)}%</small>}
+            {a&&a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
+            {a&&a.bttsYes!==null&&<small>BTTS Yes: {adviserPercentValue(a.bttsYes)}%</small>}
             {a?.tip&&<small>Source tip: {a.tip}</small>}
             {a&&<small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Source prediction</a> · Captured {new Date(a.capturedAt).toISOString()}</small>}
           </div>;
@@ -298,7 +298,7 @@ export default function FlashscoreRawMatch() {
       {model && <p>Qualified internal model (DC) · H {percentDecimal(model.dc_prob_home)}% /
         D {percentDecimal(model.dc_prob_draw)}% /
         A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
-      {!forebet && !model && <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
+      {!forebet && !model && external.length===0 && <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
     </section>}
 
     {observed && <section className="ft-enriched-panel" data-testid="historical-flashscore-stats">
