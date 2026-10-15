@@ -298,7 +298,7 @@ export default function FlashscoreRawMatch() {
       {model && <p>Qualified internal model (DC) · H {percentDecimal(model.dc_prob_home)}% /
         D {percentDecimal(model.dc_prob_draw)}% /
         A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
-      {!forebet && !model && <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
+      {!forebet && !model && external.length===0 && <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
     </section>}
 
     {observed && <section className="ft-enriched-panel" data-testid="historical-flashscore-stats">

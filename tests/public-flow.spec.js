@@ -1034,6 +1034,7 @@ test('verified external adviser remains visible on match detail with source link
  await expect(card.getByRole('link',{name:'Source prediction'})).toHaveAttribute('href',a.sourceUrl);
  await expect(page.getByTestId('advisor-sportytrader')).toContainText('48.95% / 15.37% / 35.68%');
  await expect(page.getByTestId('advisor-sportytrader')).toContainText('Source tip: Under 2.5 goals');
+ await expect(page.getByTestId('prediction-unavailable')).toHaveCount(0);
  await card.screenshot({path:'test-results/betclan-detail.png'});
 });
 
