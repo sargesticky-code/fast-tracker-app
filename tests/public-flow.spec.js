@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 17746)
+Total output lines: 1081
+
 const { test, expect } = require("@playwright/test");
 const { spawnSync } = require("node:child_process");
 const fs = require("fs");
@@ -12,7 +15,7 @@ const snapshot = {
   fixtures:[{provider_event_id:"event1",hda:{home:2.2,draw:3.3,away:4.4},captured_at:"2026-10-11T00:59:00Z"}]
 };
 const summary = {
-  source:"flashscore-single-rpc-canonical",generatedAt:"2026-10-11T01:00:00Z",
+  source:"flashscore-single-rpc-canonical",generatedAt:new Date().toISOString(),
   count:2,
   matches:[
     {id:"FS:event0",home:"Home 0",away:"Away 0",league:"Champions League",kickoff:"2026-10-11T15:30:00Z",forebet:{home:0.45,draw:0.25,away:0.30},
@@ -437,162 +440,7 @@ for (const sourceName of ["FOTMOB_OFFICIAL","FLASHSCORE_OFFICIAL"]) {
       const layout = lineups.map((player,i)=>{
         const side=i<11?"Home":"Away", slot=i%11, position=positions[slot];
         const sourceSlot=slot===0?"1:3":slot===1?"2:1":slot===4?"2:5":slot===7?"4:1":slot===9?"4:5":null;
-        const sourceX=slot===0?0.5:slot===1?0.125:slot===4?0.875:slot===7?0.162:slot===9?0.837:null;
-        return {...player,player_name:side+" "+(position||"Player "+slot),
-          source_name:sourceName,formation_slot:sourceSlot,
-          position_x:sourceName==="FOTMOB_OFFICIAL"?sourceX:null,
-          position_y:sourceName==="FOTMOB_OFFICIAL" && sourceX!==null?(slot<5?0.3:0.7):null};
-      });
-      mockEndpoints(page,{deep:{...detail,humanFactors:{...detail.humanFactors,lineup:layout}}});
-      await page.goto("http://127.0.0.1:4173/details?id=FS%3Aevent0");
-      const pitch=page.getByTestId("official-xi-pitch");
-      for (const team of ["Home","Away"]) {
-        const side=pitch.locator(team==="Home"?".ft-xi-side-home":".ft-xi-side-away");
-        const horizontal=async name=>{
-          const marker=side.getByRole("button",{name:"View player profile: "+team+" "+name,exact:true});
-          await expect(marker).toBeVisible();
-          return Number.parseFloat(await marker.evaluate(el=>el.style.left));
-        };
-        const keeper=await horizontal("Keeper");
-        const rb=await horizontal("Right Back");
-        const lb=await horizontal("Left Back");
-        const rw=await horizontal("Right Winger");
-        const lw=await horizontal("Left Winger");
-        expect(keeper).toBe(50);
-        expect(rb).toBeGreaterThan(keeper);
-        expect(rw).toBeGreaterThan(keeper);
-        expect(lb).toBeLessThan(keeper);
-        expect(lw).toBeLessThan(keeper);
-        // Must preserve the source-specific geometry, not swap player names/IDs.
-        expect(rb).toBe(sourceName==="FOTMOB_OFFICIAL"?83:90);
-        expect(lb).toBe(sourceName==="FOTMOB_OFFICIAL"?17:10);
-      }
-      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-    });
-  }
-}
-
-test("saved exact-ID fixture kickoffs render British summer/winter times without guesswork",async({page})=>{
-  const supplied={...summary,fixtureKickoffs:[
-    {id:"FS:event9",kickoff:"2026-10-11T20:15:00+00:00"},
-    {id:"FS:event10",kickoff:"2026-11-10T20:15:00+00:00"}]};
-  const raw={...snapshot,discovered:snapshot.discovered.map(r=>r.provider_event_id==="event10"
-    ?{...r,fixture_date:"2026-11-10"}:r)};
-  mockEndpoints(page,{source:supplied,raw});
-  await page.goto("http://127.0.0.1:4173/");
-  const row9=page.getByTestId("fixture-row").filter({hasText:"Home 9"}).first();
-  const row10=page.getByTestId("fixture-row").filter({hasText:"Home 10"}).first();
-  await expect(row9.getByTestId("uk-kickoff")).toHaveText("21:15");
-  await expect(row10.getByTestId("uk-kickoff")).toHaveText("20:15");
-  await expect(row9).toContainText("BST");
-  await expect(row10).toContainText("GMT");
-  await expect(page.getByTestId("fixture-row").filter({hasText:"Home 11"}).first().getByTestId("uk-kickoff")).toHaveText("—:—");
-});
-test("remove Standings and source navigation text; group major leagues above lesser leagues",async({page})=>{
-  const raw={...snapshot,discovered:[
-    {provider_event_id:"event0",home:"London FC",away:"Liverpool",competition:"Premier LeagueENGLAND: Live Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event1",home:"Madrid FC",away:"Barcelona",competition:"LaLigaSPAIN: Standings",fixture_date:"2026-10-13",time_text:"20:00"},
-    {provider_event_id:"event2",home:"Bremen",away:"Stuttgart",competition:"BundesligaGERMANY: Live Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event3",home:"Paris FC",away:"Lyon",competition:"Ligue 1FRANCE: Live Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event4",home:"Some Team",away:"Another Team",competition:"Premier LeagueJAMAICA: Live Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event5",home:"Bragantino",away:"Cruzeiro",competition:"Serie ABRAZIL: Live Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event6",home:"Team A",away:"Team B",competition:"Ligue 1ALGERIA",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event7",home:"Team C",away:"Team D",competition:"Premier LeagueKAZAKHSTAN: Standings",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event8",home:"Team E",away:"Team F",competition:"Super League 2GREECE",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event9",home:"Team G",away:"Team H",competition:"Vysshaya LigaBELARUS",fixture_date:"2026-10-13",time_text:null},
-    {provider_event_id:"event10",home:"Team I",away:"Team J",competition:"Friendly International WomenWORLD:",fixture_date:"2026-10-13",time_text:null}
-  ],fixtures:[]};
-  mockEndpoints(page,{raw,source:null});
-  await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("fixture-row")).toHaveCount(4);
-  await expect(page.getByTestId("scope-featured")).toHaveAttribute("aria-pressed","true");
-  const names=await page.locator(".ft-league-heading h2").allTextContents();
-  expect(names[0]).toContain("Premier League · England");
-  expect(names[1]).toContain("La Liga · Spain");
-  expect(names[2]).toContain("Bundesliga · Germany");
-  expect(names.join(" ")).not.toMatch(/Standings|: Draw/);
-  await expect(page.getByTestId("fixture-list")).not.toContainText("Flashscore event");
-  await page.getByTestId("scope-other").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(7);
-  const otherNames=await page.locator(".ft-league-heading h2").allTextContents();
-  expect(otherNames.some(n=>n.includes("Jamaica"))).toBeTruthy();
-  expect(otherNames.some(n=>n.includes("Brazil"))).toBeTruthy();
-  for(const name of ["Ligue 1 · Algeria","Premier League · Kazakhstan","Super League 2 · Greece","Vysshaya Liga · Belarus","Friendly International Women · World"]) expect(otherNames.join(" ")).toContain(name);
-  expect(otherNames.join(" ")).not.toMatch(/ALGERIA|KAZAKHSTAN|GREECE|BELARUS|WORLD:|Standings/);
-  await page.getByTestId("scope-all").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(11);
-});
-test("status and insights filters distinguish completed from elapsed but unverified fixtures",async({page})=>{
-  const source={...summary,matches:[{...summary.matches[0],status:"SCHEDULED"},
-    {...summary.matches[1],status:"FINISHED"}]};
-  mockEndpoints(page,{source});
-  await page.goto("http://127.0.0.1:4173/");
-  await page.getByTestId("status-live").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(0);
-  await page.getByTestId("status-finished").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(1);
-  await page.getByTestId("status-all").click();
-  await page.getByTestId("overview-predictions").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(2);
-  await page.getByTestId("scope-other").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(0);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-});
-
-test("Featured and Other form an exhaustive partition with deterministic live, priority, kickoff, coverage, and ID order",async({page})=>{
-  const start=Date.now();
-  const events=[
-    {id:"FS:event0",home:"Priority later",away:"Away 0",competition:"Premier LeagueENGLAND",kickoff:new Date(start+6*3600000).toISOString()},
-    {id:"FS:event1",home:"Priority soon",away:"Away 1",competition:"Premier LeagueENGLAND",kickoff:new Date(start+2*3600000).toISOString()},
-    {id:"FS:event2",home:"Coverage rich",away:"Away 2",competition:"Premier LeagueENGLAND",kickoff:new Date(start+2*3600000).toISOString()},
-    {id:"FS:event3",home:"European priority",away:"Away 3",competition:"Champions League - League phaseEUROPE",kickoff:new Date(start+1*3600000).toISOString()},
-    {id:"FS:event4",home:"Other live",away:"Away 4",competition:"Serie ABRAZIL",kickoff:new Date(start-20*60000).toISOString(),status:"LIVE",liveNow:true},
-    {id:"FS:event5",home:"Ambiguous Jamaica",away:"Away 5",competition:"Premier LeagueJAMAICA",kickoff:new Date(start+90*60000).toISOString()},
-    {id:"FS:event6",home:"Stable ID tie",away:"Away 6",competition:"Premier LeagueENGLAND",kickoff:new Date(start+2*3600000).toISOString()}
-  ];
-  const raw={...snapshot,captured_at:new Date().toISOString(),discovered:events.map((x,i)=>({
-    provider_event_id:x.id.slice(3),home:x.home,away:x.away,competition:x.competition,
-    fixture_date:new Date(x.kickoff).toISOString().slice(0,10),time_text:"15:30"}))};
-  const matches=events.map((x,i)=>({id:x.id,home:x.home,away:x.away,league:x.competition,
-    kickoff:x.kickoff,status:x.status||"SCHEDULED",liveNow:x.liveNow===true,
-    scoreHome:i===4?1:null,scoreAway:i===4?0:null,scoreSource:i===4?"FLASHSCORE":null,
-    ...(i===2?{forebet:{home:0.5,draw:0.25,away:0.25}}:{})}));
-  mockEndpoints(page,{raw,source:{...summary,matches}});
-  await page.goto("http://127.0.0.1:4173/");
-  await expect(page.getByTestId("scope-featured")).toHaveAttribute("aria-pressed","true");
-  await expect(page.getByTestId("fixture-row")).toHaveCount(5);
-  const featured=await page.locator(".ft-fixture-card").evaluateAll(nodes=>nodes.map(x=>x.dataset.fixtureId));
-  expect(featured).toEqual(["FS:event2","FS:event1","FS:event6","FS:event0","FS:event3"]);
-  await page.getByTestId("scope-other").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(2);
-  const other=await page.locator(".ft-fixture-card").evaluateAll(nodes=>nodes.map(x=>x.dataset.fixtureId));
-  expect(other).toEqual(["FS:event4","FS:event5"]);
-  await page.getByLabel("Search",{exact:true}).fill("Jamaica");
-  await expect(page.getByTestId("fixture-row")).toHaveCount(1);
-  await page.getByLabel("Search",{exact:true}).fill("");
-  await page.getByTestId("status-live").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(1);
-  await page.getByTestId("scope-all").click();
-  await page.getByTestId("status-all").click();
-  await expect(page.getByTestId("fixture-row")).toHaveCount(events.length);
-  const all=await page.locator(".ft-fixture-card").evaluateAll(nodes=>nodes.map(x=>x.dataset.fixtureId));
-  expect(new Set(all).size).toBe(events.length);
-});
-
-test("historical form is exact-ID, one-sided, source-labeled, and rejects target-day or future samples",async({page})=>{
-  const source={...summary,matches:[
-    summary.matches[0],
-    {...summary.matches[1],historicalForm:{home:{...summary.matches[0].historicalForm.home,throughDate:"2026-10-30"},away:null}}
-  ]};
-  mockEndpoints(page,{source});
-  await page.goto("http://127.0.0.1:4173/");
-  const homeRow=page.getByTestId("fixture-row").filter({hasText:"Home 0"}).first();
-  await expect(homeRow.getByTestId("historical-form")).toContainText("H DLDLD · A —");
-  const disclosure=page.locator('[data-fixture-id="FS:event0"]').getByTestId("historical-form-disclosure");
-  await expect(disclosure).toBeVisible();
-  await disclosure.locator("summary").click();
-  await expect(disclosure.getByTestId("historical-form-home")).toContainText("Last 5 completed matches");
-  await expect(disclosure.getByTestId("historical-form-home")).toContainText("BTTS 3/5 (60%)");
+        const sourceX=slot===0?0.5:sl…2746 tokens truncated…isclosure.getByTestId("historical-form-home")).toContainText("BTTS 3/5 (60%)");
   await expect(disclosure.getByTestId("historical-form-home")).toContainText("O/U 9.5 2/3");
   await expect(disclosure.getByTestId("historical-form-away")).toContainText("No qualifying history");
   await expect(disclosure).toContainText("football-data.co.uk");

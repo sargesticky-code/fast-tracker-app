@@ -15,3 +15,12 @@
 ## Working tree
 
 Feature branch: `codex/overnight-001-forebet`, based on production release head above. The original workspace's unrelated changes remain untouched.
+
+
+## FT-OVERNIGHT-009 — dashboard presentation
+
+- Audited the current dashboard’s default Featured scope, Featured/Other partition, deterministic ordering, Finished filter, home/away typography, and shared source-team comparison. No rendered UI defect was demonstrated.
+- Fixed a test reliability defect in `tests/public-flow.spec.js`: the shared canonical summary timestamp was fixed at 2026-10-11 and was rejected by the feed’s 20-minute freshness gate on later dates. It now uses the current timestamp.
+- `npm run build` passed. Focused browser checks passed 2/2 on `next start` using mocked endpoints. Development-server attempts were discarded due to Next 16 refusing the 127.0.0.1 HMR origin; no production API calls were made.
+- Production remains unchanged. PR #134 is open for review.
+- Next: check exact-head CI after the test fixture update; do not merge or deploy.

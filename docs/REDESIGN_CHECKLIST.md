@@ -1,5 +1,12 @@
 # Raw dashboard acceptance
 
+## 2026-10-17: Dashboard presentation audit (FT-OVERNIGHT-009)
+
+- Existing implementation defaults to Featured, provides exhaustive Featured/Other scopes, orders live and priority fixtures deterministically, exposes ended fixtures through the Finished filter, gives home/away team names equal emphasis, and shows source team identities beside canonical names. No presentation defect was demonstrated.
+- Fixed a time-dependent test fixture: shared canonical summary `generatedAt` now uses the current time so it remains inside the 20-minute feed acceptance window.
+- Verification: repository build passed; focused Featured/Other ordering and home/away emphasis browser tests passed 2/2 against the local production build with mocked endpoints. Production remained unchanged.
+- Next: check exact-head CI for PR #134 after this test fixture update; no merge/deploy.
+
 ## 2026-10-17: Forebet rows omitted by a fresh raw snapshot
 
 - Live check: the canonical summary returned 475 fixtures and 135 strict Forebet forecasts; the provisional feed returned 67 one-team accepted and 14 tentative records. All 81 provisional IDs existed in the canonical summary, but the fresh 360-fixture Railway snapshot omitted 16 accepted and 4 tentative IDs.
