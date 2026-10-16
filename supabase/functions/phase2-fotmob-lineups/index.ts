@@ -450,7 +450,7 @@ Deno.serve(async (req:Request)=>{
           if(!ir.error)injuryRows+=missing.length;
         }
       }
-    }catch(e){detailFail++;console.warn("detail_fail",h.match_id,String(e));}
+    }catch(e){detailFail++;const info=e&&typeof e==="object"?{code:e.code??null,message:e.message??null,details:e.details??null,hint:e.hint??null}:String(e);console.warn("detail_fail",h.match_id,JSON.stringify(info));}
 
     });
     const profileCandidates=(await db.from("lineup_evidence_current")
