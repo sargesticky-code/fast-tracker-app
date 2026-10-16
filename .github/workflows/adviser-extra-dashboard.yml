@@ -1,0 +1,34 @@
+name: PrimaTips Statarea calibrated provisional dashboard
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - components/homepage-client.js
+      - lib/external-adviser-provisional-feed.js
+      - lib/extra-adviser-provisional-feed.js
+      - scripts/check-extra-adviser-provisional.mjs
+      - package.json
+      - .github/workflows/adviser-extra-dashboard.yml
+  push:
+    branches: [feat/ft-show-primatips-statarea-calibrated-20261016]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Verified/provisional isolation regression
+        run: npm run check:adviser-provisional
+      - name: Extra adviser clock-calibration regression
+        run: npm run check:adviser-extra
+      - name: Full production dashboard build
+        run: npm run build
