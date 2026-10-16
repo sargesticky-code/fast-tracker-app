@@ -181,10 +181,16 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
 }
 function ProvisionalChip({candidate,verified}) {
   if (!candidate || verified) return null;
+  const fuzzy=candidate.matchedSide==="SIMILARITY";
   const side=candidate.matchedSide==="HOME"?"Home":"Away";
   return <div className="ft-provisional-chip" data-testid="forebet-provisional"
-    title="Unverified opposite team: this is not a confirmed Forebet–Flashscore identity">
-    <span>◇ Forebet provisional · only {side} verified</span>
+    title={fuzzy?"Neither team verified: these are name-similarity candidates, not proven fixture identities":
+      "Unverified opposite team: this is not a confirmed Forebet–Flashscore identity"}>
+    <span>{fuzzy?"◇ Forebet tentative · 0.3 names · NOT VERIFIED":
+      "◇ Forebet provisional · only "+side+" verified"}</span>
+    {fuzzy&&<small>Source: {candidate.sourceHome} vs {candidate.sourceAway}
+      {" · "}Name similarity: {candidate.nameSimilarities.map(v=>Math.round(v*100)+"%").join(" / ")}
+      {" · "}One side at least 70%</small>}
     <strong>H/D/A {candidate.probs.map(v=>Math.round(v)).join("/")}%
       {" · "}Score {candidate.predictedScore} · Avg {candidate.avgGoals.toFixed(2)}</strong>
     <small>Rechecked automatically; disconnected if fixture/source identity changes.
