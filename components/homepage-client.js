@@ -192,7 +192,7 @@ function ProvisionalChip({candidate,verified}) {
 }
 
 function ExternalProvisionalChip({candidate}) {
-  const name=candidate.provider==="BETCLAN"?"BetClan":"SportyTrader";
+  const name=({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[candidate.provider]||candidate.provider;
   return <div className="ft-provisional-chip" data-testid={"adviser-provisional-"+candidate.provider.toLowerCase()}
     title={"Source: "+candidate.sourceHome+" vs "+candidate.sourceAway+
       " · Name similarity: "+candidate.homeSimilarity.toFixed(2)+"/"+candidate.awaySimilarity.toFixed(2)}>
@@ -201,7 +201,11 @@ function ExternalProvisionalChip({candidate}) {
       {candidate.score?" · Score "+candidate.score:""}
       {candidate.over25!==null?" · Over 2.5 "+adviserPercentValue(candidate.over25)+"%":""}
       {candidate.bttsYes!==null?" · BTTS "+adviserPercentValue(candidate.bttsYes)+"%":""}</strong>
-    <small>{candidate.leagueEvidence==="CORROBORATED"?"League corroborated":"League awaiting review"} · Source date and kickoff checked. Not a verified forecast; may be disconnected after daily recheck.</small>
+    <small>{candidate.clockEvidence==="CALIBRATED_FROM_DAY_COHORT_NOT_SOURCE_VERIFIED"
+      ? "Source clock calibrated from "+candidate.clockCalibrationSamples+" real fixture pairs; source timezone NOT verified"
+      : "Source date and kickoff independently checked"}
+      {" · "}{["CORROBORATED","NAME_SIMILAR"].includes(candidate.leagueEvidence)?"League evidence consistent":"League awaiting review"}
+      {" · "}May disconnect after daily recheck. Not a verified forecast.</small>
   </div>;
 }
 
@@ -293,7 +297,7 @@ export default function HomepageClient() {
   const [provisional,setProvisional]=useState(new Map());
   const [provisionalStatus,setProvisionalStatus]=useState("loading");
   const [externalProvisional,setExternalProvisional]=useState(new Map());
-  const [externalProvisionalStatus,setExternalProvisionalStatus]=useState("loading");
+  const [externalProvisionalStatus,setExternalProvisionalStatus]=useState({legacy:false,extra:false});
   const [query,setQuery]=useState("");
   const [date,setDate]=useState("");
   const [league,setLeague]=useState("");
@@ -361,9 +365,9 @@ export default function HomepageClient() {
       inFlight=true;
       try {
         const next=await fetchExternalProvisional(controller.signal);
-        if(!cancelled){setExternalProvisional(next);setExternalProvisionalStatus("ready");}
+        if(!cancelled){setExternalProvisional(next);setExternalProvisionalStatus(next.feedStatus||{legacy:false,extra:false});}
       } catch {
-        if(!cancelled){setExternalProvisional(new Map());setExternalProvisionalStatus("unavailable");}
+        if(!cancelled){setExternalProvisional(new Map());setExternalProvisionalStatus({legacy:false,extra:false});}
       } finally {inFlight=false;}
     }
     refreshExternal();
@@ -402,6 +406,8 @@ export default function HomepageClient() {
     provisional:matches.filter(m=>m.provisional).length,
     betclanProvisional:matches.filter(m=>m.externalProvisional.some(x=>x.provider==="BETCLAN")).length,
     sportyProvisional:matches.filter(m=>m.externalProvisional.some(x=>x.provider==="SPORTYTRADER")).length,
+    primatipsProvisional:matches.filter(m=>m.externalProvisional.some(x=>x.provider==="PRIMATIPS")).length,
+    statareaProvisional:matches.filter(m=>m.externalProvisional.some(x=>x.provider==="STATAREA")).length,
     dc:matches.filter(m=>m.evidence?.dc).length,
     pi:matches.filter(m=>m.evidence?.pi).length,
     form:matches.filter(m=>m.evidence?.form).length,
@@ -490,9 +496,11 @@ export default function HomepageClient() {
           <span data-testid="advisor-dc-summary"><i aria-hidden="true">◈</i> Dixon–Coles · {verifiedStatus==="ready"?counts.dc:"—"} verified forecasts</span>
           <span data-testid="advisor-pi-summary"><i aria-hidden="true">◇</i> Power Index · {verifiedStatus==="ready"?counts.pi:"—"} (same model source)</span>
           <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"Legacy inactive"}</span>
-          <span data-testid="advisor-betclan-summary"><i aria-hidden="true">○</i> BetClan · {verifiedStatus==="ready"?counts.betclan+" verified":"Unavailable"} · {externalProvisionalStatus==="ready"?counts.betclanProvisional+" provisional":"provisional unavailable"}</span>
-          <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified":"Unavailable"} · {externalProvisionalStatus==="ready"?counts.sportyProvisional+" provisional":"provisional unavailable"}</span>
-          <small>Prices are bookmaker quotes, not independent predictions. Missing or retired sources do not count as picks.</small>
+          <span data-testid="advisor-betclan-summary"><i aria-hidden="true">○</i> BetClan · {verifiedStatus==="ready"?counts.betclan+" verified":"Unavailable"} · {externalProvisionalStatus.legacy?counts.betclanProvisional+" provisional":"provisional unavailable"}</span>
+          <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified":"Unavailable"} · {externalProvisionalStatus.legacy?counts.sportyProvisional+" provisional":"provisional unavailable"}</span>
+          <span data-testid="advisor-primatips-summary"><i aria-hidden="true">○</i> PrimaTips · {externalProvisionalStatus.extra?counts.primatipsProvisional+" provisional":"Unavailable"}</span>
+          <span data-testid="advisor-statarea-summary"><i aria-hidden="true">○</i> Statarea · {externalProvisionalStatus.extra?counts.statareaProvisional+" provisional":"Unavailable"}</span>
+          <small>Provisional source forecasts use ≥0.4 name matching, distinct source probabilities and calibrated source clocks. NOT VERIFIED; no automatic picks. Prices are bookmaker quotes, not independent predictions.</small>
         </div>
         <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
       </section>
