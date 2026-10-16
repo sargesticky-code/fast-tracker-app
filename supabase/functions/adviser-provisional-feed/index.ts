@@ -33,7 +33,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       return Response.json({ error: "SOURCE_UNAVAILABLE" }, { status: 503, headers: cors });
     }
     const data = await resp.json();
-    if (data?.source !== "ADVISER_PROVISIONAL_FLASHscore_0_4" ||
+    if (!["ADVISER_PROVISIONAL_FLASHscore_0_4","ADVISER_PROVISIONAL_FLASHscore_0_3"].includes(data?.source) ||
         data?.quality !== "PROVISIONAL_NOT_VERIFIED" ||
         !Array.isArray(data?.rows) || data.rows.length > 180) {
       return Response.json({ error: "INVALID_PROVISIONAL_CONTRACT" }, { status: 503, headers: cors });
