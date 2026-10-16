@@ -288,3 +288,23 @@
 .ft-provisional-chip strong{font-size:11px;font-weight:650;color:#344653}
 .ft-provisional-chip small{flex-basis:100%;font-size:10px;color:#536574}
 @media(max-width:650px){.ft-provisional-chip{gap:4px 7px;padding:7px;font-size:10px}}
+
+/* Quick manual QA of low-confidence adviser joins: original source names
+   beside authoritative Flashscore names. Different names are a review cue,
+   not an automatic verdict (aliases and translations may be legitimate). */
+.ft-source-team-compare{display:grid;gap:4px;min-width:0;width:100%;
+  padding:7px 8px;border:1px solid #d5dfe7;border-radius:6px;background:#fff;
+  font-size:11px;line-height:1.45;color:#243f59}
+.ft-source-team-pair{display:grid;grid-template-columns:minmax(64px,80px) minmax(0,1fr);
+  align-items:baseline;gap:5px;min-width:0}
+.ft-source-team-pair>b{font-size:10px;color:#476780}
+.ft-source-team-pair>span{min-width:0;overflow-wrap:anywhere;font-weight:600}
+.ft-source-team-pair em{font-style:normal;font-size:9px;font-weight:700;color:#607c96;margin-right:3px}
+.ft-source-team-pair em:not(:first-child){margin-left:9px}
+.ft-source-name-result{display:block;font-size:10px;font-weight:750;line-height:1.4}
+.ft-source-name-same{color:#345878}
+.ft-source-name-unknown,.ft-source-name-different,.ft-source-name-reversed{color:#a84b13}
+.ft-source-name-reversed{color:#ad3030}
+.ft-provisional-chip .ft-source-team-compare{flex-basis:100%;align-self:stretch}
+@media(max-width:650px){.ft-source-team-pair{grid-template-columns:70px minmax(0,1fr)}
+  .ft-source-team-compare{padding:6px;gap:3px;font-size:11px}}
