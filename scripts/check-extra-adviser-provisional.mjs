@@ -6,7 +6,7 @@ const now=Date.parse("2026-10-16T12:00:00Z");
 const baseline={
  id:"FS:2wo3m634",provider:"PRIMATIPS",status:"PROVISIONAL_NOT_VERIFIED",
  kickoff:"2026-10-17T14:00:00Z",sourceUrl:"https://primatips.com/tip/fulham-hull-city-949985",
- sourceHome:"Fulham",sourceAway:"Hull City",homeSimilarity:1,awaySimilarity:.4,
+ sourceHome:"Fulham",sourceAway:"Hull City",homeSimilarity:1,awaySimilarity:.4,leagueSimilarity:.8,
  sourceCapturedAt:"2026-10-16T11:00:00Z",lastChecked:"2026-10-16T11:30:00Z",
  leagueEvidence:"NAME_SIMILAR",clockEvidence:"CALIBRATED_FROM_DAY_COHORT_NOT_SOURCE_VERIFIED",
  kickoffTimezoneVerified:false,clockOffsetMinutes:60,clockCalibrationSamples:40,
@@ -20,7 +20,11 @@ const wrap=(rows)=>({
 });
 const parse=rows=>parseExtraAdviserProvisional(wrap(rows),now);
 assert.equal(parse([baseline]).get(baseline.id)?.length,1);
-assert.equal(parse([{...baseline,homeSimilarity:.39}]).size,0);
+assert.equal(parse([{...baseline,homeSimilarity:.29}]).size,0);
+assert.equal(parse([{...baseline,homeSimilarity:.35,awaySimilarity:.85,leagueSimilarity:.6,timeDeltaSeconds:40}]).get(baseline.id)?.length,1);
+assert.equal(parse([{...baseline,homeSimilarity:.35,awaySimilarity:.85,leagueSimilarity:.2,timeDeltaSeconds:40}]).size,0);
+assert.equal(parse([{...baseline,homeSimilarity:.35,awaySimilarity:.85,leagueSimilarity:.6,timeDeltaSeconds:70}]).size,0);
+assert.equal(parse([{...baseline,homeSimilarity:.35,awaySimilarity:.45,leagueSimilarity:.6,timeDeltaSeconds:40}]).size,0);
 assert.equal(parse([{...baseline,status:"VERIFIED"}]).size,0);
 assert.equal(parse([{...baseline,kickoffTimezoneVerified:true}]).size,0);
 assert.equal(parse([{...baseline,clockEvidence:"VERIFIED_SOURCE_TIMEZONE"}]).size,0);
@@ -39,7 +43,7 @@ assert.equal(combined.get(baseline.id)[1].over25,.58);
 assert.equal(combined.get(baseline.id)[1].bttsYes,.61);
 assert.throws(()=>parseExtraAdviserProvisional({...wrap([baseline]),
  generatedAt:"2026-10-15T12:00:00Z"},now),/stale/);
-console.log("PASS calibrated 0.4 adviser source evidence, unique candidate contract, no false verified promotion");
+console.log("PASS calibrated 0.3 gated adviser source evidence, unique candidate contract, no false verified promotion");
 
 // Human-readable pair comparison must never silently certify provisional matches.
 const compare=(sourceHome,sourceAway,home,away)=>
