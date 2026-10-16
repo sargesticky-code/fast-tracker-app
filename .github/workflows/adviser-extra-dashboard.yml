@@ -5,6 +5,9 @@ on:
     paths:
       - components/homepage-client.js
       - components/flashscore-raw-match.js
+      - components/adviser-source-team-comparison.js
+      - lib/adviser-source-team-review.js
+      - app/homepage.css
       - lib/external-adviser-provisional-feed.js
       - lib/extra-adviser-provisional-feed.js
       - scripts/check-extra-adviser-provisional.mjs
