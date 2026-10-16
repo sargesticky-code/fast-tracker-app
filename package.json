@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run check:ui && npm run check:raw && npm run check:native && npm run check:native:prospective && npm run check:fotmob:refresh && npm run check:edge:cron-auth && next build",
+    "build": "npm run check:ui && npm run check:raw && npm run check:native && npm run check:native:prospective && npm run check:fotmob:refresh && npm run check:edge:cron-auth && npm run check:adviser-provisional && next build",
     "start": "next start",
     "check:ui": "node scripts/check-visible-escapes.mjs",
     "check:raw": "node scripts/check-flashscore-raw.mjs",
     "check:native": "node scripts/check-native-model.mjs",
     "check:native:prospective": "node scripts/check-native-prospective.mjs",
     "check:fotmob:refresh": "node scripts/check-fotmob-refresh.mjs",
-    "check:edge:cron-auth": "node scripts/check-edge-cron-vault-auth.mjs"
+    "check:edge:cron-auth": "node scripts/check-edge-cron-vault-auth.mjs",
+    "check:adviser-provisional": "node scripts/check-external-adviser-provisional.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

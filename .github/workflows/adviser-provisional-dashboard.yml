@@ -1,0 +1,31 @@
+name: Adviser provisional dashboard checks
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'components/homepage-client.js'
+      - 'lib/external-adviser-provisional-feed.js'
+      - 'scripts/check-external-adviser-provisional.mjs'
+      - 'package.json'
+      - 'supabase/functions/adviser-provisional-feed/**'
+      - 'supabase/migrations/20261016045200_ft_public_adviser_provisional_read_feed.sql'
+      - '.github/workflows/adviser-provisional-dashboard.yml'
+  push:
+    branches: [feat/ft-show-adviser-provisional-04-20261016]
+permissions:
+  contents: read
+jobs:
+  verify-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Validate provisional source contract
+        run: npm run check:adviser-provisional
+      - name: Production build and full existing check chain
+        run: npm run build

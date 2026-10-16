@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedSummary, adviserPercentValue } from "@/lib/verified-evidence-feed";
 import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
+import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
 // Source competition names can contain "COUNTRY: Live Standings". Keep the
@@ -190,6 +191,20 @@ function ProvisionalChip({candidate,verified}) {
   </div>;
 }
 
+function ExternalProvisionalChip({candidate}) {
+  const name=candidate.provider==="BETCLAN"?"BetClan":"SportyTrader";
+  return <div className="ft-provisional-chip" data-testid={"adviser-provisional-"+candidate.provider.toLowerCase()}
+    title={"Source: "+candidate.sourceHome+" vs "+candidate.sourceAway+
+      " · Name similarity: "+candidate.homeSimilarity.toFixed(2)+"/"+candidate.awaySimilarity.toFixed(2)}>
+    <span>◇ {name} provisional · 0.4 team threshold · NOT VERIFIED</span>
+    <strong>{candidate.hda?"H/D/A "+[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / "):"Source probability unavailable"}
+      {candidate.score?" · Score "+candidate.score:""}
+      {candidate.over25!==null?" · Over 2.5 "+adviserPercentValue(candidate.over25)+"%":""}
+      {candidate.bttsYes!==null?" · BTTS "+adviserPercentValue(candidate.bttsYes)+"%":""}</strong>
+    <small>{candidate.leagueEvidence==="CORROBORATED"?"League corroborated":"League awaiting review"} · Source date and kickoff checked. Not a verified forecast; may be disconnected after daily recheck.</small>
+  </div>;
+}
+
 function HistoricalFormDisclosure({evidence,homeName,awayName}) {
   const sides=[{name:homeName,label:"Home",form:evidence?.historicalForm?.home},
     {name:awayName,label:"Away",form:evidence?.historicalForm?.away}];
@@ -277,6 +292,8 @@ export default function HomepageClient() {
   const [verifiedStatus,setVerifiedStatus]=useState("loading");
   const [provisional,setProvisional]=useState(new Map());
   const [provisionalStatus,setProvisionalStatus]=useState("loading");
+  const [externalProvisional,setExternalProvisional]=useState(new Map());
+  const [externalProvisionalStatus,setExternalProvisionalStatus]=useState("loading");
   const [query,setQuery]=useState("");
   const [date,setDate]=useState("");
   const [league,setLeague]=useState("");
@@ -336,6 +353,24 @@ export default function HomepageClient() {
     return()=>{cancelled=true;controller.abort();clearInterval(timer);
       document.removeEventListener("visibilitychange",refreshProvisional);};
   },[]);
+  useEffect(()=>{
+    let cancelled=false,inFlight=false;
+    const controller=new AbortController();
+    async function refreshExternal() {
+      if(cancelled||inFlight||document.visibilityState!=="visible")return;
+      inFlight=true;
+      try {
+        const next=await fetchExternalProvisional(controller.signal);
+        if(!cancelled){setExternalProvisional(next);setExternalProvisionalStatus("ready");}
+      } catch {
+        if(!cancelled){setExternalProvisional(new Map());setExternalProvisionalStatus("unavailable");}
+      } finally {inFlight=false;}
+    }
+    refreshExternal();
+    const timer=setInterval(refreshExternal,300000);
+    document.addEventListener("visibilitychange",refreshExternal);
+    return()=>{cancelled=true;controller.abort();clearInterval(timer);document.removeEventListener("visibilitychange",refreshExternal);};
+  },[]);
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),60000);return()=>clearInterval(timer);},[]);
   const rawCaptured=Date.parse(String(feed?.generatedAt||""));
   const rawReady=Number.isFinite(rawCaptured)&&now-rawCaptured>=-60000&&now-rawCaptured<=30*60000
@@ -346,8 +381,14 @@ export default function HomepageClient() {
     const full=enrich(m,verified?.byId.get(m.id)||null,now,verified?.fixtureKickoffs);
     const candidate=provisional.get(m.id);
     // Keep the model/odds/accuracy pipeline untouched. This is display only.
-    return {...full,provisional:candidate && !full.evidence?.forebet ? candidate:null};
-  }),[rows,verified,provisional,now]);
+    const trustedKickoff=full.kickoffMs;
+    const candidates=(externalProvisional.get(m.id)||[]).filter(x=>
+      full.phase==="upcoming" && trustedKickoff!==null &&
+      Math.abs(x.kickoff-trustedKickoff)<=60000 &&
+      !full.evidence?.externalAdvisers?.some(a=>a.provider===x.provider));
+    return {...full,provisional:candidate && !full.evidence?.forebet ? candidate:null,
+      externalProvisional:candidates};
+  }),[rows,verified,provisional,externalProvisional,now]);
   const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
   const liveKnown=matches.some(m=>m.phase==="live");
@@ -359,17 +400,19 @@ export default function HomepageClient() {
     betclan:matches.filter(m=>m.evidence?.externalAdvisers?.some(a=>a.provider==="BETCLAN")).length,
     sportytrader:matches.filter(m=>m.evidence?.externalAdvisers?.some(a=>a.provider==="SPORTYTRADER")).length,
     provisional:matches.filter(m=>m.provisional).length,
+    betclanProvisional:matches.filter(m=>m.externalProvisional.some(x=>x.provider==="BETCLAN")).length,
+    sportyProvisional:matches.filter(m=>m.externalProvisional.some(x=>x.provider==="SPORTYTRADER")).length,
     dc:matches.filter(m=>m.evidence?.dc).length,
     pi:matches.filter(m=>m.evidence?.pi).length,
     form:matches.filter(m=>m.evidence?.form).length,
-    prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional).length,
+    prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length).length,
     odds:matches.filter(m=>oddsText(m)).length,
     recentOdds:matches.filter(m=>m.quote?.type==="recent").length};
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="featured"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
-    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
+    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>(a.phase==="live"?0:1)-(b.phase==="live"?0:1)
     ||a.info.priority-b.info.priority
@@ -447,8 +490,8 @@ export default function HomepageClient() {
           <span data-testid="advisor-dc-summary"><i aria-hidden="true">◈</i> Dixon–Coles · {verifiedStatus==="ready"?counts.dc:"—"} verified forecasts</span>
           <span data-testid="advisor-pi-summary"><i aria-hidden="true">◇</i> Power Index · {verifiedStatus==="ready"?counts.pi:"—"} (same model source)</span>
           <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"Legacy inactive"}</span>
-          <span data-testid="advisor-betclan-summary"><i aria-hidden="true">○</i> BetClan · {verifiedStatus==="ready"?counts.betclan+" verified forecasts":"Unavailable"}</span>
-          <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified forecasts":"Unavailable"}</span>
+          <span data-testid="advisor-betclan-summary"><i aria-hidden="true">○</i> BetClan · {verifiedStatus==="ready"?counts.betclan+" verified":"Unavailable"} · {externalProvisionalStatus==="ready"?counts.betclanProvisional+" provisional":"provisional unavailable"}</span>
+          <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified":"Unavailable"} · {externalProvisionalStatus==="ready"?counts.sportyProvisional+" provisional":"provisional unavailable"}</span>
           <small>Prices are bookmaker quotes, not independent predictions. Missing or retired sources do not count as picks.</small>
         </div>
         <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
@@ -512,6 +555,7 @@ export default function HomepageClient() {
                 </div>
                 <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away}/>
                 <ProvisionalChip candidate={m.provisional} verified={m.evidence?.forebet}/>
+                {m.externalProvisional.map(candidate=><ExternalProvisionalChip key={candidate.provider} candidate={candidate}/>)}
               </div>
               <div className="ft-kickoff-cell">
                 <span className={"ft-match-state ft-match-state-"+m.phase}>{m.phase==="live"&&<i className="ft-live-dot"/>}{statusLabel}</span>
