@@ -155,7 +155,7 @@ BEGIN
     (SELECT count(*) FROM private.ft_adviser_provisional_05 WHERE state='PROVISIONAL'),
     'verification','PROVISIONAL_ONLY_NO_PUBLIC_VERIFIED_PROMOTION');
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.ft_recheck_extra_adviser_provisional_04()
@@ -250,7 +250,7 @@ BEGIN
  GET DIAGNOSTICS matches_count=ROW_COUNT;
  RETURN jsonb_build_object('previous',prior_count,'provisional',matches_count,
    'source','LIVE_FLASHscore_DATE_CALIBRATED_NOT_SOURCE_VERIFIED','threshold',0.3);
-END $function$
+END $function$;
 
 
 CREATE OR REPLACE FUNCTION public.ft_public_adviser_provisional_candidates()
@@ -355,7 +355,7 @@ AS $function$
     'generatedAt',now(),
     'rows',coalesce(jsonb_agg(value),'[]'::jsonb)
   ) FROM rows;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.ft_public_extra_adviser_provisional()
@@ -432,7 +432,7 @@ SELECT jsonb_build_object(
   'tip',CASE WHEN length(observation->>'tip')<=6 THEN observation->>'tip' ELSE NULL END
  )),'[]'::jsonb)
 ) FROM selected
-$function$
+$function$;
 
 
 -- Preserve existing privileges: read-only public RPCs remain service-only,
