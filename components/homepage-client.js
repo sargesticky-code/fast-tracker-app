@@ -4,6 +4,7 @@ import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedSummary, adviserPercentValue } from "@/lib/verified-evidence-feed";
 import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
+import SourceTeamComparison from "@/components/adviser-source-team-comparison";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
 // Source competition names can contain "COUNTRY: Live Standings". Keep the
@@ -191,12 +192,14 @@ function ProvisionalChip({candidate,verified}) {
   </div>;
 }
 
-function ExternalProvisionalChip({candidate}) {
+function ExternalProvisionalChip({candidate,flashscoreHome,flashscoreAway}) {
   const name=({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[candidate.provider]||candidate.provider;
   return <div className="ft-provisional-chip" data-testid={"adviser-provisional-"+candidate.provider.toLowerCase()}
     title={"Source: "+candidate.sourceHome+" vs "+candidate.sourceAway+
       " · Name similarity: "+candidate.homeSimilarity.toFixed(2)+"/"+candidate.awaySimilarity.toFixed(2)}>
     <span>◇ {name} provisional · 0.4 team threshold · NOT VERIFIED</span>
+    {["PRIMATIPS","STATAREA"].includes(candidate.provider)&&<SourceTeamComparison
+      candidate={candidate} flashscoreHome={flashscoreHome} flashscoreAway={flashscoreAway}/>
     <strong>{candidate.hda?"H/D/A "+[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / "):"Source probability unavailable"}
       {candidate.score?" · Score "+candidate.score:""}
       {candidate.over25!==null?" · Over 2.5 "+adviserPercentValue(candidate.over25)+"%":""}
@@ -563,7 +566,8 @@ export default function HomepageClient() {
                 </div>
                 <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away}/>
                 <ProvisionalChip candidate={m.provisional} verified={m.evidence?.forebet}/>
-                {m.externalProvisional.map(candidate=><ExternalProvisionalChip key={candidate.provider} candidate={candidate}/>)}
+                {m.externalProvisional.map(candidate=><ExternalProvisionalChip key={candidate.provider}
+                  candidate={candidate} flashscoreHome={m.home} flashscoreAway={m.away}/>)}
               </div>
               <div className="ft-kickoff-cell">
                 <span className={"ft-match-state ft-match-state-"+m.phase}>{m.phase==="live"&&<i className="ft-live-dot"/>}{statusLabel}</span>
