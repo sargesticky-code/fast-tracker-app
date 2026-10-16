@@ -7,6 +7,7 @@ import { fetchVerifiedMatch, matchObservation, currentExternalAdvisers, adviserP
 import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
+import SourceTeamComparison from "@/components/adviser-source-team-comparison";
 
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
@@ -294,6 +295,8 @@ export default function FlashscoreRawMatch() {
           data-testid={"advisor-"+a.provider.toLowerCase()+"-provisional"} key={a.provider+"-provisional"}>
           <strong>◇ {({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[a.provider]||a.provider}</strong>
           <span className="ft-advisor-state">PROVISIONAL · NOT VERIFIED</span>
+          {["PRIMATIPS","STATAREA"].includes(a.provider)&&<SourceTeamComparison
+            candidate={a} flashscoreHome={home} flashscoreAway={away}/>}
           {a.hda&&<small>Source H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
           {a.score&&<small>Source predicted score: {a.score}</small>}
           {a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
