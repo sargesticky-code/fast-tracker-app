@@ -197,7 +197,7 @@ function ExternalProvisionalChip({candidate,flashscoreHome,flashscoreAway}) {
   return <div className="ft-provisional-chip" data-testid={"adviser-provisional-"+candidate.provider.toLowerCase()}
     title={"Source: "+candidate.sourceHome+" vs "+candidate.sourceAway+
       " · Name similarity: "+candidate.homeSimilarity.toFixed(2)+"/"+candidate.awaySimilarity.toFixed(2)}>
-    <span>◇ {name} provisional · 0.4 team threshold · NOT VERIFIED</span>
+    <span>◇ {name} provisional · 0.3 name floor · NOT VERIFIED</span>
     {["PRIMATIPS","STATAREA"].includes(candidate.provider)&&<SourceTeamComparison
       candidate={candidate} flashscoreHome={flashscoreHome} flashscoreAway={flashscoreAway}/>}
     <strong>{candidate.hda?"H/D/A "+[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / "):"Source probability unavailable"}
@@ -503,7 +503,7 @@ export default function HomepageClient() {
           <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified":"Unavailable"} · {externalProvisionalStatus.legacy?counts.sportyProvisional+" provisional":"provisional unavailable"}</span>
           <span data-testid="advisor-primatips-summary"><i aria-hidden="true">○</i> PrimaTips · {externalProvisionalStatus.extra?counts.primatipsProvisional+" provisional":"Unavailable"}</span>
           <span data-testid="advisor-statarea-summary"><i aria-hidden="true">○</i> Statarea · {externalProvisionalStatus.extra?counts.statareaProvisional+" provisional":"Unavailable"}</span>
-          <small>Provisional source forecasts use ≥0.4 name matching, distinct source probabilities and calibrated source clocks. NOT VERIFIED; no automatic picks. Prices are bookmaker quotes, not independent predictions.</small>
+          <small>Provisional source forecasts allow ≥0.3 name similarity only with a strong second check (one team ≥0.7 plus league/time evidence), unique source identity and automatic rechecks. NOT VERIFIED; no automatic picks. Prices are bookmaker quotes, not independent predictions.</small>
         </div>
         <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
       </section>
