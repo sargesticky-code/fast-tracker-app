@@ -187,13 +187,13 @@ function parseLineup(detail,eventId,externalId){
       const name=String(player?.name||"").trim(); if(!name)continue;
       const shirt=Number(player?.shirtNumber);
       rows.push({
-        match_id:eventId,team_side:teamSide,team_key:team?.id?String(team.id):null,
+        match_id:eventId,team_side:teamSide,team_key:null,
         player_key:player?.id?String(player.id):keyName(name),player_name:name,
         role:roleFromPlayer(player),starter:true,formation_slot:slotFromLayout(player),
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
         source_updated_at:fetchedAt,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null,statistics:player?.stats??player?.statistics??null,rating:player?.rating??player?.stats?.rating??player?.statistics?.rating??null},
+        raw:{fotmobTeamId:team?.id??null,classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"STARTING_XI",lineupType:kind||null,formation,verticalLayout:player?.verticalLayout||null,positionId:player?.positionId??null,statistics:player?.stats??player?.statistics??null,rating:player?.rating??player?.stats?.rating??player?.statistics?.rating??null},
         created_at:fetchedAt
       });
     }
@@ -202,13 +202,13 @@ function parseLineup(detail,eventId,externalId){
       const name=String(player?.name||"").trim(); if(!name)continue;
       const shirt=Number(player?.shirtNumber);
       rows.push({
-        match_id:eventId,team_side:teamSide,team_key:team?.id?String(team.id):null,
+        match_id:eventId,team_side:teamSide,team_key:null,
         player_key:player?.id?String(player.id):keyName(name),player_name:name,
         role:roleFromPlayer(player),starter:false,formation_slot:null,
         shirt_number:Number.isFinite(shirt)?shirt:null,confirmed,confidence,
         source_name:sourceName,source_url:`https://www.fotmob.com/match/${externalId}`,
         source_updated_at:fetchedAt,fetched_at:fetchedAt,
-        raw:{classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null,statistics:player?.stats??player?.statistics??null,rating:player?.rating??player?.stats?.rating??player?.statistics?.rating??null},
+        raw:{fotmobTeamId:team?.id??null,classification:confirmed?"CONFIRMED":"PREDICTED",squad_role:"SUBSTITUTE",lineupType:kind||null,formation:null,verticalLayout:null,positionId:player?.positionId??null,statistics:player?.stats??player?.statistics??null,rating:player?.rating??player?.stats?.rating??player?.statistics?.rating??null},
         created_at:fetchedAt
       });
     }
@@ -216,12 +216,12 @@ function parseLineup(detail,eventId,externalId){
     const coach=team?.coach;
     if(coach?.name){
       managers.push({
-        match_id:eventId,team_side:teamSide,team_key:team?.id?String(team.id):null,
+        match_id:eventId,team_side:teamSide,team_key:null,
         manager_key:coach?.id?String(coach.id):keyName(coach.name),
         evidence_type:"MATCH_COACH",evidence_value:String(coach.name),confirmed:true,confidence:.95,
         source_name:"FOTMOB",source_url:`https://www.fotmob.com/match/${externalId}`,
         source_published_at:null,fetched_at:fetchedAt,
-        raw:{manager_name:coach.name,country:coach?.countryName||null,country_code:coach?.countryCode||null,age:coach?.age??null,primary_team:coach?.primaryTeamName||null},
+        raw:{fotmobTeamId:team?.id??null,manager_name:coach.name,country:coach?.countryName||null,country_code:coach?.countryCode||null,age:coach?.age??null,primary_team:coach?.primaryTeamName||null},
         created_at:fetchedAt
       });
     }
@@ -230,14 +230,14 @@ function parseLineup(detail,eventId,externalId){
       const name=String(player?.name||"").trim(); if(!name)continue;
       const u=player?.unavailability||{};
       injuries.push({
-        match_id:eventId,team_side:teamSide,team_key:team?.id?String(team.id):null,
+        match_id:eventId,team_side:teamSide,team_key:null,
         player_key:player?.id?String(player.id):keyName(name),
         status_type:String(u?.type||"unavailable").toUpperCase(),
         status_value:String(u?.expectedReturn||u?.reason||"Unavailable"),
         confirmed:true,confidence:.90,valid_from:fetchedAt,valid_until:null,
         source_name:"FOTMOB",source_url:`https://www.fotmob.com/match/${externalId}`,
         source_published_at:null,fetched_at:fetchedAt,
-        raw:{player_name:name,unavailability:u,lineupType:kind||null},created_at:fetchedAt
+        raw:{fotmobTeamId:team?.id??null,player_name:name,unavailability:u,lineupType:kind||null},created_at:fetchedAt
       });
     }
   }
@@ -518,12 +518,12 @@ Deno.serve(async (req:Request)=>{
         const wr=await db.from("phase2_players").upsert({
           player_key:String(id),
           canonical_name:String(profile?.name||row?.player_name||id),
-          team_key:String(primaryTeam?.teamId??row?.team_key??"")||null,
+          team_key:/^FS_TEAM:[A-Za-z0-9]{6,16}$/.test(String(row?.team_key||""))?String(row.team_key):null,
           team_name:primaryTeam?.teamName??null,
           position,
           nationality,
           date_of_birth:dateOfBirth,
-          source_ids:{fotmob:Number(id)},
+          source_ids:{fotmob:Number(id),fotmobTeamId:primaryTeam?.teamId??null},
           profile:compact,
           source_updated_at:new Date().toISOString(),
           updated_at:new Date().toISOString()
