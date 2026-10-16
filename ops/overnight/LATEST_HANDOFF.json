@@ -23,8 +23,8 @@
   "production": "UNCHANGED",
   "production_commit": "f6ac341b5e6d85ad7ad7dc9cdef4e360b7aa83a0",
   "pull_request": "https://github.com/sargesticky-code/fast-tracker-app/pull/134",
-  "github_head_commit": "2d3549fd87e7dd7ed536ba975f447c2d1bd7288f",
-  "github_ci": "Relevant exact-head workflows passed",
+  "github_head_commit": "de051adf825f578091accf8223990d12b6dd18c1",
+  "github_ci": "Local build and focused browser checks passed; exact-head GitHub CI after PR branch update is pending FT-OVERNIGHT-010.",
   "scheduler": {
     "status": "ACTIVE",
     "automation_id": "fast-tracker-overnight-repair-through-09-00-hkt",
@@ -203,5 +203,6 @@
     "dashboard_rendering_defect_demonstrated": false,
     "test_fixture_clock_defect_repaired": true,
     "production_or_api_changes": false
-  }
+  },
+  "task_commit_sha": "de051adf825f578091accf8223990d12b6dd18c1"
 }
