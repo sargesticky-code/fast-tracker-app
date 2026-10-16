@@ -6,6 +6,7 @@ import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedMatch, matchObservation, currentExternalAdvisers, adviserPercentValue } from "@/lib/verified-evidence-feed";
 import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
+import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
@@ -166,6 +167,7 @@ export default function FlashscoreRawMatch() {
   const id=searchParams.get("id")||"";
   const [state,setState]=useState({status:"loading",match:null,analysis:null});
   const [selectedPlayer,setSelectedPlayer]=useState(null);
+  const [tentative,setTentative]=useState([]);
   const closePlayerProfile=useCallback(()=>setSelectedPlayer(null),[]);
 
   useEffect(()=>{
@@ -204,6 +206,26 @@ export default function FlashscoreRawMatch() {
     return ()=>{cancelled=true;clearInterval(timer);controller?.abort();};
   },[id]);
 
+  useEffect(()=>{
+    setTentative([]);
+    if(!/^FS:[A-Za-z0-9_-]{5,32}$/.test(id))return;
+    let cancelled=false,inFlight=false;
+    const controller=new AbortController();
+    const refresh=async()=>{
+      if(cancelled||inFlight||document.visibilityState==="hidden")return;
+      inFlight=true;
+      try {
+        const map=await fetchExternalProvisional(controller.signal);
+        if(!cancelled)setTentative(map.get(id)||[]);
+      } catch {
+        if(!cancelled)setTentative([]);
+      } finally {inFlight=false;}
+    };
+    void refresh();
+    const timer=setInterval(()=>void refresh(),300_000);
+    return ()=>{cancelled=true;controller.abort();clearInterval(timer);};
+  },[id]);
+
   const match=state.match, analysis=state.analysis;
   if(state.status==="loading")return <main className="ft-home"><p>Loading fixture and verified analysis…</p></main>;
   if(state.status!=="ready")return <main className="ft-home ft-raw-detail">
@@ -212,6 +234,7 @@ export default function FlashscoreRawMatch() {
 
   const fixture=analysis?.fixture||null;
   const external=currentExternalAdvisers({id,kickoff:fixture?.kickoff_hkt,externalAdvisers:analysis?.externalAdvisers});
+  const unmatchedTentative=tentative.filter(x=>!external.some(y=>y.provider===x.provider));
   const forebet=analysis?.models?.forebet||null;
   const model=verifiedInternalForecast(analysis?.models?.internal,fixture);
   const forebetRecent=recentPrediction(forebet,fixture);
@@ -238,7 +261,7 @@ export default function FlashscoreRawMatch() {
     <OddsPanel match={match} fixture={fixture}/>
 
     {!analysis && <p role="status">More match details are not available yet.</p>}
-    {analysis && <section className="ft-enriched-panel" data-testid="verified-match-analysis">
+    {(analysis || unmatchedTentative.length>0) && <section className="ft-enriched-panel" data-testid="verified-match-analysis">
       <h2>Match predictions</h2>
       <div className="ft-advisor-card-grid" data-testid="advisor-source-status">
         <div className="ft-advisor-card" data-testid="advisor-forebet">
@@ -267,6 +290,19 @@ export default function FlashscoreRawMatch() {
             {a&&<small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Source prediction</a> · Captured {new Date(a.capturedAt).toISOString()}</small>}
           </div>;
         })}
+        {unmatchedTentative.map(a=><div className="ft-advisor-card"
+          data-testid={"advisor-"+a.provider.toLowerCase()+"-provisional"} key={a.provider+"-provisional"}>
+          <strong>◇ {({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[a.provider]||a.provider}</strong>
+          <span className="ft-advisor-state">PROVISIONAL · NOT VERIFIED</span>
+          {a.hda&&<small>Source H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
+          {a.score&&<small>Source predicted score: {a.score}</small>}
+          {a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
+          {a.bttsYes!==null&&<small>BTTS Yes: {adviserPercentValue(a.bttsYes)}%</small>}
+          <small>{a.clockEvidence==="CALIBRATED_FROM_DAY_COHORT_NOT_SOURCE_VERIFIED"
+            ?"Source clock inferred from "+a.clockCalibrationSamples+" high-confidence fixtures. Source timezone NOT verified."
+            :"Source date and kickoff match."} 0.4 team threshold, unique fixture. Revoked when source evidence conflicts.</small>
+          <small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Original source</a></small>
+        </div>)}
 
       </div>
       {forebet && <p className="ft-odds-note">{forebetRecent?"Verified prematch source forecast":"Saved Forebet record · not a current betting recommendation"}</p>}
@@ -298,7 +334,8 @@ export default function FlashscoreRawMatch() {
       {model && <p>Qualified internal model (DC) · H {percentDecimal(model.dc_prob_home)}% /
         D {percentDecimal(model.dc_prob_draw)}% /
         A {percentDecimal(model.dc_prob_away)}% · {model.model_source||"Source unavailable"}</p>}
-      {!forebet && !model && external.length===0 && <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
+      {!forebet && !model && external.length===0 && unmatchedTentative.length===0 &&
+        <p data-testid="prediction-unavailable">No prediction for this match yet.</p>}
     </section>}
 
     {observed && <section className="ft-enriched-panel" data-testid="historical-flashscore-stats">
