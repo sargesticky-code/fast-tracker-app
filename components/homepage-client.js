@@ -199,7 +199,7 @@ function ExternalProvisionalChip({candidate,flashscoreHome,flashscoreAway}) {
       " · Name similarity: "+candidate.homeSimilarity.toFixed(2)+"/"+candidate.awaySimilarity.toFixed(2)}>
     <span>◇ {name} provisional · 0.4 team threshold · NOT VERIFIED</span>
     {["PRIMATIPS","STATAREA"].includes(candidate.provider)&&<SourceTeamComparison
-      candidate={candidate} flashscoreHome={flashscoreHome} flashscoreAway={flashscoreAway}/>
+      candidate={candidate} flashscoreHome={flashscoreHome} flashscoreAway={flashscoreAway}/>}
     <strong>{candidate.hda?"H/D/A "+[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / "):"Source probability unavailable"}
       {candidate.score?" · Score "+candidate.score:""}
       {candidate.over25!==null?" · Over 2.5 "+adviserPercentValue(candidate.over25)+"%":""}
