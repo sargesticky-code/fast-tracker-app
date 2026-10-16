@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { parseExtraAdviserProvisional } from "../lib/extra-adviser-provisional-feed.js";
+import { reviewAdviserSourceTeams } from "../lib/adviser-source-team-review.js";
+import { readFileSync } from "node:fs";
 const now=Date.parse("2026-10-16T12:00:00Z");
 const baseline={
  id:"FS:2wo3m634",provider:"PRIMATIPS",status:"PROVISIONAL_NOT_VERIFIED",
@@ -38,3 +40,27 @@ assert.equal(combined.get(baseline.id)[1].bttsYes,.61);
 assert.throws(()=>parseExtraAdviserProvisional({...wrap([baseline]),
  generatedAt:"2026-10-15T12:00:00Z"},now),/stale/);
 console.log("PASS calibrated 0.4 adviser source evidence, unique candidate contract, no false verified promotion");
+
+// Human-readable pair comparison must never silently certify provisional matches.
+const compare=(sourceHome,sourceAway,home,away)=>
+  reviewAdviserSourceTeams({sourceHome,sourceAway},home,away);
+assert.equal(compare("Liverpool","Brentford","Liverpool","Brentford").code,"same");
+assert.match(compare("Liverpool","Brentford","Liverpool","Brentford").label,/provisional/i);
+assert.equal(compare("Brentford","Liverpool","Liverpool","Brentford").code,"reversed");
+assert.equal(compare("Newcastle United","Aston Villa","Newcastle","Aston Villa").code,"different");
+assert.equal(compare("Shafa Baku","Shamakhi","Shamakhi","Safa Baku").code,"different");
+assert.equal(compare("","","Newcastle","Aston Villa").code,"unknown");
+assert.equal(compare("Bayern München","Borussia Dortmund","Bayern Munchen","Borussia Dortmund").code,"same");
+assert.equal(combined.get(baseline.id)[0].sourceHome,"Fulham");
+assert.equal(combined.get(baseline.id)[0].sourceAway,"Hull City");
+for(const path of ["../components/homepage-client.js","../components/flashscore-raw-match.js"]){
+  const source=readFileSync(new URL(path,import.meta.url),"utf8");
+  assert.match(source,/SourceTeamComparison/);
+  assert.match(source,/flashscoreHome=/);
+  assert.match(source,/flashscoreAway=/);
+}
+const comparison=readFileSync(new URL("../components/adviser-source-team-comparison.js",import.meta.url),"utf8");
+assert.match(comparison,/candidate.sourceHome/);
+assert.match(comparison,/candidate.sourceAway/);
+assert.match(comparison,/Names|name/i);
+console.log("PASS source H/A vs Flashscore H/A visible on fixture list and details; difference/reversal review-only");
