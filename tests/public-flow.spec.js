@@ -66,7 +66,7 @@ function mockEndpoints(page,{raw=snapshot,source=summary,deep=detail}={}){
     source:"FOREBET_PROVISIONAL",quality:"PROVISIONAL_NOT_VERIFIED",
     generatedAt:new Date().toISOString(),rows:[]},headers:cors}));
 }
-test("reversible Forebet one-team match is visible but never classed as verified",async({page})=>{
+test("one-team Forebet is accepted for source display but not two-team verified",async({page})=>{
   const kickoff=new Date(Date.now()+24*3600000).toISOString();
   const raw={...snapshot,discovered:snapshot.discovered.map(x=>x.provider_event_id==="event1"
     ? {...x,fixture_date:kickoff.slice(0,10)}:x)};
@@ -86,11 +86,11 @@ test("reversible Forebet one-team match is visible but never classed as verified
   await page.goto("http://127.0.0.1:4173/");
   await page.getByTestId("scope-all").click();
   const fixture=page.locator('[data-fixture-id="FS:event1"] [data-testid="fixture-row"]');
-  await expect(fixture.getByTestId("forebet-provisional")).toContainText("only Home verified");
+  await expect(fixture.getByTestId("forebet-provisional")).toContainText("Forebet accepted · Home team confirmed");
   await expect(fixture.getByTestId("forebet-provisional")).toContainText("48/28/24%");
   await expect(fixture.getByTestId("forebet-hda")).toHaveCount(0);
-  await expect(page.getByTestId("advisor-forebet-provisional-summary")).toContainText("1 one-team links");
-  await expect(page.getByTestId("advisor-forebet-summary")).not.toContainText("3 saved");
+  await expect(page.getByTestId("advisor-forebet-provisional-summary")).toContainText("One-team accepted · 1");
+  await expect(page.getByTestId("advisor-forebet-summary")).toContainText("accepted source forecasts");
 });
 
 test("Flashscore team names use the matching Supabase logo sprite tiles",async({page})=>{
