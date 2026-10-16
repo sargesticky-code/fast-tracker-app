@@ -545,7 +545,8 @@ Deno.serve(async (req:Request)=>{
     },{onConflict:"source,metric"});
     return Response.json({ok:true,...health});
   }catch(e){
-    const message=e instanceof Error?e.message:String(e);
-    return Response.json({ok:false,error:message},{status:500});
+    const info=e&&typeof e==="object"?{code:e.code??null,message:e.message??null,details:e.details??null,hint:e.hint??null}:String(e);
+    console.error("phase2_pipeline_fail",JSON.stringify(info));
+    return Response.json({ok:false,error:"COLLECTOR_FAILED_CHECK_LOGS"},{status:500});
   }
 });
