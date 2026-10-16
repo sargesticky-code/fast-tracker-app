@@ -25,5 +25,14 @@ assert.equal(parse([{...item,probabilities:[60,60,60]}]).size,0);
 assert.equal(parse([item,item]).size,0);
 const one={...item,matchedSide:"HOME",nameSimilarities:null,nameMethod:null};
 assert.equal(parse([one]).get(item.id)?.matchedSide,"HOME");
+assert.equal(parse([one]).get(item.id)?.acceptedForDisplay,true);
+assert.equal(parse([one]).get(item.id)?.matchTier,"ACCEPTED_ONE_VERIFIED_TEAM");
+assert.equal(parse([item]).get(item.id)?.acceptedForDisplay,false);
+assert.equal(parse([item]).get(item.id)?.matchTier,"TENTATIVE_NAME_SIMILARITY");
+assert.equal(parse([{...one,acceptedForDisplay:true,
+  matchTier:"ACCEPTED_ONE_VERIFIED_TEAM"}]).size,1);
+assert.equal(parse([{...one,acceptedForDisplay:false}]).size,0);
+assert.equal(parse([{...item,acceptedForDisplay:true}]).size,0);
+assert.equal(parse([{...item,matchTier:"ACCEPTED_ONE_VERIFIED_TEAM"}]).size,0);
 assert.throws(()=>provisionalMap({...wrap([item]),source:"FOREBET_VERIFIED"},now),/invalid/);
-console.log("PASS Forebet tentative 0.30/0.70 display-only, fail-closed; verified one-team unchanged");
+console.log("PASS Forebet one-team accepted and 0.30 similarity tentative, strict verified untouched");
