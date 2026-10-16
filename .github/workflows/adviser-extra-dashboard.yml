@@ -4,13 +4,14 @@ on:
     branches: [release/ft-advisers-fotmob-20261011]
     paths:
       - components/homepage-client.js
+      - components/flashscore-raw-match.js
       - lib/external-adviser-provisional-feed.js
       - lib/extra-adviser-provisional-feed.js
       - scripts/check-extra-adviser-provisional.mjs
       - package.json
       - .github/workflows/adviser-extra-dashboard.yml
   push:
-    branches: [feat/ft-show-primatips-statarea-calibrated-20261016]
+    branches: [feat/ft-show-primatips-statarea-calibrated-20261016, feat/ft-details-extra-adviser-provisional-20261016]
 
 permissions:
   contents: read
