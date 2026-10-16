@@ -4,6 +4,8 @@ on:
     branches: [release/ft-advisers-fotmob-20261011]
     paths:
       - 'components/homepage-client.js'
+      - 'lib/forebet-provisional-feed.js'
+      - 'scripts/check-forebet-fuzzy-provisional.mjs'
       - 'lib/external-adviser-provisional-feed.js'
       - 'scripts/check-external-adviser-provisional.mjs'
       - 'package.json'
@@ -27,5 +29,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Validate provisional source contract
         run: npm run check:adviser-provisional
+      - name: Verify Forebet 0.30 provisional display cannot become verified
+        run: npm run check:forebet:fuzzy
       - name: Production build and full existing check chain
         run: npm run build
