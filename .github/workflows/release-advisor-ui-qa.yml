@@ -1,13 +1,17 @@
 name: Fast Tracker Raw + Verified Release QA
 on:
   push:
-    branches: [release/ft-advisors-fotmob-20261011]
+    branches: [release/ft-advisers-fotmob-20261011]
     paths:
       - 'app/**'
       - 'components/**'
       - 'lib/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
       - '.github/workflows/release-advisor-ui-qa.yml'
 permissions:
   contents: read
