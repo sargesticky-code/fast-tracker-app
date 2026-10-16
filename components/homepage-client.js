@@ -187,14 +187,16 @@ function ProvisionalChip({candidate,verified}) {
     title={fuzzy?"Neither team verified: these are name-similarity candidates, not proven fixture identities":
       "Unverified opposite team: this is not a confirmed Forebet–Flashscore identity"}>
     <span>{fuzzy?"◇ Forebet tentative · 0.3 names · NOT VERIFIED":
-      "◇ Forebet provisional · only "+side+" verified"}</span>
+      "◇ Forebet accepted · "+side+" team confirmed"}</span>
     {fuzzy&&<small>Source: {candidate.sourceHome} vs {candidate.sourceAway}
       {" · "}Name similarity: {candidate.nameSimilarities.map(v=>Math.round(v*100)+"%").join(" / ")}
       {" · "}One side at least 70%</small>}
     <strong>H/D/A {candidate.probs.map(v=>Math.round(v)).join("/")}%
       {" · "}Score {candidate.predictedScore} · Avg {candidate.avgGoals.toFixed(2)}</strong>
-    <small>Rechecked automatically; disconnected if fixture/source identity changes.
-      Not counted as a verified adviser prediction.</small>
+    <small>{fuzzy
+      ?"Names only; not accepted as a confirmed event. Automatically rechecked."
+      :"One confirmed team is sufficient to accept this Forebet forecast. Opponent not independently verified; automatically disconnected on conflicting evidence."}
+      {" "}Not counted as a two-team verified backtest.</small>
   </div>;
 }
 
@@ -399,8 +401,10 @@ export default function HomepageClient() {
       full.phase==="upcoming" && trustedKickoff!==null &&
       Math.abs(x.kickoff-trustedKickoff)<=60000 &&
       !full.evidence?.externalAdvisers?.some(a=>a.provider===x.provider));
-    return {...full,provisional:candidate && !full.evidence?.forebet ? candidate:null,
-      externalProvisional:candidates};
+    const safeForebet=candidate && full.phase==="upcoming" && trustedKickoff!==null
+      && Math.abs(candidate.kickoff-trustedKickoff)<=60000
+      && !full.evidence?.forebet ? candidate : null;
+    return {...full,provisional:safeForebet,externalProvisional:candidates};
   }),[rows,verified,provisional,externalProvisional,now]);
   const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
@@ -409,7 +413,13 @@ export default function HomepageClient() {
     details:matches.filter(m=>Boolean(m.evidence)).length,
     live:matches.filter(m=>m.phase==="live").length,
     xi:matches.filter(m=>m.evidence?.confirmedXI).length,
-    forebet:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
+    forebetStrict:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
+    forebetOneSide:matches.filter(m=>m.provisional?.acceptedForDisplay).length,
+    forebetFuzzy:matches.filter(m=>m.provisional && !m.provisional.acceptedForDisplay).length,
+    // One confirmed team is sufficient for usable Forebet source matching.
+    // Distinct fixtures, strict verified evidence retained separately.
+    forebet:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet
+      ||m.provisional?.acceptedForDisplay).length,
     betclan:matches.filter(m=>m.evidence?.externalAdvisers?.some(a=>a.provider==="BETCLAN")).length,
     sportytrader:matches.filter(m=>m.evidence?.externalAdvisers?.some(a=>a.provider==="SPORTYTRADER")).length,
     provisional:matches.filter(m=>m.provisional).length,
@@ -500,8 +510,8 @@ export default function HomepageClient() {
         </div>
         <div className="ft-advisor-overview" data-testid="advisor-coverage" aria-label="Prediction advisor sources">
           <strong>Prediction sources</strong>
-          <span data-testid="advisor-forebet-summary"><i aria-hidden="true">◇</i> Forebet · {verifiedStatus==="ready"?counts.forebet:"—"} saved forecasts</span>
-          <span data-testid="advisor-forebet-provisional-summary"><i aria-hidden="true">?</i> Forebet tentative · {provisionalStatus==="ready"?counts.provisional:"—"} one-team links (not verified)</span>
+          <span data-testid="advisor-forebet-summary"><i aria-hidden="true">◇</i> Forebet · {(verifiedStatus==="ready"||provisionalStatus==="ready")?counts.forebet:"—"} accepted source forecasts</span>
+          <span data-testid="advisor-forebet-provisional-summary"><i aria-hidden="true">✓</i> One-team accepted · {provisionalStatus==="ready"?counts.forebetOneSide:"—"} (opponent unverified) · {verifiedStatus==="ready"?counts.forebetStrict:"—"} two-team verified · {provisionalStatus==="ready"?counts.forebetFuzzy:"—"} fuzzy tentative</span>
           <span data-testid="advisor-dc-summary"><i aria-hidden="true">◈</i> Dixon–Coles · {verifiedStatus==="ready"?counts.dc:"—"} verified forecasts</span>
           <span data-testid="advisor-pi-summary"><i aria-hidden="true">◇</i> Power Index · {verifiedStatus==="ready"?counts.pi:"—"} (same model source)</span>
           <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"Legacy inactive"}</span>
