@@ -93,6 +93,30 @@ test("one-team Forebet is accepted for source display but not two-team verified"
   await expect(page.getByTestId("advisor-forebet-summary")).toContainText("accepted source forecasts");
 });
 
+test("fresh raw snapshots are supplemented with missing exact-ID canonical fixtures",async({page})=>{
+  const kickoff=new Date(Date.now()+24*3600000).toISOString();
+  const raw={...snapshot,discovered:snapshot.discovered.filter(x=>x.provider_event_id!=="event40")};
+  const missing={id:"FS:event40",home:"Missing Home",away:"Missing Away",league:"League B",
+    kickoff,status:"UPCOMING",sourceContext:{source:"FLASHSCORE",lineupAvailable:false}};
+  const source={...summary,generatedAt:new Date().toISOString(),matches:[...summary.matches,missing]};
+  mockEndpoints(page,{raw,source});
+  page.route("**/functions/v1/forebet-provisional-feed**",r=>r.fulfill({json:{
+    source:"FOREBET_PROVISIONAL",quality:"PROVISIONAL_NOT_VERIFIED",
+    generatedAt:new Date().toISOString(),rows:[{
+      id:missing.id,kickoff,home:missing.home,away:missing.away,
+      sourceHome:missing.home,sourceAway:missing.away,matchedSide:"HOME",
+      pick:"1",probabilities:[48,28,24],predictedScore:"2-0",avgGoals:2.7,
+      sourceUrl:"https://www.forebet.com/en/football/matches/missing-home-missing-away-123456",
+      lastChecked:new Date().toISOString(),status:"PROVISIONAL_NOT_VERIFIED"
+    }]},headers:cors}));
+  await page.goto("http://127.0.0.1:4173/");
+  await page.getByTestId("scope-all").click();
+  const fixture=page.locator('[data-fixture-id="FS:event40"] [data-testid="fixture-row"]');
+  await expect(fixture).toContainText("Missing Home");
+  await expect(fixture.getByTestId("forebet-provisional"))
+    .toContainText("Forebet accepted · Home team confirmed");
+});
+
 test("Flashscore team names use the matching Supabase logo sprite tiles",async({page})=>{
  const raw={...snapshot,discovered:snapshot.discovered.map(f=>f.provider_event_id==="event0"
    ?{...f,home:"Coventry",away:"Newcastle"}:f)};
@@ -280,7 +304,8 @@ test("stale raw bookmaker prices are suppressed without hiding the fixture",asyn
   const raw={...snapshot,discovered:snapshot.discovered.filter(f=>f.provider_event_id==="event1")};
   mockEndpoints(page,{raw,source,deep:null});
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.locator(".ft-match-row")).toHaveCount(1);
+  // event0 comes from the exact-ID canonical fallback; event1 remains raw.
+  await expect(page.locator(".ft-match-row")).toHaveCount(2);
   await page.getByLabel("Search",{exact:true}).fill("Home 1");
   const row=page.locator(".ft-match-row").filter({hasText:"Home 1"}).first();
   await expect(row.locator(".ft-odds-cell")).toContainText("Stale quote unavailable");
@@ -954,7 +979,7 @@ test("compact advisors show verified DC and PI when fixture and source are curre
   await expect(row.getByTestId("advisor-form-hda")).toHaveCount(0);
   await expect(page.getByTestId("advisor-dc-summary")).toContainText("1 verified forecasts");
   await expect(page.getByTestId("advisor-pi-summary")).toContainText("1 (same model source)");
-  await expect(page.getByTestId("advisor-forebet-summary")).toContainText("0 saved forecasts");
+  await expect(page.getByTestId("advisor-forebet-summary")).toContainText("0 accepted source forecasts");
 });
 test("the compact advisor feed never turns stale or malformed model values into picks",async({page})=>{
   const future=new Date(Date.now()+4*3600000).toISOString(),

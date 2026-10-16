@@ -1,5 +1,13 @@
 # Raw dashboard acceptance
 
+## 2026-10-17: Forebet rows omitted by a fresh raw snapshot
+
+- Live check: the canonical summary returned 475 fixtures and 135 strict Forebet forecasts; the provisional feed returned 67 one-team accepted and 14 tentative records. All 81 provisional IDs existed in the canonical summary, but the fresh 360-fixture Railway snapshot omitted 16 accepted and 4 tentative IDs.
+- Cause: when the raw snapshot was fresh, the homepage used only its discovered fixtures. Canonical fallback rows were used only when the raw snapshot was stale, so exact-ID forecasts for canonical fixtures missing from raw discovery had no card to attach to.
+- Repair in review branch `codex/overnight-001-forebet`: merge only missing `FLASHSCORE_CANONICAL` rows by exact fixture ID; preserve raw row precedence. Production remains unchanged until review and approval.
+- Verification: production build passed; public-flow Playwright suite passed 63/63 with mocked endpoints, including desktop/mobile flows and the missing-raw canonical fixture regression.
+- Next: inspect Forebet one-team revocation and identity-countercheck behavior against current SQL/view logic.
+
 ## Original dashboard objectives — current baseline (2026-10-14)
 
 | Requirement | Current evidence | Missing behavior | Acceptance criterion | Next action | Blocker |

@@ -1,0 +1,32 @@
+{
+  "task_id": "FT-OVERNIGHT-001",
+  "status": "complete_locally_pending_review",
+  "started_at_hkt": "2026-10-17T01:59:00+08:00",
+  "ended_at_hkt": "2026-10-17T02:04:00+08:00",
+  "verified_defect": "A fresh 360-row Railway raw snapshot omitted 16 accepted and 4 tentative Forebet fixtures present in the canonical 475-row summary.",
+  "root_cause": "Homepage only used canonical exact-ID fallback when the raw snapshot was stale; freshness caused absent raw fixture IDs to be omitted.",
+  "changed_files": [
+    "components/homepage-client.js",
+    "lib/verified-evidence-feed.js",
+    "tests/public-flow.spec.js",
+    "docs/REDESIGN_CHECKLIST.md",
+    "docs/dashboard-redesign-handover-20261017.md",
+    "ops/overnight/STATUS.md",
+    "ops/overnight/BACKLOG.md",
+    "ops/overnight/TASK_HISTORY.md",
+    "ops/overnight/LATEST_HANDOFF.json"
+  ],
+  "verification": "npm run build passed; public-flow Playwright passed 63/63 with mocked endpoint data, including desktop/mobile flows.",
+  "production": "UNCHANGED",
+  "production_commit": "f6ac341b5e6d85ad7ad7dc9cdef4e360b7aa83a0",
+  "measured_counts": {
+    "strict_forebet": 135,
+    "accepted_one_team": 67,
+    "tentative_similarity": 14,
+    "raw_snapshot_fixtures": 360,
+    "accepted_missing_from_raw": 16,
+    "tentative_missing_from_raw": 4
+  },
+  "blockers": ["PR and production rollout pending separate review/approval"],
+  "next_task": "FT-OVERNIGHT-002: verify identity-countercheck and revocation behavior for one-team accepted Forebet records."
+}
