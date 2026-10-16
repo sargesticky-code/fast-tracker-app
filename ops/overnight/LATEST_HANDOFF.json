@@ -19,6 +19,16 @@
   "verification": "npm run build passed; public-flow Playwright passed 63/63 with mocked endpoint data, including desktop/mobile flows.",
   "production": "UNCHANGED",
   "production_commit": "f6ac341b5e6d85ad7ad7dc9cdef4e360b7aa83a0",
+  "pull_request": "https://github.com/sargesticky-code/fast-tracker-app/pull/134",
+  "github_head_commit": "4b1fd8613719628400d063f48aedc5fca14080c0",
+  "github_ci": "Relevant exact-head workflows passed",
+  "scheduler": {
+    "status": "ACTIVE",
+    "automation_id": "fast-tracker-overnight-repair-through-09-00-hkt",
+    "next_run_hkt": "2026-10-17T02:30:00+08:00",
+    "end_hkt": "2026-10-17T09:00:00+08:00",
+    "previous_daily_fast_tracker_heartbeat": "PAUSED"
+  },
   "measured_counts": {
     "strict_forebet": 135,
     "accepted_one_team": 67,

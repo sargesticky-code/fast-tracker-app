@@ -9,7 +9,7 @@
 - Root cause: homepage selected raw fixtures alone whenever the raw snapshot passed its freshness gate; it used exact-ID canonical fixture rows only when raw was stale. This dropped 20 current canonical fixtures while raw remained fresh.
 - Repair: `mergeCanonicalFallback` appends only absent, valid `FS:` rows whose source is `FLASHSCORE_CANONICAL`. Raw rows win duplicate IDs; no name join or provider behavior changed. Added a rendered regression for an accepted forecast whose fixture is missing from a fresh raw snapshot.
 - Verification: `npm run build` passed. `npx playwright test tests/public-flow.spec.js --workers=1 --reporter=line` passed 63/63 after aligning one stale expected summary label with existing product copy. Tests include desktop and 390px mobile flows; endpoint fixtures are mocked. Live sources were separately read and are not production UI verification.
-- Production: unchanged. No migration or Edge deployment. PR not created yet.
+- PR #134 is open for review; the exact PR commit's two relevant GitHub workflows passed. Production remains unchanged; no migration or Edge deployment.
 - Next: FT-OVERNIGHT-002 — verify current one-team accepted identity checks and automatic revocation on contradictory evidence.
 
 ## Working tree
