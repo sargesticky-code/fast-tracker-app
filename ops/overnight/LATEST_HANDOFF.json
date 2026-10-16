@@ -23,8 +23,8 @@
   "production": "UNCHANGED",
   "production_commit": "f6ac341b5e6d85ad7ad7dc9cdef4e360b7aa83a0",
   "pull_request": "https://github.com/sargesticky-code/fast-tracker-app/pull/134",
-  "github_head_commit": "de051adf825f578091accf8223990d12b6dd18c1",
-  "github_ci": "Local build and focused browser checks passed; exact-head GitHub CI after PR branch update is pending FT-OVERNIGHT-010.",
+  "github_head_commit": "ad0505d26aa122ee681763f7d742e97f7f257d05",
+  "github_ci": "Local build and focused browser checks passed; GitHub Actions for the updated PR head have not yet been checked.",
   "scheduler": {
     "status": "ACTIVE",
     "automation_id": "fast-tracker-overnight-repair-through-09-00-hkt",
@@ -84,7 +84,7 @@
     "Production Vercel live-score deployment still packages an HKJC CSV-based fixture source; replacement/deployment needs separate review and approval. Four Supabase 410 stubs remain registered, with production deletion prohibited. Ten DB views with legacy HKJC-era references still need dependency classification.",
     "Database quota is not exposed by current project metadata (378 MB measured), so utilization versus the 80% goal is unknown. One 96,338-byte Storage archive object has no ledger receipt and remains untouched; latest GitHub workflow-run outcome could not be fetched through the connector."
   ],
-  "next_task": "FT-OVERNIGHT-010: check PR #134 exact-head CI after the FT-009 test fixture update; record current review/production blocker, with no merge or deployment.",
+  "next_task": "FT-OVERNIGHT-010: inspect GitHub CI and mergeability for PR #134 head ad0505d26aa122ee681763f7d742e97f7f257d05; record any owner/rebase action without merging or deploying.",
   "odds_stats_audit": {
     "future_bookmaker_rows": 219,
     "bookmaker_fetched_within_24h": 219,
@@ -204,5 +204,12 @@
     "test_fixture_clock_defect_repaired": true,
     "production_or_api_changes": false
   },
-  "task_commit_sha": "de051adf825f578091accf8223990d12b6dd18c1"
+  "task_commit_sha": "de051adf825f578091accf8223990d12b6dd18c1",
+  "pr_134": {
+    "state": "open",
+    "head_sha": "ad0505d26aa122ee681763f7d742e97f7f257d05",
+    "mergeable": false,
+    "mergeability_reason": "not provided by connector; inspect next cycle",
+    "production_unchanged": true
+  }
 }
