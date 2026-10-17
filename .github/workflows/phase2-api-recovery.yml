@@ -1,0 +1,22 @@
+name: Phase 2 Scout and Feed Recovery
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - "supabase/functions/phase15-source-scout/index.ts"
+      - "supabase/functions/app-phase1-feed/index.ts"
+      - "scripts/check-phase2-api-recovery.mjs"
+      - ".github/workflows/phase2-api-recovery.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: node scripts/check-phase2-api-recovery.mjs
+      - run: npm run build
