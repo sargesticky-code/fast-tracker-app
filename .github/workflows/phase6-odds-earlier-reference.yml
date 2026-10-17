@@ -1,0 +1,25 @@
+name: Phase 6 Historical Odds Reference Contract
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/verified-evidence-feed.js'
+      - 'supabase/functions/app-phase1-feed/index.ts'
+      - 'supabase/migrations/20261017095500_ft_prior_bet365_reference_quotes.sql'
+      - 'scripts/check-phase6-odds-earlier-reference.mjs'
+      - '.github/workflows/phase6-odds-earlier-reference.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase6-odds-earlier-reference.mjs
+      - run: npm run build
