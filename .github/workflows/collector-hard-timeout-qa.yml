@@ -28,3 +28,7 @@ jobs:
           grep -F 'COPY app.py day_budget.py bounded_capture.py collector_worker.py odds_batch.py browser_resources.py ./' services/flashscore-odds-collector/Dockerfile
       - name: Offline child process and timeout tests (zero provider requests)
         run: python -m unittest discover -s services/flashscore-odds-collector/tests -p test_bounded_capture.py -v
+      - name: Offline day allocation, priority and fair rotation tests
+        run: python -m unittest discover -s services/flashscore-odds-collector -p test_day_budget.py -v
+      - name: Offline bookmaker source gap tests
+        run: python -m unittest discover -s services/flashscore-odds-collector -p test_odds_market.py -v

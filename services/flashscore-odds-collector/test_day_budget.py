@@ -135,6 +135,95 @@ class DayBudgetTests(unittest.TestCase):
                         previous_unpriced={"ucl_gap"})
         self.assertEqual(result[0]["event_id"],"ucl_gap")
 
+    def test_rotation_prioritizes_unseen_without_eviction_of_proven_prices(self):
+        # Regression from live 360/cycle source: many source rows were never
+        # visited because previous successes and gaps consumed the whole quota.
+        rows = [
+            {"event_id":f"priced{i:03d}","home":"A","away":"B",
+             "league":"Minor Division","time_text":"20:00"}
+            for i in range(90)
+        ]
+        rows.extend([
+            {"event_id":f"unpriced{i:03d}","home":"A","away":"B",
+             "league":"Minor Division","time_text":"20:00"}
+            for i in range(90)
+        ])
+        rows.extend([
+            {"event_id":f"new{i:03d}","home":"A","away":"B",
+             "league":"Minor Division","time_text":"20:00"}
+            for i in range(120)
+        ])
+        priced={f"priced{i:03d}" for i in range(90)}
+        missed={f"unpriced{i:03d}" for i in range(90)}
+        one=allocate(rows,120,set(),"2026-10-18",virtual,
+                     previous_priced=priced,previous_unpriced=missed,
+                     rotation_epoch=100)
+        two=allocate(rows,120,set(),"2026-10-18",virtual,
+                     previous_priced=priced,previous_unpriced=missed,
+                     rotation_epoch=101)
+        ids1={row["event_id"] for row in one}
+        ids2={row["event_id"] for row in two}
+        self.assertEqual((len(ids1),len(ids2)),(120,120))
+        self.assertTrue(priced <= ids1)
+        self.assertTrue(priced <= ids2)
+        self.assertGreater(len(ids1 - ids2),0,"next cycle explores different event IDs")
+        self.assertGreater(len(ids1 - priced - missed),0,
+                           "previously skipped fixtures get an odds request")
+        old=allocate(rows,120,set(),"2026-10-18",virtual,
+                     previous_priced=priced,previous_unpriced=missed)
+        self.assertNotEqual(ids1,{r["event_id"] for r in old})
+
+    def test_rotation_does_not_displace_priority_match_or_add_requests(self):
+        rows = [{
+            "event_id":"important_without_odds","home":"Home","away":"Away",
+            "league":"Premier LeagueENGLAND: Live Standings","time_text":"18:00",
+        }]
+        rows += [
+            {"event_id":f"minor{i:03d}","home":"A","away":"B",
+             "league":"Local Cup","time_text":"20:00"}
+            for i in range(200)
+        ]
+        out=allocate(rows,120,set(),"2026-10-18",virtual,
+                     previous_unpriced={"important_without_odds"},
+                     rotation_epoch=5)
+        self.assertEqual(len(out),120)
+        self.assertEqual(out[0]["event_id"],"important_without_odds")
+        self.assertEqual(len({r["event_id"] for r in out}),120)
+
+    def test_rotation_never_replaces_success_even_if_only_few_gaps_exist(self):
+        rows=[
+            {"event_id":f"priced{i:03d}","home":"A","away":"B",
+             "league":"Local Cup","time_text":"20:00"}
+            for i in range(115)
+        ]
+        rows.extend([
+            {"event_id":f"candidate{i:03d}","home":"A","away":"B",
+             "league":"Local Cup","time_text":"20:00"}
+            for i in range(115)
+        ])
+        good={f"priced{i:03d}" for i in range(115)}
+        out=allocate(rows,120,set(),"2026-10-18",virtual,
+                     previous_priced=good,rotation_epoch=90)
+        selected={r["event_id"] for r in out}
+        self.assertEqual(len(selected),120)
+        self.assertTrue(good <= selected)
+        self.assertEqual(len(selected-good),5)
+
+    def test_rotation_does_not_explore_finished_or_virtual_events(self):
+        rows = [
+            {"event_id":"closed","home":"A","away":"B","league":"Cup","time_text":"FT"},
+            {"event_id":"virtual","home":"A","away":"B","league":"Virtual League","time_text":"12:00"},
+        ]+[
+            {"event_id":f"live{i}","home":"A","away":"B","league":"Cup","time_text":"20:00"}
+            for i in range(20)
+        ]
+        out=allocate(rows,10,set(),"2026-10-18",virtual,
+                     previous_unpriced={"live1"},rotation_epoch=12)
+        ids={r["event_id"] for r in out}
+        self.assertEqual(len(ids),10)
+        self.assertNotIn("closed",ids)
+        self.assertNotIn("virtual",ids)
+
     def test_single_day_or_small_capacity(self):
         self.assertEqual(day_plan(0,360),[(0,360)])
         self.assertEqual(day_plan(3,60),[(0,20),(1,40)])
