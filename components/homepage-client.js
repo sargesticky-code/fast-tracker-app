@@ -623,6 +623,11 @@ export default function HomepageClient() {
                   <span className="ft-team-away" data-testid="away-team-name"><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
                 </div>
                 <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away} goalsLine={goalsLine} cornersLine={cornersLine}/>
+                {m.evidence?.externalAdvisers?.length>0 &&
+                  <div className="ft-verified-adviser-identities" data-testid="verified-adviser-source-comparisons">
+                    {m.evidence.externalAdvisers.map(a=><SourceTeamComparison key={a.provider}
+                      candidate={a} flashscoreHome={m.home} flashscoreAway={m.away}/>)}
+                  </div>}
                 <ProvisionalChip candidate={m.provisional} verified={m.evidence?.forebet}/>
                 {m.externalProvisional.map(candidate=><ExternalProvisionalChip key={candidate.provider}
                   candidate={candidate} flashscoreHome={m.home} flashscoreAway={m.away}/>)}
