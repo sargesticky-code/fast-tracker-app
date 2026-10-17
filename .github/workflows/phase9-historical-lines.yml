@@ -1,0 +1,27 @@
+name: Phase 9 Historical Multi-Line Outcomes
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - "supabase/migrations/20261017125000_phase9_historical_exact_goal_corner_lines.sql"
+      - "lib/verified-evidence-feed.js"
+      - "components/homepage-client.js"
+      - "scripts/check-phase9-historical-lines.mjs"
+      - ".github/workflows/phase9-historical-lines.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify historical threshold counts and no synthetic forecasts
+        run: node scripts/check-phase9-historical-lines.mjs
+      - name: Compile public dashboard
+        run: npm run build
