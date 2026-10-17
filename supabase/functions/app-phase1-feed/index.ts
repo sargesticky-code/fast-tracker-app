@@ -754,7 +754,7 @@ Deno.serve(async (req: Request) => {
       // One indexed, read-only RPC replaces repeated PostgREST fanout across
       // fixture, bookmaker, detail, profile and lineup views. This is the
       // critical All-in-One lane. Legacy queries remain only as fallback.
-      const [fast,heartbeat,fixtureTimesResult]=await Promise.all([
+      const [fast,heartbeat,fixtureTimesResult,priorQuoteResult]=await Promise.all([
         db.rpc("ft_fast_flashscore_summary",{p_window_hours:hours}),
         db.from("source_health")
           .select("status,value_text,observed_at,notes,raw")
@@ -766,6 +766,12 @@ Deno.serve(async (req: Request) => {
           .select("match_id,kickoff_hkt")
           .not("kickoff_hkt","is",null)
           .limit(1000),
+        // Only the compact homepage needs earlier *reference* quotes.
+        // Independent, bounded indexed read of existing snapshot history.
+        // Fail closed on SQL/RLS errors; NEVER alter current odds or EV.
+        compactOnly
+          ? db.rpc("ft_prior_bet365_reference_quotes",{p_window_hours:hours})
+          : Promise.resolve({data:[],error:null}),
       ]);
       if(!fast.error && Array.isArray(fast.data)){
         const matches=fast.data.map((r:any)=>{
@@ -787,6 +793,20 @@ Deno.serve(async (req: Request) => {
             }
           } : base;
         });
+        // A historical reference may supplement a missing CURRENT price but
+        // cannot enter directAuthoritySummaryRow, noVig or value calculations.
+        const allowed=new Set(matches.map((m:any)=>String(m.id)));
+        const priorBookmakerQuotes=compactOnly && !priorQuoteResult.error
+          ? (Array.isArray(priorQuoteResult.data)?priorQuoteResult.data:[])
+            .filter((r:any)=>allowed.has(String(r.match_id||"")))
+            .slice(0,400).map((r:any)=>({
+              id:r.match_id,capturedAt:r.captured_at,source:"FLASHSCORE_BET365",
+              quoteType:"EARLIER_REFERENCE_ONLY",
+              odds:{home:num(r.home_price),draw:num(r.draw_price),away:num(r.away_price)}
+            }))
+          : [];
+        if(compactOnly && priorQuoteResult.error)
+          console.error("prior_bookmaker_reference_unavailable",priorQuoteResult.error);
         const source=heartbeat.data??null;
         const publisherCaptureAt=source?.raw?.captured_at||source?.observed_at||null;
         const publisherAgeMs=publisherCaptureAt?Date.now()-Date.parse(String(publisherCaptureAt)):Infinity;
@@ -801,6 +821,7 @@ Deno.serve(async (req: Request) => {
           view:compactOnly?"compact":"summary",windowHours:hours,
           count:matches.length,
           matches:await withExternalAdvisers(adviserDb,compactOnly?matches.map(verifiedCompactSummaryRow):matches),
+          ...(compactOnly ? {previousBookmakerQuotes:priorBookmakerQuotes} : {}),
           fixtureKickoffs: Array.isArray(fixtureTimesResult.data)
             ? fixtureTimesResult.data.filter((r:any)=>/^FS:[A-Za-z0-9_-]{5,32}$/.test(String(r.match_id||""))
                 && typeof r.kickoff_hkt==="string")
