@@ -273,14 +273,44 @@ Deno.serve(async (req)=>{
     if(fixtureRes.error) throw fixtureRes.error;
     const fixtures=fixtureRes.data||[];
 
-    const {data:phase1Feed,error:phase1FeedError}=await db.rpc("ft_internal_app_phase1_feed_generic",{window_hours:24});
-    if(phase1FeedError) console.warn("phase1_gap_priority_query_failed",phase1FeedError.message);
-    const gapPriority=new Set(
-      (Array.isArray(phase1Feed)?phase1Feed:[])
-        .filter((row:any)=>Number(row?.evidence_channel_count??0)===0)
-        .map((row:any)=>String(row?.match_id||""))
-        .filter(Boolean)
+    // Phase 2: the removed generic feed RPC cannot prioritize source gaps.
+    // Reuse the bounded, stored forecast-evidence view already used by the app.
+    // A missing/failed/incomplete read MUST NOT be treated as zero evidence.
+    const priorityHorizonMs=24*3600_000;
+    const eligibleFixtureIds=new Set(
+      fixtures.filter((f:any)=>{
+        const kickoffMs=Date.parse(String(f.kickoff_hkt||""));
+        return Number.isFinite(kickoffMs) && kickoffMs>Date.now()
+          && kickoffMs<=Date.now()+priorityHorizonMs;
+      }).map((f:any)=>String(f.match_id||"")).filter(Boolean)
     );
+    let gapPriority=new Set<string>();
+    let gapPriorityStatus="NO_ELIGIBLE_FIXTURES";
+    let currentEvidenceRows=0;
+    if(eligibleFixtureIds.size>0){
+      const since=new Date(Date.now()-72*3600_000).toISOString();
+      const {data:evidence,error:evidenceError}=await db
+        .from("prediction_evidence_feed_current")
+        .select("match_id,status,source_updated_at")
+        .in("status",["CURRENT","MODELED"])
+        .gte("source_updated_at",since)
+        .limit(1500);
+      if(evidenceError){
+        gapPriorityStatus="EVIDENCE_READ_UNAVAILABLE";
+        console.warn("forecast_gap_priority_unavailable");
+      } else if(!Array.isArray(evidence)||evidence.length>=1500){
+        gapPriorityStatus="EVIDENCE_READ_INCOMPLETE";
+        console.warn("forecast_gap_priority_incomplete");
+      } else {
+        const withEvidence=new Set(
+          evidence.map((row:any)=>String(row.match_id||""))
+            .filter((id:string)=>eligibleFixtureIds.has(id))
+        );
+        currentEvidenceRows=withEvidence.size;
+        gapPriority=new Set([...eligibleFixtureIds].filter(id=>!withEvidence.has(id)));
+        gapPriorityStatus="READY";
+      }
+    }
 
     // Use the same active alias authority as Phase-2 lineup matching.
     // Fail closed if one normalized FotMob alias points at >1 canonical name.
@@ -445,19 +475,19 @@ Deno.serve(async (req)=>{
       last_probe_at:nowIso,last_success_at:nowIso,last_failure_at:null,
       consecutive_success:prevS+1,consecutive_failure:0,total_records:rows.length,
       schema_fingerprint:schema,last_seen_at:nowIso,updated_at:nowIso,
-      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
+      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors,priorityGapCandidates:gapPriority.size,priorityGapDetailCount,gapPriorityStatus,currentEvidenceRows}
     }).eq("source_key",SOURCE);
 
     await db.from("source_health").upsert({
       source:"PHASE15_FOTMOB_SCOUT",metric:"6h",
-      value_text:JSON.stringify({rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}),
+      value_text:JSON.stringify({rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors,priorityGapCandidates:gapPriority.size,priorityGapDetailCount,gapPriorityStatus,currentEvidenceRows}),
       status:rows.length>0?"OK":"WARN",
       notes:"Experimental shadow-only scout. No betting-model influence until trust promotion.",
       observed_at:new Date().toISOString(),
-      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors}
+      raw:{mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,upstream,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors,priorityGapCandidates:gapPriority.size,priorityGapDetailCount,gapPriorityStatus,currentEvidenceRows}
     },{onConflict:"source,metric"});
 
-    return Response.json({ok:true,source:SOURCE,mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors});
+    return Response.json({ok:true,source:SOURCE,mode:identityOnly?"identity":"full",aliasAuthority:"team_alias_current",aliasRows:fmAliasRows.length,ambiguousAliasCount,rows:rows.length,matched,exact,detailOk,detailFail,xgRows,lineupRows,statsRows,commentaryRows,commentaryMatches,commentaryFail,commentaryErrors,priorityGapCandidates:gapPriority.size,priorityGapDetailCount,gapPriorityStatus,currentEvidenceRows});
   }catch(e){
     const message=e instanceof Error?e.message:(typeof e==="object"?JSON.stringify(e):String(e));
     const reg=await db.from("phase15_source_registry").select("consecutive_failure").eq("source_key",SOURCE).maybeSingle();
