@@ -109,23 +109,56 @@ def _sort_key(item, previous_priced=frozenset(), previous_unpriced=frozenset()):
 
 
 def allocate(rows, limit, seen, date, is_virtual, *,
-             previous_priced=(), previous_unpriced=()):
-    """Bounded source-aware selection, without new provider requests.
+             previous_priced=(), previous_unpriced=(), rotation_epoch=None):
+    """Bounded source-aware selection with rotation of *unpriced* slots.
 
-    Hints are exact provider event IDs from the previous completed local
-    snapshot only; we never depend on team names or infer provider markets.
+    For a fixed request budget, keep previously successful quotes in the
+    baseline first. A small fraction of baseline requests that produced no
+    quote can instead check previously excluded source event IDs. The
+    rotation is deterministic by 15-minute epoch, requires no persisted
+    aliases/state or additional requests, and never evicts a known-priced
+    event from the baseline. No market is inferred for an unquoted match.
+
+    rotation_epoch=None retains the historical ordering for initial capture,
+    callers without hints and legacy tests.
     """
-    selected = []
+    if limit <= 0:
+        return []
     good = set(previous_priced)
     missed = set(previous_unpriced) - good
+    ranked = []
+    seen_here = set()
     for item in sorted(rows, key=lambda row: _sort_key(row, good, missed)):
         event = str(item.get("event_id") or "")
-        if not event or event in seen or not item.get("home") or not item.get("away"):
+        if (not event or event in seen or event in seen_here
+                or not item.get("home") or not item.get("away")
+                or is_virtual(item.get("league"), item.get("home"), item.get("away"))):
             continue
-        if is_virtual(item.get("league"), item.get("home"), item.get("away")):
-            continue
-        selected.append({**item, "date": date})
-        seen.add(event)
-        if len(selected) >= limit:
-            break
-    return selected
+        ranked.append(item)
+        seen_here.add(event)
+
+    baseline = ranked[:limit]
+    selected = list(baseline)
+    if rotation_epoch is not None and (good or missed) and len(ranked) > limit:
+        # Only displace slots that failed to produce a source quote last run.
+        # Protect every existing valid quote and preserve higher-priority rows.
+        unpriced_baseline = [r for r in baseline if str(r["event_id"]) not in good]
+        unexplored = [
+            r for r in ranked[limit:]
+            if str(r["event_id"]) not in good
+            and not _FINAL_STATUS.fullmatch(str(r.get("time_text") or "").strip())
+        ]
+        rotate = min(limit // 6, len(unpriced_baseline), len(unexplored))
+        if rotate:
+            # Cycling through the original stable priority ordering samples
+            # outside-budget fixtures fairly over successive natural runs.
+            offset = (int(rotation_epoch) * rotate) % len(unexplored)
+            picks = [unexplored[(offset + i) % len(unexplored)]
+                     for i in range(rotate)]
+            replaced = {str(r["event_id"]) for r in unpriced_baseline[-rotate:]}
+            selected = [r for r in baseline if str(r["event_id"]) not in replaced]
+            selected.extend(picks)
+
+    for item in selected:
+        seen.add(str(item["event_id"]))
+    return [{**item, "date": date} for item in selected]
