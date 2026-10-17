@@ -5,6 +5,7 @@ import { fetchVerifiedSummary, adviserPercentValue, mergeCanonicalFallback } fro
 import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
 import { GOAL_LINES, CORNER_LINES, exactLineForecast } from "@/lib/line-aware-forecasts";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
+import { ADVISER_KEYS, matchAdviserFacet } from "@/lib/adviser-visibility";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
@@ -467,7 +468,9 @@ export default function HomepageClient() {
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="featured"?m.info.featured:!m.info.featured))
     &&(phase==="all"||m.phase===phase)
-    &&(feature==="all"||(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m)))
+    &&(feature==="all"||(ADVISER_KEYS[feature]
+      ?matchAdviserFacet(m,feature)
+      :(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m))))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>(a.phase==="live"?0:1)-(b.phase==="live"?0:1)
     ||a.info.priority-b.info.priority
@@ -484,6 +487,12 @@ export default function HomepageClient() {
     group.fixtures.push(row);
   }
   const clear=()=>{setQuery("");setDate("");setLeague("");setScope("featured");setPhase("all");setFeature("all");};
+  // Provider shortcuts reveal relevant fixtures in ANY competition rather
+  // than hiding them behind the initial Featured-only league filter.
+  const selectAdviser=(provider)=>{
+    setQuery("");setDate("");setLeague("");setPhase("all");setScope("all");
+    setFeature("adviser-"+provider);
+  };
   const hasFilters=Boolean(query||date||league||scope!=="featured"||phase!=="all"||feature!=="all");
   // Dashboard numbers describe the complete loaded snapshot, not the subset
   // currently filtered. All shortcuts clear conflicting filters before applying.
@@ -587,6 +596,13 @@ export default function HomepageClient() {
             {CORNER_LINES.map(line=><option key={line} value={line}>{line.toFixed(1)}</option>)}
           </select></label>
           <small>Forebet predictions require exact source lines. Historical result frequencies appear separately when available.</small>
+        </div>
+        <div className="ft-filter-row" aria-label="Betting adviser sources">
+          <strong><Icon name="chart"/> Advisers</strong>
+          <FilterButton active={feature==="adviser-betclan"} onClick={()=>selectAdviser("betclan")} testId="filter-adviser-betclan">BetClan <span>{counts.betclan} verified · {counts.betclanProvisional} provisional</span></FilterButton>
+          <FilterButton active={feature==="adviser-sportytrader"} onClick={()=>selectAdviser("sportytrader")} testId="filter-adviser-sportytrader">SportyTrader <span>{counts.sportytrader} verified · {counts.sportyProvisional} provisional</span></FilterButton>
+          <FilterButton active={feature==="adviser-primatips"} onClick={()=>selectAdviser("primatips")} testId="filter-adviser-primatips">PrimaTips <span>{counts.primatipsProvisional} provisional</span></FilterButton>
+          <FilterButton active={feature==="adviser-statarea"} onClick={()=>selectAdviser("statarea")} testId="filter-adviser-statarea">Statarea <span>{counts.statareaProvisional} provisional</span></FilterButton>
         </div>
         <div className="ft-filter-row" aria-label="Match details">
           <strong><Icon name="filter"/> Show</strong>
