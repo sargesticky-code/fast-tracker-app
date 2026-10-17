@@ -534,3 +534,32 @@ button,input{font:inherit}
   .ft-footer-banner{display:none}
   .ft-home{padding-bottom:14px}
 }
+
+/* Phase 1: adviser source-vs-canonical teams, explicitly not a verified prediction. */
+.ft-home .ft-team-names .ft-adviser-list{
+  display:grid;
+  gap:3px;
+  margin-top:4px;
+  max-width:100%;
+}
+.ft-home .ft-team-names .ft-adviser-line{
+  display:block;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.35;
+  font-size:9px;
+  font-weight:500;
+  color:#52677b;
+  background:#f4f8fa;
+  border-left:2px solid #cf9d43;
+  border-radius:3px;
+  padding:3px 5px;
+}
+.ft-home .ft-team-names .ft-adviser-line b{
+  color:#283f56;
+  font-weight:800;
+}
+.ft-home .ft-team-names .ft-adviser-more{
+  color:#52677b;
+  font-size:9px;
+}
