@@ -51,8 +51,8 @@ const VERIFIED_CLUB_IDS = new Map([
 function ClubCrest({ name, fallbackName }) {
   const key = String(name || "").normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
   const id = VERIFIED_CLUB_IDS.get(key);
-  const fotmobKey = String(name || "").normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase()
-    .replace(/&/g, "and").replace(/[^\\p{L}\\p{N}]+/gu, "");
+  const fotmobKey = String(name || "").normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/&/g, "and").replace(/[^\p{L}\p{N}]+/gu, "");
   const fotmobId = id ? null : VERIFIED_FOTMOB_CRESTS[fotmobKey];
   const crestUrl = id ? `https://crests.football-data.org/${id}.png`
     : fotmobId ? `https://images.fotmob.com/image_resources/logo/teamlogo/${fotmobId}.png` : null;
