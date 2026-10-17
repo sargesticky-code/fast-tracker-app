@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
 import { fetchVerifiedSummary, adviserPercentValue, mergeCanonicalFallback } from "@/lib/verified-evidence-feed";
 import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
+import { GOAL_LINES, CORNER_LINES, exactLineForecast } from "@/lib/line-aware-forecasts";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
 import { TeamNameWithLogo } from "@/components/team-logo";
@@ -144,7 +145,7 @@ function scoreCaptureAge(capturedAt,now=Date.now()) {
   if(hours<24)return `captured ${hours}h ${minutes%60}m ago`;
   return `captured ${Math.floor(hours/24)}d ${hours%24}h ago`;
 }
-function MatchChips({evidence,homeTeam,awayTeam}) {
+function MatchChips({evidence,homeTeam,awayTeam,goalsLine=2.5,cornersLine=9.5}) {
   if (!evidence) return null;
   const chips=[];
   if (evidence.score) chips.push({label:"Actual score",age:scoreCaptureAge(evidence.scoreCapturedAt),
@@ -156,8 +157,19 @@ function MatchChips({evidence,homeTeam,awayTeam}) {
       value:evidence.forebetAvgGoals.toFixed(2),mark:"Σ",test:"forebet-average-goals"});
   }
   if (evidence.forebet) chips.push({label:evidence.forebetCurrent?"Forebet H/D/A":"Saved Forebet H/D/A",value:[evidence.forebet.home,evidence.forebet.draw,evidence.forebet.away].map(p=>Math.round(p*100)).join("/")+"%",mark:"%",test:"forebet-hda"});
-  if (evidence.forebetOU25) chips.push({label:evidence.forebetCurrent?"Forebet O/U 2.5":"Saved Forebet O/U 2.5",value:(evidence.forebetOU25.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetOU25.pick==="Over"?evidence.forebetOU25.over:evidence.forebetOU25.under)*100)+"%",mark:"↗",test:"forebet-goals-25"});
-  if (evidence.forebetCorners95) chips.push({label:evidence.forebetCurrent?"Forebet corners 9.5":"Saved Forebet corners 9.5",value:(evidence.forebetCorners95.pick==="Over"?"O ":"U ")+Math.round((evidence.forebetCorners95.pick==="Over"?evidence.forebetCorners95.over:evidence.forebetCorners95.under)*100)+"%",mark:"⚑",test:"forebet-corners-95"});
+  // Exact lines only: 2.5 never becomes goals 3.5/4.5, or 9.5 corners 10.5.
+  const goalForecast=exactLineForecast(evidence.forebetOU25,goalsLine);
+  const cornerForecast=exactLineForecast(evidence.forebetCorners95,cornersLine);
+  if(goalForecast) chips.push({label:(evidence.forebetCurrent?"Forebet O/U ":"Saved Forebet O/U ")+goalsLine,
+    value:(goalForecast.pick==="Over"?"O ":"U ")+Math.round((goalForecast.pick==="Over"?goalForecast.over:goalForecast.under)*100)+"%",
+    mark:"↗",test:goalsLine===2.5?"forebet-goals-25":"forebet-goals-selected"});
+  else if(evidence.forebetOU25) chips.push({label:"Forebet O/U "+goalsLine,value:"Not provided at this line",
+    mark:"—",test:"forebet-goals-line-unavailable"});
+  if(cornerForecast) chips.push({label:(evidence.forebetCurrent?"Forebet corners ":"Saved Forebet corners ")+cornersLine,
+    value:(cornerForecast.pick==="Over"?"O ":"U ")+Math.round((cornerForecast.pick==="Over"?cornerForecast.over:cornerForecast.under)*100)+"%",
+    mark:"⚑",test:cornersLine===9.5?"forebet-corners-95":"forebet-corners-selected"});
+  else if(evidence.forebetCorners95) chips.push({label:"Forebet corners "+cornersLine,value:"Not provided at this line",
+    mark:"—",test:"forebet-corners-line-unavailable"});
   if (evidence.dc) chips.push({label:"Dixon–Coles (verified source)",value:[evidence.dc.home,evidence.dc.draw,evidence.dc.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◈",test:"advisor-dc-hda"});
   if (evidence.pi) chips.push({label:"Power Index (same source as DC)",value:[evidence.pi.home,evidence.pi.draw,evidence.pi.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◇",test:"advisor-pi-hda"});
   if (evidence.form) chips.push({label:"Verified Form model",value:[evidence.form.home,evidence.form.draw,evidence.form.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"○",test:"advisor-form-hda"});
@@ -315,6 +327,8 @@ export default function HomepageClient() {
   const [scope,setScope]=useState("featured");
   const [phase,setPhase]=useState("all");
   const [feature,setFeature]=useState("all");
+  const [goalsLine,setGoalsLine]=useState(2.5);
+  const [cornersLine,setCornersLine]=useState(9.5);
   const [now,setNow]=useState(()=>Date.now());
   useEffect(()=>{
     let cancelled=false,inFlight=false;
@@ -548,6 +562,18 @@ export default function HomepageClient() {
           {[["all","All"],["live","● Live"],["upcoming","◷ Upcoming"],["started","▶ Started"],["finished","✓ Finished"],["unknown","? Time TBC"]].map(([key,label])=>
             <FilterButton key={key} active={phase===key} onClick={()=>setPhase(key)} testId={"status-"+key}>{label}</FilterButton>)}
         </div>
+        <div className="ft-filter-row" aria-label="Forebet forecast lines">
+          <strong><Icon name="chart"/> Forebet lines</strong>
+          <label>Goals O/U <select aria-label="Goals O/U line" data-testid="forebet-goals-line"
+            value={goalsLine} onChange={e=>setGoalsLine(Number(e.target.value))}>
+            {GOAL_LINES.map(line=><option key={line} value={line}>{line.toFixed(1)}</option>)}
+          </select></label>
+          <label>Corners O/U <select aria-label="Corners O/U line" data-testid="forebet-corners-line"
+            value={cornersLine} onChange={e=>setCornersLine(Number(e.target.value))}>
+            {CORNER_LINES.map(line=><option key={line} value={line}>{line.toFixed(1)}</option>)}
+          </select></label>
+          <small>Only verified predictions at the exact selected line are displayed. Other lines remain unavailable.</small>
+        </div>
         <div className="ft-filter-row" aria-label="Match details">
           <strong><Icon name="filter"/> Show</strong>
           <FilterButton active={feature==="all"} onClick={()=>setFeature("all")}>Everything</FilterButton>
@@ -582,7 +608,7 @@ export default function HomepageClient() {
                   <span className="ft-team-home" data-testid="home-team-name"><TeamNameWithLogo team={m.home} logoTeam={m.home} context={m.league} size={22}/></span>
                   <span className="ft-team-away" data-testid="away-team-name"><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
                 </div>
-                <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away}/>
+                <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away} goalsLine={goalsLine} cornersLine={cornersLine}/>
                 <ProvisionalChip candidate={m.provisional} verified={m.evidence?.forebet}/>
                 {m.externalProvisional.map(candidate=><ExternalProvisionalChip key={candidate.provider}
                   candidate={candidate} flashscoreHome={m.home} flashscoreAway={m.away}/>)}
