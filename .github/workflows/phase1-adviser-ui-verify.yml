@@ -1,0 +1,21 @@
+name: Phase 1 Adviser UI Verification
+on:
+  pull_request:
+    paths:
+      - "components/homepage-client.js"
+      - "app/homepage.css"
+      - "scripts/check-adviser-ui.mjs"
+      - ".github/workflows/phase1-adviser-ui-verify.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-adviser-ui.mjs
+      - run: npm run build
