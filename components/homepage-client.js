@@ -232,7 +232,7 @@ function ExternalProvisionalChip({candidate,flashscoreHome,flashscoreAway}) {
   </div>;
 }
 
-function HistoricalFormDisclosure({evidence,homeName,awayName}) {
+function HistoricalFormDisclosure({evidence,homeName,awayName,goalsLine=2.5,cornersLine=9.5}) {
   const sides=[{name:homeName,label:"Home",form:evidence?.historicalForm?.home},
     {name:awayName,label:"Away",form:evidence?.historicalForm?.away}];
   if(!sides.some(side=>side.form)) return null;
@@ -246,8 +246,22 @@ function HistoricalFormDisclosure({evidence,homeName,awayName}) {
         {f?<>
           <p>Last {f.matches} completed matches · newest first: <b>{f.results.split("").join(" · ")}</b></p>
           <p>Through {f.throughDate} · W-D-L {f.wins}-{f.draws}-{f.losses} · Goals {f.goalsFor} for / {f.goalsAgainst} against · average total goals {f.averageGoals??"unavailable"}.</p>
-          <p>Over 2.5 goals {f.over25Count??"unavailable"}/{f.matches}{f.over25Rate===undefined?"":" ("+f.over25Rate+"%)"} · BTTS {f.bttsCount??"unavailable"}/{f.matches}{f.bttsRate===undefined?"":" ("+f.bttsRate+"%)"}.</p>
-          <p>Corners sample {f.matchesWithCorners??"unavailable"}/{f.matches} · for/against/total averages {f.averageCornersFor??"—"}/{f.averageCornersAgainst??"—"}/{f.averageTotalCorners??"—"} · O/U 9.5 {f.over95CornersCount??"—"}/{f.under95CornersCount??"—"}.</p>
+          <p>BTTS {f.bttsCount??"unavailable"}/{f.matches}{f.bttsRate===undefined?"":" ("+f.bttsRate+"%)"}.</p>
+          {(()=>{const entry=f.observedGoalLines?.[goalsLine.toFixed(1)];
+            return <p data-testid={"historical-goals-line-"+side.label.toLowerCase()}>
+              Recorded goals O/U {goalsLine.toFixed(1)}: {entry
+                ?entry.overCount+"/"+entry.sample+" over ("+Math.round(100*entry.overCount/entry.sample)+"%) · "+
+                  entry.underCount+"/"+entry.sample+" under"
+                :"unavailable at this line"} · Historical results, not a forecast.
+            </p>;})()}
+          {(()=>{const entry=f.observedCornerLines?.[cornersLine.toFixed(1)];
+            return <p data-testid={"historical-corners-line-"+side.label.toLowerCase()}>
+              Recorded corners O/U {cornersLine.toFixed(1)}: {entry
+                ?entry.overCount+"/"+entry.sample+" over ("+Math.round(100*entry.overCount/entry.sample)+"%) · "+
+                  entry.underCount+"/"+entry.sample+" under"
+                :"unavailable at this line"} · Historical results, not a forecast.
+            </p>;})()}
+          <p>Corners sample {f.matchesWithCorners??"unavailable"}/{f.matches} · for/against/total averages {f.averageCornersFor??"—"}/{f.averageCornersAgainst??"—"}/{f.averageTotalCorners??"—"}.</p>
         </>:<p>No qualifying history is available for this team.</p>}
       </section>;
     })}</div>
@@ -563,7 +577,7 @@ export default function HomepageClient() {
             <FilterButton key={key} active={phase===key} onClick={()=>setPhase(key)} testId={"status-"+key}>{label}</FilterButton>)}
         </div>
         <div className="ft-filter-row" aria-label="Forebet forecast lines">
-          <strong><Icon name="chart"/> Forebet lines</strong>
+          <strong><Icon name="chart"/> O/U lines</strong>
           <label>Goals O/U <select aria-label="Goals O/U line" data-testid="forebet-goals-line"
             value={goalsLine} onChange={e=>setGoalsLine(Number(e.target.value))}>
             {GOAL_LINES.map(line=><option key={line} value={line}>{line.toFixed(1)}</option>)}
@@ -572,7 +586,7 @@ export default function HomepageClient() {
             value={cornersLine} onChange={e=>setCornersLine(Number(e.target.value))}>
             {CORNER_LINES.map(line=><option key={line} value={line}>{line.toFixed(1)}</option>)}
           </select></label>
-          <small>Only verified predictions at the exact selected line are displayed. Other lines remain unavailable.</small>
+          <small>Forebet predictions require exact source lines. Historical result frequencies appear separately when available.</small>
         </div>
         <div className="ft-filter-row" aria-label="Match details">
           <strong><Icon name="filter"/> Show</strong>
@@ -626,7 +640,7 @@ export default function HomepageClient() {
               </div>
               <span className="ft-row-arrow" aria-hidden="true">›</span>
               </a>
-              <HistoricalFormDisclosure evidence={m.evidence} homeName={m.home} awayName={m.away}/>
+              <HistoricalFormDisclosure evidence={m.evidence} homeName={m.home} awayName={m.away} goalsLine={goalsLine} cornersLine={cornersLine}/>
             </div>;
           })}
         </section>)}
