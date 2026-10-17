@@ -1,5 +1,7 @@
 "use client";
 
+import VERIFIED_FOTMOB_CRESTS from "@/data/verified-fotmob-team-crests.json";
+
 import {
   binaryFair,
   binaryOdds,
@@ -25,6 +27,49 @@ import {
 } from "@/lib/fast-tracker";
 
 const UI_BUILD = "DASH-FOCUS-20260928-1";
+
+// Club crests must be resolved by club identity, never by the competition label.
+// Provider URLs can be missing or accidentally point to a league badge.
+const VERIFIED_CLUB_IDS = new Map([
+  ["liverpool", 64], ["liverpool fc", 64],
+  ["arsenal", 57], ["arsenal fc", 57],
+  ["chelsea", 61], ["chelsea fc", 61],
+  ["manchester united", 66], ["man utd", 66], ["man united", 66],
+  ["manchester city", 65], ["man city", 65],
+  ["tottenham", 73], ["tottenham hotspur", 73], ["spurs", 73],
+  ["newcastle united", 67], ["newcastle", 67],
+  ["aston villa", 58], ["everton", 62],
+  ["brighton", 397], ["brighton & hove albion", 397],
+  ["west ham", 563], ["west ham united", 563],
+  ["fulham", 63], ["brentford", 402],
+  ["crystal palace", 354], ["bournemouth", 1044],
+  ["nottingham forest", 351], ["wolves", 76], ["wolverhampton wanderers", 76],
+  ["leeds united", 341], ["leeds", 341],
+  ["sunderland", 71], ["ipswich town", 349], ["ipswich", 349],
+  ["leicester city", 338], ["southampton", 340],
+]);
+function ClubCrest({ name, fallbackName }) {
+  const key = String(name || "").normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
+  const id = VERIFIED_CLUB_IDS.get(key);
+  const fotmobKey = String(name || "").normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/&/g, "and").replace(/[^\p{L}\p{N}]+/gu, "");
+  const fotmobId = id ? null : VERIFIED_FOTMOB_CRESTS[fotmobKey];
+  const crestUrl = id ? `https://crests.football-data.org/${id}.png`
+    : fotmobId ? `https://images.fotmob.com/image_resources/logo/teamlogo/${fotmobId}.png` : null;
+  const label = String(fallbackName || name || "?");
+  const fallback = label.trim().slice(0, 2).toUpperCase();
+  return (
+    <span aria-label={label + (crestUrl ? " club crest" : " crest unavailable")}
+      title={crestUrl ? label : label + " — crest unavailable"}
+      style={{ position:"relative",display:"inline-grid",placeItems:"center",width:22,height:22,flexShrink:0,borderRadius:"50%",background:"#e8edf1",color:"#52616e",fontSize:9,fontWeight:700 }}>
+      {fallback}
+      {crestUrl ? <img src={crestUrl} alt=""
+        loading="lazy" width="22" height="22"
+        style={{ position:"absolute",inset:0,objectFit:"contain",width:22,height:22,background:"transparent" }}
+        onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
+    </span>
+  );
+}
 
 function pct(value) {
   const n = Number(value);
@@ -440,9 +485,9 @@ export default function MatchCard({ match, nowMs, coverageGap = null, actionFilt
             <span className={"ft5-fresh-text ft5-fresh-" + fresh.key}>{fresh.label}</span>
           </div>
           <div className="ft5-teams">
-            <b>{home}</b>
+            <ClubCrest name={match.home} fallbackName={home} /><b>{home}</b>
             <span>vs</span>
-            <b>{away}</b>
+            <ClubCrest name={match.away} fallbackName={away} /><b>{away}</b>
           </div>
           {(scriptShapeLabel || scriptScore || editorialContradict || editorialSupport) ? (
             <div
