@@ -1,0 +1,21 @@
+name: Phase 4 Odds Timestamp Contract
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - "lib/verified-evidence-feed.js"
+      - "scripts/check-phase4-odds-timestamp.mjs"
+      - ".github/workflows/phase4-odds-timestamp.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase4-odds-timestamp.mjs
+      - run: npm run build
