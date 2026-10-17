@@ -47,24 +47,22 @@ const VERIFIED_CLUB_IDS = new Map([
   ["leicester city", 338], ["southampton", 340],
 ]);
 function ClubCrest({ name, fallbackName }) {
-  const key = String(name || "").normalize("NFKC").trim().toLowerCase().replace(/\\s+/g, " ");
+  const key = String(name || "").normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
   const id = VERIFIED_CLUB_IDS.get(key);
   const label = String(fallbackName || name || "?");
   const fallback = label.trim().slice(0, 2).toUpperCase();
-  // A deterministic club ID prevents using a Premier League/competition logo as a club crest.
-  return id ? (
-    <img src={`https://crests.football-data.org/${id}.png`} alt={label + " club crest"}
-      loading="lazy" width="22" height="22"
-      style={{ objectFit:"contain", width:22, height:22, flexShrink:0 }}
-      onError={(event) => { event.currentTarget.style.display = "none"; }} />
-  ) : (
-    <span aria-label={label + " crest unavailable"} title={label + " — crest unavailable"}
-      style={{ display:"inline-grid",placeItems:"center",width:22,height:22,flexShrink:0,borderRadius:"50%",background:"#e8edf1",color:"#52616e",fontSize:9,fontWeight:700 }}>
+  return (
+    <span aria-label={label + (id ? " club crest" : " crest unavailable")}
+      title={id ? label : label + " — crest unavailable"}
+      style={{ position:"relative",display:"inline-grid",placeItems:"center",width:22,height:22,flexShrink:0,borderRadius:"50%",background:"#e8edf1",color:"#52616e",fontSize:9,fontWeight:700 }}>
       {fallback}
+      {id ? <img src={`https://crests.football-data.org/${id}.png`} alt=""
+        loading="lazy" width="22" height="22"
+        style={{ position:"absolute",inset:0,objectFit:"contain",width:22,height:22,background:"transparent" }}
+        onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
     </span>
   );
 }
-
 
 function pct(value) {
   const n = Number(value);
