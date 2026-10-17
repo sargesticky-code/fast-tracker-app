@@ -149,6 +149,8 @@ async def refresh_once():
     fixtures = []
     previously_priced = source_selection_ids("FT_LAST_PRICED_IDS")
     previously_unpriced = source_selection_ids("FT_LAST_UNPRICED_IDS") - previously_priced
+    # One shared deterministic slot per natural refresh; no extra network calls.
+    rotation_epoch = int(time.time() // REFRESH_SECONDS)
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
         context = await browser.new_context(
@@ -187,11 +189,18 @@ async def refresh_once():
                     break
                 added=allocate(rows,quota,seen,target_date.isoformat(),is_virtual,
                                previous_priced=previously_priced,
-                               previous_unpriced=previously_unpriced)
+                               previous_unpriced=previously_unpriced,
+                               rotation_epoch=rotation_epoch)
                 fixtures.extend(added)
+                selected_ids={f["event_id"] for f in added}
+                prior_priced_count=len(selected_ids & previously_priced)
+                prior_gap_count=len(selected_ids & previously_unpriced)
+                first_seen_count=len(selected_ids - previously_priced - previously_unpriced)
                 print(
                     f"[flashscore-odds] day_allocation day={target_date.isoformat()} "
                     f"available={len(rows)} quota={quota} selected={len(added)} "
+                    f"prior_priced={prior_priced_count} prior_gap={prior_gap_count} "
+                    f"first_seen={first_seen_count} raw_board_not_selected={max(0,len(rows)-len(added))} "
                     f"running_total={len(fixtures)} max={MAX_FIXTURES}",
                     flush=True,
                 )
