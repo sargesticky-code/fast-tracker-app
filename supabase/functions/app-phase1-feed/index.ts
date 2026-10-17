@@ -417,12 +417,14 @@ function directAuthoritySummaryRow(r: any, liveNow = false) {
     forebetDetail:validForebet?{
       predictedScore:r.forebet_predicted_score.trim(),
       ou25:{
+        line:2.5, // Forebet source page explicitly shows Under/Over 2.5
         over:r.forebet_ou_over==null?null:num(r.forebet_ou_over),
         under:r.forebet_ou_under==null?null:num(r.forebet_ou_under),
         pick:r.forebet_ou_pick??null,
         avgGoals:num(r.forebet_avg_goals)
       },
       corners95:{
+        line:9.5, // Forebet source page explicitly shows Under/Over 9.5
         over:r.forebet_corner_over==null?null:num(r.forebet_corner_over),
         under:r.forebet_corner_under==null?null:num(r.forebet_corner_under),
         pick:r.forebet_corner_pick??null,
@@ -628,8 +630,10 @@ async function lightweightFullRecovery(supabaseUrl:string,serverKey:string,db:an
       form,
       forebetDetail:{
         predictedScore:fbHda?.predicted_score??null,
-        ou25:{over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),avgGoals:num(fbOu?.avg_goals ?? fbHda?.avg_goals)},
-        corners95:{over:num(fbCorners?.prob_over),under:num(fbCorners?.prob_under),avgCorners:num(fbCorners?.avg_corners)},
+        ou25:{line:2.5,over:num(fbOu?.prob_over),under:num(fbOu?.prob_under),
+          pick:fbOu?.pick??null,avgGoals:num(fbOu?.avg_goals ?? fbHda?.avg_goals)},
+        corners95:{line:9.5,over:num(fbCorners?.prob_over),under:num(fbCorners?.prob_under),
+          pick:fbCorners?.pick??null,avgCorners:num(fbCorners?.avg_corners)},
         goalsCurrentLine:lineModel(m?.goals?.line,fbOu?.avg_goals,2.5,fbOu?.prob_over,0.5,6.5),
         cornersCurrentLine:lineModel(m?.corners?.line,fbCorners?.avg_corners,9.5,fbCorners?.prob_over,4.5,16.5),
       },
