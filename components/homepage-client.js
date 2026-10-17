@@ -34,6 +34,32 @@ const LIVE_FEED_URL =
   process.env.NEXT_PUBLIC_FAST_TRACKER_LIVE_FEED_URL ||
   "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-live-feed";
 const HK_TIME_ZONE = "Asia/Hong_Kong";
+// Two existing, bounded, read-only evidence feeds. No collection from the browser.
+const ADVISER_FEEDS = [
+  { url: "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/adviser-provisional-feed", providers: ["BETCLAN", "SPORTYTRADER"] },
+  { url: "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/adviser-extra-provisional-feed", providers: ["PRIMATIPS", "STATAREA"] },
+];
+
+async function loadProvisionalAdvisers(feed) {
+  const response = await fetch(feed.url, { signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new Error("adviser_feed_unavailable");
+  const body = await response.json();
+  if (!String(body?.source || "").includes("PROVISIONAL") ||
+      !String(body?.quality || "").startsWith("PROVISIONAL_NOT_VERIFIED") ||
+      !Array.isArray(body?.rows) || body.rows.length > 600) {
+    throw new Error("adviser_contract_invalid");
+  }
+  return body.rows.filter((row) =>
+    row?.status === "PROVISIONAL_NOT_VERIFIED" &&
+    feed.providers.includes(row?.provider) &&
+    /^FS:[A-Za-z0-9_-]{5,32}$/.test(String(row?.id || "")) &&
+    typeof row?.sourceHome === "string" && typeof row?.sourceAway === "string" &&
+    typeof row?.canonicalHome === "string" && typeof row?.canonicalAway === "string" &&
+    Number.isFinite(Date.parse(String(row?.kickoff || ""))) &&
+    Date.parse(String(row.kickoff)) > Date.now()
+  );
+}
+
 
 const AUTHORITY_KEYS = new Set([
   "id","kickoff","status","league","leagueZh","home","away","homeZh","awayZh",
@@ -366,7 +392,7 @@ function ProbabilityStrip({ model }) {
   );
 }
 
-function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState = null }) {
+function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState = null, advisersByMatch = {} }) {
   return (
     <section className="ft-table-section">
       {title && <div className="ft-league-section-title">
@@ -393,6 +419,12 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
           const avgGoals = Number(match?.forebet?.avgGoals ?? match?.multi?.avgGoals ?? match?.expectedGoals);
           const predictedScore = match?.forebet?.score || match?.predictedScore || "—";
           const bestOdds = edge?.key === "H" ? match?.odds?.home : edge?.key === "D" ? match?.odds?.draw : edge?.key === "A" ? match?.odds?.away : null;
+          // Keep verification status explicit; provisional evidence is never a confirmed model.
+          const advisers = [
+            ...(Array.isArray(match?.externalAdvisers) ? match.externalAdvisers : []),
+            ...(advisersByMatch[String(match.id)] || []),
+          ];
+          const adviserDisplay = advisers.slice(0, 2);
 
           const rowClasses = [
             "ft-match-row",
@@ -407,6 +439,22 @@ function PredictionsTable({ matches, title = "", activeMarket = "HDA", feedState
                   <strong>{match.home || match.homeZh || "Home"}</strong>
                   <span>{match.away || match.awayZh || "Away"}</span>
                   <small>{shortTime(match.kickoff)} · {dateKey(match.kickoff)}</small>
+                  {adviserDisplay.length > 0 ? (
+                    <div className="ft-adviser-list" aria-label="Independent adviser source matches">
+                      {adviserDisplay.map((adviser, index) => {
+                        const verified = adviser.identityStatus === "VERIFIED";
+                        const sourceTeams = `${adviser.sourceHome} vs ${adviser.sourceAway}`;
+                        const canonicalTeams = `${adviser.canonicalHome || match.home} vs ${adviser.canonicalAway || match.away}`;
+                        return (
+                          <small className="ft-adviser-line" key={String(adviser.provider) + index}
+                            title={`${adviser.provider} · ${verified ? "verified" : "provisional—not verified"} · Source: ${sourceTeams} → Flashscore: ${canonicalTeams}`}>
+                            <b>{adviser.provider}</b> · {verified ? "Verified" : "Provisional"} · Source: {sourceTeams} → FS: {canonicalTeams}
+                          </small>
+                        );
+                      })}
+                      {advisers.length > 2 ? <small className="ft-adviser-more">+{advisers.length - 2} more advisers</small> : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="ft-probs"><ProbabilityStrip model={model} /></div>
@@ -529,6 +577,7 @@ function RightRail({ matches, selectedDate, onSelectDate }) {
 
 export default function HomepageClient({ initialFeed, nowMs }) {
   const [feed, setFeed] = useState(initialFeed || { matches: [] });
+  const [adviserState, setAdviserState] = useState({ byMatch: {}, health: "loading", sources: 0 });
   const [feedState, setFeedState] = useState(
     Array.isArray(initialFeed?.matches) && initialFeed.matches.length
       ? { status: "ready", message: null }
@@ -634,6 +683,36 @@ export default function HomepageClient({ initialFeed, nowMs }) {
       clearInterval(liveTimer);
       clearInterval(enrichmentTimer);
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshAdvisers() {
+      if (cancelled || document.visibilityState === "hidden") return;
+      const results = await Promise.allSettled(ADVISER_FEEDS.map(loadProvisionalAdvisers));
+      if (cancelled) return;
+      const valid = results.filter((item) => item.status === "fulfilled");
+      if (!valid.length) {
+        setAdviserState({ byMatch: {}, health: "unavailable", sources: 0 });
+        return;
+      }
+      const byMatch = {};
+      for (const item of valid) for (const row of item.value) {
+        const id = String(row.id);
+        if (!byMatch[id]) byMatch[id] = [];
+        if (!byMatch[id].some((prior) => prior.provider === row.provider && prior.sourceUrl === row.sourceUrl)) {
+          byMatch[id].push(row);
+        }
+      }
+      setAdviserState({
+        byMatch,
+        health: valid.length === ADVISER_FEEDS.length ? "ready" : "partial",
+        sources: valid.length,
+      });
+    }
+    refreshAdvisers();
+    const timer = setInterval(refreshAdvisers, 300000);
+    return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
   const matches = Array.isArray(feed?.matches) ? feed.matches : [];
@@ -760,13 +839,19 @@ export default function HomepageClient({ initialFeed, nowMs }) {
             </div>
           ) : null}
 
+          {adviserState.health === "unavailable" || adviserState.health === "partial" ? (
+            <section className="ft-form-note" role="status">
+              <Activity size={17} />
+              <span>Adviser source evidence {adviserState.health === "partial" ? "partly available" : "temporarily unavailable"}. Fixtures and verified model probabilities are unaffected.</span>
+            </section>
+          ) : null}
           <div className="ft-grouped-board">
             {groupedVisible.length ? groupedVisible.map(([league, rows], index) => (
               <div key={league}>
-                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} />
+                <PredictionsTable matches={rows} title={league} activeMarket={activeMarket} feedState={feedState} advisersByMatch={adviserState.byMatch} />
                 {index === 0 && <AdvertSlot variant="wide" />}
               </div>
-            )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} />}
+            )) : <PredictionsTable matches={[]} activeMarket={activeMarket} feedState={feedState} advisersByMatch={adviserState.byMatch} />}
           </div>
 
           {showForm && (
