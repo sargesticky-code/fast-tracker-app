@@ -56,7 +56,7 @@ class QuoteStartupSeedTests(unittest.TestCase):
     def test_malformed_identity_and_conflicting_duplicate_fail_closed(self):
         self.assertFalse(valid_quote_ids(pack([quote(event="bad!")]),NOW))
         r=quote()
-        r["id"]="HKJC:12345"
+        r["id"]="INVALID:12345"
         self.assertFalse(valid_quote_ids(pack([r]),NOW))
         self.assertFalse(valid_quote_ids(pack([quote(),quote()]),NOW))
 
