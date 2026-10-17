@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py day_budget.py bounded_capture.py collector_worker.py odds_batch.py browser_resources.py ./
 COPY odds_market.py ./
+COPY source_quote_seed.py ./
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
