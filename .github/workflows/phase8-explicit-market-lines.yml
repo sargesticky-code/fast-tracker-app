@@ -1,0 +1,28 @@
+name: Phase 8 Explicit Goal and Corner Lines
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/line-aware-forecasts.js'
+      - 'lib/verified-evidence-feed.js'
+      - 'components/homepage-client.js'
+      - 'supabase/functions/app-phase1-feed/index.ts'
+      - 'scripts/check-phase8-exact-market-lines.mjs'
+      - '.github/workflows/phase8-explicit-market-lines.yml'
+permissions:
+  contents: read
+jobs:
+  exact-lines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify source market line not relabeled
+        run: node scripts/check-phase8-exact-market-lines.mjs
+      - name: Ensure full Next.js build
+        run: npm run build
