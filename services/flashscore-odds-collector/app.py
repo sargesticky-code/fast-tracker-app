@@ -10,6 +10,7 @@ import httpx
 from flask import Flask, jsonify, request
 from playwright.async_api import async_playwright
 from day_budget import day_plan, allocate, collector_calendar_date
+from source_quote_seed import load_verified_quote_hints
 from browser_resources import should_abort_browser_resource
 from odds_batch import bounded_map
 from odds_market import quote_result, HTTP_FAILED, UNEXPECTED_FAILURE, REASONS
@@ -35,6 +36,7 @@ _state = {
     "snapshot": [],
     "discovered": [],
     "gap_reasons": {},
+    "quote_seed_attempted": False,
 }
 
 @app.after_request
@@ -279,7 +281,20 @@ def run_refresh():
         prior_successes = {row.get("provider_event_id") for row in prior_quotes
                            if isinstance(row,dict) and row.get("provider_event_id")}
         prior_misses = prior_ids - prior_successes
+        # Cold starts have no local memory: restore *IDs only* from a recent
+        # verified source quote already in our existing public canonical feed.
+        # Once per process; if unavailable continue without any dependency.
+        seed_once = not prior_ids and not _state["quote_seed_attempted"]
+        if seed_once:
+            _state["quote_seed_attempted"] = True
     try:
+        if seed_once:
+            try:
+                restored = load_verified_quote_hints()
+                prior_successes.update(restored)
+                print(f"[flashscore-odds] cold_start_prior_quoted_ids={len(restored)}",flush=True)
+            except Exception as exc:
+                print(f"[flashscore-odds] cold_start_hints_unavailable={type(exc).__name__}",flush=True)
         # One original bounded capture, not duplicate attempts. A hung browser
         # or HTTP odds request dies with its isolated child process at 300s.
         from bounded_capture import run_bounded_capture
