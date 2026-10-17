@@ -1,5 +1,7 @@
 "use client";
 
+import VERIFIED_FOTMOB_CRESTS from "@/data/verified-fotmob-team-crests.json";
+
 import {
   binaryFair,
   binaryOdds,
@@ -49,14 +51,19 @@ const VERIFIED_CLUB_IDS = new Map([
 function ClubCrest({ name, fallbackName }) {
   const key = String(name || "").normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
   const id = VERIFIED_CLUB_IDS.get(key);
+  const fotmobKey = String(name || "").normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase()
+    .replace(/&/g, "and").replace(/[^\\p{L}\\p{N}]+/gu, "");
+  const fotmobId = id ? null : VERIFIED_FOTMOB_CRESTS[fotmobKey];
+  const crestUrl = id ? `https://crests.football-data.org/${id}.png`
+    : fotmobId ? `https://images.fotmob.com/image_resources/logo/teamlogo/${fotmobId}.png` : null;
   const label = String(fallbackName || name || "?");
   const fallback = label.trim().slice(0, 2).toUpperCase();
   return (
-    <span aria-label={label + (id ? " club crest" : " crest unavailable")}
-      title={id ? label : label + " — crest unavailable"}
+    <span aria-label={label + (crestUrl ? " club crest" : " crest unavailable")}
+      title={crestUrl ? label : label + " — crest unavailable"}
       style={{ position:"relative",display:"inline-grid",placeItems:"center",width:22,height:22,flexShrink:0,borderRadius:"50%",background:"#e8edf1",color:"#52616e",fontSize:9,fontWeight:700 }}>
       {fallback}
-      {id ? <img src={`https://crests.football-data.org/${id}.png`} alt=""
+      {crestUrl ? <img src={crestUrl} alt=""
         loading="lazy" width="22" height="22"
         style={{ position:"absolute",inset:0,objectFit:"contain",width:22,height:22,background:"transparent" }}
         onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
