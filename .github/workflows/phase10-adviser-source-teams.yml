@@ -1,0 +1,27 @@
+name: Phase 10 Adviser Source Team Visibility
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/adviser-source-team-review.js'
+      - 'components/adviser-source-team-comparison.js'
+      - 'components/homepage-client.js'
+      - 'scripts/check-all-adviser-source-team-visibility.mjs'
+      - '.github/workflows/phase10-adviser-source-teams.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-all-adviser-source-team-visibility.mjs
+      - run: node scripts/check-extra-adviser-provisional.mjs
+      - run: node scripts/check-external-adviser-provisional.mjs
+      - run: npm run build
