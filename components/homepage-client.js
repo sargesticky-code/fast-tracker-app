@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { fetchFlashscoreRawFeed } from "@/lib/flashscore-raw-feed";
-import { fetchVerifiedSummary, adviserPercentValue } from "@/lib/verified-evidence-feed";
+import { fetchVerifiedSummary, adviserPercentValue, mergeCanonicalFallback } from "@/lib/verified-evidence-feed";
 import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
@@ -391,7 +391,9 @@ export default function HomepageClient() {
   const rawReady=Number.isFinite(rawCaptured)&&now-rawCaptured>=-60000&&now-rawCaptured<=30*60000
     &&Array.isArray(feed?.matches)&&feed.matches.length>0;
   const usingCanonicalFallback=!rawReady&&(verified?.fallbackMatches?.length||0)>0;
-  const rows=rawReady?feed.matches:(verified?.fallbackMatches||[]);
+  const rows=useMemo(()=>rawReady
+    ? mergeCanonicalFallback(feed?.matches,verified?.fallbackMatches)
+    : (verified?.fallbackMatches||[]),[rawReady,feed,verified]);
   const matches=useMemo(()=>rows.map(m=>{
     const full=enrich(m,verified?.byId.get(m.id)||null,now,verified?.fixtureKickoffs);
     const candidate=provisional.get(m.id);
