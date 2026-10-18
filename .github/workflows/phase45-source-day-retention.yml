@@ -1,0 +1,28 @@
+name: Phase 45 Source-Day Archive-First Retention
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018114500_phase45_source_day_retention.sql'
+      - 'supabase/functions/source-day-retention/index.ts'
+      - 'scripts/check-phase45-source-day-retention.mjs'
+      - '.github/workflows/phase45-source-day-retention.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018114500_phase45_source_day_retention.sql'
+      - 'supabase/functions/source-day-retention/index.ts'
+      - 'scripts/check-phase45-source-day-retention.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase41-source-day-archive.mjs
+      - run: node scripts/check-phase45-source-day-retention.mjs
+      - run: npm run build
