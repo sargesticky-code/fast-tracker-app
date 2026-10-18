@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const s=readFileSync(new URL("../supabase/migrations/20261018090000_phase34_sportytrader_daily_alias_calibrated.sql",import.meta.url),"utf8");
+const s=readFileSync(new URL("../supabase/migrations/20261018080942_phase34_sportytrader_daily_alias_calibrated.sql",import.meta.url),"utf8");
 for(const must of ["ft_daily_alias_audit","private.ft_sportytrader_calibrated_05",
   "p.state='PROVISIONAL'","p.predicted_kickoff>now()","p.calibration_samples>=4",
   "p.calibration_agreement>=0.9","p.league_similarity>=0.5",
