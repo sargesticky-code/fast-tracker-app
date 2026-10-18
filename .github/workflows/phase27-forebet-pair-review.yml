@@ -1,0 +1,33 @@
+name: Phase 27A Forebet Owner Pairing Review
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - "lib/adviser-pair-review.js"
+      - "lib/forebet-pair-review.js"
+      - "components/flashscore-raw-match.js"
+      - "components/adviser-source-team-comparison.js"
+      - "supabase/functions/forebet-pair-review/index.ts"
+      - "scripts/check-forebet-pair-review.mjs"
+      - ".github/workflows/phase27-forebet-pair-review.yml"
+  push:
+    paths:
+      - "lib/adviser-pair-review.js"
+      - "lib/forebet-pair-review.js"
+      - "components/flashscore-raw-match.js"
+      - "supabase/functions/forebet-pair-review/index.ts"
+      - "scripts/check-forebet-pair-review.mjs"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-forebet-pair-review.mjs
+      - run: node scripts/check-all-adviser-source-team-visibility.mjs
+      - run: npm run build
