@@ -1,0 +1,20 @@
+name: Phase 26 Capacity Read-only Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase26-capacity-preflight.sql'
+      - 'scripts/check-phase26-capacity-preflight.mjs'
+      - '.github/workflows/phase26-capacity-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase26-capacity-preflight.mjs
