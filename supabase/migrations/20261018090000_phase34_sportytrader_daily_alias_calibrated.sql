@@ -1,6 +1,5 @@
--- Phase 34: add already-calibrated SportyTrader source identity candidates
--- to daily alias inspection. No changes to predictions, scheduled collectors or
--- verification thresholds. The source 5-hour offset is *calibrated*, not independent.
+-- Phase 34 migration repair: adds existing calibrated SportyTrader source names.
+-- No model writes, alias inserts or newly claimed source-clock verification.
 -- Phase 33: read-only, on-demand, HKT-dated alias matrix.
 -- Existing Flashscore fixtures remain the sole canonical identity.
 -- No new capture, scheduled DB writes, speculative joins or model promotion.
@@ -58,9 +57,10 @@ begin
       and p.last_checked_at >= now()-interval '4 days'
       and not exists(select 1 from public.adviser_prediction_current x
         where x.canonical_event_id=p.canonical_event_id and x.provider=p.provider)
+
     union all
-    -- Existing time-calibrated SportyTrader links were missing from this report.
-    -- The source does not independently verify these kickoff times.
+    -- Unverified provider wall-clock translated from six independent source-clock anchors.
+    -- This is a review-only identity link, never a verified kickoff or prediction.
     select p.canonical_event_id,'SPORTYTRADER',p.source_home,p.source_away,
       p.source_competition,p.source_url,'PROVISIONAL',p.source_captured_at
     from private.ft_sportytrader_calibrated_05 p
@@ -75,61 +75,7 @@ begin
       and p.league_similarity>=0.5
       and f.identity_authority='FLASHSCORE'
       and f.provider_identity_status='VERIFIED_IDENTITY'
-      and p.source_url ~ '^https://www[.]sportytrader[.]com/en/betting-tips/[^/?#]+-[0-9]+/
-    join fixtures f on f.match_id=p.canonical_event_id
-    join lateral (
-      select s.source_home,s.source_away,s.source_competition,s.source_url,s.captured_at
-      from private.ft_extra_adviser_source_observations s
-      where s.provider=p.provider and s.source_event_id=p.source_event_id
-        and s.source_date=p.source_date
-      order by s.captured_at desc limit 1
-    ) s on true
-    where p.provider in ('PRIMATIPS','STATAREA')
-      and p.last_checked_at >= now()-interval '4 days'
-  ), clean as (
-    select id,provider,btrim(home) home,btrim(away) away,source_league,url,
-      link_state,seen_at,
-      row_number() over(partition by id,provider,url
-        order by case when link_state='SOURCE_LINKED' then 0 else 1 end,seen_at desc) duplicate_rank
-    from candidates
-    where length(btrim(coalesce(home,''))) between 1 and 120
-      and length(btrim(coalesce(away,''))) between 1 and 120
-      and url ~ '^https://'
-  ), limited as (
-    select id,provider,home,away,source_league,url,link_state,seen_at,
-      row_number() over(partition by id,provider
-        order by case when link_state='SOURCE_LINKED' then 0 else 1 end, seen_at desc,url) candidate_rank
-    from clean where duplicate_rank=1
-  ), grouped as (
-    select id,provider,jsonb_agg(jsonb_build_object(
-      'home',home,'away',away,'league',source_league,'url',url,
-      'state',link_state,'capturedAt',seen_at) order by candidate_rank) candidates
-    from limited where candidate_rank<=4
-    group by id,provider
-  ), by_fixture as (
-    select id,jsonb_object_agg(provider,candidates) advisers
-    from grouped group by id
-  )
-  select jsonb_build_object(
-    'hktDate', p_hkt_date,
-    'generatedAt', now(),
-    'timezone', 'Asia/Hong_Kong',
-    'providers',jsonb_build_array('FOREBET','PRIMATIPS','STATAREA','BETCLAN','SPORTYTRADER'),
-    'rows',coalesce(jsonb_agg(jsonb_build_object(
-      'id',f.match_id,'kickoff',f.kickoff_hkt,'league',f.league,
-      'home',f.home_en,'away',f.away_en,
-      'advisers',coalesce(b.advisers,'{}'::jsonb))
-      order by f.kickoff_hkt,f.match_id),'[]'::jsonb)
-  )
-  into v_result
-  from fixtures f left join by_fixture b on b.id=f.match_id;
-  return coalesce(v_result,'{}'::jsonb);
-end;
-$fn$;
--- Only the controlled Edge service uses the RPC. Never grant browser clients SQL execution.
-revoke all on function public.ft_daily_alias_audit(date) from PUBLIC,anon,authenticated;
-grant execute on function public.ft_daily_alias_audit(date) to service_role;
-
+      and p.source_url ~ '^https://www[.]sportytrader[.]com/en/betting-tips/[^/?#]+-[0-9]+/$'
       and not exists (
         select 1 from private.ft_adviser_pair_rejections rejected
         where rejected.provider='SPORTYTRADER'
