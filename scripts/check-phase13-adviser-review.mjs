@@ -38,7 +38,7 @@ assert.equal(readRejectedPairs(fake).size,3);
 assert.equal(adviserPairId(fid,{...pairs[0],sourceUrl:"https://malicious.example/reject"}),null);
 assert.equal(adviserMismatchReport("HACKED",pairs[0],"","",null),null);
 assert.equal(setRejectedPair(fake,fid,{...pairs[0],provider:"UNKNOWN"},true),null);
-const sql=readFileSync(new URL("../supabase/migrations/20261018024500_ft_adviser_pair_rejections_private.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018015819_ft_20261018_reversible_adviser_pair_denials_private.sql",import.meta.url),"utf8");
 assert.match(sql,/CREATE TABLE IF NOT EXISTS private\.ft_adviser_pair_rejections/);
 assert.match(sql,/ENABLE ROW LEVEL SECURITY/);
 assert.match(sql,/REVOKE ALL ON private\.ft_adviser_pair_rejections FROM PUBLIC,anon,authenticated/);
