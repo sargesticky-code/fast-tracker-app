@@ -8,7 +8,6 @@ import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
-import {adviserPairId,adviserMismatchReport,adviserVerificationReport,readRejectedPairs,setRejectedPair,readConfirmedPairs,setConfirmedPair} from "@/lib/adviser-pair-review";
 import {fetchForebetPairReview} from "@/lib/forebet-pair-review";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
@@ -166,92 +165,33 @@ function PlayerStats({ data }) {
   </section>;
 }
 
-function AdviserReviewCard({provider,candidate,fixtureId,home,away,kickoff,onLocalReviewChange,forecastAvailable=false,reviewUnavailable=false}){
+function AdviserReviewCard({provider,candidate,home,away,forecastAvailable=false,reviewUnavailable=false}){
   const names={BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea",FOREBET:"Forebet"};
   const verified=candidate?.identityStatus==="VERIFIED";
-  const pairKey=adviserPairId(fixtureId,candidate);
-  const [rejected,setRejected]=useState(false);
-  const [confirmed,setConfirmed]=useState(false);
-  const [copyStatus,setCopyStatus]=useState("");
-  useEffect(()=>{
-    try{
-      setRejected(Boolean(pairKey&&readRejectedPairs(window.localStorage).has(pairKey)));
-      setConfirmed(Boolean(pairKey&&readConfirmedPairs(window.localStorage).has(pairKey)));
-    }catch{setRejected(false);setConfirmed(false);}
-    setCopyStatus("");
-  },[pairKey]);
-  const toggle=()=>{
-    try{
-      const result=setRejectedPair(window.localStorage,fixtureId,candidate,!rejected);
-      if(result!==null){setRejected(result);if(result)setConfirmed(false);onLocalReviewChange?.(result);}
-    }catch{setCopyStatus("Local browser storage unavailable");}
-  };
-  const toggleConfirmed=()=>{
-    try{
-      const result=setConfirmedPair(window.localStorage,fixtureId,candidate,!confirmed);
-      if(result!==null){setConfirmed(result);if(result)setRejected(false);}
-    }catch{setCopyStatus("Local browser storage unavailable");}
-  };
-  const report=adviserMismatchReport(fixtureId,candidate,home,away,kickoff);
-  const positiveReport=adviserVerificationReport(fixtureId,candidate,home,away,kickoff);
-  const copy=async()=>{
-    if(!report)return;
-    try{
-      await navigator.clipboard.writeText(report);
-      setCopyStatus("Report copied. Paste it into your project chat for shared exclusion.");
-    }catch{setCopyStatus("Clipboard unavailable. Select and copy the report below.");}
-  };
-  const status=!candidate?(reviewUnavailable?"Source review temporarily unavailable":forecastAvailable?"Saved forecast · source pairing not reviewable":"No current matched forecast"):rejected?"Rejected on this browser":confirmed?"You confirmed pairing · on this browser":verified?"Verified source fixture":"PROVISIONAL · NOT VERIFIED";
+  const status=!candidate?(reviewUnavailable?"Source temporarily unavailable":forecastAvailable?"Saved forecast · source link unavailable":"No current matched forecast")
+    :verified?"Source-linked forecast":"Displayed pairing · source identity provisional";
   return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()+(candidate&&!verified?"-provisional":"")}>
     <strong>◇ {names[provider]}</strong>
     <span className="ft-advisor-state">{status}</span>
     {candidate&&<SourceTeamComparison candidate={candidate} flashscoreHome={home} flashscoreAway={away}/>}
-    {candidate&&!rejected&&<>
+    {candidate&&<>
       {candidate.hda&&<small>Source H / D / A: {[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
       {(candidate.predictedScore||candidate.score)&&<small>Source predicted score: {candidate.predictedScore||candidate.score}</small>}
       {candidate.over25!=null&&<small>Over 2.5: {adviserPercentValue(candidate.over25)}%</small>}
       {candidate.bttsYes!=null&&<small>BTTS Yes: {adviserPercentValue(candidate.bttsYes)}%</small>}
       {candidate.tip&&<small>Source tip: {candidate.tip}</small>}
-    </>}
-    {candidate&&<>
-      {!verified&&<small>Candidate association only; provider identity has NOT been independently verified. Kept out of accuracy statistics.</small>}
+      {!verified&&<small>Displayed by default. Original source identity is provisional, so the forecast is not included in independently verified accuracy results.</small>}
       {candidate.clockEvidence==="CALIBRATED_FROM_SPORTYTRADER_LINKED_EVENTS_NOT_SOURCE_VERIFIED"&&
-        <small data-testid="sportytrader-time-calibrated">
-          SportyTrader displayed a date and clock time. The timezone was calibrated from
-          { " "+candidate.clockCalibrationSamples+" independently timestamped SportyTrader matches"}
+        <small data-testid="sportytrader-time-calibrated">SportyTrader clock calibrated from
+          {" "+candidate.clockCalibrationSamples+" linked matches"}
           (agreement {Math.round(candidate.clockCalibrationAgreement*100)}%).
-          Matching also requires the correct league, home/away orientation and unique Flashscore kickoff.
-          This is a review candidate, not a source-verified kickoff.
+          Source timezone is not independently verified.
         </small>}
       {candidate.sourceUrl&&<small><a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer">Original adviser source</a></small>}
-      <div className="ft-adviser-review-actions" data-testid={"adviser-review-"+provider.toLowerCase()}>
-        <button type="button" onClick={toggleConfirmed} data-testid={"adviser-verify-"+provider.toLowerCase()} aria-pressed={confirmed}>
-          {confirmed?"Undo my pairing verification":"Verify this pairing"}
-        </button>
-        <button type="button" onClick={toggle} data-testid={"adviser-reject-"+provider.toLowerCase()} aria-pressed={rejected}>
-          {rejected?"Undo local rejection":"Reject this pairing locally"}
-        </button>
-        <button type="button" onClick={copy} data-testid={"adviser-copy-report-"+provider.toLowerCase()}>Copy correction report</button>
-        {provider==="FOREBET"&&<button type="button" data-testid="adviser-copy-verification-forebet"
-          onClick={async()=>{if(!positiveReport)return;
-            try{await navigator.clipboard.writeText(positiveReport);
-              setCopyStatus("Verification receipt copied. Paste it into your project chat for independent review.");}
-            catch{setCopyStatus("Clipboard unavailable. Select the verification receipt below.");}
-          }}>Copy verification report</button>}
-      </div>
-      {confirmed&&<small role="status" data-testid={"adviser-locally-confirmed-"+provider.toLowerCase()}>You confirmed this provider-to-Flashscore pairing on this browser. This is one human review, not independently verified source identity, a calibrated confidence score or an accuracy result. Not shared with other browsers.</small>}
-      {rejected&&<small role="status">Hidden locally on this browser. Not blocked for other users until added to the private exclusion list.</small>}
-      {copyStatus&&<small role="status">{copyStatus}</small>}
-      <details><summary>Correction report (manual copy fallback)</summary>
-        <pre className="ft-review-report">{report}</pre>
-      </details>
-      {provider==="FOREBET"&&<details><summary>Verification receipt (manual copy fallback)</summary>
-        <pre className="ft-review-report">{positiveReport}</pre>
-      </details>}
     </>}
+    {candidate&&<small>Incorrect fixture? Report the match and provider URL directly in your project chat.</small>}
   </div>;
 }
-
 export default function FlashscoreRawMatch() {
   const searchParams=useSearchParams();
   const id=searchParams.get("id")||"";
@@ -259,7 +199,6 @@ export default function FlashscoreRawMatch() {
   const [selectedPlayer,setSelectedPlayer]=useState(null);
   const [tentative,setTentative]=useState([]);
   const [forebetReview,setForebetReview]=useState({status:"loading",candidate:null});
-  const [forebetRejected,setForebetRejected]=useState(false);
   const [experimental,setExperimental]=useState({status:"idle",model:null});
   const closePlayerProfile=useCallback(()=>setSelectedPlayer(null),[]);
   useEffect(()=>{setExperimental({status:"idle",model:null});},[id]);
@@ -343,16 +282,12 @@ export default function FlashscoreRawMatch() {
 
   useEffect(()=>{
     setForebetReview({status:"loading",candidate:null});
-    setForebetRejected(false);
     if(!/^FS:[A-Za-z0-9_-]{5,32}$/.test(id))return;
     let cancelled=false;
     const controller=new AbortController();
     fetchForebetPairReview(id,controller.signal).then(candidate=>{
       if(cancelled)return;
       setForebetReview({status:"ready",candidate});
-      const key=adviserPairId(id,candidate);
-      try{setForebetRejected(Boolean(key&&readRejectedPairs(window.localStorage).has(key)));}
-      catch{setForebetRejected(false);}
     }).catch(()=>{if(!cancelled)setForebetReview({status:"unavailable",candidate:null});});
     return ()=>{cancelled=true;controller.abort();};
   },[id]);
@@ -369,7 +304,7 @@ export default function FlashscoreRawMatch() {
   const forebet=analysis?.models?.forebet||null;
   const model=verifiedInternalForecast(analysis?.models?.internal,fixture);
   const forebetRecent=recentPrediction(forebet,fixture);
-  const forebetVisible=Boolean(forebet&&!forebetRejected);
+  const forebetVisible=Boolean(forebet);
   const lineups=Array.isArray(analysis?.humanFactors?.lineup)?analysis.humanFactors.lineup:[];
   const lineupProvenance=analysis?.humanFactors?.lineupProvenance;
   const managers=Array.isArray(analysis?.humanFactors?.managers)?analysis.humanFactors.managers:[];
@@ -437,12 +372,10 @@ export default function FlashscoreRawMatch() {
       <h2>Match predictions and adviser statistics</h2>
       <p className="ft-odds-note">Original provider home/away names are shown beside Flashscore to make checking easy. Provisional candidates are not independently verified.</p>
       <div className="ft-advisor-card-grid" data-testid="advisor-source-status">
-        <AdviserReviewCard provider="FOREBET" fixtureId={id}
+        <AdviserReviewCard provider="FOREBET"
           candidate={forebetReview.candidate} home={home} away={away}
-          kickoff={fixture?.kickoff_hkt||null}
           forecastAvailable={Boolean(forebet)}
-          reviewUnavailable={forebetReview.status==="unavailable"}
-          onLocalReviewChange={setForebetRejected}/>
+          reviewUnavailable={forebetReview.status==="unavailable"}/>
         <div className="ft-advisor-card" data-testid="advisor-dc">
           <strong>◈ Dixon–Coles</strong>
           <span className={"ft-advisor-state"+(model?" ft-advisor-state-ready":"")}>{model?"Verified model":"No current qualified model"}</span>
@@ -453,7 +386,7 @@ export default function FlashscoreRawMatch() {
           <small>Old predictions excluded until rebuilt from approved match results</small>
         </div>
         {["BETCLAN","SPORTYTRADER","PRIMATIPS","STATAREA"].map(provider=>
-          <AdviserReviewCard key={provider} provider={provider} fixtureId={id}
+          <AdviserReviewCard key={provider} provider={provider}
             candidate={external.find(a=>a.provider===provider)||unmatchedTentative.find(a=>a.provider===provider)||null}
             home={home} away={away} kickoff={fixture?.kickoff_hkt||null}/>
         )}
