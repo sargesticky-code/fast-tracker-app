@@ -1,0 +1,26 @@
+name: Phase 37 Lean Flashscore Lineup Evidence
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/functions/phase15-flashscore-scout/index.ts'
+      - 'scripts/check-phase37-flashscore-lineup-raw.mjs'
+      - '.github/workflows/phase37-lineup-lean-raw.yml'
+  push:
+    paths:
+      - 'supabase/functions/phase15-flashscore-scout/index.ts'
+      - 'scripts/check-phase37-flashscore-lineup-raw.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase37-flashscore-lineup-raw.mjs
+      - run: node scripts/check-fotmob-refresh.mjs
+      - run: npm run build
