@@ -1,0 +1,17 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const s=readFileSync(new URL("../supabase/functions/lineup-cold-archive/index.ts",import.meta.url),"utf8");
+assert.match(s,/COLD_DAYS=14/);
+assert.match(s,/MAX_ROWS=200/);
+assert.match(s,/MAX_FILE_BYTES=3_500_000/);
+assert.match(s,/ft_internal_cron_key_matches/);
+assert.match(s,/phase2_match_lineup_evidence/);
+assert.match(s,/flashscore_primary_fixture_current/);
+assert.match(s,/\bSHA-256\b/);
+assert.match(s,/st\.upload\(/);
+assert.match(s,/st\.download\(/);
+assert.match(s,/ARCHIVE_SHA256_MISMATCH/);
+assert.match(s,/BACKUP_ONLY_NO_DELETE/);
+assert.match(s,/deletionPerformed:false/);
+assert.doesNotMatch(s,/\.delete\(|\.insert\(|\.upsert\(|\.update\(|cron\.schedule|verify_jwt:false|hkjc-/i);
+console.log("PHASE26B_STORAGE_SHA256_READBACK_NO_DELETE_CONTRACT_PASSED");
