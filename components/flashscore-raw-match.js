@@ -234,7 +234,30 @@ export default function FlashscoreRawMatch() {
   const [state,setState]=useState({status:"loading",match:null,analysis:null});
   const [selectedPlayer,setSelectedPlayer]=useState(null);
   const [tentative,setTentative]=useState([]);
+  const [experimental,setExperimental]=useState({status:"idle",model:null});
   const closePlayerProfile=useCallback(()=>setSelectedPlayer(null),[]);
+  useEffect(()=>{setExperimental({status:"idle",model:null});},[id]);
+  const requestExperimental=async()=>{
+    if(!/^FS:[A-Za-z0-9_-]{5,32}$/.test(id))return;
+    setExperimental({status:"loading",model:null});
+    try{
+      const qs=new URLSearchParams({view:"experimental",id});
+      const r=await fetch(
+        "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-phase1-feed?"+qs,
+        {signal:AbortSignal.timeout(12000),cache:"no-store"});
+      const body=await r.json(),model=body?.model;
+      const triplet=x=>x&&["home","draw","away"].every(k=>
+        typeof x[k]==="number"&&Number.isFinite(x[k])&&x[k]>=0&&x[k]<=1)
+        &&Math.abs(x.home+x.draw+x.away-1)<0.02;
+      if(r.ok&&body.status==="EXPERIMENTAL_NOT_VALIDATED"&&
+        body.fixtureId===id&&model?.canonicalEventId===id&&
+        model?.releaseGate==="NOT_PROMOTED_NO_VERIFIED_ACCURACY"&&
+        model?.evaluationMode==="PROSPECTIVE_UNVERIFIED"&&
+        triplet(model.dc)&&triplet(model.pi))
+        setExperimental({status:"ready",model});
+      else setExperimental({status:body?.status||"NOT_QUALIFIED",model:null});
+    }catch{setExperimental({status:"SOURCE_UNAVAILABLE",model:null});}
+  };
 
   useEffect(()=>{
     setSelectedPlayer(null);
@@ -330,6 +353,41 @@ export default function FlashscoreRawMatch() {
     {state.checkedAt&&<small role="status">Checked {new Date(state.checkedAt).toLocaleTimeString("en-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",second:"2-digit"})} HKT · refreshes every minute while this page is open</small>}
 
     <OddsPanel match={match} fixture={fixture}/>
+    <section className="ft-enriched-panel" data-testid="experimental-model-panel">
+      <h2>Experimental Dixon–Coles &amp; Power Index</h2>
+      <p>Optional prediction built from historical Football-Data results. Neither verified nor calibrated,
+        and never counted in betting-adviser accuracy. No HKJC or bookmaker probabilities used.</p>
+      <button type="button" onClick={requestExperimental}
+        disabled={experimental.status==="loading"} data-testid="experimental-model-load">
+        {experimental.status==="loading"?"Calculating from stored results…":"Show experimental model"}
+      </button>
+      {experimental.status!=="idle"&&experimental.status!=="loading"&&experimental.status!=="ready"&&
+        <p role="status">Not available for this fixture: {experimental.status}.
+          Both exact clubs, a supported league and sufficient prior results are required.</p>}
+      {experimental.status==="ready"&&experimental.model&&<div data-testid="experimental-model-result">
+        <p><strong>Experimental probabilities — not a validated prediction or betting recommendation.</strong></p>
+        <div className="ft-stats-grid">
+          <div><b>Dixon–Coles · Home / Draw / Away</b><small>
+            {["home","draw","away"].map(k=>(experimental.model.dc[k]*100).toFixed(1)+"%").join(" / ")}</small></div>
+          <div><b>DC expected goals</b><small>
+            {knownNumber(experimental.model.dc.expectedHomeGoals,2)} / {knownNumber(experimental.model.dc.expectedAwayGoals,2)}
+            {" · Score "+experimental.model.dc.mostLikelyScore}</small></div>
+          <div><b>Goals Over probabilities</b><small>
+            {["25","35","45"].map(k=>k[0]+"."+k[1]+": "+
+              (experimental.model.dc["over"+k]*100).toFixed(1)+"%").join(" · ")}</small></div>
+          <div><b>Power Index · Home / Draw / Away</b><small>
+            {["home","draw","away"].map(k=>(experimental.model.pi[k]*100).toFixed(1)+"%").join(" / ")}</small></div>
+          <div><b>Power ratings</b><small>
+            {knownNumber(experimental.model.pi.homeRating,1)} / {knownNumber(experimental.model.pi.awayRating,1)}</small></div>
+          <div><b>Training evidence</b><small>
+            {experimental.model.trainingCount} results · {experimental.model.league}
+            {" · "+experimental.model.sourceHome+" vs "+experimental.model.sourceAway}</small></div>
+        </div>
+        <small>DC and Power Index use the same source results, so they are correlated,
+          not independent advisers. Source club matching requires two exact oriented names.
+          No separately verified country label, prospective accuracy or automatic picks.</small>
+      </div>}
+    </section>
 
     {!analysis && <p role="status">More match details are not available yet.</p>}
     {(analysis || unmatchedTentative.length>0) && <section className="ft-enriched-panel" data-testid="verified-match-analysis">
