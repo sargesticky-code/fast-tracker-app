@@ -1,0 +1,22 @@
+name: Phase 42 Archived Snapshot Physical Repack
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase42-repack-archived-source-days.sql'
+      - 'scripts/check-phase42-source-day-repack.mjs'
+      - '.github/workflows/phase42-source-day-repack.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase42-repack-archived-source-days.sql'
+      - 'scripts/check-phase42-source-day-repack.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase42-source-day-repack.mjs
