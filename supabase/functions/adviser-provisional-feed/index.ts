@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-// Read-only, bounded, public-facing display of unverified 0.4 source matches.
+// Read-only, bounded, public-facing display of unverified 0.25 provisional review matches.
 // The data is already public football forecast information; private service
 // credentials and the private candidate/alias tables remain inaccessible.
 const cors = {
@@ -33,7 +33,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       return Response.json({ error: "SOURCE_UNAVAILABLE" }, { status: 503, headers: cors });
     }
     const data = await resp.json();
-    if (!["ADVISER_PROVISIONAL_FLASHscore_0_4","ADVISER_PROVISIONAL_FLASHscore_0_3"].includes(data?.source) ||
+    if (!["ADVISER_PROVISIONAL_FLASHscore_0_4","ADVISER_PROVISIONAL_FLASHscore_0_3","ADVISER_PROVISIONAL_FLASHscore_0_25"].includes(data?.source) ||
         data?.quality !== "PROVISIONAL_NOT_VERIFIED" ||
         !Array.isArray(data?.rows) || data.rows.length > 180) {
       return Response.json({ error: "INVALID_PROVISIONAL_CONTRACT" }, { status: 503, headers: cors });
