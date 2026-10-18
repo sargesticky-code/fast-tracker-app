@@ -1,0 +1,22 @@
+name: Phase 44 Obsolete Live Current Space Recovery
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase44-reclaim-obsolete-live-current.sql'
+      - 'scripts/check-phase44-live-reclaim.mjs'
+      - '.github/workflows/phase44-live-reclaim.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase44-reclaim-obsolete-live-current.sql'
+      - 'scripts/check-phase44-live-reclaim.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase44-live-reclaim.mjs
