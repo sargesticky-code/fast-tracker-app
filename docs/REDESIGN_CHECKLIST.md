@@ -39,3 +39,13 @@
 - [ ] Physical removal of four remote retired Edge Functions (CLI login required)
 
 - [x] External adviser probabilities retain up to two source percentage decimals on fixture/detail cards; integer percentages stay compact.
+
+
+## 2026-10-18 — Forebet human pairing-review controls (Phase 27A)
+- [x] Source-only GET endpoint with exact Flashscore event + original Forebet home/away and immutable source URL; distinguishes VERIFIED existing source record from PROVISIONAL evidence.
+- [x] Reuse controlled adviser Verify / Undo, Reject locally / Undo, Copy correction report, plus Copy verification report for owner follow-up.
+- [x] Review keyed per source URL + exact fixture; a local rejection suppresses Forebet summary and never changes source/model probabilities or production data.
+- [x] CI contract and Next build (Phase 27A and 6 companion workflows green on PR #164).
+- [ ] Actual authenticated reviewer ledger and UI: separate future secure project-wide job, no unauthenticated writes.
+- [ ] Post-deploy live endpoint read and Forebet verified/provisional desktop/mobile rendered screenshots; mocked CI alone is insufficient.
+- [ ] Fix missing Forebet genuine-source coverage / collection separately from owner review confirmations.
