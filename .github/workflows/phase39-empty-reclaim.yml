@@ -1,0 +1,22 @@
+name: Phase 39 Empty Prediction Snapshot Reclaim
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase39-reclaim-empty-prematch-table.sql'
+      - 'scripts/check-phase39-reclaim-empty.mjs'
+      - '.github/workflows/phase39-empty-reclaim.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase39-reclaim-empty-prematch-table.sql'
+      - 'scripts/check-phase39-reclaim-empty.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase39-reclaim-empty.mjs
