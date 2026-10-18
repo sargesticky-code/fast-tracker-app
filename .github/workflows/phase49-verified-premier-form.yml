@@ -1,0 +1,25 @@
+name: Phase 49 Verified English Premier League Form
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018133000_phase49_strict_english_premier_league_form.sql'
+      - 'scripts/check-phase49-english-premier-form.mjs'
+      - '.github/workflows/phase49-verified-premier-form.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018133000_phase49_strict_english_premier_league_form.sql'
+      - 'scripts/check-phase49-english-premier-form.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase49-english-premier-form.mjs
+      - run: npm run build
