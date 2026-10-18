@@ -173,6 +173,25 @@ Deno.serve(async function(req){
     }
 
     const status=coreFilesFailed===0&&coreFilesOk===defs.length?"PASS":(coreFilesOk>0?"WARN":"FAIL"), done=new Date().toISOString();
+
+    // Long-term source alias inventory: reuse ONLY already-stored Football-Data
+    // results. Never re-fetch providers or auto-verify different club names.
+    // Skip unchanged CSV days, partial ingests, and explicit history backfills.
+    let aliasInventory={status:"SKIPPED_SOURCE_UNCHANGED_OR_PARTIAL"};
+    if(!historical && status==="PASS" && rowsUpserted>0){
+      const synced=await db.rpc("ft_sync_fd_super_alias_inventory");
+      aliasInventory=synced.error
+        ?{status:"FAIL",reason:"SAFE_SOURCE_INVENTORY_RPC_FAILED"}
+        :synced.data;
+      await db.from("source_health").upsert({
+        source:"FOOTBALL_DATA",metric:"alias_inventory",
+        value_text:JSON.stringify(aliasInventory),status:synced.error?"FAIL":"OK",
+        notes:synced.error
+          ?"Football-Data CSV ingest was successful but source alias inventory requires repair."
+          :"Stored Football-Data team names indexed without assuming Flashscore equivalence.",
+        observed_at:done,raw:{...aliasInventory,sourceRequests:0}
+      },{onConflict:"source,metric"});
+    }
     await db.from("football_data_sync_runs").update({
       completed_at:done,status:status,source_count:defs.length,files_ok:filesOk,files_failed:filesFailed,
       rows_seen:rowsSeen,rows_upserted:rowsUpserted,details:{season:season,fixture48h:fixture48h,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,optionalFilesFailed:optionalFilesFailed,errors:errors,summaries:summaries}
@@ -195,7 +214,7 @@ Deno.serve(async function(req){
       mode:historical?"HISTORY_BACKFILL":"DAILY",season:season,filesOk:filesOk,
       filesFailed:filesFailed,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,
       optionalFilesFailed:optionalFilesFailed,rowsSeen:rowsSeen,
-      rowsUpserted:rowsUpserted,fixture48h:fixture48h,errors:errors});
+      rowsUpserted:rowsUpserted,fixture48h:fixture48h,errors:errors,aliasInventory:aliasInventory});
   }catch(e){
     const message=e instanceof Error?e.message:String(e);
     await db.from("source_health").upsert({source:"FOOTBALL_DATA_EDGE",metric:"heartbeat",value_text:message,status:"FAIL",

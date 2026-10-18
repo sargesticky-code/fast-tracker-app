@@ -1,0 +1,28 @@
+name: Phase 50 Football-Data Source Alias Inventory
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018140000_phase50_football_data_super_alias_inventory.sql'
+      - 'supabase/functions/football-data-direct/index.ts'
+      - 'scripts/check-phase50-fd-super-alias.mjs'
+      - '.github/workflows/phase50-fd-alias-inventory.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018140000_phase50_football_data_super_alias_inventory.sql'
+      - 'supabase/functions/football-data-direct/index.ts'
+      - 'scripts/check-phase50-fd-super-alias.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase50-fd-super-alias.mjs
+      - run: node scripts/check-phase16-football-data-daily.mjs
+      - run: npm run build
