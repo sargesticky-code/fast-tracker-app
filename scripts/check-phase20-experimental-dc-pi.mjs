@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import {predictFootballDataDcPi,dcScoreGrid,dcTau,DC_VERSION}
+import {predictFootballDataDcPi,predictFlashscoreFixtureExperimental,
+  resolveFootballDataFixture,dcScoreGrid,dcTau,DC_VERSION}
   from "../lib/fast-tracker-dixon-coles-experimental.mjs";
 const day=86400000,cutoff="2026-10-18T04:00:00Z",
   kickoff="2026-10-18T13:00:00Z";
@@ -59,4 +60,23 @@ const afterKickoff=[...history,{...history[0],playedAt:"2026-10-18T19:00:00Z",
 const rerun=predictFootballDataDcPi({history:afterKickoff,league:"E0",
  homeId:teams[0],awayId:teams[5],asOf:cutoff,kickoff});
 assert.deepEqual(rerun,p,"later results must not change a frozen as-of forecast");
+// A generic league title is never enough to identify the correct country.
+const correct={match_id:"FS:ZTESTx77",league:"Premier League",
+  home_en:"Club_0",away_en:"Club_5",kickoff_hkt:kickoff};
+const pair=resolveFootballDataFixture(correct,history);
+assert.equal(pair?.leagueCode,"E0");
+assert.equal(pair.sourceHome,teams[0]);
+assert.equal(pair.sourceAway,teams[5]);
+assert.equal(pair.countryIndependentlyVerified,false);
+assert.equal(predictFlashscoreFixtureExperimental({fixture:correct,history,asOf:cutoff}).status,
+ "EXPERIMENTAL_NOT_VALIDATED");
+assert.equal(resolveFootballDataFixture({...correct,home_en:"Salzburg",
+ away_en:"Altach",league:"Bundesliga"},history),null);
+assert.equal(resolveFootballDataFixture({...correct,home_en:"Zenit",
+ away_en:"Akhmat Grozny"},history),null);
+assert.equal(resolveFootballDataFixture({...correct,league:"La Liga"},history),null);
+assert.equal(resolveFootballDataFixture({...correct,match_id:"not_FS"},history),null);
+assert.equal(resolveFootballDataFixture({...correct,away_en:"Club_0"},history),null);
+const ambiguous=[...history,{...history[1],homeId:"CLUB-0"}];
+assert.equal(resolveFootballDataFixture(correct,ambiguous),null);
 console.log("PHASE20_INDEPENDENT_DC_PI_SOURCE_AND_LEAKAGE_GATES_PASSED");
