@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const page=readFileSync(new URL("../components/homepage-client.js",import.meta.url),"utf8");
+const api=readFileSync(new URL("../supabase/functions/app-phase1-feed/index.ts",import.meta.url),"utf8");
+assert.match(page,/No current verified model forecast/);
+assert.doesNotMatch(page,/Legacy inactive/);
+assert.match(page,/historical completed results from Football-Data\.co\.uk/);
+assert.match(page,/Missing or stale model forecasts are never shown as zero/);
+assert.match(page,/data-testid="historical-form-disclosure"/);
+assert.match(api,/historicalForm:/);
+assert.match(api,/dc: null/);
+assert.match(api,/form: null/);
+console.log("FORM_LEGACY_LABEL_EXPLANATION_PASSED");
