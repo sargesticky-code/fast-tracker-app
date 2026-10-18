@@ -58,9 +58,12 @@ assert.equal(compare("Bayern München","Borussia Dortmund","Bayern Munchen","Bor
 assert.equal(combined.get(baseline.id)[0].sourceHome,"Fulham");
 assert.equal(combined.get(baseline.id)[0].sourceAway,"Hull City");
 const detailsSource=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
-assert.match(detailsSource,/SourceTeamComparison/);
-assert.match(detailsSource,/flashscoreHome=/);
-assert.match(detailsSource,/flashscoreAway=/);
+assert.doesNotMatch(detailsSource,/<SourceTeamComparison/);
+assert.match(detailsSource,/Daily alias table/);
+const daily=readFileSync(new URL("../components/daily-alias-matrix.js",import.meta.url),"utf8");
+assert.match(daily,/FOREBET/);
+assert.match(daily,/PRIMATIPS/);
+assert.match(daily,/STATAREA/);
 const homepageSource=readFileSync(new URL("../components/homepage-client.js",import.meta.url),"utf8");
 assert.match(homepageSource,/adviser-details-link/);
 assert.doesNotMatch(homepageSource,/SourceTeamComparison/);

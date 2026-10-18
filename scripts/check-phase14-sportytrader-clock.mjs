@@ -60,6 +60,6 @@ assert.ok(!sql.includes("INSERT INTO public.adviser_prediction_current"));
 assert.ok(!sql.includes("cron.schedule"));
 const ui=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
 assert.ok(ui.includes('data-testid="sportytrader-time-calibrated"'));
-assert.ok(ui.includes("Incorrect fixture? Report the match and provider URL directly in your project chat"));
+assert.ok(ui.includes("Daily alias table"));
 assert.ok(!ui.includes("Reject this pairing locally"));
 console.log("PHASE14_CALIBRATED_SPORTYTRADER_REVIEW_AND_TIP_ONLY_PASSED");

@@ -49,7 +49,11 @@ assert.match(comp,/BETCLAN:"BetClan"/);
 assert.match(comp,/SPORTYTRADER:"SportyTrader"/);
 assert.match(comp,/verified-provider-fixture-identity/);
 assert.match(home,/adviser-details-link/);
-assert.match(details,/SourceTeamComparison/);
-assert.match(details,/<SourceTeamComparison candidate=/,
- "existing PrimaTips/Statarea comparisons retained in match Details");
+assert.doesNotMatch(details,/<SourceTeamComparison candidate=/,
+ "comparison moved from detail into daily matrix");
+const aliasPage=readFileSync(new URL("../components/daily-alias-matrix.js",import.meta.url),"utf8");
+for(const provider of ["FOREBET","PRIMATIPS","STATAREA","BETCLAN","SPORTYTRADER"]){
+ assert.ok(aliasPage.includes(provider));
+}
+assert.match(details,/Daily alias table/);
 console.log("ALL_FOUR_ADVISERS_SOURCE_HA_COMPARISON_PASSED");

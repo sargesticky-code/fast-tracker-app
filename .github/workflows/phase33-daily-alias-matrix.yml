@@ -1,0 +1,36 @@
+name: Phase 33 Daily Alias Matrix
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018080000_phase33_daily_alias_audit.sql'
+      - 'supabase/functions/daily-alias-matrix/index.ts'
+      - 'app/aliases/page.js'
+      - 'components/daily-alias-matrix.js'
+      - 'components/flashscore-raw-match.js'
+      - 'components/homepage-client.js'
+      - 'scripts/check-phase33-daily-alias-matrix.mjs'
+      - '.github/workflows/phase33-daily-alias-matrix.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018080000_phase33_daily_alias_audit.sql'
+      - 'supabase/functions/daily-alias-matrix/index.ts'
+      - 'components/daily-alias-matrix.js'
+      - 'scripts/check-phase33-daily-alias-matrix.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase33-daily-alias-matrix.mjs
+      - run: node scripts/check-all-adviser-source-team-visibility.mjs
+      - run: node scripts/check-phase12-025-details-logos.mjs
+      - run: node scripts/check-phase13-adviser-review.mjs
+      - run: node scripts/check-phase14-sportytrader-clock.mjs
+      - run: npm run build

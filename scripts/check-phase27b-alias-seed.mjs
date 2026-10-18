@@ -11,7 +11,8 @@ assert.match(d,/ON CONFLICT\(source,alias_key,competition_key,provider_team_id\)
 assert.match(d,/p\.fetched_at <= f\.kickoff_hkt/);
 assert.doesNotMatch(d,/^(?!\s*--).*\b(DELETE|TRUNCATE|DROP|ALTER|UPDATE)\s+/im);
 const u=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
-assert.match(u,/Incorrect fixture\? Report the match and provider URL directly in your project chat/);
-assert.match(u,/Displayed by default/);
+assert.match(u,/Daily alias table/);
+assert.match(u,/Provisional forecast/);
+assert.doesNotMatch(u,/<SourceTeamComparison/);
 assert.doesNotMatch(u,/adviser-(?:verify|reject|copy-report)-/);
 console.log("PHASE27B_FOREBET_DEFAULT_DISPLAY_AND_STRICT_ALIAS_IMPORT_PASSED");

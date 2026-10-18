@@ -328,3 +328,35 @@
 .ft-odds-mini .ft-price-arrow-up{color:#075f3d;background:#d8f4e4}
 .ft-odds-mini .ft-price-arrow-down{color:#a03612;background:#ffead9}
 @media(max-width:520px){.ft-odds-mini .ft-price-arrow{min-width:17px;margin-left:3px;font-size:16px}}
+
+
+/* Phase 33: compact daily source-name audit replaces repeated per-detail blocks */
+.ft-top-nav{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ft-alias-page{padding:24px 18px 45px;max-width:100%;color:#17324d}
+.ft-alias-header{max-width:1200px;margin:0 auto 18px}
+.ft-alias-header h1{font-size:clamp(22px,3vw,33px);margin:12px 0 8px}
+.ft-alias-header p{line-height:1.55;margin:5px 0}
+.ft-alias-header small{color:#516c84}
+.ft-alias-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:16px 0}
+.ft-alias-toolbar label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:750;color:#385775}
+.ft-alias-toolbar input,.ft-alias-toolbar select,.ft-alias-toolbar button{padding:10px 12px;min-height:42px;border:1px solid #b9c9d8;border-radius:7px;background:white;color:#17324d;max-width:100%}
+.ft-alias-toolbar button{font-weight:750;background:#153f63;color:white;cursor:pointer}
+.ft-alias-summary{font-weight:750}
+.ft-alias-table-wrap{max-width:100%;overflow:auto;border:1px solid #c6d3de;border-radius:10px;background:white;box-shadow:0 3px 14px rgba(13,47,79,.07)}
+.ft-alias-table{width:100%;border-collapse:collapse;min-width:1030px;font-size:12px}
+.ft-alias-table th{background:#17395b;color:white;position:sticky;top:0;z-index:1;text-align:left;white-space:nowrap;padding:12px}
+.ft-alias-table td{border-bottom:1px solid #e1e8f0;padding:10px;vertical-align:top;line-height:1.5}
+.ft-alias-table tbody tr:nth-child(even){background:#f6f9fc}
+.ft-alias-table tbody tr:hover{background:#eaf3fa}
+.ft-alias-table td:nth-child(2){min-width:110px;max-width:170px;font-weight:650}
+.ft-alias-table td:nth-child(3){min-width:185px;max-width:250px}
+.ft-alias-table td:nth-child(n+4){min-width:155px;max-width:240px}
+.ft-alias-table td small{display:block;color:#5b728a;font-size:10px;margin-top:3px}
+.ft-alias-source{margin-bottom:8px;overflow-wrap:anywhere}
+.ft-alias-source a{color:#145080;text-decoration:underline;text-underline-offset:2px}
+.ft-alias-missing{color:#a6b1bc}
+.ft-alias-divider{font-weight:400;color:#58738d}
+.ft-alias-page footer{max-width:1200px;margin:16px auto;color:#516c84}
+@media(max-width:650px){.ft-alias-page{padding:16px 8px}.ft-alias-header{padding:0 8px}
+.ft-alias-toolbar{gap:8px}.ft-alias-toolbar label{flex:1 1 145px}
+.ft-alias-toolbar button{width:100%}.ft-alias-table{font-size:12px}}
