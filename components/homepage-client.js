@@ -637,7 +637,16 @@ export default function HomepageClient() {
               </div>
               <div className="ft-odds-cell">
                 {odds?<><div className={"ft-odds-mini"+(m.quote?.type==="previous"?" ft-odds-previous":"")} aria-label={(m.quote?.type==="recent"?"Recent":"Earlier")+" H/D/A odds"}>
-                  {["H","D","A"].map((type,i)=><span key={type}><small>{type}</small><b>{odds[i]}</b></span>)}
+                  {["H","D","A"].map((type,i)=><span key={type}><small>{type}</small><b>{odds[i]}
+                    {m.quote?.type==="recent" && m.evidence?.oddsMovement?.side===type &&
+                      !String(m.quote?.source||"").includes("China") &&
+                      Math.abs(m.quote.prices[i]-m.evidence.oddsMovement.current)<0.02 &&
+                      <span className={"ft-price-arrow "+(m.evidence.oddsMovement.direction==="up"?"ft-price-arrow-up":"ft-price-arrow-down")}
+                        role="img" aria-label={type+" decimal odds "+(m.evidence.oddsMovement.direction==="up"?"increased":"decreased")+" versus about one hour ago"}
+                        title={"Observed "+type+" decimal odds "+m.evidence.oddsMovement.prior.toFixed(2)+" → "+m.evidence.oddsMovement.current.toFixed(2)+" (~1h)"}>
+                        {m.evidence.oddsMovement.direction==="up"?"↑":"↓"}
+                      </span>}
+                  </b></span>)}
                 </div><small data-testid="match-odds-status">{m.quote?.type==="recent"?"Recent prematch reference":"Earlier · stale reference"} · {m.quote?.source} · {quoteTimeUK.format(m.quote.capturedAt)} UK</small>
                   {m.quote?.type==="recent" && m.evidence?.oddsMovement &&
                     !String(m.quote?.source||"").includes("China") &&
@@ -645,8 +654,8 @@ export default function HomepageClient() {
                       m.evidence.oddsMovement.current)<0.02 &&
                     <small className="ft-odds-movement" data-testid="odds-movement"
                       title="Observed change in decimal bookmaker odds versus a price about one hour earlier. An odds rise/fall is not a model prediction.">
-                      {m.evidence.oddsMovement.side} odds {m.evidence.oddsMovement.direction==="up"?"↑":"↓"}
-                      {Math.abs(m.evidence.oddsMovement.change).toFixed(2)} vs ~1h
+                      {m.evidence.oddsMovement.side} price {m.evidence.oddsMovement.direction==="up"?"↑":"↓"}
+                      {Math.abs(m.evidence.oddsMovement.change).toFixed(2)} vs ~1h · decimal odds, not team strength
                     </small>}
                 </>:
                 <span className="ft-odds-unavailable" data-testid="match-odds-status">— <small>{oddsUnavailableText(m)}</small></span>}
