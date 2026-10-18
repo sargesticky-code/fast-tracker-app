@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const migration=readFileSync(new URL("../supabase/migrations/20261018140000_phase50_football_data_super_alias_inventory.sql",import.meta.url),"utf8");
+const migration=readFileSync(new URL("../supabase/migrations/20261018121154_phase50_football_data_super_alias_inventory.sql",import.meta.url),"utf8");
 const ingest=readFileSync(new URL("../supabase/functions/football-data-direct/index.ts",import.meta.url),"utf8");
 for(const must of ["public.ft_sync_fd_super_alias_inventory()","ft_fd_super_roster_import",
  "football_data_matches","league_code ~ '^[A-Z0-9]{1,4}$'",
