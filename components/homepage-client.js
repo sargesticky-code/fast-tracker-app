@@ -536,11 +536,12 @@ export default function HomepageClient() {
           <span data-testid="advisor-forebet-provisional-summary"><i aria-hidden="true">✓</i> One-team accepted · {provisionalStatus==="ready"?counts.forebetOneSide:"—"} (opponent unverified) · {verifiedStatus==="ready"?counts.forebetStrict:"—"} two-team verified · {provisionalStatus==="ready"?counts.forebetFuzzy:"—"} fuzzy tentative</span>
           <span data-testid="advisor-dc-summary"><i aria-hidden="true">◈</i> Dixon–Coles · {verifiedStatus==="ready"?counts.dc:"—"} verified forecasts</span>
           <span data-testid="advisor-pi-summary"><i aria-hidden="true">◇</i> Power Index · {verifiedStatus==="ready"?counts.pi:"—"} (same model source)</span>
-          <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"Legacy inactive"}</span>
+          <span data-testid="advisor-form-summary"><i aria-hidden="true">○</i> Form forecasts · {verifiedStatus==="ready"&&counts.form>0?counts.form+" verified forecasts":"No current verified model forecast"}</span>
           <span data-testid="advisor-betclan-summary"><i aria-hidden="true">○</i> BetClan · {verifiedStatus==="ready"?counts.betclan+" verified":"Unavailable"} · {externalProvisionalStatus.legacy?counts.betclanProvisional+" provisional":"provisional unavailable"}</span>
           <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified":"Unavailable"} · {externalProvisionalStatus.legacy?counts.sportyProvisional+" provisional":"provisional unavailable"}</span>
           <span data-testid="advisor-primatips-summary"><i aria-hidden="true">○</i> PrimaTips · {externalProvisionalStatus.extra?counts.primatipsProvisional+" provisional":"Unavailable"}</span>
           <span data-testid="advisor-statarea-summary"><i aria-hidden="true">○</i> Statarea · {externalProvisionalStatus.extra?counts.statareaProvisional+" provisional":"Unavailable"}</span>
+          <small data-testid="historic-form-explained">Recent team form on match rows uses historical completed results from Football-Data.co.uk; it is not a Form-model prediction. Flashscore remains the source for live fixtures and scores. Missing or stale model forecasts are never shown as zero.</small>
           <small>Provisional source forecasts require ≥0.25 name similarity for BOTH oriented teams plus independent league/time corroboration, unique source identity and automatic rechecks. NOT VERIFIED; no automatic picks. Prices are bookmaker quotes, not independent predictions.</small>
         </div>
         <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
