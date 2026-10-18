@@ -62,7 +62,7 @@ const guaranteed={
  "leeds":"leeds united","nottm forest":"nottingham forest","ac milan":"milan","como":"como 1907"
 };
 for(const [source,target] of Object.entries(guaranteed))assert.equal(registry.aliases[source],target);
-const sql=readFileSync(new URL("../supabase/migrations/20261018013500_ft_adviser_provisional_025_review_only.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018013217_ft_20261018_provisional_adviser_review_025.sql",import.meta.url),"utf8");
 assert.ok(sql.includes("home_similarity BETWEEN 0.25 AND 1"));
 assert.ok(sql.includes("ADVISER_PROVISIONAL_FLASHscore_0_25"));
 assert.ok(sql.includes("EXTRA_ADVISER_PROVISIONAL_025"));
