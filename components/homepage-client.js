@@ -7,6 +7,7 @@ import { GOAL_LINES, CORNER_LINES, exactLineForecast } from "@/lib/line-aware-fo
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import { ADVISER_KEYS, matchAdviserFacet } from "@/lib/adviser-visibility";
 import { TeamNameWithLogo } from "@/components/team-logo";
+import { competitionForMatch } from "@/lib/competition-identity";
 
 // Source competition names can contain "COUNTRY: Live Standings". Keep the
 // identity untouched for searches/joins while displaying a clean league label.
@@ -135,14 +136,15 @@ function ukDay(ms) {
   return [parts.year,parts.month,parts.day].join("-");
 }
 function enrich(row,evidence,now,fixtureKickoffs) {
-  const info=parseLeague(row.league);
+  const league=competitionForMatch(row,evidence?.canonicalRow);
+  const info=parseLeague(league);
   const kickoffMs=verifiedKickoff(row,evidence,fixtureKickoffs);
   const status=explicitStatus(row,evidence);
   const phase=status || (kickoffMs===null?"unknown":kickoffMs>now?"upcoming":"started");
   const UKTime=kickoffMs===null?null:ukClock.format(kickoffMs);
   const tz=kickoffMs===null?null:ukZone.formatToParts(kickoffMs).find(p=>p.type==="timeZoneName")?.value||null;
   const quote=availableQuote(row,evidence,now,kickoffMs,phase);
-  return {...row,info, evidence, kickoffMs, UKTime, tz, phase,quote,
+  return {...row,league,sourceLeague:row.league,info, evidence, kickoffMs, UKTime, tz, phase,quote,
     dateKey:kickoffMs===null?row.sourceDate:ukDay(kickoffMs)};
 }
 function scoreCaptureAge(capturedAt,now=Date.now()) {
