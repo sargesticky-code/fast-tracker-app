@@ -58,12 +58,11 @@ assert.match(adviserVerificationReport(fixtureId,row,"Leeds","Man United","2026-
 const component=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
 assert.match(component,/provider="FOREBET"/);
 assert.match(component,/fetchForebetPairReview/);
-assert.match(component,/adviser-copy-verification-forebet/);
-assert.match(component,/onLocalReviewChange=\{setForebetRejected\}/);
+assert.doesNotMatch(component,/adviser-copy-verification-forebet|adviser-verify-|adviser-reject-|adviser-copy-report-/,
+ "owner requested no more review buttons in public UI");
+assert.match(component,/Incorrect fixture\? Report the match and provider URL directly in your project chat/);
+assert.match(component,/Displayed by default/);
 assert.match(component,/forebetVisible/);
-assert.match(component,/Undo my pairing verification/);
-assert.match(component,/Reject this pairing locally/);
-assert.match(component,/Copy correction report/);
 const edge=readFileSync(new URL("../supabase/functions/forebet-pair-review/index.ts",import.meta.url),"utf8");
 assert.match(edge,/req.method!=="GET"/);
 assert.match(edge,/forebet_prediction_current/);
