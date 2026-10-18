@@ -1,0 +1,23 @@
+name: Phase 18 Form Source Messaging
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'components/homepage-client.js'
+      - 'scripts/check-phase18-form-source-label.mjs'
+      - '.github/workflows/phase18-form-source-label.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase18-form-source-label.mjs
+      - run: npm run build
