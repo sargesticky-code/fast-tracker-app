@@ -16,7 +16,7 @@ begin
   perform pg_advisory_xact_lock(20261018,36);
   if p_archive_sha !~ '^[a-f0-9]{64}$'
      or p_archive_path !~ '^lineup-cold/v3/[0-9]+-[0-9]+-[a-f0-9]{64}[.]jsonl[.]txt$'
-     or right(p_archive_path,73)<>p_archive_sha||'.jsonl.txt'
+     or right(p_archive_path,length(p_archive_sha||'.jsonl.txt'))<>p_archive_sha||'.jsonl.txt'
   then raise exception 'INVALID_ARCHIVED_LINEUP_SHA_PATH'; end if;
   if p_archive_bytes<100 or p_archive_bytes>3500000
      or not exists(select 1 from storage.objects o
