@@ -504,7 +504,7 @@ export default function HomepageClient() {
   return <main className="ft-home">
     <header className="ft-top">
       <div className="ft-brand"><strong>FAST TRACKER <em>2026</em></strong><small>FOOTBALL MATCH CENTRE</small></div>
-      <a href="/health" className="ft-source-link">ⓘ Data status</a>
+      <nav className="ft-top-nav"><a href="/aliases" className="ft-source-link" data-testid="daily-alias-link">Daily aliases</a> <a href="/health" className="ft-source-link">ⓘ Data status</a></nav>
     </header>
     <section className="ft-raw-board">
       <div className="ft-page-heading">
