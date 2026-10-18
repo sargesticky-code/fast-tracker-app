@@ -1,0 +1,37 @@
+name: Phase 12 Adviser Review and Major League Logos
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'components/homepage-client.js'
+      - 'components/flashscore-raw-match.js'
+      - 'data/team-logo-aliases.json'
+      - 'app/homepage.css'
+      - 'lib/external-adviser-provisional-feed.js'
+      - 'lib/extra-adviser-provisional-feed.js'
+      - 'supabase/functions/adviser-provisional-feed/index.ts'
+      - 'supabase/functions/adviser-extra-provisional-feed/index.ts'
+      - 'supabase/migrations/20261018013500_ft_adviser_provisional_025_review_only.sql'
+      - 'scripts/check-phase12-025-details-logos.mjs'
+      - '.github/workflows/phase12-adviser-details-logos.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Validate 25 percent review-only source crosschecks and club crest aliases
+        run: node scripts/check-phase12-025-details-logos.mjs
+      - name: Preserve legacy adviser API compatibility
+        run: node scripts/check-external-adviser-provisional.mjs
+      - name: Preserve extra adviser API compatibility
+        run: node scripts/check-extra-adviser-provisional.mjs
+      - name: Compile production dashboard
+        run: npm run build
