@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018093000_phase35_sporty_alias_matrix_runtime_smoke.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018081335_phase35_sporty_alias_matrix_runtime_smoke.sql",import.meta.url),"utf8");
 assert.equal(sql.split("create or replace function public.ft_daily_alias_audit").length,2);
 assert.equal(sql.split("from private.ft_sportytrader_calibrated_05").length,2);
 assert.equal(sql.split("from private.ft_extra_adviser_provisional_04").length,2);
