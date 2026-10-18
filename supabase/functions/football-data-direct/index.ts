@@ -93,6 +93,12 @@ Deno.serve(async function(req){
   const supabaseUrl=Deno.env.get("SUPABASE_URL")||"", key=serviceKey();
   if(!supabaseUrl||!key) return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(supabaseUrl,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  // Private CSV ingestion must never be a public write-by-GET endpoint.
+  // Reuse the existing Vault-backed cron credential and matching RPC.
+  const cronKey=req.headers.get("x-ft-cron-key")||"";
+  if(!cronKey)return Response.json({ok:false,error:"unauthorized"},{status:401});
+  const auth=await db.rpc("ft_internal_cron_key_matches",{p_key:cronKey});
+  if(auth.error||auth.data!==true)return Response.json({ok:false,error:"unauthorized"},{status:401});
   try{
     const hbRes=await db.from("source_health").select("observed_at").eq("source","FOOTBALL_DATA_EDGE").eq("metric","heartbeat").maybeSingle();
     if(!force && hbRes.data&&hbRes.data.observed_at){

@@ -1,0 +1,21 @@
+name: Phase 16 Football Data Daily CSV
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/functions/football-data-direct/index.ts'
+      - 'supabase/migrations/20261018044500_ft_football_data_daily_cron.sql'
+      - 'scripts/check-phase16-football-data-daily.mjs'
+      - '.github/workflows/phase16-football-data.yml'
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase16-football-data-daily.mjs
