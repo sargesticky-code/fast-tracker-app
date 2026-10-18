@@ -1,0 +1,25 @@
+name: Match Competition Identity Contract
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/competition-identity.js'
+      - 'components/homepage-client.js'
+      - 'supabase/future_migrations/*phase54*.sql'
+      - 'scripts/check-match-competition-identity.mjs'
+      - '.github/workflows/match-competition-identity.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-match-competition-identity.mjs
+      - run: npm run build

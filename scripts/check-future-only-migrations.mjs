@@ -7,6 +7,14 @@ import { join } from 'node:path';
 // Production already has Phase53. Legacy migrations are not a safe replayable chain.
 const BOOTSTRAP_FILE='20261018143302_phase53_future_pipeline_health_readonly.sql';
 const BOOTSTRAP_MD5='930c99c48d339a9710a36bf2a57f754c';
+// Exact statements already applied to production; immutable, not replay instructions.
+// Phase54 is CREATE OR REPLACE of an existing postgres/service_role-only RPC
+// and preserves its existing proacl, verified in the live schema.
+const APPLIED_SQL = new Map([
+  [BOOTSTRAP_FILE,BOOTSTRAP_MD5],
+  ['20261018151016_phase54_disambiguate_premier_league_competitions.sql',
+   '55b15c2e65e324512f6bd7d5d6084ba3']
+]);
 const LEGACY='supabase/migrations';
 const FUTURE='supabase/future_migrations';
 const base=process.env.FT_BASE_SHA;
@@ -28,9 +36,9 @@ for (const name of names) {
   versions.add(version);
   assert.ok(version>='20261018143302','Future SQL older than applied Phase53: '+name);
   const sql=readFileSync(join(FUTURE,name),'utf8');
-  if (name===BOOTSTRAP_FILE) {
-    assert.equal(createHash('md5').update(sql).digest('hex'),BOOTSTRAP_MD5,
-      'Phase53 SQL differs from already-applied production statement');
+  if (APPLIED_SQL.has(name)) {
+    assert.equal(createHash('md5').update(sql).digest('hex'),APPLIED_SQL.get(name),
+      'Already-applied production SQL changed: '+name);
     continue;
   }
   const clean=sql.replace(/--[^\n]*/g,'').replace(/\/\*[\s\S]*?\*\//g,'');
