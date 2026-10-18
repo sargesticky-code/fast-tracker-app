@@ -55,7 +55,7 @@ assert.equal(beforeKickoff,null,"future result leakage forbidden");
 const noCornerSample=parsed({...basis,matchesWithCorners:2,
  observedCornerLines:{"8.5":{overCount:1,underCount:1,sample:2}}});
 assert.equal(noCornerSample?.observedCornerLines,undefined,"tiny corner sample cannot look meaningful");
-const sql=readFileSync(new URL("../supabase/migrations/20261017125000_phase9_historical_exact_goal_corner_lines.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261017130438_ft_phase9_historical_exact_goal_corner_lines.sql",import.meta.url),"utf8");
 assert.ok(sql.includes("m.match_date<(p_fixture_kickoff AT TIME ZONE 'Europe/London')::date"),"past-only protection retained");
 assert.ok(sql.includes("LIMIT 5"),"short, bounded results sample retained");
 assert.ok(sql.includes("observedGoalLines")&&sql.includes("observedCornerLines"));
