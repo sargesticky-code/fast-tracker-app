@@ -49,6 +49,13 @@ for(const guard of [
 assert.match(sql,/PERFORM private\.ft_recheck_sportytrader_calibrated_05\(\)/);
 assert.ok(sql.includes("NOT EXISTS(SELECT 1 FROM private.ft_adviser_pair_rejections"));
 assert.ok(sql.includes("clockEvidence','CALIBRATED_FROM_SPORTYTRADER_LINKED_EVENTS_NOT_SOURCE_VERIFIED"));
+assert.ok(sql.includes("jsonb_typeof(c.observation->'hda'->'home')='number'"));
+assert.ok(sql.includes("jsonb_typeof(c.observation->'hda'->'draw')='number'"));
+assert.ok(sql.includes("jsonb_typeof(c.observation->'hda'->'away')='number'"));
+assert.equal((sql.match(/CREATE OR REPLACE FUNCTION/g)||[]).length,3);
+assert.equal((sql.match(/\$function\$;/g)||[]).length,3);
+assert.equal((sql.match(/SELECT jsonb_build_object\(\s*'source','ADVISER_PROVISIONAL_FLASHscore_0_25'/g)||[]).length,1);
+
 assert.ok(!sql.includes("INSERT INTO public.adviser_prediction_current"));
 assert.ok(!sql.includes("cron.schedule"));
 const ui=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
