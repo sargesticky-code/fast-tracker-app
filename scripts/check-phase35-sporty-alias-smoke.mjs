@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const sql=readFileSync(new URL("../supabase/migrations/20261018093000_phase35_sporty_alias_matrix_runtime_smoke.sql",import.meta.url),"utf8");
+assert.equal(sql.split("create or replace function public.ft_daily_alias_audit").length,2);
+assert.equal(sql.split("from private.ft_sportytrader_calibrated_05").length,2);
+assert.equal(sql.split("from private.ft_extra_adviser_provisional_04").length,2);
+assert.match(sql,/select f.match_id, f.kickoff_hkt, f.league, f.home_en, f.away_en,\s*f.identity_authority, f.provider_identity_status/);
+assert.match(sql,/v_result:=public.ft_daily_alias_audit\(\(now\(\) at time zone 'Asia\/Hong_Kong'\)::date\)/);
+assert.match(sql,/jsonb_typeof\(v_result->'rows'\)/);
+assert.match(sql,/PHASE35_DAILY_MATRIX_RUNTIME_SMOKE_FAILED/);
+assert.match(sql,/revoke all on function public\.ft_daily_alias_audit\(date\) from PUBLIC,anon,authenticated/);
+assert.match(sql,/grant execute on function public\.ft_daily_alias_audit\(date\) to service_role/);
+assert.match(sql,/p\.calibration_samples>=4 and p\.calibration_agreement>=0\.9/);
+assert.match(sql,/and p\.predicted_kickoff>now\(\)/);
+assert.doesNotMatch(sql,/^(?!\s*--).*\b(DELETE FROM|INSERT INTO|TRUNCATE|DROP TABLE|cron\.schedule)\b/im);
+console.log("PHASE35_DAILY_MATRIX_FIXTURE_IDENTITY_AND_RUNTIME_SMOKE_PASSED");
