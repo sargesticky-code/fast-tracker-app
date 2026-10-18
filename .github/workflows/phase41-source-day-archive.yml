@@ -1,0 +1,24 @@
+name: Phase 41 Source-Day Lossless Storage Archive
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018110000_phase41_source_day_archive_readback.sql'
+      - 'supabase/functions/source-day-cold-archive/index.ts'
+      - 'scripts/check-phase41-source-day-archive.mjs'
+      - '.github/workflows/phase41-source-day-archive.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018110000_phase41_source_day_archive_readback.sql'
+      - 'supabase/functions/source-day-cold-archive/index.ts'
+      - 'scripts/check-phase41-source-day-archive.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase41-source-day-archive.mjs
