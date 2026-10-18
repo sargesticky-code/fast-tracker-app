@@ -1,0 +1,25 @@
+name: Phase 33-35 Stored SQL Replay Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/*phase33*.sql'
+      - 'supabase/migrations/*phase34*.sql'
+      - 'supabase/migrations/*phase35*.sql'
+      - 'scripts/check-phase33-35-stored-sql.mjs'
+      - '.github/workflows/phase33-35-stored-sql.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase33-35-stored-sql.mjs
+      - run: node scripts/check-phase33-daily-alias-matrix.mjs
+      - run: node scripts/check-phase34-sporty-alias-matrix.mjs
+      - run: node scripts/check-phase35-sporty-alias-smoke.mjs
