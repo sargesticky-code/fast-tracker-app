@@ -8,6 +8,7 @@ import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
+import {adviserPairId,adviserMismatchReport,readRejectedPairs,setRejectedPair} from "@/lib/adviser-pair-review";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
 function knownNumber(v, digits=0) {
@@ -164,6 +165,61 @@ function PlayerStats({ data }) {
   </section>;
 }
 
+function AdviserReviewCard({provider,candidate,fixtureId,home,away,kickoff}){
+  const names={BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"};
+  const verified=candidate?.identityStatus==="VERIFIED";
+  const pairKey=adviserPairId(fixtureId,candidate);
+  const [rejected,setRejected]=useState(false);
+  const [copyStatus,setCopyStatus]=useState("");
+  useEffect(()=>{
+    try{setRejected(Boolean(pairKey&&readRejectedPairs(window.localStorage).has(pairKey)));}
+    catch{setRejected(false);}
+    setCopyStatus("");
+  },[pairKey]);
+  const toggle=()=>{
+    try{
+      const result=setRejectedPair(window.localStorage,fixtureId,candidate,!rejected);
+      if(result!==null)setRejected(result);
+    }catch{setCopyStatus("Local browser storage unavailable");}
+  };
+  const report=adviserMismatchReport(fixtureId,candidate,home,away,kickoff);
+  const copy=async()=>{
+    if(!report)return;
+    try{
+      await navigator.clipboard.writeText(report);
+      setCopyStatus("Report copied. Paste it into your project chat for shared exclusion.");
+    }catch{setCopyStatus("Clipboard unavailable. Select and copy the report below.");}
+  };
+  const status=!candidate?"No current matched forecast":rejected?"Rejected on this browser":verified?"Verified source fixture":"PROVISIONAL · NOT VERIFIED";
+  return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()+(candidate&&!verified?"-provisional":"")}>
+    <strong>◇ {names[provider]}</strong>
+    <span className="ft-advisor-state">{status}</span>
+    {candidate&&<SourceTeamComparison candidate={candidate} flashscoreHome={home} flashscoreAway={away}/>}
+    {candidate&&!rejected&&<>
+      {candidate.hda&&<small>Source H / D / A: {[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
+      {(candidate.predictedScore||candidate.score)&&<small>Source predicted score: {candidate.predictedScore||candidate.score}</small>}
+      {candidate.over25!=null&&<small>Over 2.5: {adviserPercentValue(candidate.over25)}%</small>}
+      {candidate.bttsYes!=null&&<small>BTTS Yes: {adviserPercentValue(candidate.bttsYes)}%</small>}
+      {candidate.tip&&<small>Source tip: {candidate.tip}</small>}
+    </>}
+    {candidate&&<>
+      {!verified&&<small>Candidate association only; provider identity has NOT been independently verified. Kept out of accuracy statistics.</small>}
+      {candidate.sourceUrl&&<small><a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer">Original adviser source</a></small>}
+      <div className="ft-adviser-review-actions" data-testid={"adviser-review-"+provider.toLowerCase()}>
+        <button type="button" onClick={toggle} data-testid={"adviser-reject-"+provider.toLowerCase()}>
+          {rejected?"Undo local rejection":"Reject this pairing locally"}
+        </button>
+        <button type="button" onClick={copy} data-testid={"adviser-copy-report-"+provider.toLowerCase()}>Copy correction report</button>
+      </div>
+      {rejected&&<small role="status">Hidden locally on this browser. Not blocked for other users until added to the private exclusion list.</small>}
+      {copyStatus&&<small role="status">{copyStatus}</small>}
+      <details><summary>Correction report (manual copy fallback)</summary>
+        <pre className="ft-review-report">{report}</pre>
+      </details>
+    </>}
+  </div>;
+}
+
 export default function FlashscoreRawMatch() {
   const searchParams=useSearchParams();
   const id=searchParams.get("id")||"";
@@ -286,33 +342,11 @@ export default function FlashscoreRawMatch() {
           <strong>○ Team Form</strong><span className="ft-advisor-state">Legacy model inactive</span>
           <small>Old predictions excluded until rebuilt from approved match results</small>
         </div>
-        {["BETCLAN","SPORTYTRADER"].map(provider=>{
-          const a=external.find(x=>x.provider===provider),name=provider==="BETCLAN"?"BetClan":"SportyTrader";
-          return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()} key={provider}>
-            <strong>○ {name}</strong><span className="ft-advisor-state">{a?"Verified forecast":"No current matched forecast"}</span>
-            {a?.hda&&<small>H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / ")}</small>}
-            {a?.predictedScore&&<small>Predicted score: {a.predictedScore}</small>}
-            {a&&a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
-            {a&&a.bttsYes!==null&&<small>BTTS Yes: {adviserPercentValue(a.bttsYes)}%</small>}
-            {a?.tip&&<small>Source tip: {a.tip}</small>}
-            {a&&<SourceTeamComparison candidate={a} flashscoreHome={home} flashscoreAway={away}/>}
-            {a&&<small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Source prediction</a> · Captured {new Date(a.capturedAt).toISOString()}</small>}
-          </div>;
-        })}
-        {unmatchedTentative.map(a=><div className="ft-advisor-card"
-          data-testid={"advisor-"+a.provider.toLowerCase()+"-provisional"} key={a.provider+"-provisional"}>
-          <strong>◇ {({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[a.provider]||a.provider}</strong>
-          <span className="ft-advisor-state">PROVISIONAL · NOT VERIFIED</span>
-          <SourceTeamComparison candidate={a} flashscoreHome={home} flashscoreAway={away}/>
-          {a.hda&&<small>Source H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
-          {a.score&&<small>Source predicted score: {a.score}</small>}
-          {a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
-          {a.bttsYes!==null&&<small>BTTS Yes: {adviserPercentValue(a.bttsYes)}%</small>}
-          <small>{a.clockEvidence==="CALIBRATED_FROM_DAY_COHORT_NOT_SOURCE_VERIFIED"
-            ?"Source clock calibrated from "+a.clockCalibrationSamples+" candidate fixture pairs; timezone NOT independently verified."
-            :"Provider and Flashscore kickoff compared."} At least 25% name similarity on both teams; automatically rechecked. Provisional links are excluded from accuracy calculations.</small>
-          <small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Original source</a></small>
-        </div>)}
+        {["BETCLAN","SPORTYTRADER","PRIMATIPS","STATAREA"].map(provider=>
+          <AdviserReviewCard key={provider} provider={provider} fixtureId={id}
+            candidate={external.find(a=>a.provider===provider)||unmatchedTentative.find(a=>a.provider===provider)||null}
+            home={home} away={away} kickoff={fixture?.kickoff_hkt||null}/>
+        )}
 
       </div>
       {forebet && <p className="ft-odds-note">{forebetRecent?"Verified prematch source forecast":"Saved Forebet record · not a current betting recommendation"}</p>}
