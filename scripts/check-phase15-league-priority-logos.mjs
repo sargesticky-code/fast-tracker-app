@@ -31,6 +31,19 @@ const expectedLogos={
 };
 for(const [key,target] of Object.entries(expectedLogos))
  assert.equal(atlas.aliases[key],target,"use actual single-asset atlas key for "+key);
+// Verified Oct 18 against the same unique crest atlas for current MLS/USL fixtures.
+const northAmerica={
+"houston dynamo":"houston dynamo fc","san diego fc":"san diego football club",
+"seattle sounders":"seattle sounders fc","vancouver whitecaps":"vancouver whitecaps fc",
+"colorado springs":"colorado springs switchbacks fc","el paso":"el paso locomotive fc",
+"las vegas lights":"las vegas lights fc","lexington":"lexington sc",
+"loudoun":"loudoun united fc","monterey bay":"monterey bay fc",
+"new mexico":"new mexico united","oakland roots":"oakland roots sc",
+"phoenix rising":"phoenix rising fc","sacramento republic":"sacramento republic fc",
+"san antonio":"san antonio fc"
+};
+for(const [team,key] of Object.entries(northAmerica))
+  assert.equal(atlas.aliases[team],key,"verified MLS/USL crest: "+team);
 const logo=readFileSync(new URL("../components/team-logo.js",import.meta.url),"utf8");
 assert.match(logo,/return Array\.isArray\(logo\) && logo\.length === 1/,"do not use ambiguous badges");
 assert.match(logo,/if \(scopedTargets\.length > 1\) return null/,"no ambiguous scoped country");
