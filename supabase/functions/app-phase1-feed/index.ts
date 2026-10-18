@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
+import {footballDataCodeForLeague,predictFlashscoreFixtureExperimental}
+  from "./dc-experimental.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -753,6 +755,58 @@ Deno.serve(async (req: Request) => {
     if (!supabaseUrl || !serverKey) throw new Error("server_config_missing");
 
     const db = createReadClient(supabaseUrl, serverKey);
+    if(requestedView==="experimental"){
+      // Only on an explicit Details-page user click. No automatic homepage
+      // model fitting, additional source scraping, cron, or database writes.
+      const fixtureId=String(url.searchParams.get("id")??"");
+      if(!/^FS:[A-Za-z0-9_-]{5,32}$/.test(fixtureId))
+        return Response.json({status:"INVALID_FIXTURE_ID"},{status:400,headers:corsHeaders});
+      const now=Date.now(),asOf=new Date(now).toISOString();
+      const fixtureResult=await db.from("canonical_fixture_current")
+        .select("match_id,league,home_en,away_en,kickoff_hkt,fetched_at,status")
+        .eq("match_id",fixtureId).maybeSingle();
+      if(fixtureResult.error)
+        return Response.json({status:"SOURCE_UNAVAILABLE"},{status:503,headers:corsHeaders});
+      const fixture=fixtureResult.data;
+      const start=Date.parse(String(fixture?.kickoff_hkt||""));
+      const fetched=Date.parse(String(fixture?.fetched_at||""));
+      if(!fixture||!Number.isFinite(start)||start<=now||start>now+48*3600000
+        ||!Number.isFinite(fetched)||now-fetched>36*3600000
+        ||String(fixture.status||"").toUpperCase()==="FINISHED")
+        return Response.json({status:"NO_CURRENT_VERIFIED_FIXTURE"},{status:404,headers:corsHeaders});
+      const code=footballDataCodeForLeague(fixture.league);
+      if(!code)
+        return Response.json({status:"UNSUPPORTED_FOOTBALL_DATA_LEAGUE"},
+          {headers:{...corsHeaders,"Cache-Control":"public, max-age=600"}});
+      const since=new Date(now-365*86400000).toISOString().slice(0,10);
+      const training=await db.from("football_data_matches")
+        .select("league_code,home_team,away_team,fthg,ftag,match_date,fetched_at")
+        .eq("source_kind","RESULTS").eq("league_code",code)
+        .gte("match_date",since).lt("match_date",asOf.slice(0,10))
+        .not("fthg","is",null).not("ftag","is",null)
+        .order("match_date",{ascending:false}).limit(250);
+      if(training.error||!Array.isArray(training.data))
+        return Response.json({status:"TRAINING_DATA_UNAVAILABLE"},
+          {status:503,headers:corsHeaders});
+      const history=training.data.filter((r:any)=>
+        Number.isInteger(r.fthg)&&Number.isInteger(r.ftag)
+        &&Number.isFinite(Date.parse(String(r.fetched_at||"")))).map((r:any)=>({
+        source:"FOOTBALL_DATA",league:r.league_code,
+        homeId:r.home_team,awayId:r.away_team,hg:r.fthg,ag:r.ftag,
+        playedAt:String(r.match_date)+"T00:00:00Z",
+        capturedAt:r.fetched_at
+      }));
+      const model=predictFlashscoreFixtureExperimental({fixture,history,asOf});
+      return Response.json({
+        status:model.status,fixtureId,model,
+        verification:"EXPERIMENTAL_UNCALIBRATED_NOT_BACKTEST_VERIFIED",
+        independentModels:false,
+        exactFixtureId:true,
+        observedGoalResultsOnly:true,
+        trainingSource:"FOOTBALL_DATA_CSV",
+        bookmakerTraining:false,automaticBettingAdvice:false
+      },{headers:{...corsHeaders,"Cache-Control":"public, max-age=600"}});
+    }
     const adviserDb=createReadClientWithTimeout(supabaseUrl,serverKey,4_000);
 
     if (summaryOnly) {
