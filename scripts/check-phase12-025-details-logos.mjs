@@ -51,7 +51,7 @@ const detail=readFileSync(new URL("../components/flashscore-raw-match.js",import
 assert.ok(ui.includes("adviser-details-link"));
 assert.ok(!ui.includes("betclan-hda")&&!ui.includes("SourceTeamComparison")&&!ui.includes("ExternalProvisionalChip"),"other adviser market stats and comparisons no longer on homepage");
 assert.ok(detail.includes("Match predictions and adviser statistics"));
-assert.ok(detail.includes("a&&<SourceTeamComparison")&&detail.includes("<SourceTeamComparison candidate={a}"));
+assert.ok(detail.includes("AdviserReviewCard")&&detail.includes("<SourceTeamComparison candidate={candidate}")&&detail.includes("Reject this pairing locally"));
 assert.ok(detail.includes("TeamNameWithLogo"));
 const registry=JSON.parse(readFileSync(new URL("../data/team-logo-aliases.json",import.meta.url)));
 const guaranteed={
