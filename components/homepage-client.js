@@ -23,11 +23,11 @@ const normalizeCompetition=value=>String(value||"").normalize("NFKD").replace(/[
   .toUpperCase().replace(/[^A-Z0-9]/g,"");
 const PRIORITY_COMPETITIONS=[
   {label:"Premier League",country:"ENGLAND",aliases:["Premier League","English Premier League"]},
-  {label:"Champions League",country:"EUROPE",aliases:["UEFA Champions League","Champions League","Champions League - League phase"]},
   {label:"La Liga",country:"SPAIN",aliases:["LaLiga","La Liga","Primera Division","La Liga EA Sports"]},
   {label:"Bundesliga",country:"GERMANY",aliases:["Bundesliga"]},
   {label:"Serie A",country:"ITALY",aliases:["Serie A"]},
   {label:"Ligue 1",country:"FRANCE",aliases:["Ligue 1","Ligue 1 Uber Eats","Ligue 1 Mc Donalds"]},
+  {label:"Champions League",country:"EUROPE",aliases:["UEFA Champions League","Champions League","Champions League - League phase"]},
   {label:"Europa League",country:"EUROPE",aliases:["UEFA Europa League","Europa League","Europa League - League phase"]},
   {label:"Conference League",country:"EUROPE",aliases:["UEFA Conference League","Conference League","Conference League - League phase"]},
   {label:"AFC Champions League",country:"ASIA",aliases:["AFC Champions League","AFC Champions League - League phase"]},
@@ -51,7 +51,17 @@ const PRIORITY_COMPETITIONS=[
   {label:"Scottish Cup",country:"SCOTLAND",aliases:["Scottish Cup"]},
   {label:"Championship",country:"ENGLAND",aliases:["Championship"]},
   {label:"Eredivisie",country:"NETHERLANDS",aliases:["Eredivisie"]},
-  {label:"Primeira Liga",country:"PORTUGAL",aliases:["Primeira Liga","Liga Portugal"]}
+  {label:"Primeira Liga",country:"PORTUGAL",aliases:["Primeira Liga","Liga Portugal"]},
+  {label:"MLS",country:"USA",aliases:["MLS","Major League Soccer"]},
+  {label:"MLS",country:"UNITED STATES",aliases:["MLS","Major League Soccer"]},
+  {label:"USL Championship",country:"USA",aliases:["USL Championship","USL Championship - Play Offs"]},
+  {label:"USL Championship",country:"UNITED STATES",aliases:["USL Championship","USL Championship - Play Offs"]},
+  {label:"Liga MX",country:"MEXICO",aliases:["Liga MX","Liga MX - Apertura","Liga MX - Clausura"]},
+  {label:"A-League",country:"AUSTRALIA",aliases:["A-League","A-League Men"]},
+  {label:"J1 League",country:"JAPAN",aliases:["J1 League","J League"]},
+  {label:"J2 League",country:"JAPAN",aliases:["J2 League"]},
+  {label:"K League 1",country:"SOUTH KOREA",aliases:["K League 1"]},
+  {label:"K League 2",country:"SOUTH KOREA",aliases:["K League 2"]}
 ];
 const GLOBAL_PRIORITY=new Map(["UEFA Champions League","Champions League","UEFA Europa League","Europa League",
   "UEFA Conference League","Conference League","FIFA World Cup","World Cup"]
@@ -408,7 +418,9 @@ export default function HomepageClient() {
       && !full.evidence?.forebet ? candidate : null;
     return {...full,provisional:safeForebet,externalProvisional:candidates};
   }),[rows,verified,provisional,externalProvisional,now]);
-  const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
+  const leagues=useMemo(()=>[...new Set(matches.map(m=>m.league))].sort((a,b)=>
+    parseLeague(a).priority-parseLeague(b).priority
+    ||alphaCollator.compare(parseLeague(a).display,parseLeague(b).display)),[matches]);
   const dates=useMemo(()=>[...new Set(matches.map(m=>m.dateKey).filter(Boolean))].sort(),[matches]);
   const liveKnown=matches.some(m=>m.phase==="live");
   const counts={all:matches.length,featured:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
@@ -529,7 +541,7 @@ export default function HomepageClient() {
           <span data-testid="advisor-sportytrader-summary"><i aria-hidden="true">○</i> SportyTrader · {verifiedStatus==="ready"?counts.sportytrader+" verified":"Unavailable"} · {externalProvisionalStatus.legacy?counts.sportyProvisional+" provisional":"provisional unavailable"}</span>
           <span data-testid="advisor-primatips-summary"><i aria-hidden="true">○</i> PrimaTips · {externalProvisionalStatus.extra?counts.primatipsProvisional+" provisional":"Unavailable"}</span>
           <span data-testid="advisor-statarea-summary"><i aria-hidden="true">○</i> Statarea · {externalProvisionalStatus.extra?counts.statareaProvisional+" provisional":"Unavailable"}</span>
-          <small>Provisional source forecasts allow ≥0.3 name similarity only with a strong second check (one team ≥0.7 plus league/time evidence), unique source identity and automatic rechecks. NOT VERIFIED; no automatic picks. Prices are bookmaker quotes, not independent predictions.</small>
+          <small>Provisional source forecasts require ≥0.25 name similarity for BOTH oriented teams plus independent league/time corroboration, unique source identity and automatic rechecks. NOT VERIFIED; no automatic picks. Prices are bookmaker quotes, not independent predictions.</small>
         </div>
         <p className="ft-overview-tip"><Icon name="filter"/> Select a card to see those matches.</p>
       </section>

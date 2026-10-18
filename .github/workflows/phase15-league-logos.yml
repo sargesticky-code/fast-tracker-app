@@ -1,0 +1,25 @@
+name: Phase 15 League Ordering and Logos
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'components/homepage-client.js'
+      - 'data/team-logo-aliases.json'
+      - 'scripts/check-phase15-league-priority-logos.mjs'
+      - '.github/workflows/phase15-league-logos.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase15-league-priority-logos.mjs
+      - run: node scripts/check-phase14-sportytrader-clock.mjs
+      - run: npm run build
