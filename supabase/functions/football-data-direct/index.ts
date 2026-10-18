@@ -2,6 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
 const MAIN_LEAGUES=["E0","E1","E2","E3","EC","SC0","SC1","SC2","SC3","D1","D2","I1","I2","SP1","SP2","F1","F2","N1","B1","P1","T1","G1"];
+// Historical CSVs are fetched ONCE on explicit authenticated backfill requests.
+// Daily collection remains CURRENT-season ONLY; no extra repeated HTTP calls.
+const HISTORY_BOOTSTRAP_LEAGUES=["E0","D1","SP1","I1","F1","N1","P1"];
+const ALLOWED_BACKFILL_SEASONS=new Set(["2526"]);
 
 function serviceKey(){
   const a=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); if(a) return a;
@@ -14,9 +18,9 @@ function seasonCode(d=new Date()){
   return String(s).slice(-2)+String(e).slice(-2);
 }
 function seasonLabel(c){return "20"+c.slice(0,2)+"/20"+c.slice(2,4);}
-function sourceDefs(){
-  const sc=seasonCode();
-  const out=MAIN_LEAGUES.map(function(league){return {
+function sourceDefs(sc=seasonCode(),historical=false){
+  const leagues=historical?HISTORY_BOOTSTRAP_LEAGUES:MAIN_LEAGUES;
+  const out=leagues.map(function(league){return {
     key:"RESULTS_"+sc+"_"+league,kind:"RESULTS",league:league,
     url:"https://www.football-data.co.uk/mmz4281/"+sc+"/"+league+".csv"
   };});
@@ -89,7 +93,14 @@ function sleep(ms){return new Promise(function(resolve){setTimeout(resolve,ms);}
 
 Deno.serve(async function(req){
   const requestUrl=new URL(req.url), force=requestUrl.searchParams.get("force")==="1";
-  const now=new Date(), nowIso=now.toISOString(), sc=seasonCode(now), season=seasonLabel(sc);
+  const requestedHistory=requestUrl.searchParams.get("backfill_season");
+  // Reject arbitrary historical crawls and new season codes. Only an admin
+  // using the internal cron credential may request this known seven-league cohort.
+  if(requestedHistory!==null && !ALLOWED_BACKFILL_SEASONS.has(requestedHistory))
+    return Response.json({ok:false,error:"invalid_backfill_season"},{status:400});
+  const historical=requestedHistory!==null;
+  const now=new Date(), nowIso=now.toISOString(),
+    sc=historical?requestedHistory:seasonCode(now), season=seasonLabel(sc);
   const supabaseUrl=Deno.env.get("SUPABASE_URL")||"", key=serviceKey();
   if(!supabaseUrl||!key) return Response.json({ok:false,error:"server_config_missing"},{status:500});
   const db=createClient(supabaseUrl,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -101,13 +112,16 @@ Deno.serve(async function(req){
   if(auth.error||auth.data!==true)return Response.json({ok:false,error:"unauthorized"},{status:401});
   try{
     const hbRes=await db.from("source_health").select("observed_at").eq("source","FOOTBALL_DATA_EDGE").eq("metric","heartbeat").maybeSingle();
-    if(!force && hbRes.data&&hbRes.data.observed_at){
+    if(!force && !historical && hbRes.data&&hbRes.data.observed_at){
       const age=(now.getTime()-new Date(hbRes.data.observed_at).getTime())/3600000;
       if(Number.isFinite(age)&&age<6) return Response.json({ok:true,skipped:"debounced",ageHours:Number(age.toFixed(2))});
     }
-    const runRes=await db.from("football_data_sync_runs").insert({started_at:nowIso,status:"RUNNING",mode:force?"FORCE":"DAILY"}).select("id").single();
+    const runRes=await db.from("football_data_sync_runs").insert({
+      started_at:nowIso,status:"RUNNING",
+      mode:historical?"HISTORY_2526":(force?"FORCE":"DAILY")
+    }).select("id").single();
     if(runRes.error) throw runRes.error;
-    const runId=runRes.data.id, defs=sourceDefs(), wanted=defs.map(function(x){return x.key;});
+    const runId=runRes.data.id, defs=sourceDefs(sc,historical), wanted=defs.map(function(x){return x.key;});
     const oldRes=await db.from("football_data_files").select("source_key,content_sha256,last_success_at,content_changed_at,row_count").in("source_key",wanted);
     const oldMap=new Map((oldRes.data||[]).map(function(x){return [x.source_key,x];}));
     let filesOk=0,filesFailed=0,coreFilesOk=0,coreFilesFailed=0,optionalFilesFailed=0,rowsSeen=0,rowsUpserted=0,fixture48h=0; const errors=[],summaries=[];
@@ -158,11 +172,14 @@ Deno.serve(async function(req){
       if(start+5<defs.length) await sleep(750);
     }
 
-    const status=coreFilesFailed===0&&coreFilesOk===MAIN_LEAGUES.length?"PASS":(coreFilesOk>0?"WARN":"FAIL"), done=new Date().toISOString();
+    const status=coreFilesFailed===0&&coreFilesOk===defs.length?"PASS":(coreFilesOk>0?"WARN":"FAIL"), done=new Date().toISOString();
     await db.from("football_data_sync_runs").update({
       completed_at:done,status:status,source_count:defs.length,files_ok:filesOk,files_failed:filesFailed,
       rows_seen:rowsSeen,rows_upserted:rowsUpserted,details:{season:season,fixture48h:fixture48h,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,optionalFilesFailed:optionalFilesFailed,errors:errors,summaries:summaries}
     }).eq("id",runId);
+    // A backfill must not overwrite daily 22-league health/heartbeat with
+    // a seven-league snapshot, nor extend the six-hour daily debounce.
+    if(!historical){
     await db.from("source_health").upsert({
       source:"FOOTBALL_DATA_EDGE",metric:"heartbeat",
       value_text:JSON.stringify({season:season,filesOk:filesOk,filesFailed:filesFailed,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,optionalFilesFailed:optionalFilesFailed,rowsSeen:rowsSeen,rowsUpserted:rowsUpserted,fixture48h:fixture48h}),
@@ -173,7 +190,12 @@ Deno.serve(async function(req){
       source:"FOOTBALL_DATA",metric:"private_use_mode",value_text:"PRIVATE_USE",status:"OK",
       notes:"Operationally healthy; source is restricted to private-use mode until licensing is re-checked for public/commercial release.",observed_at:done,raw:{publish_gate:true,lifecycle:"PRIVATE_USE"}
     },{onConflict:"source,metric"});
-    return Response.json({ok:status!=="FAIL",status:status,season:season,filesOk:filesOk,filesFailed:filesFailed,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,optionalFilesFailed:optionalFilesFailed,rowsSeen:rowsSeen,rowsUpserted:rowsUpserted,fixture48h:fixture48h,errors:errors});
+    }
+    return Response.json({ok:status!=="FAIL",status:status,
+      mode:historical?"HISTORY_BACKFILL":"DAILY",season:season,filesOk:filesOk,
+      filesFailed:filesFailed,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,
+      optionalFilesFailed:optionalFilesFailed,rowsSeen:rowsSeen,
+      rowsUpserted:rowsUpserted,fixture48h:fixture48h,errors:errors});
   }catch(e){
     const message=e instanceof Error?e.message:String(e);
     await db.from("source_health").upsert({source:"FOOTBALL_DATA_EDGE",metric:"heartbeat",value_text:message,status:"FAIL",
