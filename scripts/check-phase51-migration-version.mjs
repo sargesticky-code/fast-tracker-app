@@ -6,9 +6,17 @@ import { join } from "node:path";
 // Duplicating its destructive retirement SQL under a new version is unsafe.
 const dir = "supabase/migrations";
 const expected = "20261018125055_phase51_retire_legacy_hkjc_dependent_models.sql";
-const files = readdirSync(dir).filter(x => /^\d{14}_.*phase51.*\.sql$/.test(x));
-assert.deepEqual(files, [expected],
-  "Phase 51 must exist only at the live applied version; never replay legacy TRUNCATE SQL");
+const expectedApplied = {
+  phase49: "20261018120209_phase49_english_premier_form_native_id_guard.sql",
+  phase50: "20261018121154_phase50_football_data_super_alias_inventory.sql",
+  phase51: expected
+};
+for (const [phase, appliedFile] of Object.entries(expectedApplied)) {
+  const phaseFiles = readdirSync(dir).filter(x =>
+    new RegExp("^\\d{14}_.*" + phase + ".*\\.sql$").test(x));
+  assert.deepEqual(phaseFiles, [appliedFile],
+    "Duplicate or mismatched already-applied migration: " + phase);
+}
 const sql = readFileSync(join(dir, expected), "utf8");
 for (const required of [
   "REFUSE_DELETE_NONLEGACY_MODEL_RECORDS",
