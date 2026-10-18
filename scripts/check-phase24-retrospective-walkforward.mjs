@@ -4,7 +4,7 @@ const start=Date.parse("2025-08-01T15:00:00Z"),DAY=86400000;
 const teams=Array.from({length:20},(_,i)=>"Club_"+i);
 const history=Array.from({length:390},(_,i)=>({
  source:"FOOTBALL_DATA",league:"E0",homeId:teams[i%20],awayId:teams[(i+7)%20],
- hg:(i*7)%4,ag:(i*3)%3,
+ hg:(i*7)%4,ag:(i*5+1)%4,
  playedAt:new Date(start+Math.floor(i/2)*DAY).toISOString(),
  capturedAt:"2026-10-18T12:00:00Z" // imported AFTER most target games
 }));
