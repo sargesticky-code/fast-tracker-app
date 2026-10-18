@@ -29,6 +29,18 @@ export default function DailyAliasMatrix(){
  const [filter,setFilter]=useState("all");
  const [loading,setLoading]=useState(false);
  useEffect(()=>{
+   // Preserve a dated daily report link when it is opened on a later HKT day.
+   const query=new URLSearchParams(window.location.search);
+   const requested=query.get("date");
+   if(requested&&/^\d{4}-\d{2}-\d{2}$/.test(requested)){
+     const value=Date.parse(requested+"T00:00:00Z");
+     const today=Date.parse(todayHkt()+"T00:00:00Z");
+     if(Number.isFinite(value)&&Math.abs(value-today)<=7*86400000){
+       setDate(requested);
+     }
+   }
+ },[]);
+ useEffect(()=>{
   let disposed=false;const controller=new AbortController();
   setLoading(true);setError("");setData(null);
   fetch(URL+"?"+new URLSearchParams({date}),{
