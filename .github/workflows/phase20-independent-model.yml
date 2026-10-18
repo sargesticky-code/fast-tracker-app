@@ -4,6 +4,8 @@ on:
     branches: [release/ft-advisers-fotmob-20261011]
     paths:
       - 'lib/fast-tracker-dixon-coles-experimental.mjs'
+      - 'lib/fast-tracker-native-model.mjs'
+      - 'scripts/check-native-model.mjs'
       - 'scripts/check-phase20-experimental-dc-pi.mjs'
       - '.github/workflows/phase20-independent-model.yml'
 permissions:
