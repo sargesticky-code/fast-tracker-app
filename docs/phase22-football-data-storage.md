@@ -24,3 +24,5 @@ Check the response status via the pg_net response table (or Edge logs) and confi
 **Downstream training:** Current `football_data_matches` remains the bounded 3,960-row hot tier. CSVs in private storage do not automatically become indexed SQL records or increase the production 250-match model sample. Implement a separate, explicit bounded on-demand replay loader with competition-safe matching and chronology checks when needed. Any evaluation using recently imported prior outcomes is RETROSPECTIVE. New prospective forecasts must be frozen before kickoff, with their exact captured source snapshot.
 
 No HKJC code, reactivation, schedule or fallback is included.
+
+The existing private bucket permits text/csv, text/plain and application/octet-stream only; the JSON-formatted manifest is stored with the text/plain MIME type to respect that bucket policy.
