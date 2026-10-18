@@ -456,36 +456,12 @@ AS $function$
       'kickoffTimezoneVerified',false,
       'timeDeltaSeconds',0,
       'hda',CASE WHEN jsonb_typeof(c.observation->'hda')='object'
-        AND (c.observation#>>'{hda,home}') ~ '^(0([.][0-9]+)?|1([.]0+)?)
-    'source','ADVISER_PROVISIONAL_FLASHscore_0_25',
-    'quality','PROVISIONAL_NOT_VERIFIED',
-    'generatedAt',now(),
-    'rows',coalesce(jsonb_agg(value),'[]'::jsonb)
-  ) FROM rows;
-$function$;
-
-
-
-        AND (c.observation#>>'{hda,draw}') ~ '^(0([.][0-9]+)?|1([.]0+)?)
-    'source','ADVISER_PROVISIONAL_FLASHscore_0_25',
-    'quality','PROVISIONAL_NOT_VERIFIED',
-    'generatedAt',now(),
-    'rows',coalesce(jsonb_agg(value),'[]'::jsonb)
-  ) FROM rows;
-$function$;
-
-
-
-        AND (c.observation#>>'{hda,away}') ~ '^(0([.][0-9]+)?|1([.]0+)?)
-    'source','ADVISER_PROVISIONAL_FLASHscore_0_25',
-    'quality','PROVISIONAL_NOT_VERIFIED',
-    'generatedAt',now(),
-    'rows',coalesce(jsonb_agg(value),'[]'::jsonb)
-  ) FROM rows;
-$function$;
-
-
-
+        AND jsonb_typeof(c.observation->'hda'->'home')='number'
+        AND jsonb_typeof(c.observation->'hda'->'draw')='number'
+        AND jsonb_typeof(c.observation->'hda'->'away')='number'
+        AND (c.observation#>>'{hda,home}')::numeric BETWEEN 0 AND 1
+        AND (c.observation#>>'{hda,draw}')::numeric BETWEEN 0 AND 1
+        AND (c.observation#>>'{hda,away}')::numeric BETWEEN 0 AND 1
         AND abs(((c.observation#>>'{hda,home}')::numeric+
           (c.observation#>>'{hda,draw}')::numeric+
           (c.observation#>>'{hda,away}')::numeric)-1)<0.02
