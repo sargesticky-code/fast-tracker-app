@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const s=readFileSync(new URL("../supabase/migrations/20261018113000_phase43_legacy_live_archive.sql",import.meta.url),"utf8");
+const s=readFileSync(new URL("../supabase/migrations/20261018111219_phase43_legacy_live_archive_readback.sql",import.meta.url),"utf8");
 const e=readFileSync(new URL("../supabase/functions/legacy-live-cold-archive/index.ts",import.meta.url),"utf8");
 for(const x of ["SECURITY INVOKER","ft_legacy_live_archive_read","ft_legacy_live_archive_restore_check",
  "v_count<>15","^FB[0-9]{4,}$","interval '7 days'","CURRENT_FLASHSCORE_MATCH_IN_ARCHIVE",
