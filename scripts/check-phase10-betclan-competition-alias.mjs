@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261017141700_phase10_audited_betclan_usl_obos_alias.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261017141307_ft_phase10_betclan_usl_obos_audited_alias.sql",import.meta.url),"utf8");
 for(const [source,canonical] of [
   ["USA USL Championship","USL Championship"],
   ["Norway 1. Division","OBOS-ligaen"],
