@@ -1,0 +1,26 @@
+name: Phase 12-16 Stored SQL Version Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018*.sql'
+      - 'scripts/check-phase12-16-live-sql-parity.mjs'
+      - '.github/workflows/phase12-16-live-sql-parity.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase12-16-live-sql-parity.mjs
+      - run: node scripts/check-phase12-025-details-logos.mjs
+      - run: node scripts/check-phase13-adviser-review.mjs
+      - run: node scripts/check-phase14-sportytrader-clock.mjs
+      - run: node scripts/check-phase16-football-data-daily.mjs
