@@ -12,12 +12,18 @@ Owner approval: improve current providers, no new providers, no paid spend, no H
 
 ## Next small jobs and acceptance gates
 1. **Phase26a — DONE**: auditable read-only capacity preflight, existing 521-object metadata check, and revised hourly alert tier logic; no dangerous writes.
-2. **Phase26b — PENDING**: proven cold-lineup backup/restore and bounded reclaim; target <80%, preferred 70–75%; zero missing current lineup fields after cleanup.
-3. **Phase27 — PENDING**: authenticated private human-positive/negative pairing review audit ledger, distinguishing pairing QA from source/model probability. Reversible and immutable history; no public anonymous write endpoint.
-4. **Phase28 — PENDING**: SportyTrader source kickoff extraction and timezone evidence. Verify actual source HTML/date/times, hold unknown clocks provisional, no blind threshold lowering.
-5. **Phase29 — PENDING**: concise Match Details sections and freshness/provenance labels. Require CI, desktop/mobile rendered screenshots and actual deployed version verification.
-6. **Phase30 — PENDING**: Football-Data factual last-5/10, goal/corner historical form; replace stale Oct 5 legacy forecast with historical facts, clearly not a forecast.
-7. **Phase31 — PENDING**: measured odds up/down freshness coverage and alert semantics, strict same bookmaker+event proof.
-8. **Phase32 — PENDING**: collect immutable actual pre-kickoff model forecasts, proper calibration and held-out scores. Do not promote retrospective-only results.
+2. **Phase26b — BACKUP PROOF PASSED**: private SHA-256 readback archived IDs 1–200, 201–400, 401–600 (600 source rows; no SQL deletions). PR #162 merged; function `lineup-cold-archive` v2 uses deterministic SHA-256 paths and replay test returned 200 with one Storage object. This is ARCHIVE ONLY, not capacity reclaim.\n3. **Phase26c — READ-ONLY HISTORICAL RETENTION GUARD**: 23,619 records >14d represent historical match evidence used by `ft_internal_app_match_detail_critical`, `ft_verified_lineup_fast`, and lineup views. Only 595 are older than the latest same-match/same-source timestamp; even those require backup, complete-snapshot checks and preservation of historical routes before deletion. New SQL safely sizes potential candidates without deletes. Database still >80%; physical reclaim NOT achieved.
+4. **Phase27 — PENDING**: authenticated private human-positive/negative pairing review audit ledger, distinguishing pairing QA from source/model probability. Reversible and immutable history; no public anonymous write endpoint.
+5. **Phase28 — PENDING**: SportyTrader source kickoff extraction and timezone evidence. Verify actual source HTML/date/times, hold unknown clocks provisional, no blind threshold lowering.
+6. **Phase29 — PENDING**: concise Match Details sections and freshness/provenance labels. Require CI, desktop/mobile rendered screenshots and actual deployed version verification.
+7. **Phase30 — PENDING**: Football-Data factual last-5/10, goal/corner historical form; replace stale Oct 5 legacy forecast with historical facts, clearly not a forecast.
+8. **Phase31 — PENDING**: measured odds up/down freshness coverage and alert semantics, strict same bookmaker+event proof.
+9. **Phase32 — PENDING**: collect immutable actual pre-kickoff model forecasts, proper calibration and held-out scores. Do not promote retrospective-only results.
 
 No jobs beyond #1 are claimed complete merely because they are listed. Each future job should use a separate bounded PR, rollback plan, and factual production acceptance. This plan is not a standing background code-execution scheduler.
+
+## 2026-10-18 update: archive outcome and retention correctness
+- Live SQL capacity at 06:15 UTC: 431,361,171 / 524,288,000 bytes (82.28%). Threshold gap to get under 80% is ~11.93 MB; a normal SQL DELETE alone may not shrink allocated files. Do NOT run table rewrite/VACUUM FULL near quota without capacity headroom and low-traffic lock planning.
+- 600 historical cold lineup rows (IDs 1–600) archived across 3 Storage objects: original v1 first 200 and deterministic v2 next 400. Operator-authenticated version 2 Edge test returned 200 and `ARCHIVED_AND_SHA256_READBACK_VERIFIED`; duplicate invocation created no second v2 object.
+- **Retention trap:** The match-details RPC selects `latest_source` across **all historical time**, and lineup views read `phase2_match_lineup_evidence`. Thus `fetched_at < now()-14d` by itself is *NOT* a safe DELETE predicate. Only 595/23,619 old rows have newer same-match/source timestamps; even those 595 require checking whether the replacement snapshot is complete. The dry-run SQL intentionally performs no mutation.
+- Further reclamation needs a lossless cold-data access design (or a separately verified redundant-storage compaction) and rollback rehearsal, not blind timestamp pruning. No new provider, cron, or secret.
