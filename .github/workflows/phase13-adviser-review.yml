@@ -1,0 +1,28 @@
+name: Phase 13 Adviser Rejection Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/adviser-pair-review.js'
+      - 'components/flashscore-raw-match.js'
+      - 'app/homepage.css'
+      - 'supabase/migrations/20261018024500_ft_adviser_pair_rejections_private.sql'
+      - 'scripts/check-phase13-adviser-review.mjs'
+      - '.github/workflows/phase13-adviser-review.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase13-adviser-review.mjs
+      - run: node scripts/check-phase12-025-details-logos.mjs
+      - run: node scripts/check-all-adviser-source-team-visibility.mjs
+      - run: npm run build
