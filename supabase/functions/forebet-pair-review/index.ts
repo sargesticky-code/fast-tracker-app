@@ -10,7 +10,7 @@ const CORS={
   "x-content-type-options":"nosniff",
 };
 const ID=/^FS:[A-Za-z0-9_-]{5,32}$/;
-const SOURCE=/^https:\/\/www\.forebet\.com\/en\/football\/matches\/[a-z0-9-]+-\d{5,12}$/;
+const SOURCE=/^https:\/\/www\.forebet\.com\/en\/football\/matches\/[^/?#]+-\d{5,12}$/;
 const respond=(body:unknown,status=200)=>Response.json(body,{status,headers:CORS});
 const score=(x:unknown)=>typeof x==="string"&&/^\d{1,2}\s*-\s*\d{1,2}$/.test(x)?x:null;
 const names=(x:unknown)=>typeof x==="string"&&x.trim()&&x.length<=120?x.trim():null;
