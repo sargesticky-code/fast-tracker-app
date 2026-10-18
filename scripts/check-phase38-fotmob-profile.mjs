@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const s=readFileSync(new URL("../supabase/functions/phase2-fotmob-lineups/index.ts",import.meta.url),"utf8");
+const start=s.indexOf("function compactPlayerProfile(profile)");
+const end=s.indexOf("function parseLineup(",start);
+assert.ok(start>=0&&end>start,"compact player profile parser is required");
+const p=s.slice(start,end);
+for(const field of ["fotmobId:","name:","photo:","primaryTeam:","position:","country:","height:","age:","birthDate:","marketValue:","injuryInformation:","statSeasons:","recent"])assert.ok(p.includes(field),field);
+assert.doesNotMatch(p,/traits:\s*profile/);
+assert.doesNotMatch(p,/nextMatch:\s*profile/);
+assert.match(s,/const position=compact\?\.position\?\.primaryPosition\?\.label/);
+assert.match(s,/profile:compact/);
+assert.match(s,/MAX_PLAYER_PROFILES=48/);
+assert.match(s,/const recent=recentPlayerSummary\(profile\)/);
+console.log("PHASE38_FOTMOB_PROFILE_KEEP_STATS_DROP_UNUSED_WIDGETS_PASSED");

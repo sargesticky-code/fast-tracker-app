@@ -155,10 +155,10 @@ function compactPlayerProfile(profile){
     birthDate:profile?.birthDate?.utcTime??profile?.birthDate??null,
     marketValue:profile?.marketValue??profile?.marketValues?.[0]??null,
     injuryInformation:profile?.injuryInformation??null,
-    traits:profile?.traits??null,
+    // Keep historical season and recent-match statistics for the player drawer.
+    // Do not persist provider traits or next-match widgets unused by Fast Tracker.
     statSeasons:profile?.statSeasons??null,
-    recent,
-    nextMatch:profile?.nextMatch??null
+    recent
   };
 }
 function parseLineup(detail,eventId,externalId){
