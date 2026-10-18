@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018080000_phase33_daily_alias_audit.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018081028_phase34_recover_daily_alias_original_rpc.sql",import.meta.url),"utf8");
 for(const word of ["ft_daily_alias_audit","Asia/Hong_Kong","flashscore_primary_fixture_current","forebet_prediction_current","forebet_provisional_feed_current","adviser_prediction_current","ft_adviser_provisional_05","ft_extra_adviser_provisional_04","ft_extra_adviser_source_observations","jsonb_object_agg","grant execute on function public.ft_daily_alias_audit(date) to service_role"]){
  assert.ok(sql.includes(word),word);
 }
