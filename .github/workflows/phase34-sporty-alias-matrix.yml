@@ -1,0 +1,27 @@
+name: Phase 34 SportyTrader Calibrated Alias Matrix
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018090000_phase34_sportytrader_daily_alias_calibrated.sql'
+      - 'scripts/check-phase34-sporty-alias-matrix.mjs'
+      - '.github/workflows/phase34-sporty-alias-matrix.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018090000_phase34_sportytrader_daily_alias_calibrated.sql'
+      - 'scripts/check-phase34-sporty-alias-matrix.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase34-sporty-alias-matrix.mjs
+      - run: node scripts/check-phase33-daily-alias-matrix.mjs
+      - run: node scripts/check-phase14-sportytrader-clock.mjs
+      - run: npm run build
