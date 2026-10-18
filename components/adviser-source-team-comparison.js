@@ -10,7 +10,7 @@ export default function SourceTeamComparison({candidate,flashscoreHome,flashscor
       <span><em>Home</em> {flashscoreHome||"Unknown"} <em>Away</em> {flashscoreAway||"Unknown"}</span>
     </div>
     <div className="ft-source-team-pair">
-      <b>{({PRIMATIPS:"PrimaTips",STATAREA:"Statarea",BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader"})[candidate.provider]||candidate.provider}</b>
+      <b>{({PRIMATIPS:"PrimaTips",STATAREA:"Statarea",BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",FOREBET:"Forebet"})[candidate.provider]||candidate.provider}</b>
       <span><em>Home</em> {candidate.sourceHome||"Unknown"} <em>Away</em> {candidate.sourceAway||"Unknown"}</span>
     </div>
     {candidate.identityStatus==="VERIFIED" &&
