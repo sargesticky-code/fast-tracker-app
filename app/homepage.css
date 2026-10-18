@@ -308,3 +308,9 @@
 .ft-provisional-chip .ft-source-team-compare{flex-basis:100%;align-self:stretch}
 @media(max-width:650px){.ft-source-team-pair{grid-template-columns:70px minmax(0,1fr)}
   .ft-source-team-compare{padding:6px;gap:3px;font-size:11px}}
+
+/* The five-league badge stays beside its real team in match Details. */
+.ft-detail-teams{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.ft-detail-teams .ft-team-with-logo{max-width:44%;min-width:0;overflow-wrap:anywhere}
+.ft-match-adviser-link{display:inline-block;font-size:11px;font-weight:600;color:var(--ft-accent,#315b91);margin-top:4px}
+@media(max-width:650px){.ft-detail-teams{gap:8px}.ft-detail-teams .ft-team-with-logo{max-width:46%;font-size:.85em}}
