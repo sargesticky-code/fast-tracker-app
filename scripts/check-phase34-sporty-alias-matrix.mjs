@@ -16,6 +16,6 @@ const fragment=s.slice(begin,end);
 assert.match(fragment,/source_url/);
 assert.match(fragment,/identity_status='VERIFIED'/);
 assert.match(fragment,/source_captured_at<=now\(\)/);
-assert.match(s,/select p.canonical_event_id,'SPORTYTRADER'.*'PROVISIONAL',p.source_captured_at/);
+assert.match(s,/select p.canonical_event_id,'SPORTYTRADER',[\\s\\S]*?'PROVISIONAL',p.source_captured_at/);
 assert.doesNotMatch(s,/^(?!\s*--).*\b(INSERT INTO|UPDATE|DELETE FROM|TRUNCATE|DROP TABLE|cron\.schedule)\b/im);
 console.log("PHASE34_SPORTY_CLOCK_ALIAS_BOUNDED_REVIEW_ONLY_PASSED");
