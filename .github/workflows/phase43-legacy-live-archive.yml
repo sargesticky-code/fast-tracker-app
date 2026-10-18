@@ -1,0 +1,23 @@
+name: Phase 43 Legacy Live Lossless Archive
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018113000_phase43_legacy_live_archive.sql'
+      - 'supabase/functions/legacy-live-cold-archive/index.ts'
+      - 'scripts/check-phase43-legacy-live-archive.mjs'
+      - '.github/workflows/phase43-legacy-live-archive.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018113000_phase43_legacy_live_archive.sql'
+      - 'supabase/functions/legacy-live-cold-archive/index.ts'
+      - 'scripts/check-phase43-legacy-live-archive.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase43-legacy-live-archive.mjs
