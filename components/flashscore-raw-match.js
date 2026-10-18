@@ -8,7 +8,7 @@ import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
-import {adviserPairId,adviserMismatchReport,readRejectedPairs,setRejectedPair} from "@/lib/adviser-pair-review";
+import {adviserPairId,adviserMismatchReport,readRejectedPairs,setRejectedPair,readConfirmedPairs,setConfirmedPair} from "@/lib/adviser-pair-review";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
 function knownNumber(v, digits=0) {
@@ -170,16 +170,25 @@ function AdviserReviewCard({provider,candidate,fixtureId,home,away,kickoff}){
   const verified=candidate?.identityStatus==="VERIFIED";
   const pairKey=adviserPairId(fixtureId,candidate);
   const [rejected,setRejected]=useState(false);
+  const [confirmed,setConfirmed]=useState(false);
   const [copyStatus,setCopyStatus]=useState("");
   useEffect(()=>{
-    try{setRejected(Boolean(pairKey&&readRejectedPairs(window.localStorage).has(pairKey)));}
-    catch{setRejected(false);}
+    try{
+      setRejected(Boolean(pairKey&&readRejectedPairs(window.localStorage).has(pairKey)));
+      setConfirmed(Boolean(pairKey&&readConfirmedPairs(window.localStorage).has(pairKey)));
+    }catch{setRejected(false);setConfirmed(false);}
     setCopyStatus("");
   },[pairKey]);
   const toggle=()=>{
     try{
       const result=setRejectedPair(window.localStorage,fixtureId,candidate,!rejected);
-      if(result!==null)setRejected(result);
+      if(result!==null){setRejected(result);if(result)setConfirmed(false);}
+    }catch{setCopyStatus("Local browser storage unavailable");}
+  };
+  const toggleConfirmed=()=>{
+    try{
+      const result=setConfirmedPair(window.localStorage,fixtureId,candidate,!confirmed);
+      if(result!==null){setConfirmed(result);if(result)setRejected(false);}
     }catch{setCopyStatus("Local browser storage unavailable");}
   };
   const report=adviserMismatchReport(fixtureId,candidate,home,away,kickoff);
@@ -190,7 +199,7 @@ function AdviserReviewCard({provider,candidate,fixtureId,home,away,kickoff}){
       setCopyStatus("Report copied. Paste it into your project chat for shared exclusion.");
     }catch{setCopyStatus("Clipboard unavailable. Select and copy the report below.");}
   };
-  const status=!candidate?"No current matched forecast":rejected?"Rejected on this browser":verified?"Verified source fixture":"PROVISIONAL · NOT VERIFIED";
+  const status=!candidate?"No current matched forecast":rejected?"Rejected on this browser":confirmed?"You confirmed pairing · on this browser":verified?"Verified source fixture":"PROVISIONAL · NOT VERIFIED";
   return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()+(candidate&&!verified?"-provisional":"")}>
     <strong>◇ {names[provider]}</strong>
     <span className="ft-advisor-state">{status}</span>
@@ -214,11 +223,15 @@ function AdviserReviewCard({provider,candidate,fixtureId,home,away,kickoff}){
         </small>}
       {candidate.sourceUrl&&<small><a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer">Original adviser source</a></small>}
       <div className="ft-adviser-review-actions" data-testid={"adviser-review-"+provider.toLowerCase()}>
-        <button type="button" onClick={toggle} data-testid={"adviser-reject-"+provider.toLowerCase()}>
+        <button type="button" onClick={toggleConfirmed} data-testid={"adviser-verify-"+provider.toLowerCase()} aria-pressed={confirmed}>
+          {confirmed?"Undo my pairing verification":"Verify this pairing"}
+        </button>
+        <button type="button" onClick={toggle} data-testid={"adviser-reject-"+provider.toLowerCase()} aria-pressed={rejected}>
           {rejected?"Undo local rejection":"Reject this pairing locally"}
         </button>
         <button type="button" onClick={copy} data-testid={"adviser-copy-report-"+provider.toLowerCase()}>Copy correction report</button>
       </div>
+      {confirmed&&<small role="status" data-testid={"adviser-locally-confirmed-"+provider.toLowerCase()}>You confirmed this provider-to-Flashscore pairing on this browser. This is one human review, not independently verified source identity, a calibrated confidence score or an accuracy result. Not shared with other browsers.</small>}
       {rejected&&<small role="status">Hidden locally on this browser. Not blocked for other users until added to the private exclusion list.</small>}
       {copyStatus&&<small role="status">{copyStatus}</small>}
       <details><summary>Correction report (manual copy fallback)</summary>

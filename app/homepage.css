@@ -320,3 +320,11 @@
 .ft-adviser-review-actions button{padding:6px 9px;border:1px solid #8590a0;border-radius:6px;cursor:pointer;background:transparent;color:inherit;font-size:12px;font-weight:600}
 .ft-adviser-review-actions button:hover{border-color:#1b5695;background:rgba(92,135,181,.12)}
 .ft-review-report{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;font-size:11px;line-height:1.45}
+
+/* Prominent movement direction, but only for fresh validated same-event price history */
+.ft-odds-mini .ft-price-arrow{display:inline-flex;align-items:center;justify-content:center;
+ margin-left:5px;min-width:19px;min-height:20px;padding:0 3px;border-radius:5px;
+ font-size:17px;font-weight:800;line-height:1;vertical-align:middle}
+.ft-odds-mini .ft-price-arrow-up{color:#075f3d;background:#d8f4e4}
+.ft-odds-mini .ft-price-arrow-down{color:#a03612;background:#ffead9}
+@media(max-width:520px){.ft-odds-mini .ft-price-arrow{min-width:17px;margin-left:3px;font-size:16px}}
