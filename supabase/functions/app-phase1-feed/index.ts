@@ -280,6 +280,7 @@ function verifiedCompactSummaryRow(m: any) {
     oddsLabel:m.sourceContext?.marketAuthority==="CHINA_500_SPF"
       ? "China 500 reference" : "Bookmaker reference",
     externalAdvisers:m.externalAdvisers??[],
+    oddsMovement:m.oddsMovement??null,
     historicalForm:m.historicalForm??null,
     forebet:m.forebet??null,
     forebetDetail:{
@@ -758,7 +759,7 @@ Deno.serve(async (req: Request) => {
       // One indexed, read-only RPC replaces repeated PostgREST fanout across
       // fixture, bookmaker, detail, profile and lineup views. This is the
       // critical All-in-One lane. Legacy queries remain only as fallback.
-      const [fast,heartbeat,fixtureTimesResult,priorQuoteResult]=await Promise.all([
+      const [fast,heartbeat,fixtureTimesResult,priorQuoteResult,movementResult]=await Promise.all([
         db.rpc("ft_fast_flashscore_summary",{p_window_hours:hours}),
         db.from("source_health")
           .select("status,value_text,observed_at,notes,raw")
@@ -776,14 +777,43 @@ Deno.serve(async (req: Request) => {
         compactOnly
           ? db.rpc("ft_prior_bet365_reference_quotes",{p_window_hours:hours})
           : Promise.resolve({data:[],error:null}),
+        // Existing 15-minute native movement rollup. One bounded read, zero
+        // additional bookmaker requests and no reinterpretation as model EV.
+        compactOnly
+          ? db.from("odds_movement_feed_current")
+              .select("match_id,captured_at,kickoff_hkt,movement_side,now_odds,odds_1h,odds_2h")
+              .gte("kickoff_hkt",new Date(Date.now()-6*3600_000).toISOString())
+              .limit(350)
+          : Promise.resolve({data:[],error:null}),
       ]);
       if(!fast.error && Array.isArray(fast.data)){
+        const movementById=new Map<string,any>();
+        if(compactOnly&&!movementResult.error&&Array.isArray(movementResult.data)){
+          for(const move of movementResult.data){
+            const id=String(move?.match_id||"");
+            const captured=Date.parse(String(move?.captured_at||""));
+            const current=num(move?.now_odds),oneHour=num(move?.odds_1h);
+            const side=String(move?.movement_side||"");
+            if(!/^FS:[A-Za-z0-9_-]{5,32}$/.test(id)
+              ||!["H","D","A"].includes(side)
+              ||!Number.isFinite(captured)||captured>Date.now()+60000
+              ||captured<Date.now()-30*60_000
+              ||current===null||current<=1||oneHour===null||oneHour<=1
+              ||Math.abs(current-oneHour)<0.009
+              ||movementById.has(id))continue;
+            movementById.set(id,{side,current,prior:oneHour,capturedAt:new Date(captured).toISOString(),
+              source:"FLASHSCORE_BET365",window:"1h"});
+          }
+        }
+        if(compactOnly&&movementResult.error)
+          console.error("native_odds_movement_unavailable",movementResult.error);
         const matches=fast.data.map((r:any)=>{
           const base=directAuthoritySummaryRow(r,r.fs_live_verified===true);
           const stats=observedFlashscoreStats(
             {detail_raw:r.detail_raw,detail_fetched_at:r.detail_fetched_at},
             r.kickoff_hkt
           );
+          base.oddsMovement=movementById.get(base.id)||null;
           return stats ? {
             ...base,
             sourceContext:{
