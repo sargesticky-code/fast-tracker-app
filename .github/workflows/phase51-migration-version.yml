@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [release/ft-advisers-fotmob-20261011]
     paths:
+      - 'supabase/migrations/*phase49*.sql'
+      - 'supabase/migrations/*phase50*.sql'
       - 'supabase/migrations/*phase51*.sql'
       - 'scripts/check-phase51-migration-version.mjs'
       - '.github/workflows/phase51-migration-version.yml'
