@@ -7,7 +7,6 @@ import { fetchVerifiedMatch, matchObservation, currentExternalAdvisers, adviserP
 import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
-import SourceTeamComparison from "@/components/adviser-source-team-comparison";
 import {fetchForebetPairReview} from "@/lib/forebet-pair-review";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
@@ -165,22 +164,20 @@ function PlayerStats({ data }) {
   </section>;
 }
 
-function AdviserReviewCard({provider,candidate,home,away,forecastAvailable=false,reviewUnavailable=false}){
+function AdviserReviewCard({provider,candidate,forecastAvailable=false,reviewUnavailable=false}){
   const names={BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea",FOREBET:"Forebet"};
   const verified=candidate?.identityStatus==="VERIFIED";
   const status=!candidate?(reviewUnavailable?"Source temporarily unavailable":forecastAvailable?"Saved forecast · source link unavailable":"No current matched forecast")
-    :verified?"Source-linked forecast":"Displayed pairing · source identity provisional";
+    :verified?"Source-linked forecast":"Provisional forecast";
   return <div className="ft-advisor-card" data-testid={"advisor-"+provider.toLowerCase()+(candidate&&!verified?"-provisional":"")}>
     <strong>◇ {names[provider]}</strong>
     <span className="ft-advisor-state">{status}</span>
-    {candidate&&<SourceTeamComparison candidate={candidate} flashscoreHome={home} flashscoreAway={away}/>}
     {candidate&&<>
       {candidate.hda&&<small>Source H / D / A: {[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
       {(candidate.predictedScore||candidate.score)&&<small>Source predicted score: {candidate.predictedScore||candidate.score}</small>}
       {candidate.over25!=null&&<small>Over 2.5: {adviserPercentValue(candidate.over25)}%</small>}
       {candidate.bttsYes!=null&&<small>BTTS Yes: {adviserPercentValue(candidate.bttsYes)}%</small>}
       {candidate.tip&&<small>Source tip: {candidate.tip}</small>}
-      {!verified&&<small>Displayed by default. Original source identity is provisional, so the forecast is not included in independently verified accuracy results.</small>}
       {candidate.clockEvidence==="CALIBRATED_FROM_SPORTYTRADER_LINKED_EVENTS_NOT_SOURCE_VERIFIED"&&
         <small data-testid="sportytrader-time-calibrated">SportyTrader clock calibrated from
           {" "+candidate.clockCalibrationSamples+" linked matches"}
@@ -189,7 +186,6 @@ function AdviserReviewCard({provider,candidate,home,away,forecastAvailable=false
         </small>}
       {candidate.sourceUrl&&<small><a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer">Original adviser source</a></small>}
     </>}
-    {candidate&&<small>Incorrect fixture? Report the match and provider URL directly in your project chat.</small>}
   </div>;
 }
 export default function FlashscoreRawMatch() {
@@ -319,7 +315,7 @@ export default function FlashscoreRawMatch() {
     ||lineupProvenance?.status==="PREDICTED"
     ||lineups.some(player=>player?.predicted===true);
   return <main className="ft-home ft-raw-detail">
-    <a href="/">← All fixtures</a>
+    <a href="/">← All fixtures</a> · <a href="/aliases">Daily alias table</a>
     <p className="ft-match-competition">{String(match?.league||fixture?.tournament||"Football").replace(/:\s*(?:Live Standings|Standings|Draw|Results)$/i,"")}</p>
     <h1 className="ft-detail-teams">
       <TeamNameWithLogo team={home} logoTeam={home} context={leagueContext} size={30} />
