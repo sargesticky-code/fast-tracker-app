@@ -1,0 +1,20 @@
+name: Phase 26B Cold Lineup Archive Only
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/functions/lineup-cold-archive/**'
+      - 'scripts/check-phase26b-lineup-archive.mjs'
+      - '.github/workflows/phase26b-lineup-archive.yml'
+permissions:
+  contents: read
+jobs:
+  archive-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase26b-lineup-archive.mjs
