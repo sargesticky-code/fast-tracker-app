@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const s=readFileSync(new URL("./sql/phase26c-lineup-retention-dryrun.sql",import.meta.url),"utf8");
+assert.match(s,/latest_source AS/);
+assert.match(s,/MAX\(fetched_at\)/);
+assert.match(s,/has_newer_source_snapshot/);
+assert.match(s,/present_in_current_fixtures/);
+assert.match(s,/potential_superseded_rows_for_further_review/);
+assert.match(s,/pg_database_size/);
+assert.doesNotMatch(s,/^(?!\s*--).*\b(?:DELETE|TRUNCATE|DROP|UPDATE|ALTER|VACUUM|REINDEX)\b/im);
+console.log("PHASE26C_LINEUP_HISTORY_RETENTION_READONLY_PASSED");
