@@ -1,0 +1,22 @@
+name: Phase 46 One Daily Snapshot Retention Job
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase46-schedule-proven-source-retention.sql'
+      - 'scripts/check-phase46-daily-retention-cron.mjs'
+      - '.github/workflows/phase46-source-retention-scheduler.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase46-schedule-proven-source-retention.sql'
+      - 'scripts/check-phase46-daily-retention-cron.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase46-daily-retention-cron.mjs
