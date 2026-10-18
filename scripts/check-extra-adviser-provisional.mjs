@@ -57,14 +57,15 @@ assert.equal(compare("","","Newcastle","Aston Villa").code,"unknown");
 assert.equal(compare("Bayern München","Borussia Dortmund","Bayern Munchen","Borussia Dortmund").code,"same");
 assert.equal(combined.get(baseline.id)[0].sourceHome,"Fulham");
 assert.equal(combined.get(baseline.id)[0].sourceAway,"Hull City");
-for(const path of ["../components/homepage-client.js","../components/flashscore-raw-match.js"]){
-  const source=readFileSync(new URL(path,import.meta.url),"utf8");
-  assert.match(source,/SourceTeamComparison/);
-  assert.match(source,/flashscoreHome=/);
-  assert.match(source,/flashscoreAway=/);
-}
+const detailsSource=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
+assert.match(detailsSource,/SourceTeamComparison/);
+assert.match(detailsSource,/flashscoreHome=/);
+assert.match(detailsSource,/flashscoreAway=/);
+const homepageSource=readFileSync(new URL("../components/homepage-client.js",import.meta.url),"utf8");
+assert.match(homepageSource,/adviser-details-link/);
+assert.doesNotMatch(homepageSource,/SourceTeamComparison/);
 const comparison=readFileSync(new URL("../components/adviser-source-team-comparison.js",import.meta.url),"utf8");
 assert.match(comparison,/candidate.sourceHome/);
 assert.match(comparison,/candidate.sourceAway/);
 assert.match(comparison,/Names|name/i);
-console.log("PASS source H/A vs Flashscore H/A visible on fixture list and details; difference/reversal review-only");
+console.log("PASS source H/A vs Flashscore H/A visible only in match details; difference/reversal review-only");
