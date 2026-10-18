@@ -1,0 +1,21 @@
+name: October 16 Applied SQL Version Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261016*.sql'
+      - 'supabase/migrations/20261017003000*.sql'
+      - 'scripts/check-oct16-live-migrations.mjs'
+      - '.github/workflows/oct16-migration-parity.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-oct16-live-migrations.mjs
