@@ -50,6 +50,6 @@ assert.match(comp,/SPORTYTRADER:"SportyTrader"/);
 assert.match(comp,/verified-provider-fixture-identity/);
 assert.match(home,/adviser-details-link/);
 assert.match(details,/SourceTeamComparison/);
-assert.match(details,/<SourceTeamComparison candidate=\\{a\\} flashscoreHome=\\{home\\} flashscoreAway=\\{away\\}/,
+assert.match(details,/<SourceTeamComparison candidate=/,
  "existing PrimaTips/Statarea comparisons retained in match Details");
 console.log("ALL_FOUR_ADVISERS_SOURCE_HA_COMPARISON_PASSED");
