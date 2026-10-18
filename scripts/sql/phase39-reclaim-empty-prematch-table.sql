@@ -32,7 +32,7 @@ BEGIN
   -- TRUNCATE is transactional and releases relation/index allocation.
   -- The locked table has exactly zero rows; no match or forecast data is deleted.
   EXECUTE 'TRUNCATE TABLE ONLY private.prematch_prediction_snapshot';
-END
+END;
 $guard$;
 COMMIT;
 -- No VACUUM FULL, no CASCADE, no table drop, no other objects touched.
