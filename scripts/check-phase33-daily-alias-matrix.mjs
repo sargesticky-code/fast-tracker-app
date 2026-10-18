@@ -14,4 +14,7 @@ assert.match(page,/DailyAliasMatrix/);
 const endpoint=readFileSync(new URL("../supabase/functions/daily-alias-matrix/index.ts",import.meta.url),"utf8");
 assert.match(endpoint,/req.method!=="GET"/);
 assert.match(endpoint,/ft_daily_alias_audit/);
+const ui=readFileSync(new URL("../components/daily-alias-matrix.js",import.meta.url),"utf8");
+assert.match(ui,/window\.location\.search/);
+assert.match(ui,/query\.get\("date"\)/);
 console.log("PHASE33_DAILY_ALIAS_MATRIX_PRIVILEGED_READONLY_AND_SINGLE_SOURCE_PASSED");
