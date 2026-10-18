@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const edge=readFileSync(new URL("../supabase/functions/football-data-direct/index.ts",import.meta.url),"utf8");
-const cron=readFileSync(new URL("../supabase/migrations/20261018044500_ft_football_data_daily_cron.sql",import.meta.url),"utf8");
+const cron=readFileSync(new URL("../supabase/migrations/20261018040020_ft_20261018_restore_football_data_daily_csv.sql",import.meta.url),"utf8");
 const section=edge.slice(edge.indexOf("Deno.serve("),edge.indexOf("const hbRes="));
 assert.ok(section.includes('req.headers.get("x-ft-cron-key")'));
 assert.ok(section.includes('db.rpc("ft_internal_cron_key_matches",{p_key:cronKey})'));
