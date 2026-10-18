@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018114500_phase45_source_day_retention.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018113019_phase45_source_day_archive_first_retention.sql",import.meta.url),"utf8");
 const edge=readFileSync(new URL("../supabase/functions/source-day-retention/index.ts",import.meta.url),"utf8");
 for(const key of ["ft_source_day_retirement_ledger","alter table private.ft_source_day_retirement_ledger enable row level security",
  "ft_source_day_retention_candidates","ft_source_day_retire_proven",
