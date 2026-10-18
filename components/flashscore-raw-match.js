@@ -8,6 +8,7 @@ import FormationPitch from "@/components/formation-pitch";
 import FotMobPlayerInsights from "@/components/fotmob-player-insights";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import SourceTeamComparison from "@/components/adviser-source-team-comparison";
+import { TeamNameWithLogo } from "@/components/team-logo";
 
 function knownNumber(v, digits=0) {
   return v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(digits);
@@ -246,6 +247,7 @@ export default function FlashscoreRawMatch() {
   const observed=matchObservation(analysis?.flashscoreStats);
   const home=match?.home||fixture?.home_en||"Home unknown";
   const away=match?.away||fixture?.away_en||"Away unknown";
+  const leagueContext=match?.league||fixture?.tournament||"";
   const validXI=lineups.length===22 && lineupProvenance?.sourceConfirmed===true
     && lineups.filter(p=>p.team_side==="H").length===11 && lineups.filter(p=>p.team_side==="A").length===11;
   const predictedXI=lineupProvenance?.predicted===true
@@ -254,7 +256,11 @@ export default function FlashscoreRawMatch() {
   return <main className="ft-home ft-raw-detail">
     <a href="/">← All fixtures</a>
     <p className="ft-match-competition">{String(match?.league||fixture?.tournament||"Football").replace(/:\s*(?:Live Standings|Standings|Draw|Results)$/i,"")}</p>
-    <h1>{home} vs {away}</h1>
+    <h1 className="ft-detail-teams">
+      <TeamNameWithLogo team={home} logoTeam={home} context={leagueContext} size={30} />
+      <span>vs</span>
+      <TeamNameWithLogo team={away} logoTeam={away} context={leagueContext} size={30} />
+    </h1>
     <p className="ft-match-when">{ukDate(fixture?.kickoff_hkt) || "Kickoff time unavailable"}
       {score && <strong> · {fixture?.status==="FINISHED"?"Final score":"Actual score"} {score}</strong>}</p>
     {state.checkedAt&&<small role="status">Checked {new Date(state.checkedAt).toLocaleTimeString("en-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",second:"2-digit"})} HKT · refreshes every minute while this page is open</small>}
@@ -263,7 +269,8 @@ export default function FlashscoreRawMatch() {
 
     {!analysis && <p role="status">More match details are not available yet.</p>}
     {(analysis || unmatchedTentative.length>0) && <section className="ft-enriched-panel" data-testid="verified-match-analysis">
-      <h2>Match predictions</h2>
+      <h2>Match predictions and adviser statistics</h2>
+      <p className="ft-odds-note">Original provider home/away names are shown beside Flashscore to make checking easy. Provisional candidates are not independently verified.</p>
       <div className="ft-advisor-card-grid" data-testid="advisor-source-status">
         <div className="ft-advisor-card" data-testid="advisor-forebet">
           <strong>◇ Forebet</strong>
@@ -288,6 +295,7 @@ export default function FlashscoreRawMatch() {
             {a&&a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
             {a&&a.bttsYes!==null&&<small>BTTS Yes: {adviserPercentValue(a.bttsYes)}%</small>}
             {a?.tip&&<small>Source tip: {a.tip}</small>}
+            {a&&<SourceTeamComparison candidate={a} flashscoreHome={home} flashscoreAway={away}/>}
             {a&&<small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Source prediction</a> · Captured {new Date(a.capturedAt).toISOString()}</small>}
           </div>;
         })}
@@ -295,15 +303,14 @@ export default function FlashscoreRawMatch() {
           data-testid={"advisor-"+a.provider.toLowerCase()+"-provisional"} key={a.provider+"-provisional"}>
           <strong>◇ {({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[a.provider]||a.provider}</strong>
           <span className="ft-advisor-state">PROVISIONAL · NOT VERIFIED</span>
-          {["PRIMATIPS","STATAREA"].includes(a.provider)&&<SourceTeamComparison
-            candidate={a} flashscoreHome={home} flashscoreAway={away}/>}
+          <SourceTeamComparison candidate={a} flashscoreHome={home} flashscoreAway={away}/>
           {a.hda&&<small>Source H / D / A: {[a.hda.home,a.hda.draw,a.hda.away].map(x=>adviserPercentValue(x)+"%").join(" / ")}</small>}
           {a.score&&<small>Source predicted score: {a.score}</small>}
           {a.over25!==null&&<small>Over 2.5: {adviserPercentValue(a.over25)}%</small>}
           {a.bttsYes!==null&&<small>BTTS Yes: {adviserPercentValue(a.bttsYes)}%</small>}
           <small>{a.clockEvidence==="CALIBRATED_FROM_DAY_COHORT_NOT_SOURCE_VERIFIED"
-            ?"Source clock inferred from "+a.clockCalibrationSamples+" high-confidence fixtures. Source timezone NOT verified."
-            :"Source date and kickoff match."} 0.4 team threshold, unique fixture. Revoked when source evidence conflicts.</small>
+            ?"Source clock calibrated from "+a.clockCalibrationSamples+" candidate fixture pairs; timezone NOT independently verified."
+            :"Provider and Flashscore kickoff compared."} At least 25% name similarity on both teams; automatically rechecked. Provisional links are excluded from accuracy calculations.</small>
           <small><a href={a.sourceUrl} target="_blank" rel="noopener noreferrer">Original source</a></small>
         </div>)}
 

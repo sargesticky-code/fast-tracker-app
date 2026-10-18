@@ -26,6 +26,6 @@ for(const provider of ["betclan","sportytrader","primatips","statarea"]){
 assert.match(src,/setScope\("all"\)/);
 assert.match(src,/ADVISER_KEYS\[feature\]/);
 assert.match(src,/matchAdviserFacet\(m,feature\)/);
-assert.match(src,/verified-adviser-source-comparisons/);
-assert.match(src,/SourceTeamComparison/);
+assert.match(src,/adviser-details-link/);
+assert.doesNotMatch(src,/SourceTeamComparison/);
 console.log("PHASE10_ADVISER_DISCOVERY_NO_PROMOTION_PASSED");

@@ -6,7 +6,6 @@ import { fetchForebetProvisional } from "@/lib/forebet-provisional-feed";
 import { GOAL_LINES, CORNER_LINES, exactLineForecast } from "@/lib/line-aware-forecasts";
 import { fetchExternalProvisional } from "@/lib/external-adviser-provisional-feed";
 import { ADVISER_KEYS, matchAdviserFacet } from "@/lib/adviser-visibility";
-import SourceTeamComparison from "@/components/adviser-source-team-comparison";
 import { TeamNameWithLogo } from "@/components/team-logo";
 
 // Source competition names can contain "COUNTRY: Live Standings". Keep the
@@ -174,16 +173,8 @@ function MatchChips({evidence,homeTeam,awayTeam,goalsLine=2.5,cornersLine=9.5}) 
   if (evidence.dc) chips.push({label:"Dixon–Coles (verified source)",value:[evidence.dc.home,evidence.dc.draw,evidence.dc.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◈",test:"advisor-dc-hda"});
   if (evidence.pi) chips.push({label:"Power Index (same source as DC)",value:[evidence.pi.home,evidence.pi.draw,evidence.pi.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"◇",test:"advisor-pi-hda"});
   if (evidence.form) chips.push({label:"Verified Form model",value:[evidence.form.home,evidence.form.draw,evidence.form.away].map(v=>Math.round(v*100)).join("/")+"%",mark:"○",test:"advisor-form-hda"});
-  for(const a of evidence.externalAdvisers||[]) {
-    const name=a.provider==="BETCLAN"?"BetClan":"SportyTrader";
-    const key=a.provider.toLowerCase();
-    if(a.hda)chips.push({label:name+" H/D/A",value:[a.hda.home,a.hda.draw,a.hda.away].map(adviserPercentValue).join("/")+"%",mark:"%",test:key+"-hda"});
-    if(a.predictedScore)chips.push({label:name+" predicted score",value:a.predictedScore,mark:"◇",test:key+"-score"});
-    if(a.over25!==null)chips.push({label:name+" Over 2.5",value:adviserPercentValue(a.over25)+"%",mark:"↗",test:key+"-over25"});
-    if(a.bttsYes!==null)chips.push({label:name+" BTTS Yes",value:adviserPercentValue(a.bttsYes)+"%",mark:"↗",test:key+"-btts"});
-    if(a.tip)chips.push({label:name+" source tip",value:a.tip,mark:"◇",test:key+"-tip"});
-    chips.push({label:name+" captured (UTC)",value:new Date(a.capturedAt).toISOString().slice(0,16).replace("T"," "),mark:"◷",test:key+"-timestamp"});
-  }
+  // External adviser probabilities and source team comparisons belong in the
+  // match Details page. The fixture listing stays compact and fast.
   const homeForm=evidence.historicalForm?.home, awayForm=evidence.historicalForm?.away;
   if(homeForm||awayForm) chips.push({label:"Last results",value:`H ${homeForm?.results||"—"} · A ${awayForm?.results||"—"}`,mark:"↗",test:"historical-form"});
   if (evidence.confirmedXI) chips.push({label:"Official XI",value:"XI",mark:"♟",test:"confirmed-xi"});
@@ -210,26 +201,6 @@ function ProvisionalChip({candidate,verified}) {
       ?"Names only; not accepted as a confirmed event. Automatically rechecked."
       :"One confirmed team is sufficient to accept this Forebet forecast. Opponent not independently verified; automatically disconnected on conflicting evidence."}
       {" "}Not counted as a two-team verified backtest.</small>
-  </div>;
-}
-
-function ExternalProvisionalChip({candidate,flashscoreHome,flashscoreAway}) {
-  const name=({BETCLAN:"BetClan",SPORTYTRADER:"SportyTrader",PRIMATIPS:"PrimaTips",STATAREA:"Statarea"})[candidate.provider]||candidate.provider;
-  return <div className="ft-provisional-chip" data-testid={"adviser-provisional-"+candidate.provider.toLowerCase()}
-    title={"Source: "+candidate.sourceHome+" vs "+candidate.sourceAway+
-      " · Name similarity: "+candidate.homeSimilarity.toFixed(2)+"/"+candidate.awaySimilarity.toFixed(2)}>
-    <span>◇ {name} provisional · 0.3 name floor · NOT VERIFIED</span>
-    {["PRIMATIPS","STATAREA"].includes(candidate.provider)&&<SourceTeamComparison
-      candidate={candidate} flashscoreHome={flashscoreHome} flashscoreAway={flashscoreAway}/>}
-    <strong>{candidate.hda?"H/D/A "+[candidate.hda.home,candidate.hda.draw,candidate.hda.away].map(v=>adviserPercentValue(v)+"%").join(" / "):"Source probability unavailable"}
-      {candidate.score?" · Score "+candidate.score:""}
-      {candidate.over25!==null?" · Over 2.5 "+adviserPercentValue(candidate.over25)+"%":""}
-      {candidate.bttsYes!==null?" · BTTS "+adviserPercentValue(candidate.bttsYes)+"%":""}</strong>
-    <small>{candidate.clockEvidence==="CALIBRATED_FROM_DAY_COHORT_NOT_SOURCE_VERIFIED"
-      ? "Source clock calibrated from "+candidate.clockCalibrationSamples+" real fixture pairs; source timezone NOT verified"
-      : "Source date and kickoff independently checked"}
-      {" · "}{["CORROBORATED","NAME_SIMILAR"].includes(candidate.leagueEvidence)?"League evidence consistent":"League awaiting review"}
-      {" · "}May disconnect after daily recheck. Not a verified forecast.</small>
   </div>;
 }
 
@@ -639,14 +610,12 @@ export default function HomepageClient() {
                   <span className="ft-team-away" data-testid="away-team-name"><TeamNameWithLogo team={m.away} logoTeam={m.away} context={m.league} size={22}/></span>
                 </div>
                 <MatchChips evidence={m.evidence} homeTeam={m.home} awayTeam={m.away} goalsLine={goalsLine} cornersLine={cornersLine}/>
-                {m.evidence?.externalAdvisers?.length>0 &&
-                  <div className="ft-verified-adviser-identities" data-testid="verified-adviser-source-comparisons">
-                    {m.evidence.externalAdvisers.map(a=><SourceTeamComparison key={a.provider}
-                      candidate={a} flashscoreHome={m.home} flashscoreAway={m.away}/>)}
-                  </div>}
+                {(m.evidence?.externalAdvisers?.length>0||m.externalProvisional.length>0)&&
+                  <span className="ft-match-adviser-link" data-testid="adviser-details-link">
+                    {new Set([...(m.evidence?.externalAdvisers||[]).map(a=>a.provider),
+                      ...m.externalProvisional.map(a=>a.provider)]).size} adviser source(s) · See predictions, stats and team names in Details →
+                  </span>}
                 <ProvisionalChip candidate={m.provisional} verified={m.evidence?.forebet}/>
-                {m.externalProvisional.map(candidate=><ExternalProvisionalChip key={candidate.provider}
-                  candidate={candidate} flashscoreHome={m.home} flashscoreAway={m.away}/>)}
               </div>
               <div className="ft-kickoff-cell">
                 <span className={"ft-match-state ft-match-state-"+m.phase}>{m.phase==="live"&&<i className="ft-live-dot"/>}{statusLabel}</span>

@@ -27,7 +27,7 @@ Deno.serve(async(req:Request):Promise<Response>=>{
       return Response.json({error:"SOURCE_UNAVAILABLE"},{status:503,headers});
     }
     const data=await response.json();
-    if(!["EXTRA_ADVISER_PROVISIONAL_04","EXTRA_ADVISER_PROVISIONAL_03"].includes(data?.source) ||
+    if(!["EXTRA_ADVISER_PROVISIONAL_04","EXTRA_ADVISER_PROVISIONAL_03","EXTRA_ADVISER_PROVISIONAL_025"].includes(data?.source) ||
       data?.quality!=="PROVISIONAL_NOT_VERIFIED_CALIBRATED_WALL_TIME" ||
       !Array.isArray(data?.rows)||data.rows.length>600 ||
       !data.rows.every((x:any)=> x.status==="PROVISIONAL_NOT_VERIFIED" &&

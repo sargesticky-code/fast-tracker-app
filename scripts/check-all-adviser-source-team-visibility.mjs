@@ -44,11 +44,12 @@ assert.equal(currentExternalAdvisers({
 },now).length,0,"never falsely certify provisional results");
 const comp=readFileSync(new URL("../components/adviser-source-team-comparison.js",import.meta.url),"utf8");
 const home=readFileSync(new URL("../components/homepage-client.js",import.meta.url),"utf8");
+const details=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
 assert.match(comp,/BETCLAN:"BetClan"/);
 assert.match(comp,/SPORTYTRADER:"SportyTrader"/);
 assert.match(comp,/verified-provider-fixture-identity/);
-assert.match(home,/verified-adviser-source-comparisons/);
-assert.match(home,/candidate=\{a\} flashscoreHome=\{m\.home\} flashscoreAway=\{m\.away\}/);
-assert.match(home,/candidate=\{candidate\} flashscoreHome=\{flashscoreHome\}/,
- "existing PrimaTips/Statarea comparisons retained");
+assert.match(home,/adviser-details-link/);
+assert.match(details,/SourceTeamComparison/);
+assert.match(details,/<SourceTeamComparison candidate=/,
+ "existing PrimaTips/Statarea comparisons retained in match Details");
 console.log("ALL_FOUR_ADVISERS_SOURCE_HA_COMPARISON_PASSED");
