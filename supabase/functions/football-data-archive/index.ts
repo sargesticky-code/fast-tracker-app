@@ -90,7 +90,7 @@ Deno.serve(async req => {
     };
     const manifestObject = new TextEncoder().encode(JSON.stringify(manifest,null,2)+"\n");
     const written = await db.storage.from(BUCKET).upload(dir+"/"+league+".manifest.json",manifestObject,{
-      contentType:"application/json",cacheControl:"3600",upsert:true
+      contentType:"text/plain",cacheControl:"3600",upsert:true
     });
     if (written.error) throw new Error("manifest_upload_failed");
     return Response.json({ok:true,status,season,league,rows:source.rows,bytes:source.bytes.byteLength,
