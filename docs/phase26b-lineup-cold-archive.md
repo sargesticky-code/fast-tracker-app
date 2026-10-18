@@ -9,3 +9,7 @@ The file path includes its SHA-256 digest and is immutable (`upsert:false`). It 
 **Current scope:** Archive only, not automatic SQL DELETE and not guaranteed to lower `pg_database_size`. The next phase must use a private manifest ledger and explicit restore verification, and prove the same exact rows are still no longer needed by current/recent match routes before any bounded DELETE. A normal DELETE can leave physical table and index allocations unchanged, so report actual database bytes before and after any future compaction.
 
 No HKJC dependencies, paid services, new scrapers, production schedule changes, or backend match confidence promotion.
+
+## Live first-batch proof / replay hardening (18 October 2026)
+
+The authenticated read-only-then-storage archive test returned HTTP 200 for source IDs 1–200, archived 200 cold rows (127,857 bytes), performed SHA-256 download/readback validation, and made **zero SQL source-row deletions**. The original v1 file is retained. The v2 code now uses deterministic manifests and checksum-addressed paths (`lineup-cold/v2/...`); the same unchanged source batch and eligible set produces the same Storage path on replays, avoiding repeat object uploads. Changes in row content intentionally produce a new checksum and object. Do not prune SQL rows until a separately reviewed restore/row-level verification and retention guard has been run. 
