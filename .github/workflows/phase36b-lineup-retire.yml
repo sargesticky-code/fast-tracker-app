@@ -1,0 +1,22 @@
+name: Phase 36B Archive-Readback-Retire
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261018094500_phase36b_retire_archived_lineup_batch.sql'
+      - 'supabase/functions/lineup-cold-retire/index.ts'
+      - 'scripts/check-phase36b-lineup-retire.mjs'
+      - '.github/workflows/phase36b-lineup-retire.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018094500_phase36b_retire_archived_lineup_batch.sql'
+      - 'supabase/functions/lineup-cold-retire/index.ts'
+      - 'scripts/check-phase36b-lineup-retire.mjs'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase36b-lineup-retire.mjs
