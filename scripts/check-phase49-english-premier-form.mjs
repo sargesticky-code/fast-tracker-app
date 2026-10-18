@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018133000_phase49_strict_english_premier_league_form.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018120209_phase49_english_premier_form_native_id_guard.sql",import.meta.url),"utf8");
 for(const token of ["CREATE OR REPLACE FUNCTION public.ft_fast_flashscore_summary","f.league <> 'Premier League'",
 "f.identity_authority='FLASHSCORE'","f.provider_identity_status='VERIFIED_IDENTITY'",
 "public.phase15_source_shadow_current","s.source_key='FLASHSCORE'",
