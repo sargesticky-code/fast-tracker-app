@@ -1,0 +1,26 @@
+name: Phase 38 Lean FotMob Player Profiles
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/functions/phase2-fotmob-lineups/index.ts'
+      - 'scripts/check-phase38-fotmob-profile.mjs'
+      - '.github/workflows/phase38-fotmob-profile.yml'
+  push:
+    paths:
+      - 'supabase/functions/phase2-fotmob-lineups/index.ts'
+      - 'scripts/check-phase38-fotmob-profile.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase38-fotmob-profile.mjs
+      - run: node scripts/check-fotmob-refresh.mjs
+      - run: npm run build
