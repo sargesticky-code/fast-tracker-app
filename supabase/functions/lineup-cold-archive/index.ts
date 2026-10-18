@@ -55,7 +55,7 @@ Deno.serve(async(req:Request)=>{
    return response({ok:false,error:"ROW_VALIDATION_FAILED"},422);
  const firstId=Number(safe[0].id),lastId=Number(safe.at(-1).id);
  const manifest={schema:"FT_COLD_LINEUP_ARCHIVE_V1",source:"public.phase2_match_lineup_evidence",
-  archiveMode:"BACKUP_ONLY_NO_DELETE",cutoffUtc:cutoff,createdUtc:new Date().toISOString(),
+  archiveMode:"BACKUP_ONLY_NO_DELETE",retentionDays:COLD_DAYS,
   rowCount:safe.length,firstId,lastId,
   sourceNames:[...new Set(safe.map(x=>String(x.source_name||"UNKNOWN")))].sort()};
  const body=[JSON.stringify({manifest}),...safe.map(x=>JSON.stringify(x))].join("\n")+"\n";
@@ -63,8 +63,7 @@ Deno.serve(async(req:Request)=>{
  if(bytes.length>MAX_FILE_BYTES)return response({ok:false,error:"FILE_EXCEEDS_SAFE_BOUND",
     size:bytes.length,rowCount:safe.length},413);
  const digest=await sha256(bytes);
- const day=new Date().toISOString().slice(0,10);
- const path="lineup-cold/"+day+"/"+firstId+"-"+lastId+"-"+digest+".jsonl.txt";
+ const path="lineup-cold/v2/"+firstId+"-"+lastId+"-"+digest+".jsonl.txt";
  const st=db.storage.from(BUCKET);
  const upload=await st.upload(path,bytes,{contentType:"text/plain",upsert:false,cacheControl:"0"});
  // Duplicate archive path can occur on safe replays. Never overwrite an object.
