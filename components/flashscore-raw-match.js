@@ -204,6 +204,14 @@ function AdviserReviewCard({provider,candidate,fixtureId,home,away,kickoff}){
     </>}
     {candidate&&<>
       {!verified&&<small>Candidate association only; provider identity has NOT been independently verified. Kept out of accuracy statistics.</small>}
+      {candidate.clockEvidence==="CALIBRATED_FROM_SPORTYTRADER_LINKED_EVENTS_NOT_SOURCE_VERIFIED"&&
+        <small data-testid="sportytrader-time-calibrated">
+          SportyTrader displayed a date and clock time. The timezone was calibrated from
+          { " "+candidate.clockCalibrationSamples+" independently timestamped SportyTrader matches"}
+          (agreement {Math.round(candidate.clockCalibrationAgreement*100)}%).
+          Matching also requires the correct league, home/away orientation and unique Flashscore kickoff.
+          This is a review candidate, not a source-verified kickoff.
+        </small>}
       {candidate.sourceUrl&&<small><a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer">Original adviser source</a></small>}
       <div className="ft-adviser-review-actions" data-testid={"adviser-review-"+provider.toLowerCase()}>
         <button type="button" onClick={toggle} data-testid={"adviser-reject-"+provider.toLowerCase()}>
