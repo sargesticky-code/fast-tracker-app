@@ -356,7 +356,7 @@ export default function FlashscoreRawMatch() {
     <section className="ft-enriched-panel" data-testid="experimental-model-panel">
       <h2>Experimental Dixon–Coles &amp; Power Index</h2>
       <p>Optional prediction built from historical Football-Data results. Neither verified nor calibrated,
-        and never counted in betting-adviser accuracy. No HKJC or bookmaker probabilities used.</p>
+        and never counted in betting-adviser accuracy. No retired-provider or bookmaker probabilities used.</p>
       <button type="button" onClick={requestExperimental}
         disabled={experimental.status==="loading"} data-testid="experimental-model-load">
         {experimental.status==="loading"?"Calculating from stored results…":"Show experimental model"}
