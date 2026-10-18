@@ -21,6 +21,10 @@ assert.equal(row.identityStatus,"PROVISIONAL");
 assert.equal(row.hda.home,0.4);
 assert.equal(row.predictedScore,"1 - 1");
 assert.ok(adviserPairId(fixtureId,row));
+const unicodeUrl="https://www.forebet.com/en/football/matches/76-igdır-belediye-spor-boluspor-2492994";
+assert.ok(adviserPairId(fixtureId,{...candidate,sourceUrl:unicodeUrl}));
+assert.equal(normalizeForebetReview({...payload,candidate:{...candidate,sourceUrl:unicodeUrl}},fixtureId,now).sourceUrl,unicodeUrl);
+
 assert.equal(normalizeForebetReview({...payload,candidate:null},fixtureId,now),null);
 assert.throws(()=>normalizeForebetReview(payload,"FS:DIFFERENT",now),/contract/);
 assert.throws(()=>normalizeForebetReview({...payload,candidate:{...candidate,
