@@ -1,0 +1,28 @@
+name: Phase 14 SportyTrader Source Clock and Tips
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018043000_ft_sportytrader_linked_clock_provisional.sql'
+      - 'lib/external-adviser-provisional-feed.js'
+      - 'components/flashscore-raw-match.js'
+      - 'scripts/check-phase14-sportytrader-clock.mjs'
+      - '.github/workflows/phase14-sportytrader-clock.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify SportyTrader source-clock cohort and tip-only parsing
+        run: node scripts/check-phase14-sportytrader-clock.mjs
+      - run: node scripts/check-external-adviser-provisional.mjs
+      - run: node scripts/check-phase13-adviser-review.mjs
+      - run: npm run build
