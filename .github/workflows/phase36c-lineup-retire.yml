@@ -1,0 +1,20 @@
+name: Phase 36C Hourly Lineup Retirement Schedule
+on:
+  pull_request:
+    paths:
+      - 'scripts/sql/phase36c-hourly-lineup-retire.sql'
+      - 'scripts/check-phase36c-lineup-retire-cron.mjs'
+      - '.github/workflows/phase36c-lineup-retire.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase36c-hourly-lineup-retire.sql'
+      - 'scripts/check-phase36c-lineup-retire-cron.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase36c-lineup-retire-cron.mjs
