@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018110000_phase41_source_day_archive_readback.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018105811_phase41_source_day_archive_readback.sql",import.meta.url),"utf8");
 const edge=readFileSync(new URL("../supabase/functions/source-day-cold-archive/index.ts",import.meta.url),"utf8");
 for(const name of ["ft_source_day_archive_read","ft_source_day_archive_restore_check",
 "SECURITY INVOKER","private.ft_source_day_snapshot","jsonb_array_length(v_rows)<>v_count",
