@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018123000_phase47_odds_history_archive_first.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018114223_phase47_odds_archive_first_retention.sql",import.meta.url),"utf8");
 const edge=readFileSync(new URL("../supabase/functions/odds-cold-retire/index.ts",import.meta.url),"utf8");
 for(const p of ["ft_odds_retirement_ledger","enable row level security",
  "ft_odds_retention_candidates","ft_retire_proven_odds_batch",
