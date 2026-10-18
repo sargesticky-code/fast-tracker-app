@@ -18,4 +18,14 @@ assert.match(fragment,/identity_status='VERIFIED'/);
 assert.match(fragment,/source_captured_at<=now\(\)/);
 assert.match(s,/select p.canonical_event_id,'SPORTYTRADER',[\s\S]*?'PROVISIONAL',p.source_captured_at/);
 assert.doesNotMatch(s,/^(?!\s*--).*\b(INSERT INTO|UPDATE|DELETE FROM|TRUNCATE|DROP TABLE|cron\.schedule)\b/im);
+// Guard the SQL whole-function migration, not just a few source snippets.
+assert.equal((s.match(/create or replace function public\\.ft_daily_alias_audit/g)||[]).length,1,
+ "The replacement migration must contain exactly one RPC definition");
+assert.equal((s.match(/from private\\.ft_extra_adviser_provisional_04/g)||[]).length,1,
+ "Never duplicate the original query tail");
+assert.equal((s.match(/from private\\.ft_sportytrader_calibrated_05/g)||[]).length,1);
+assert.ok(s.trim().endsWith("grant execute on function public.ft_daily_alias_audit(date) to service_role;"),
+ "No statements or fragments are permitted after the final grant");
+assert.match(s,/p\\.source_url ~ '\\^https:\\/\\/www\\[\\.\\]sportytrader[\\s\\S]*\\/\\
+/);
 console.log("PHASE34_SPORTY_CLOCK_ALIAS_BOUNDED_REVIEW_ONLY_PASSED");
