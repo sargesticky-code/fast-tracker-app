@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import{readFileSync}from"node:fs";
-const sql=readFileSync(new URL("../supabase/migrations/20261018094500_phase36b_retire_archived_lineup_batch.sql",import.meta.url),"utf8");
+const sql=readFileSync(new URL("../supabase/migrations/20261018084141_phase36b_retire_archived_lineup_batch.sql",import.meta.url),"utf8");
 const edge=readFileSync(new URL("../supabase/functions/lineup-cold-retire/index.ts",import.meta.url),"utf8");
 for(const t of ["security invoker","ft_retire_verified_lineup_batch","pg_advisory_xact_lock","storage.objects",
   "p_archive_sha","p_archive_bytes","p_rows","v_distinct<>v_expected","v_eligible<>v_expected",
