@@ -1,0 +1,26 @@
+name: Future-Only Database Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/future_migrations/**'
+      - 'scripts/check-future-only-migrations.mjs'
+      - '.github/workflows/future-only-database.yml'
+permissions:
+  contents: read
+jobs:
+  future-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify no historical replay or unsafe future migration
+        env:
+          FT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-future-only-migrations.mjs
