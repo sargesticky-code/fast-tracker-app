@@ -1,0 +1,21 @@
+name: Phase 26C Lineup Historical Retention Guard
+on:
+  pull_request:
+    paths:
+      - "scripts/sql/phase26c-lineup-retention-dryrun.sql"
+      - "scripts/check-phase26c-lineup-retention.mjs"
+      - ".github/workflows/phase26c-lineup-retention.yml"
+  push:
+    paths:
+      - "scripts/sql/phase26c-lineup-retention-dryrun.sql"
+      - "scripts/check-phase26c-lineup-retention.mjs"
+      - ".github/workflows/phase26c-lineup-retention.yml"
+jobs:
+  retention-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node scripts/check-phase26c-lineup-retention.mjs
