@@ -136,7 +136,10 @@ function parseFlashLineupRows(text,eventId,externalId,sourceUpdatedAt){
       confirmed:true,confidence:.97,source_name:"FLASHSCORE_OFFICIAL",
       source_url:SITE+"/match/"+externalId+"/#/match-summary/lineups",
       source_updated_at:sourceUpdatedAt||fetchedAt,fetched_at:fetchedAt,
-      raw:{classification:"CONFIRMED",squad_role:isStarting?"STARTING_XI":"SUBSTITUTE",formation,flash_position:ll,external_event_id:externalId,flash_index:idx,flash_record:r},
+      // Player, side, shirt, formation and source identifiers live in typed columns.
+      // Preserve only small display evidence here; the full provider record is
+      // duplicated for every player and is not read by live lineup consumers.
+      raw:{classification:"CONFIRMED",squad_role:isStarting?"STARTING_XI":"SUBSTITUTE",formation,flash_position:ll,external_event_id:externalId,flash_index:idx},
       created_at:fetchedAt
     });
   }
