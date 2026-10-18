@@ -1,0 +1,22 @@
+name: Phase 40 Empty Database Tables Reclaim
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase40-reclaim-four-empty-tables.sql'
+      - 'scripts/check-phase40-empty-reclaim.mjs'
+      - '.github/workflows/phase40-empty-reclaim.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase40-reclaim-four-empty-tables.sql'
+      - 'scripts/check-phase40-empty-reclaim.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node scripts/check-phase40-empty-reclaim.mjs
