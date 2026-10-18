@@ -1,0 +1,24 @@
+name: Phase 20 Independent Dixon-Coles and Power
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/fast-tracker-dixon-coles-experimental.mjs'
+      - 'scripts/check-phase20-experimental-dc-pi.mjs'
+      - '.github/workflows/phase20-independent-model.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase20-experimental-dc-pi.mjs
+      - run: npm run check:native
+      - run: npm run build
