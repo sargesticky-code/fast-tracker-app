@@ -60,8 +60,8 @@ assert.match(component,/provider="FOREBET"/);
 assert.match(component,/fetchForebetPairReview/);
 assert.doesNotMatch(component,/adviser-copy-verification-forebet|adviser-verify-|adviser-reject-|adviser-copy-report-/,
  "owner requested no more review buttons in public UI");
-assert.match(component,/Incorrect fixture\? Report the match and provider URL directly in your project chat/);
-assert.match(component,/Displayed by default/);
+assert.match(component,/Daily alias table/);
+assert.doesNotMatch(component,/<SourceTeamComparison/);
 assert.match(component,/forebetVisible/);
 const edge=readFileSync(new URL("../supabase/functions/forebet-pair-review/index.ts",import.meta.url),"utf8");
 assert.match(edge,/req.method!=="GET"/);
