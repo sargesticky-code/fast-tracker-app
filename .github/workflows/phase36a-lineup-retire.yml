@@ -1,0 +1,21 @@
+name: Phase 36A Archived Lineup Retirement Guard
+on:
+  pull_request:
+    paths:
+      - 'scripts/sql/phase36a-first-verified-lineup-retirement.sql'
+      - 'scripts/check-phase36a-lineup-retire.mjs'
+      - '.github/workflows/phase36a-lineup-retire.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase36a-first-verified-lineup-retirement.sql'
+      - 'scripts/check-phase36a-lineup-retire.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase36a-lineup-retire.mjs
