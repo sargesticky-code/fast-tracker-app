@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {adviserPairId,adviserMismatchReport,readRejectedPairs,setRejectedPair} from "../lib/adviser-pair-review.js";
+import {adviserPairId,adviserMismatchReport,readRejectedPairs,setRejectedPair,readConfirmedPairs,setConfirmedPair} from "../lib/adviser-pair-review.js";
 const pairs=[
  {provider:"BETCLAN",sourceUrl:"https://www.betclan.com/predictionsdetails/football/1495988/odd-strommen/",sourceHome:"ODD Ballklubb",sourceAway:"Strommen"},
  {provider:"SPORTYTRADER",sourceUrl:"https://www.sportytrader.com/en/betting-tips/a-b-379602/",sourceHome:"Atlanta United",sourceAway:"Inter Miami"},
@@ -21,6 +21,18 @@ for(const p of pairs){
   assert.ok(report.includes(value),"report needs "+value);
 }
 assert.equal(readRejectedPairs(fake).size,4);
+assert.equal(readConfirmedPairs(fake).size,0);
+const firstKey=adviserPairId(fid,pairs[0]);
+assert.equal(setConfirmedPair(fake,fid,pairs[0],true),true);
+assert.ok(readConfirmedPairs(fake).has(firstKey));
+assert.ok(!readRejectedPairs(fake).has(firstKey),"local confirm clears rejection");
+assert.equal(setRejectedPair(fake,fid,pairs[0],true),true);
+assert.ok(!readConfirmedPairs(fake).has(firstKey),"local rejection clears confirmation");
+assert.equal(setConfirmedPair(fake,fid,pairs[0],true),true);
+assert.equal(setConfirmedPair(fake,fid,pairs[0],false),false);
+assert.ok(!readConfirmedPairs(fake).has(firstKey));
+assert.equal(setConfirmedPair(fake,"BAD_ID",pairs[0],true),null);
+assert.equal(setConfirmedPair(fake,fid,{...pairs[0],sourceUrl:"https://evil.invalid/"},true),null);
 assert.equal(setRejectedPair(fake,fid,pairs[0],false),false);
 assert.equal(readRejectedPairs(fake).size,3);
 assert.equal(adviserPairId(fid,{...pairs[0],sourceUrl:"https://malicious.example/reject"}),null);
@@ -42,6 +54,10 @@ for(const ref of ["rejected.provider=o.provider","rejected.source_url=o.source_u
 assert.ok(!sql.includes("DELETE FROM public.adviser_source_observations"));
 const ui=readFileSync(new URL("../components/flashscore-raw-match.js",import.meta.url),"utf8");
 assert.match(ui,/Reject this pairing locally/);
+assert.match(ui,/Verify this pairing/);
+assert.match(ui,/Undo my pairing verification/);
+assert.match(ui,/adviser-locally-confirmed-/);
+assert.doesNotMatch(ui,/setConfirmedPair\(.*fetch\(/);
 assert.match(ui,/Undo local rejection/);
 assert.match(ui,/Copy correction report/);
 assert.match(ui,/adviserMismatchReport/);
