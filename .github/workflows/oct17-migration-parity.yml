@@ -1,0 +1,23 @@
+name: October 17 Stored SQL Replay Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261017*.sql'
+      - 'scripts/check-oct17-live-migrations.mjs'
+      - '.github/workflows/oct17-migration-parity.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-oct17-live-migrations.mjs
+      - run: node scripts/check-phase6-odds-earlier-reference.mjs
+      - run: node scripts/check-phase9-historical-lines.mjs
+      - run: node scripts/check-phase10-betclan-competition-alias.mjs
