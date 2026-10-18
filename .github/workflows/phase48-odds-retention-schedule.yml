@@ -1,0 +1,21 @@
+name: Phase 48 Bounded Odds Retention Schedule
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'scripts/sql/phase48-schedule-odds-retention-6h.sql'
+      - 'scripts/check-phase48-odds-cron.mjs'
+      - '.github/workflows/phase48-odds-retention-schedule.yml'
+  push:
+    paths:
+      - 'scripts/sql/phase48-schedule-odds-retention-6h.sql'
+      - 'scripts/check-phase48-odds-cron.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase48-odds-cron.mjs
