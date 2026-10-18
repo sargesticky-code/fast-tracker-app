@@ -1,0 +1,21 @@
+name: Phase 36B Applied Migration Parity
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/*phase36b*.sql'
+      - 'scripts/check-phase36b-live-migration-version.mjs'
+      - '.github/workflows/phase36b-migration-parity.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase36b-live-migration-version.mjs
+      - run: node scripts/check-phase36b-lineup-retire.mjs
