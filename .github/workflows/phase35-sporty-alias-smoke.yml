@@ -1,0 +1,27 @@
+name: Phase 35 Sporty Alias Runtime Smoke
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/migrations/20261018093000_phase35_sporty_alias_matrix_runtime_smoke.sql'
+      - 'scripts/check-phase35-sporty-alias-smoke.mjs'
+      - '.github/workflows/phase35-sporty-alias-smoke.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261018093000_phase35_sporty_alias_matrix_runtime_smoke.sql'
+      - 'scripts/check-phase35-sporty-alias-smoke.mjs'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-phase35-sporty-alias-smoke.mjs
+      - run: node scripts/check-phase34-sporty-alias-matrix.mjs
+      - run: node scripts/check-phase33-daily-alias-matrix.mjs
+      - run: npm run build
