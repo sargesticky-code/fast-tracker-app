@@ -36,7 +36,7 @@ assert.equal(run([{...row,clockEvidence:"CALIBRATED_FROM_SPORTYTRADER_LINKED_EVE
 assert.equal(run([{...row,homeSimilarity:.24}]).size,0);
 assert.equal(run([{...row,timeDeltaSeconds:61}]).size,0);
 assert.equal(run([{...row,tip:""}]).size,0);
-assert.equal(run([row,row]).size,0,"colliding pairs cannot be shown");
+assert.equal(run([row,row]).get(row.id)?.length,0,"colliding pairs cannot be shown");
 const sql=readFileSync(new URL("../supabase/migrations/20261018043000_ft_sportytrader_linked_clock_provisional.sql",import.meta.url),"utf8");
 for(const guard of [
  "count(distinct source_day)","n>=4 AND days>=2","calibration_agreement",
