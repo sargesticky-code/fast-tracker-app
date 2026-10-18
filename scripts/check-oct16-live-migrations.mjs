@@ -6,6 +6,7 @@ import {readFileSync,readdirSync} from "node:fs";
 // supabase_migrations.schema_migrations.statements[1], 2026-10-18.
 // These must not be replayed under later timestamps.
 const applied=[
+ ["20261016050032_ft_public_adviser_04_provisional_read_feed.sql","e969a25f735ea963b4ef63e21a105704"],
  ["20261016095647_ft_native_odds_movement.sql","b149061de50951907b9644be725edc47"],
  ["20261016103425_ft_internal_rls_review.sql","cebf530c89f122bfe5a3e82cf37d62cd"],
  ["20261016105505_ft_forebet_verified_source_links.sql","1e38d7b2133f78610fd2bc19756b3f6e"],
@@ -13,6 +14,7 @@ const applied=[
  ["20261016164034_ft_matching_similarity_030_crosschecked_provisional_20261017.sql","47319178ea57d44d2dfe839fa0bad975"]
 ];
 const retired=[
+ "20261016045200_ft_public_adviser_provisional_read_feed.sql",
  "20261016100800_ft_native_odds_movement.sql",
  "20261016104000_ft_internal_rls_review.sql",
  "20261016114500_ft_forebet_verified_source_links.sql",
