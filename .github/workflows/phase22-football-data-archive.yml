@@ -1,0 +1,20 @@
+name: Phase 22 Private Football-Data Archive Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/functions/football-data-archive/index.ts'
+      - 'scripts/check-phase22-football-data-archive.mjs'
+      - '.github/workflows/phase22-football-data-archive.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase22-football-data-archive.mjs
