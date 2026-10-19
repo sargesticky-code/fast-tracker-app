@@ -1,0 +1,21 @@
+name: Phase 24 Retrospective Walk-forward Safety
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'lib/football-data-retrospective-evaluation.mjs'
+      - 'lib/fast-tracker-dixon-coles-experimental.mjs'
+      - 'scripts/check-phase24-retrospective-walkforward.mjs'
+      - '.github/workflows/phase24-retrospective-walkforward.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-phase24-retrospective-walkforward.mjs

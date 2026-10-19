@@ -1,0 +1,22 @@
+name: Phase 25 Real Historical Backtest Adapter
+on:
+  pull_request:
+    branches: [release/ft-advisers-fotmob-20261011]
+    paths:
+      - 'supabase/functions/football-data-backtest/**'
+      - 'scripts/check-phase25-backtest-adapter.mjs'
+      - 'lib/football-data-retrospective-evaluation.mjs'
+      - '.github/workflows/phase25-real-backtest.yml'
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node scripts/check-phase24-retrospective-walkforward.mjs
+      - run: node scripts/check-phase25-backtest-adapter.mjs

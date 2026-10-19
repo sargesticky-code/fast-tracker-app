@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const edge=readFileSync(new URL("../supabase/functions/football-data-backtest/index.ts",import.meta.url),"utf8");
+const evalCode=readFileSync(new URL("../lib/football-data-retrospective-evaluation.mjs",import.meta.url),"utf8");
+assert.match(edge,/req\.method!=="POST"/);
+assert.match(edge,/ft_internal_cron_key_matches/);
+assert.match(edge,/source_kind","RESULTS"/);
+assert.match(edge,/MAX_ROWS=600/);
+assert.match(edge,/MAX_EVALUATIONS=20/);
+assert.match(edge,/first_seen_at/);
+assert.match(edge,/excludedMalformedOrDuplicate/);
+assert.match(edge,/HISTORY_BOUND_REACHED/);
+assert.match(edge,/evaluateFootballDataWalkForward/);
+assert.match(edge,/no-store/);
+assert.match(edge,/RETROSPECTIVE_ONLY/);
+assert.match(evalCode,/neverCountAsIssuedPredictions:true/);
+assert.doesNotMatch(edge,/\.insert\(|\.upsert\(|\.delete\(|\.update\(|cron\.schedule|hkjc|verified_model|model_predictions/i);
+console.log("PHASE25_AUTHENTICATED_READ_ONLY_RETROSPECTIVE_ADAPTER_CONTRACT_PASSED");
