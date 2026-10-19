@@ -400,7 +400,7 @@ Deno.serve(async(req:Request)=>{
       ]);
       const moveRow=movementResult?.data;
       const moveSide=String(moveRow?.movement_side||"");
-      const moveIndex={H:0,D:1,A:2}[moveSide]??-1;
+      const moveIndex=moveSide==="H"?0:moveSide==="D"?1:moveSide==="A"?2:-1;
       const moveTime=Date.parse(String(moveRow?.captured_at||""));
       const moveKickoff=Date.parse(String(moveRow?.kickoff_hkt||""));
       const fixtureTime=Date.parse(String(row.kickoff_hkt||""));
