@@ -97,7 +97,7 @@ function recentPrediction(record, fixture, now=Date.now()){
   return Number.isFinite(time)&&Number.isFinite(kickoff)&&kickoff>now
     &&time<=now+60000&&time<kickoff&&time>=now-72*3600000;
 }
-function OddsPanel({match,fixture}) {
+function OddsPanel({match,fixture,movement}) {
   if(!match && !fixture)return null;
   const now=Date.now();
   const kickoff=Date.parse(String(fixture?.kickoff_hkt||""));
@@ -127,6 +127,19 @@ function OddsPanel({match,fixture}) {
     draw:match?.rawQuote?.hda?.opening_draw,
     away:match?.rawQuote?.hda?.opening_away
   }):null;
+  // Match the same fresh, source-labelled 1-hour decimal quote: never show
+  // movement against a stale/raw quote or imply probability/model edge.
+  const moveIndex={H:0,D:1,A:2}[movement?.side]??-1;
+  const movementAt=Date.parse(String(movement?.capturedAt||""));
+  const movementAge=now-movementAt;
+  const validMovement=Boolean(selectCanonical&&showFresh&&moveIndex>=0&&
+    movement?.source==="FLASHSCORE_BET365"&&movement?.window==="1h"&&
+    Number.isFinite(movementAt)&&movementAge>=-60_000&&movementAge<=30*60_000&&
+    movementAt<kickoff&&
+    typeof movement?.current==="number"&&typeof movement?.prior==="number"&&
+    movement.current>1&&movement.prior>1&&movement.current<=100&&movement.prior<=100&&
+    Math.abs(prices[moveIndex]-movement.current)<0.02&&
+    Math.abs(movement.current-movement.prior)>=0.009);
   return <section className="ft-enriched-panel ft-match-odds" data-testid="match-odds">
     <div className="ft-panel-title-row"><h2>{showFresh?"Recent prematch odds":prices?"Previous odds":"Match odds"}</h2>
       <span className="ft-panel-source">{prices?"Bet365-labelled snapshot":""}</span>
@@ -140,6 +153,11 @@ function OddsPanel({match,fixture}) {
       </div>
       <p className="ft-odds-note">{showFresh?"Recent prematch quote":"Recorded earlier · not live"}
         {captured?" · "+(ukDate(captured)||""):""}</p>
+      {validMovement && <p className="ft-odds-note" data-testid="details-odds-movement">
+        {["Home","Draw","Away"][moveIndex]} odds {movement.current>movement.prior?"↑":"↓"}{" "}
+        {movement.prior.toFixed(2)} → {movement.current.toFixed(2)}
+        {" · Observed 1h decimal-price change, not win probability"}
+      </p>}
     </>:<p className="ft-odds-note" data-testid="odds-missing">{match?.quoteStatus==="STALE"?"Stale odds are unavailable for this match.":match?.quoteStatus==="INVALID"?"Invalid bookmaker prices were suppressed.":"No recorded odds available for this match."}</p>}
   </section>;
 }
@@ -326,7 +344,7 @@ export default function FlashscoreRawMatch() {
       {score && <strong> · {fixture?.status==="FINISHED"?"Final score":"Actual score"} {score}</strong>}</p>
     {state.checkedAt&&<small role="status">Checked {new Date(state.checkedAt).toLocaleTimeString("en-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",second:"2-digit"})} HKT · refreshes every minute while this page is open</small>}
 
-    <OddsPanel match={match} fixture={fixture}/>
+    <OddsPanel match={match} fixture={fixture} movement={analysis?.oddsMovement}/>
     <section className="ft-enriched-panel" data-testid="experimental-model-panel">
       <h2>Experimental Dixon–Coles &amp; Power Index</h2>
       <p>Optional prediction built from historical Football-Data results. Neither verified nor calibrated,

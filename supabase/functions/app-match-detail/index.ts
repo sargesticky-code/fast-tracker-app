@@ -389,6 +389,38 @@ Deno.serve(async(req:Request)=>{
         lineupRowsMatched:verifiedLineupRows.filter((x:any)=>x.match_stats).length,
         joinMethod:"EXACT_FOTMOB_PROVIDER_PLAYER_ID_ONLY"
       }:null;
+      // One exact-indexed read of existing 1-hour Bet365 movement only for a
+      // genuinely fresh canonical quote. No additional scrape or model inference.
+      const [extraAdviserRows, movementResult]=await Promise.all([
+        withExternalAdvisers(optionalDb,[{id:requestedId}]),
+        fresh ? optionalDb.from("odds_movement_feed_current")
+          .select("match_id,captured_at,kickoff_hkt,movement_side,now_odds,odds_1h")
+          .eq("match_id",requestedId).maybeSingle()
+          : Promise.resolve({data:null,error:null})
+      ]);
+      const moveRow=movementResult?.data;
+      const moveSide=String(moveRow?.movement_side||"");
+      const moveIndex=moveSide==="H"?0:moveSide==="D"?1:moveSide==="A"?2:-1;
+      const moveTime=Date.parse(String(moveRow?.captured_at||""));
+      const moveKickoff=Date.parse(String(moveRow?.kickoff_hkt||""));
+      const fixtureTime=Date.parse(String(row.kickoff_hkt||""));
+      const moveNow=Number(moveRow?.now_odds),movePrior=Number(moveRow?.odds_1h);
+      const movePrice=[row.had_home,row.had_draw,row.had_away][moveIndex];
+      const moveAge=Date.now()-moveTime;
+      const safeMovement=fresh && !movementResult?.error && moveRow?.match_id===requestedId
+        && moveIndex>=0 && Number.isFinite(moveTime) && moveAge>=-60000 && moveAge<=30*60000
+        && Number.isFinite(moveKickoff) && Math.abs(moveKickoff-fixtureTime)<=60000
+        && moveTime<fixtureTime
+        && Number.isFinite(moveNow) && moveNow>1 && moveNow<=100
+        && Number.isFinite(movePrior) && movePrior>1 && movePrior<=100
+        && Number.isFinite(Number(movePrice))
+        && Math.abs(moveNow-Number(movePrice))<0.02
+        && Math.abs(moveNow-movePrior)>=0.009;
+      const observedMovement=safeMovement ? {
+        side:moveSide,current:moveNow,prior:movePrior,
+        capturedAt:new Date(moveTime).toISOString(),
+        source:"FLASHSCORE_BET365",window:"1h"
+      }:null;
       return Response.json(sanitizePublicCompatibility({
         generatedAt:new Date().toISOString(),id:requestedId,requestedId,
         fixtureSource:"CANONICAL_FLASHSCORE",redirect:null,
@@ -406,7 +438,7 @@ Deno.serve(async(req:Request)=>{
           score_fetched_at:row.fs_score_fetched_at??null,
           score_source:row.fs_home_score!=null&&row.fs_away_score!=null?"FLASHSCORE":null,
         },
-        externalAdvisers:(await withExternalAdvisers(optionalDb,[{id:requestedId}]))[0]?.externalAdvisers||[],
+        externalAdvisers:extraAdviserRows[0]?.externalAdvisers||[],
         flashscoreStats:stats,
         models:{internal:row.internal_model??null,forebet:row.forebet_prediction??null,form:null,opta:null,multisource:null,evidence:[]},
         humanFactors:{
@@ -429,7 +461,7 @@ Deno.serve(async(req:Request)=>{
             sourceConfirmed:true,canonicalManagerIdentityVerified:false
           }:null
         },
-        scenario:[],oddsMovement:null,
+        scenario:[],oddsMovement:observedMovement,
         h2h:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
         headToHead:{status:"PARTIAL",isFailure:false,label:"Not requested in fast evidence lane"},
         marketIntelligence:{bestValue:null,value:[],arbitrage:[],nearArbitrage:null,mode:"DETECT_ONLY"},
