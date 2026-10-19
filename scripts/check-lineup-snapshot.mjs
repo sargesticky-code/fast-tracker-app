@@ -1,0 +1,36 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const code=fs.readFileSync('supabase/functions/_shared/lineup-snapshot.ts','utf8');
+export const {latestLineupRows,sourceLineupState,canPromoteLineupCapture}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const now=Date.parse('2026-10-05T06:00:00Z');
+const row=(side,i,fields={})=>({hkjc_event_id:'TEST',source_name:'TEST_PREDICTED',team_side:side,player_key:`${side}-${i}`,starter:true,confirmed:false,fetched_at:'2026-10-05T05:00:00Z',...fields});
+const full=['H','A'].flatMap(side=>Array.from({length:11},(_,i)=>row(side,i)));
+const state=rows=>sourceLineupState(latestLineupRows(rows,now));
+assert.deepEqual(state(full),{full:true,confirmed:false});
+assert.deepEqual(state([...full,row('A',11,{fetched_at:'2026-10-05T04:00:00Z'})]),{full:true,confirmed:false},'removed old starter does not create an overfull current XI');
+const partial=[row('H',0,{fetched_at:'2026-10-05T05:30:00Z'})];
+assert.deepEqual(state([...full,...partial]),{full:false,confirmed:false},'old complete rows cannot fill a newer partial capture');
+const official=full.map(row=>({...row,source_name:'TEST_OFFICIAL',confirmed:true}));
+assert.deepEqual(state(official),{full:true,confirmed:true});
+assert.deepEqual(state([...full,official[0]]),{full:false,confirmed:false},'partial official observation wins over complete prediction in scheduler');
+assert.deepEqual(state([...full,...full.map((row,i)=>({...row,confirmed:i===0}))]),{full:false,confirmed:false},'conflicting duplicate rows fail closed');
+const benchConfirmed=full.map(row=>({...row,source_name:'TEST_MIXED'}));
+benchConfirmed.push(...Array.from({length:22},(_,i)=>row('H',`BENCH-${i}`,{source_name:'TEST_MIXED',starter:false,confirmed:true})));
+assert.equal(state(benchConfirmed).confirmed,false,'confirmed bench count cannot confirm unconfirmed starters');
+assert.deepEqual(state([...official,official[0]]),{full:true,confirmed:true},'identical duplicates collapse');
+assert.deepEqual(state(official.map((row,i)=>i===0?{...row,player_key:''}:row)),{full:false,confirmed:false});
+for(const fetched_at of [null,'bad','2026-10-05T07:00:00Z']) {
+  assert.deepEqual(state([...official,{...official[0],fetched_at}]),{full:false,confirmed:false},'invalid or future source capture cannot establish a snapshot');
+}
+assert.equal(canPromoteLineupCapture(full,[],now),true);
+assert.equal(canPromoteLineupCapture(full,full,now),true,'same capture is idempotent');
+assert.equal(canPromoteLineupCapture(full,partial,now),false,'older cache cannot overwrite newer source evidence');
+assert.equal(canPromoteLineupCapture(partial,full,now),true);
+assert.equal(canPromoteLineupCapture(full,[{...partial[0],hkjc_event_id:'OTHER'}],now),true,'unrelated fixture is not a freshness conflict');
+assert.equal(canPromoteLineupCapture(full,[{...partial[0],source_name:'OTHER_PROVIDER'}],now),true);
+assert.equal(canPromoteLineupCapture([...full,partial[0]],[],now),false,'one promotion must represent one capture');
+assert.equal(canPromoteLineupCapture(full,[{...full[0],fetched_at:null}],now),false);
+const producer=fs.readFileSync('supabase/functions/phase2-fotmob-lineups/index.ts','utf8');
+assert.ok(producer.includes('latestLineupRows(lineupRes.data||[],Date.now())'));
+assert.ok(producer.includes('canPromoteLineupCapture(parsed.rows,lineupRes.data||[],Date.now())'));
+console.log('Snapshot scheduling passed: coherent latest capture, official priority, distinct starters, bench-safe confirmation and stale-cache preflight.');

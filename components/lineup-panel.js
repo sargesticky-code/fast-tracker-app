@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { singleFlightFetch } from "@/lib/single-flight-fetch";
 import { Pitch } from "@withqwerty/campos-stadia";
+import { lineupDisplayRows, completeConfirmedLineup, lineupNumber, lineupStrengthSummary, lineupReferenceSummary } from "@/lib/lineup-display-contract";
 
 const DETAIL_FEED_URL = "https://hekqxhgjexzxnecwhyao.supabase.co/functions/v1/app-match-detail";
 
@@ -70,7 +71,7 @@ function playerSort(a, b) {
 }
 
 function avgConfidence(rows) {
-  const values = rows.map((r) => Number(r?.confidence)).filter(Number.isFinite);
+  const values = rows.map((r) => lineupNumber(r?.confidence)).filter((value) => value !== null && value >= 0 && value <= 1);
   if (!values.length) return null;
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
@@ -131,9 +132,9 @@ function roleBadge(row) {
   return row?.starter === false ? "SUB" : "XI";
 }
 
-function sourceUpdated(rows) {
+function sourceTimestamp(rows, field) {
   const times = rows
-    .map((r) => r?.source_updated_at || r?.fetched_at || r?.created_at)
+    .map((r) => r?.[field])
     .filter(Boolean)
     .map((v) => new Date(v).getTime())
     .filter(Number.isFinite);
@@ -163,7 +164,9 @@ function statusTone(status) {
         ? { bg: "#fff1e5", fg: "#8a541c", text: "IDENTITY RECONCILIATION" }
         : status === "PREDICTED_FULL"
           ? { bg: palette.warn, fg: "#845b0a", text: "PREDICTED 11v11" }
-          : status === "PARTIAL"
+          : status === "PREDICTED_PARTIAL"
+            ? { bg: palette.warn, fg: "#845b0a", text: "PARTIAL PREDICTION" }
+            : status === "PARTIAL"
             ? { bg: "#fff1e5", fg: "#8a541c", text: "PARTIAL" }
             : { bg: "#eef1ef", fg: "#68736d", text: "WAITING" };
 }
@@ -307,10 +310,10 @@ function TeamPitch({ teamName, rows, accent, status }) {
       <div style={{padding:"7px 12px",display:"flex",gap:8,flexWrap:"wrap",borderTop:"1px solid #183b2d",background:"#102f22"}}>
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>🧤 GK</small>
         <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>C Captain</small>
-        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>{predicted ? "● yellow = predicted" : "✓ confirmed XI"}</small>
+        <small style={{fontSize:8.5,fontWeight:800,color:"#dce9e1"}}>{predicted ? (lineupReferenceSummary(rows).kind === "REFERENCE" ? "● yellow = previous XI reference" : "● yellow = provisional") : "✓ confirmed XI"}</small>
       </div>
       <div style={{padding:"10px 12px"}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
+        <div className="lineup-player-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
           {sorted.map((row, index) => {
             const flags = playerFlags(row);
             const country = playerCountry(row);
@@ -319,7 +322,7 @@ function TeamPitch({ teamName, rows, accent, status }) {
               <div key={row?.id || row?.player_key || index} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"8px 9px",border:"1px solid #e3ebe6",borderRadius:11,background:"#fafcfb"}}>
                 <span style={{display:"grid",placeItems:"center",width:32,height:32,borderRadius:10,background:accent,color:"#fff",fontSize:11,fontWeight:950,boxShadow:"inset 0 0 0 1px rgba(255,255,255,.22)"}}>{row?.shirt_number ?? "•"}</span>
                 <div style={{minWidth:0}}>
-                  <b style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
+                  <b className="lineup-player-name" style={{display:"block",fontSize:12,color:"#26362d",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row?.player_name || "Unknown"}</b>
                   <small style={{display:"block",marginTop:2,fontSize:9,color:"#819087",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                     {[country, flags.includes("C") ? "Captain" : null].filter(Boolean).join(" · ") || "Starting XI"}
                   </small>
@@ -421,23 +424,15 @@ function ManagersPanel({ managers, homeTeam, awayTeam }) {
   );
 }
 
-function StrengthBar({ team, data }) {
-  const pct = Number.isFinite(Number(data?.lineup_strength_pct)) ? Number(data.lineup_strength_pct) : null;
-  const conf = Number.isFinite(Number(data?.lineup_confidence_pct)) ? Number(data.lineup_confidence_pct) : null;
-  const label = data?.lineup_strength_label || "Insufficient data";
+function StrengthSummary({ team, summary }) {
   return (
-    <div style={{padding:"10px 12px",border:"1px solid #dce6df",borderRadius:13,background:"#fff"}}>
-      <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
-        <b style={{fontSize:12,color:palette.ink}}>{team}</b>
-        <b style={{fontSize:18,color:palette.ink}}>{pct == null ? "—" : Math.round(pct) + "%"}</b>
-      </div>
-      <div style={{height:7,borderRadius:999,background:"#e8eeea",overflow:"hidden",marginTop:7}}>
-        {pct != null ? <div style={{height:"100%",width:Math.max(0,Math.min(100,pct))+"%",background:"linear-gradient(90deg,#77a98b,#2a7753)",borderRadius:999}} /> : null}
-      </div>
-      <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:6,fontSize:9,color:palette.muted,fontWeight:800}}>
-        <span>{label}</span>
-        <span>{conf == null ? "Confidence —" : "Confidence " + Math.round(conf) + "%"}</span>
-      </div>
+    <div className="lineup-strength-summary" style={{padding:"10px 12px",border:"1px solid #dce6df",borderRadius:13,background:"#fff"}}>
+      <b style={{display:"block",fontSize:12,color:palette.ink}}>{team}</b>
+      <strong style={{display:"block",marginTop:5,fontSize:12,color:palette.ink}}>Lineup strength: unavailable</strong>
+      <small style={{display:"block",marginTop:5,fontSize:10,color:palette.muted,lineHeight:1.5}}>{summary.reason}</small>
+      <span style={{display:"block",marginTop:6,fontSize:10,fontWeight:800,color:palette.muted}}>
+        {summary.reportedStarters === null ? "Reported XI: unknown" : `Reported XI: ${summary.reportedStarters}/11 · ${summary.unverifiedXI ? "unconfirmed source XI" : summary.previousXI ? "previous XI reference" : summary.predicted ? "predicted" : "source-confirmed"}`}
+      </span>
     </div>
   );
 }
@@ -480,28 +475,28 @@ export default function LineupPanel() {
     const unresolvedIdentityRows = identityAnnotated
       ? sourceRows.filter((r) => factStatus(r) === "SOURCE_CONFIRMED_IDENTITY_UNRESOLVED")
       : [];
-    const rows = identityAnnotated
-      ? sourceRows.filter((r) => factStatus(r) === "CONFIRMED")
-      : sourceRows;
+    const rows = lineupDisplayRows(sourceRows, payload, id);
+    const predictedRows = rows.filter((r) => r.confirmed === false);
+    const unresolvedPredictedRows = predictedRows.filter((r) => r.identity_status !== "CANONICAL");
     const canonicalFixtureMissing = String(payload?.fixtureSource || "").toUpperCase() === "MISSING";
     const home = rows.filter((r) => side(r) === "H");
     const away = rows.filter((r) => side(r) === "A");
-    const confirmedRows = rows.filter((r) => r?.confirmed === true);
+    const lineupConfirmed = hf?.lineupAuthority?.confirmed !== false && completeConfirmedLineup(rows);
     const homeTeam = fixture.home || fixture.home_en || fixture.homeZh || fixture.home_zh || "Home";
     const awayTeam = fixture.away || fixture.away_en || fixture.awayZh || fixture.away_zh || "Away";
-    const homeStarters = home.filter((r) => r?.starter !== false);
-    const awayStarters = away.filter((r) => r?.starter !== false);
+    const homeStarters = home.filter((r) => r?.starter === true);
+    const awayStarters = away.filter((r) => r?.starter === true);
     const homeBench = home.filter((r) => r?.starter === false);
     const awayBench = away.filter((r) => r?.starter === false);
     const status = canonicalFixtureMissing
       ? "IDENTITY_BLOCKED"
       : unresolvedIdentityRows.length
         ? "IDENTITY_PARTIAL"
-        : meta?.status
-          || (homeStarters.length >= 11 && awayStarters.length >= 11
-            ? (confirmedRows.length >= 22 ? "CONFIRMED" : "PREDICTED_FULL")
-            : rows.length ? "PARTIAL" : "MISSING");
-    const confidence = avgConfidence(rows);
+        : lineupConfirmed ? "CONFIRMED"
+          : homeStarters.length === 11 && awayStarters.length === 11 && predictedRows.length
+            ? "PREDICTED_FULL"
+            : predictedRows.length ? "PREDICTED_PARTIAL" : rows.length ? "PARTIAL" : "MISSING";
+    const confidence = lineupReferenceSummary(predictedRows).kind === "UNVERIFIED" ? null : avgConfidence(rows);
     const source = meta?.source || sourceRows[0]?.source_name || null;
     const sourceUrl = sourceRows.find((r) => r?.source_url)?.source_url || null;
     const evidenceSources = meta?.evidenceSources || [...new Set(sourceRows.map((r) => r?.source_name).filter(Boolean))];
@@ -511,10 +506,8 @@ export default function LineupPanel() {
       ? playerStatusRaw.filter((r) => factStatus(r) === "CONFIRMED")
       : playerStatusRaw;
     const managers = Array.isArray(hf?.managers) ? hf.managers : [];
-    const strengthRows = Array.isArray(hf?.lineupStrength) ? hf.lineupStrength
-      : Array.isArray(hf?.lineup_strength) ? hf.lineup_strength : [];
-    const homeStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "HOME") || null;
-    const awayStrength = strengthRows.find((r) => String(r?.team_side || "").toUpperCase() === "AWAY") || null;
+    const homeStrength = lineupStrengthSummary(rows, "H");
+    const awayStrength = lineupStrengthSummary(rows, "A");
 
     const statusNames = new Set(playerStatus
       .filter((r) => ["OUT", "SUSPENDED", "SUSPENSION", "UNAVAILABLE"].includes(statusLabel(r)))
@@ -522,7 +515,7 @@ export default function LineupPanel() {
     const conflicts = rows.filter((r) => statusNames.has(String(r?.player_name || "").toLowerCase()));
 
     return {
-      rows, sourceRows, unresolvedIdentityRows, canonicalFixtureMissing,
+      rows, sourceRows, predictedRows, unresolvedPredictedRows, unresolvedIdentityRows, canonicalFixtureMissing,
       unresolvedHome: unresolvedIdentityRows.filter((r) => side(r) === "H").length,
       unresolvedAway: unresolvedIdentityRows.filter((r) => side(r) === "A").length,
       home, away, homeStarters, awayStarters, homeBench, awayBench,
@@ -532,24 +525,25 @@ export default function LineupPanel() {
       awayFormation: normalizeFormation(formation(awayStarters)),
       kickoff: fixture.kickoff || fixture.kickoff_hkt || null,
       tournament: fixture.league || fixture.tournament || null,
-      updatedAt: sourceUpdated(sourceRows),
+      updatedAt: sourceTimestamp(rows, "source_updated_at"),
+      fetchedAt: sourceTimestamp(rows, "fetched_at"),
     };
-  }, [payload]);
+  }, [payload, id]);
 
   if (!id) return null;
 
-  const tone = statusTone(view.status);
+  const reference = lineupReferenceSummary(view.predictedRows);
+  const tone = { ...statusTone(view.status), ...(view.predictedRows.length && reference.badge ? {text:reference.badge} : {}) };
   const identityBlocked = view.canonicalFixtureMissing || view.unresolvedIdentityRows.length > 0;
   const lineupPending = view.sourceRows.length === 0;
   const countsUnknown = identityBlocked || lineupPending;
-  const ready = !countsUnknown && view.homeStarters.length >= 11 && view.awayStarters.length >= 11;
-  const homeCount = countsUnknown
-    ? (view.homeStarters.length ? `${view.homeStarters.length}/11 resolved` : "—/11")
-    : `${view.homeStarters.length}/11`;
-  const awayCount = countsUnknown
-    ? (view.awayStarters.length ? `${view.awayStarters.length}/11 resolved` : "—/11")
-    : `${view.awayStarters.length}/11`;
-  const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked ? " · identity not complete" : lineupPending ? " · lineup pending" : ""}`;
+  const ready = !countsUnknown && view.homeStarters.length === 11 && view.awayStarters.length === 11;
+  const xiCount = (starters) => starters.length
+    ? `${starters.length}/11${starters.some((row) => row.confirmed === false) ? " reported" : countsUnknown ? " resolved" : ""}`
+    : "—/11";
+  const homeCount = xiCount(view.homeStarters);
+  const awayCount = xiCount(view.awayStarters);
+  const countSummary = `${homeCount} home · ${awayCount} away${identityBlocked || view.unresolvedPredictedRows.length ? " · identity not complete" : lineupPending ? " · lineup pending" : ""}`;
   const tabs = [
     ["formation","Formation"],
     ["squad","Squad"],
@@ -586,21 +580,21 @@ export default function LineupPanel() {
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(82px,1fr))",gap:7,minWidth:280}}>
               <Metric
                 label="HOME XI"
-                value={homeCount}
+                value={homeCount.replace(" reported", "")}
                 detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedHome ? `${view.unresolvedHome} source-confirmed row(s) await identity` : (view.homeFormation || "formation pending")}
               />
               <Metric
                 label="AWAY XI"
-                value={awayCount}
+                value={awayCount.replace(" reported", "")}
                 detail={view.canonicalFixtureMissing ? "canonical fixture unresolved" : view.unresolvedAway ? `${view.unresolvedAway} source-confirmed row(s) await identity` : (view.awayFormation || "formation pending")}
               />
-              <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : "prediction evidence"} />
+              <Metric label="CONFIDENCE" value={view.confidence == null ? "—" : Math.round(view.confidence * 100) + "%"} detail={view.status === "CONFIRMED" ? "official evidence" : reference.kind === "REFERENCE" ? "previous XI evidence" : reference.kind === "MIXED" ? "mixed XI evidence" : reference.kind === "UNVERIFIED" ? "source type unverified" : "prediction evidence"} />
             </div>
           </div>
 
           <div className="lineup-strength-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,marginTop:13}}>
-            <StrengthBar team={view.homeTeam} data={view.homeStrength} />
-            <StrengthBar team={view.awayTeam} data={view.awayStrength} />
+            <StrengthSummary team={view.homeTeam} summary={view.homeStrength} />
+            <StrengthSummary team={view.awayTeam} summary={view.awayStrength} />
           </div>
 
           <div style={{display:"flex",gap:6,overflowX:"auto",marginTop:13,paddingBottom:1}}>
@@ -611,6 +605,13 @@ export default function LineupPanel() {
             ))}
           </div>
         </div>
+
+        {view.predictedRows.length > 0 ? (
+          <div className="lineup-prediction-notice" style={{padding:"10px 14px",background:"#fff8dc",fontSize:11,color:"#845b0a"}}>
+            {reference.notice}
+          </div>
+        ) : null}
+        {error && payload ? <div role="status" style={{padding:"10px 14px",background:"#fff8dc",fontSize:11,color:"#845b0a"}}>Showing the last captured lineup; refresh unavailable, freshness unknown.</div> : null}
 
         {loading && !payload ? <div style={{padding:24,fontSize:12,color:palette.muted}}>Loading lineup data…</div> : null}
         {error && !payload ? <div style={{padding:24,fontSize:12,color:"#a04f43"}}>Lineup feed: {error}</div> : null}
@@ -661,15 +662,16 @@ export default function LineupPanel() {
         {view.rows.length > 0 && tab === "source" ? (
           <div style={{padding:14}}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}}>
-              <Metric label="LINEUP STATUS" value={view.status} detail={view.status === "CONFIRMED" ? "official XI overrides predictions" : "will upgrade automatically when official XI arrives"} />
+              <Metric label="LINEUP STATUS" value={reference.badge || view.status} detail={view.status === "CONFIRMED" ? "official XI overrides predictions" : "will upgrade automatically when official XI arrives"} />
               <Metric label="PRIMARY SOURCE" value={view.source || "—"} detail={(view.evidenceSources || []).join(", ") || "no evidence source"} />
               <Metric label="AVG CONFIDENCE" value={view.confidence == null ? "—" : (view.confidence * 100).toFixed(0) + "%"} detail={view.rows.length + " player evidence rows"} />
-              <Metric label="SOURCE UPDATED" value={formatHkt(view.updatedAt)} detail="Hong Kong time" />
+              <Metric label="SOURCE OBSERVED" value={formatHkt(view.updatedAt)} detail="Provider timestamp · Hong Kong time" />
+              <Metric label="CAPTURED AT" value={formatHkt(view.fetchedAt)} detail="Capture time · not a provider update" />
             </div>
             <div style={{marginTop:10,padding:12,border:"1px solid "+palette.line,borderRadius:13,background:"#fff"}}>
               <b style={{display:"block",fontSize:12,color:palette.ink}}>Data provenance</b>
               <p style={{margin:"6px 0 0",fontSize:10,lineHeight:1.55,color:palette.muted}}>
-                HKJC fixture identity is the master key. External lineup evidence is matched through the one-for-all alias layer, stored in Supabase, then canonicalized so confirmed XI outranks predicted XI.
+                Lineups are matched to the canonical fixture and selected by source authority. Source-reported names remain provisional; source confirmation and resolved player identities are required for a confirmed XI.
               </p>
               {view.sourceUrl ? <a href={view.sourceUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,fontWeight:900,color:"#1976d2"}}>Open source evidence ↗</a> : null}
             </div>
@@ -678,7 +680,7 @@ export default function LineupPanel() {
 
         <div style={{padding:"10px 14px",borderTop:"1px solid "+palette.line,background:"#fff",display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
           <small style={{fontSize:9.5,color:palette.muted}}>Match {id} · refresh 60s · lineup evidence</small>
-          <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? "Complete 11v11 available" : "Waiting for complete 11v11"}</small>
+          <small style={{fontSize:9.5,fontWeight:850,color:ready?"#26724f":"#8a6b21"}}>{ready ? (view.status === "CONFIRMED" ? "Confirmed 11v11 available" : "Complete reported XI · unconfirmed") : "Waiting for complete 11v11"}</small>
         </div>
       </div>
       </details>
@@ -745,6 +747,8 @@ export default function LineupPanel() {
         }
         @media (max-width: 520px) {
           .pro-lineup-grid { gap: 9px !important; }
+          .lineup-player-grid { grid-template-columns: 1fr !important; }
+          .lineup-player-name { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: anywhere; }
         }
       `}</style>
     </section>

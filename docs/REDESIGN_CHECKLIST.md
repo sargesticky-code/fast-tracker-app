@@ -124,3 +124,54 @@ Before stopping a redesign session, record:
   - A current live-feed ID `FB6174` still returned `fixtureSource=MISSING` from `app-match-detail` despite auxiliary model/player evidence, so the canonical fixture/detail acceptance gap remains real.
 - Real-device mobile acceptance is still open: the available browser connector does not expose device/viewport emulation for the live deployed app, and the reviewed source is not released. CI mobile screenshots are deterministic mocked coverage only.
 - No merge, deployment, Edge release, migration, DB write, feed publication, access expansion or spending occurred.
+
+## Phase 2 authority review — 2026-10-05
+
+- [x] Both public detail and analysis consume eligible authoritative display rows in review code.
+- [x] Confirmed 11v11 requires exact distinct canonical starters, independent of event-map timestamp.
+- [x] Current database conflict census and proposed ranking SELECT verified read-only.
+- [ ] Confirmed-first view SQL release (review SQL only; not applied).
+- [x] PR43 CI run 37244467973: 35/35 rendered cases; desktop/mobile partial-XI screenshots visually reviewed. Local Chromium download remained blocked; acceptance came from CI.
+- [ ] Real endpoint verification after separately authorized release.
+
+Resume from `docs/phase2-human-intelligence-checkpoint-2026-10-05.md`.
+
+## Phase 2 public prediction/strength review — iteration 2
+
+- [x] Eligible authoritative predicted names are visible with unresolved identity warnings; raw history stays hidden.
+- [x] Official evidence suppresses prediction on its side; exact fixture and duplicate safeguards tested.
+- [x] Legacy completeness scores no longer appear as football-strength percentages; missing/confidence stays unknown.
+- [x] Observation vs capture timestamps separated; retained failed-refresh evidence labelled freshness unknown.
+- [x] Actual stored FB6292 snapshot yields 10/11 vs 11/11 reported starters; excluded player remains excluded.
+- [x] New desktop/mobile prediction and cached-outage cases: CI 37263049954, 39/39; screenshot review accepted after mobile-name/Team News fixes.
+
+- [x] Phase 2 iteration 3: Team News shares authoritative prediction selector; mobile names wrap, per-side counts remain honest. Tested source `3872cdb2`; artifact `11325129181`.
+- [ ] Canonical player reconciliation and importance-weighted football-strength baseline remain genuine upstream dependencies.
+
+## Phase 2 iteration 4 — original capture provenance
+
+- [x] FotMob cached parser preserves acquisition time and absence validity; provider update stays unknown.
+- [x] Explicit official classification prevents negative substring confirmation; actual-parser tests pass.
+- [x] Stored FB6292 cache parsed twice identically; real counts and timestamp preserved.
+- [x] CI 37264706113 passed for source a312d404: all checks/build and 39/39 browser regressions.
+- [x] Previous-XI reference and mixed evidence copy implemented consistently across Team News/article/tool/Sources.
+- [x] Final source 73dc5ee4 CI 37271713716: 41/41; artifact 11328895365 reference screenshots reviewed after confidence-caption correction.
+
+- [x] Retain identity-verified partial official XI producer rows without prediction backfill; duplicate/overfull/event/side guards tested.
+- [x] Coherent latest-source scheduling, distinct confirmed starters and official-over-predicted priority implemented/tested.
+- [x] Lineup cache skips older known captures; read-preflight scope and concurrency limit documented.
+- [x] Source 8700a248 CI 37275077600: snapshot/cache tests, build and 41/41 browser regressions; stored historical FB6045 verified.
+- [ ] Atomic temporal protection and coach/status paths remain separate scope.
+- [x] Final source 6de5b267 CI 37273561943 passed: parser/identity/partial counters, build and 41/41 browser regressions; full stored reference coverage preserved. No current explicit partial official sample.
+
+- [x] Unknown source lineup types retain real rows with UNCONFIRMED classification and unknown confidence; fresh health separates reference/unknown counts.
+- [x] Public unknown-type copy implemented with neutral source language and unknown confidence; source 10697ea3 CI/rendered acceptance pending. Storage source key deliberately unchanged.
+
+- [x] Source 10697ea3 CI 37278228130: 43/43 browser cases; unknown-type 1280/390 screenshots reviewed, confidence unknown and true coverage preserved.
+
+- [x] Stable exact registry-key identities in both APIs; analysis emits canonical identity and groups confirmed claims by it.
+- [x] Actual annotation tests and stored same-name/historical XI verification; source 5738756 CI 37280350489 passed all checks and 43/43 browser regressions.
+
+- [x] Cached/fresh player-status reports refresh only from newer genuine capture, with durable IDs/dates and conditional update guard.
+- [x] Actual helper/writer tests and FB6316 stored dry run; source aa45d2d CI 37282613316 passed all contracts/build and 43/43 browser regressions.
+- [ ] Concurrent first inserts, coach timing and genuine recovery/expiry evidence remain separate work.
