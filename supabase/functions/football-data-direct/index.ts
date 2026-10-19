@@ -126,8 +126,9 @@ Deno.serve(async function(req){
     const oldMap=new Map((oldRes.data||[]).map(function(x){return [x.source_key,x];}));
     let filesOk=0,filesFailed=0,coreFilesOk=0,coreFilesFailed=0,optionalFilesFailed=0,rowsSeen=0,rowsUpserted=0,fixture48h=0; const errors=[],summaries=[];
 
-    for(let start=0;start<defs.length;start+=5){
-      const chunk=defs.slice(start,start+5), results=await Promise.allSettled(chunk.map(fetchSource));
+    for(let start=0;start<defs.length;start+=2){
+      // Be polite to the free source: at most two CSV downloads in flight.
+      const chunk=defs.slice(start,start+2), results=await Promise.allSettled(chunk.map(fetchSource));
       for(let z=0;z<chunk.length;z++){
         const src=chunk[z], res=results[z], old=oldMap.get(src.key), fetchedAt=new Date().toISOString();
         if(res.status==="rejected"){
@@ -169,7 +170,7 @@ Deno.serve(async function(req){
         },{onConflict:"source_key"});
         summaries.push({source:src.key,rows:usable.length,changed:changed,upserted:upserted});
       }
-      if(start+5<defs.length) await sleep(750);
+      if(start+2<defs.length) await sleep(1500);
     }
 
     const status=coreFilesFailed===0&&coreFilesOk===defs.length?"PASS":(coreFilesOk>0?"WARN":"FAIL"), done=new Date().toISOString();
@@ -202,7 +203,7 @@ Deno.serve(async function(req){
     await db.from("source_health").upsert({
       source:"FOOTBALL_DATA_EDGE",metric:"heartbeat",
       value_text:JSON.stringify({season:season,filesOk:filesOk,filesFailed:filesFailed,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,optionalFilesFailed:optionalFilesFailed,rowsSeen:rowsSeen,rowsUpserted:rowsUpserted,fixture48h:fixture48h}),
-      status:status,notes:optionalFilesFailed>0?"Core Football-Data league CSVs healthy; supplementary latest-fixtures endpoint unavailable":"Private-use Football-Data core league CSV ingest healthy",
+      status:status,notes:coreFilesFailed>0?"Some Football-Data results CSVs timed out; stored older results retained. Check the next permitted scheduled run.":"Private-use Football-Data results CSV ingest healthy",
       observed_at:done,raw:{season:season,filesOk:filesOk,filesFailed:filesFailed,coreFilesOk:coreFilesOk,coreFilesFailed:coreFilesFailed,optionalFilesFailed:optionalFilesFailed,rowsSeen:rowsSeen,rowsUpserted:rowsUpserted,fixture48h:fixture48h,errors:errors}
     },{onConflict:"source,metric"});
     await db.from("source_health").upsert({
