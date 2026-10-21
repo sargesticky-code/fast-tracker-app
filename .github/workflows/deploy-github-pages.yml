@@ -1,0 +1,73 @@
+name: Fast Tracker GitHub Pages standby
+
+on:
+  pull_request:
+    branches:
+      - release/ft-advisers-fotmob-20261011
+  push:
+    branches:
+      - release/ft-advisers-fotmob-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fast-tracker-github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and verify static dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run checks and build GitHub Pages export
+        run: npm run build
+        env:
+          GITHUB_PAGES: "1"
+
+      - name: Verify standalone HTML routes
+        run: |
+          test -f out/index.html
+          test -f out/details/index.html
+          test -f out/health/index.html
+          test -f out/match/index.html
+          test -f out/aliases/index.html
+          test -f out/system/index.html
+          touch out/.nojekyll
+
+      - name: Upload static site artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./out
+
+  deploy:
+    name: Deploy GitHub Pages (release branch only)
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/release/ft-advisers-fotmob-20261011'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish approved static build
+        id: deployment
+        uses: actions/deploy-pages@v4
