@@ -550,7 +550,7 @@ export default function HomepageClient() {
       </section>
       {status==="loading"&&!feed&&<p role="status">Loading matches…</p>}
       {status==="error"&&!usingCanonicalFallback&&<p role="alert">Fixtures temporarily unavailable. Please retry shortly.</p>}
-      {usingCanonicalFallback&&<p role="status" data-testid="canonical-fallback">Showing {matches.length} saved matches while the latest results load.</p>}
+      {usingCanonicalFallback&&<p role="status" data-testid="canonical-fallback">Showing {matches.length} Supabase matches. The separate raw snapshot feed is unavailable.</p>}
 
       <div className="ft-filter-section">
         <div className="ft-filter-inputs">
