@@ -37,8 +37,10 @@ Deno.serve(async (req: Request) => {
     const db = createClient(supabaseUrl, key, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
-    const { data, error } = await db.from("flashscore_primary_fixture_current")
-      .select("match_id,provider_event_id,home_en,away_en,league,kickoff_hkt,fetched_at,status")
+    const { data, error } = await db.from("matches")
+      .select("canonical_event_id,canonical_match_id,home_en,away_en,tournament,kickoff_hkt,fetched_at,status,raw")
+      .eq("raw->>source", "FLASHSCORE")
+      .eq("raw->>identity_origin", "DIRECT_PROVIDER_ID_FROM_EXISTING_SHADOW")
       .gte("kickoff_hkt", lower)
       .lte("kickoff_hkt", upper)
       .gte("fetched_at", freshSince)
@@ -50,23 +52,25 @@ Deno.serve(async (req: Request) => {
     const discovered: Record<string, unknown>[] = [];
     let latestSourceMs = 0;
     for (const item of candidates) {
-      const eventId = String(item.provider_event_id || "");
+      const eventId = String(item.canonical_match_id || "");
       const kickoffMs = Date.parse(String(item.kickoff_hkt || ""));
       const capturedMs = Date.parse(String(item.fetched_at || ""));
       const home = String(item.home_en || "").trim();
       const away = String(item.away_en || "").trim();
       if (!/^[A-Za-z0-9_-]{5,32}$/.test(eventId) ||
-          item.match_id !== "FS:" + eventId || !home || !away ||
+          item.canonical_event_id !== "FS:" + eventId || !home || !away ||
           !Number.isFinite(kickoffMs) || !Number.isFinite(capturedMs) ||
           capturedMs > now + 60_000 || capturedMs < now - 30 * 60_000 ||
-          seen.has(eventId)) continue;
+          seen.has(eventId) ||
+          item.raw?.provider_event_id !== eventId ||
+          !["SY30SsKF","KY7LrA6d","0Mp0HlJb","WdNk9YwP","QeI1Oeyi","tUfctlzI"].includes(String(item.raw?.provider_league_id || ""))) continue;
       seen.add(eventId);
       latestSourceMs = Math.max(latestSourceMs, capturedMs);
       const kickoff = new Date(kickoffMs).toISOString();
       discovered.push({
         provider_event_id: eventId,
         home, away,
-        competition: String(item.league || "Football"),
+        competition: String(item.tournament || "Football"),
         fixture_date: kickoff.slice(0, 10),
         time_text: kickoff.slice(11, 16),
         kickoff_utc: kickoff,
