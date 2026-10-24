@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 
 // No Railway and no new fixture/alias inference. Strict native event identity.
 // Max 5 fixtures per run, two parallel fixtures, UK bet365 1X2 only.
+// Runs every ten minutes, with a strict twenty-minute quote expiry.
 const ROOT="https://www.flashscore.com";
 const HEADERS={"accept":"application/json","origin":ROOT,"referer":ROOT+"/","user-agent":"Mozilla/5.0"};
 const LEAGUES=["SY30SsKF","QeI1Oeyi","KY7LrA6d","WdNk9YwP","0Mp0HlJb","tUfctlzI"];
@@ -98,18 +99,55 @@ Deno.serve(async(req)=>{
     const valid=(fixtures.data||[]).filter((f:any)=>
       f.canonical_event_id==="FS:"+f.canonical_match_id&&
       LEAGUES.includes(String(f.raw?.provider_league_id||"")));
-    if(!valid.length)return reply({ok:true,status:"NO_UPCOMING",attempted:0,published:0});
+    if(!valid.length){
+      const pending=await db.from("matches").select("canonical_event_id",{head:true,count:"exact"})
+        .eq("raw->>identity_origin","DIRECT_PROVIDER_ID_FROM_EXISTING_SHADOW")
+        .gte("kickoff_hkt",lower).lte("kickoff_hkt",upper);
+      const problem=(pending.count||0)>0;
+      const status=problem?"STALE":"NO_UPCOMING";
+      await db.from("source_health").upsert({
+        source:SOURCE,metric:"native_graphql_collect",value_text:"0",status,
+        notes:problem
+          ?"Upcoming canonical matches exist but none have recently verified Flashscore timestamps."
+          :"No eligible upcoming major-league fixtures in the collection window.",
+        observed_at:new Date().toISOString(),
+        raw:{collector:"FLASHSCORE_NATIVE_GB_BET365",attempted:0,
+             verified_target_count:0,upcoming_canonical_count:pending.count??null}
+      },{onConflict:"source,metric"});
+      return reply({ok:true,status:problem?"CANONICAL_REFRESH_STALE":"NO_UPCOMING",attempted:0,published:0});
+    }
     const prior=await db.from("bet365_current").select("match_id,source,fetched_at")
       .in("match_id",valid.map((v:any)=>v.canonical_event_id));
     if(prior.error)return reply({error:"prior_quotes_unavailable"},503);
     const old=new Map((prior.data||[]).map((r:any)=>[r.match_id,r]));
-    const queue=valid.filter((f:any)=>!old.has(f.canonical_event_id)||
-      (old.get(f.canonical_event_id) as any).source===SOURCE)
-      .sort((a:any,b:any)=>{
-        const x=Date.parse((old.get(a.canonical_event_id) as any)?.fetched_at||"1970-01-01");
-        const y=Date.parse((old.get(b.canonical_event_id) as any)?.fetched_at||"1970-01-01");
-        return x-y||Date.parse(a.kickoff_hkt)-Date.parse(b.kickoff_hkt);
-      }).slice(0,5);
+    // Do not waste scarce upstream requests re-sampling quotes that are still
+    // very fresh. Cover imminent matches first, then higher-profile leagues.
+    const ageMs=(f:any)=>{
+      const previous=old.get(f.canonical_event_id) as any;
+      const t=Date.parse(previous?.fetched_at||"");
+      return Number.isFinite(t)?Math.max(0,now-t):Number.MAX_SAFE_INTEGER;
+    };
+    const urgency=(f:any)=>{
+      const hours=(Date.parse(f.kickoff_hkt)-now)/3600000;
+      return hours<=2?0:hours<=6?1:hours<=24?2:3;
+    };
+    const leagueOrder=[
+      "EPL","LaLigaSPAIN: LaLiga","BundesligaGERMANY: Bundesliga",
+      "Serie AITALY: Serie A","Ligue 1FRANCE: Ligue 1","MLS"
+    ];
+    const importance=(f:any)=>{
+      const r=leagueOrder.indexOf(f.tournament);
+      return r<0?leagueOrder.length:r;
+    };
+    const queue=valid.filter((f:any)=>{
+      const previous=old.get(f.canonical_event_id) as any;
+      return (!previous||previous.source===SOURCE) && ageMs(f)>=11*60000;
+    }).sort((a:any,b:any)=>
+      urgency(a)-urgency(b) ||
+      importance(a)-importance(b) ||
+      ageMs(b)-ageMs(a) ||
+      Date.parse(a.kickoff_hkt)-Date.parse(b.kickoff_hkt)
+    ).slice(0,5);
     let published=0,notAvailable=0,failed=0;
     for(let i=0;i<queue.length;i+=2){
       await Promise.all(queue.slice(i,i+2).map(async(f:any)=>{
@@ -128,7 +166,9 @@ Deno.serve(async(req)=>{
       notes:"UK bet365 full-time 1X2 observed via Flashscore exact native event and participant identities; prematch only.",
       observed_at:new Date().toISOString(),
       raw:{collector:"FLASHSCORE_NATIVE_GB_BET365",attempted:queue.length,published,
-           unavailable:notAvailable,failed,query_limit:5}
+           unavailable:notAvailable,failed,query_limit:5,
+           verified_targets:valid.length,collector_frequency_minutes:10,
+           minimum_refresh_age_minutes:11}
     },{onConflict:"source,metric"});
     return reply({ok:true,status,attempted:queue.length,published,unavailable:notAvailable,failed});
   }catch{return reply({error:"collector_unavailable"},503);}
