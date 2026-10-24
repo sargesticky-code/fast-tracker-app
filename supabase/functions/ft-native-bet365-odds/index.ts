@@ -149,18 +149,25 @@ Deno.serve(async(req)=>{
       Date.parse(a.kickoff_hkt)-Date.parse(b.kickoff_hkt)
     ).slice(0,5);
     let published=0,notAvailable=0,failed=0;
+    const failureKinds:string[]=[];
     for(let i=0;i<queue.length;i+=2){
       await Promise.all(queue.slice(i,i+2).map(async(f:any)=>{
         try{
           const quote=await fetchQuote(f);
           if(!quote){notAvailable++;return;}
           const write=await db.from("bet365_current").upsert(quote,{onConflict:"match_id"});
-          if(write.error){failed++;return;}
+          if(write.error){failed++;failureKinds.push("storage_rejected_"+String(write.error.code||"unknown").slice(0,12));return;}
           published++;
-        }catch{failed++;}
+        }catch(e){
+          failed++;
+          const reason=String((e as Error)?.message||"unknown");
+          failureKinds.push(/^upstream_http_\d{3}$/.test(reason)?reason:
+            reason==="upstream_response_size"?"upstream_response_size":
+            /timeout|aborted/i.test(reason)?"upstream_timeout":"upstream_transport_or_shape");
+        }
       }));
     }
-    const status=published?"OK":failed?"DEGRADED":"NO_QUOTE";
+    const status=failed?"DEGRADED":published?"OK":"NO_QUOTE";
     await db.from("source_health").upsert({
       source:SOURCE,metric:"native_graphql_collect",value_text:String(published),status,
       notes:"UK bet365 full-time 1X2 observed via Flashscore exact native event and participant identities; prematch only.",
@@ -168,8 +175,10 @@ Deno.serve(async(req)=>{
       raw:{collector:"FLASHSCORE_NATIVE_GB_BET365",attempted:queue.length,published,
            unavailable:notAvailable,failed,query_limit:5,
            verified_targets:valid.length,collector_frequency_minutes:10,
-           minimum_refresh_age_minutes:11}
+           minimum_refresh_age_minutes:11,
+           failure_kinds:[...new Set(failureKinds)].slice(0,5)}
     },{onConflict:"source,metric"});
-    return reply({ok:true,status,attempted:queue.length,published,unavailable:notAvailable,failed});
+    return reply({ok:true,status,attempted:queue.length,published,unavailable:notAvailable,failed,
+      failure_kinds:[...new Set(failureKinds)].slice(0,5)});
   }catch{return reply({error:"collector_unavailable"},503);}
 });
