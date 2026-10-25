@@ -1,3 +1,5 @@
+> **Operational recovery note (2026-10-25)**: The sections below document older architecture and may refer to Railway or HKJC. They are not current deployment instructions. Fast Tracker uses **Supabase** for database/Edge Functions/cron, **Flashscore** for fixture identity, and a Railway-independent frontend. The existing Vercel dashboard build was marked READY but public access is not yet verified; the GitHub Pages standby workflow is available at `.github/workflows/deploy-github-pages.yml` and needs GitHub Pages configured to use GitHub Actions. HKJC Edge Function URLs are 410 Gone tombstones with no active HKJC cron jobs. Never restore HKJC as canonical authority and never put service-role credentials in static assets.
+
 # Fast Tracker 2026
 
 Fast Tracker is a mobile-first football intelligence dashboard built around HKJC-authoritative fixtures, multi-source model comparison, human factors, live match intelligence and long-term model calibration.
