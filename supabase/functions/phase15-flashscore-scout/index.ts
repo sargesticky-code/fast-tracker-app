@@ -204,7 +204,15 @@ Deno.serve(async(req)=>{
   if(req.method!=="GET") return Response.json({ok:false,error:"method_not_allowed"},{status:405});
   const cronKey=req.headers.get("x-ft-cron-key")||"";
   if(!cronKey) return Response.json({ok:false,error:"unauthorized"},{status:401});
-  const cronAuth=await db.rpc("ft_internal_cron_key_matches",{p_key:cronKey});
+  // Supabase can transiently reject a server-side sb_secret_ request with
+  // PGRST303 while validating its internally minted JWT. Retry ONLY that
+  // upstream error; a valid false response or any other failure fails closed.
+  let cronAuth=await db.rpc("ft_internal_cron_key_matches",{p_key:cronKey});
+  for(const backoffMs of [250,800,1500]){
+    if(cronAuth.error?.code!=="PGRST303")break;
+    await new Promise<void>(resolve=>setTimeout(resolve,backoffMs));
+    cronAuth=await db.rpc("ft_internal_cron_key_matches",{p_key:cronKey});
+  }
   if(cronAuth.error||cronAuth.data!==true)
     return Response.json({ok:false,error:"unauthorized"},{status:401});
   const nowIso=new Date().toISOString();
