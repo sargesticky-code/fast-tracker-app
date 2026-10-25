@@ -1,0 +1,75 @@
+name: Fast Tracker — GitHub Pages backup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-github-pages.yml"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "data/**"
+      - "scripts/**"
+      - "package.json"
+      - "next.config.mjs"
+      - "jsconfig.json"
+  workflow_dispatch:
+
+concurrency:
+  group: fast-tracker-github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Export public dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build static, Railway-independent frontend
+        env:
+          GITHUB_PAGES: "1"
+        run: npm run build
+      - name: Verify public routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in index.html details/index.html health/index.html system/index.html match/index.html; do
+            test -s "out/$path" || { echo "Missing static route: $path"; exit 1; }
+          done
+          test -d out/_next || { echo "Missing Next.js static assets"; exit 1; }
+          if grep -RIE --include='*.html' '(SUPABASE_SERVICE_ROLE_KEY|sb_secret_|SUPABASE_SECRET_KEYS)' out; then
+            echo 'Unexpected secret identifier in generated HTML'; exit 1
+          fi
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: out
+
+  deploy:
+    name: Publish backup site
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
