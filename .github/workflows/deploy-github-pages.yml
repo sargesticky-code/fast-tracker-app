@@ -31,12 +31,30 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          # Reuse the verified Flashscore/Vercel frontend, not older HKJC-era main.
+          ref: "release/ft-advisers-fotmob-20261011"
       - name: Node.js 24
         uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Static-only health endpoint for GitHub Pages
+        shell: bash
+        run: |
+          # The production health probe is dynamic and cannot run on static Pages.
+          # The static backup deliberately advertises that limitation.
+          cat > app/api/health/route.js <<'EOF'
+          export const dynamic = "force-static";
+          export async function GET() {
+            return Response.json({
+              ok: true,
+              frontend: "GITHUB_PAGES_STATIC_BACKUP",
+              liveHealthProbe: false,
+              note: "Static build status only. Match freshness is checked by the client directly against Supabase."
+            });
+          }
+          EOF
       - name: Build static, Railway-independent frontend
         env:
           GITHUB_PAGES: "1"
@@ -45,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for path in index.html details/index.html health/index.html system/index.html match/index.html; do
+          for path in index.html details/index.html health/index.html system/index.html aliases/index.html match/index.html; do
             test -s "out/$path" || { echo "Missing static route: $path"; exit 1; }
           done
           test -d out/_next || { echo "Missing Next.js static assets"; exit 1; }
