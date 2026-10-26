@@ -65,7 +65,7 @@ assert.ok(uiSummary.includes("forebetAvgGoals") && uiSummary.includes("forebetCu
 
 const feedSource=fs.readFileSync("supabase/functions/app-phase1-feed/index.ts","utf8");
 const sourceClient=fs.readFileSync("lib/verified-evidence-feed.js","utf8");
-for(const contract of ["verifiedCompactSummaryRow","compactOnly?matches.map(verifiedCompactSummaryRow):matches", 'view:compactOnly?"compact":"summary"'])
+for(const contract of ["verifiedCompactSummaryRow","compactOnly?await withProjectedLineupSummary(adviserDb,matches.map(verifiedCompactSummaryRow)):matches", 'view:compactOnly?"compact":"summary"'])
   assert.ok(feedSource.includes(contract),"Missing compact fast-RPC contract: "+contract);
 assert.ok(sourceClient.includes("view=compact&hours=48"));
 assert.ok(sourceClient.includes("verified_summary_contract_invalid"));
