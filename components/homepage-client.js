@@ -449,6 +449,13 @@ export default function HomepageClient() {
     prediction:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length).length,
     odds:matches.filter(m=>oddsText(m)).length,
     recentOdds:matches.filter(m=>m.quote?.type==="recent").length};
+  // A quiet matchday may have no priority-league fixtures. Never greet the
+  // visitor with an empty list when valid fixtures exist under Other.
+  useEffect(()=>{
+    if(status==="ready" && counts.all>0 && counts.featured===0){
+      setScope(current=>current==="featured"?"all":current);
+    }
+  },[status,counts.all,counts.featured]);
   const visible=useMemo(()=>matches.filter(m=>
     (!date||m.dateKey===date)&&(!league||m.league===league)
     &&(scope==="all"||(scope==="featured"?m.info.featured:!m.info.featured))
@@ -471,14 +478,14 @@ export default function HomepageClient() {
     if(!group){group={key,info:row.info,fixtures:[]};groups.push(group);}
     group.fixtures.push(row);
   }
-  const clear=()=>{setQuery("");setDate("");setLeague("");setScope("featured");setPhase("all");setFeature("all");};
+  const clear=()=>{setQuery("");setDate("");setLeague("");setScope(counts.featured>0?"featured":"all");setPhase("all");setFeature("all");};
   // Provider shortcuts reveal relevant fixtures in ANY competition rather
   // than hiding them behind the initial Featured-only league filter.
   const selectAdviser=(provider)=>{
     setQuery("");setDate("");setLeague("");setPhase("all");setScope("all");
     setFeature("adviser-"+provider);
   };
-  const hasFilters=Boolean(query||date||league||scope!=="featured"||phase!=="all"||feature!=="all");
+  const hasFilters=Boolean(query||date||league||scope!==(counts.featured>0?"featured":"all")||phase!=="all"||feature!=="all");
   // Dashboard numbers describe the complete loaded snapshot, not the subset
   // currently filtered. All shortcuts clear conflicting filters before applying.
   const selectOverview=(target)=>{
@@ -671,7 +678,7 @@ export default function HomepageClient() {
       </div>
       {!visible.length&&status!=="loading"&&<div className="ft-empty-state" role="status">
         <Icon name="filter"/><strong>No matches match these filters.</strong>
-        <button onClick={clear} type="button">Show Featured matches</button>
+        <button onClick={clear} type="button">Show {counts.featured>0?"Featured":"All"} matches</button>
       </div>}
     </section>
   </main>;
