@@ -31,4 +31,11 @@ for(const guard of ["phase2_lineup_coverage_display_current","PREDICTED_FULL",
   "Math.abs(a-b)>60000","withProjectedLineupSummary"]) {
   assert.ok(backend.includes(guard),`Missing projected-XI backend guard: ${guard}`);
 }
-console.log("Projected XI contract: 9 checks passed");
+const detail=fs.readFileSync("supabase/functions/app-match-detail/index.ts","utf8");
+for(const guard of ["readExactPredictedFotmobXI","phase2_match_lineup_evidence",
+  'source_name","FOTMOB_PREDICTED"',".limit(22)","counts.H===11&&counts.A===11",
+  "SOURCE_PROJECTED_XI_NOT_CONFIRMED","sourceConfirmed:false",
+  "projectedRoster?.rows"]) {
+  assert.ok(detail.includes(guard),`Missing detail projected-XI guard: ${guard}`);
+}
+console.log("Projected XI feed and detail contracts passed");
