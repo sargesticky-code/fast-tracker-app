@@ -190,6 +190,7 @@ function MatchChips({evidence,homeTeam,awayTeam,goalsLine=2.5,cornersLine=9.5}) 
   const homeForm=evidence.historicalForm?.home, awayForm=evidence.historicalForm?.away;
   if(homeForm||awayForm) chips.push({label:"Last results",value:`H ${homeForm?.results||"—"} · A ${awayForm?.results||"—"}`,mark:"↗",test:"historical-form"});
   if (evidence.confirmedXI) chips.push({label:"Official XI",value:"XI",mark:"♟",test:"confirmed-xi"});
+  else if(evidence.projectedXI) chips.push({label:"FotMob projected XI (not official)",value:"Projected XI",mark:"♟",test:"projected-xi"});
   if (!chips.length) return null;
   return <div className="ft-match-chips" data-testid="verified-evidence">
     {chips.map(c=><span key={c.test} className="ft-match-chip" data-testid={c.test} title={c.label+": "+c.value}><i aria-hidden="true">{c.mark}</i><b>{c.value}</b><small>{c.label}{c.age?" · "+c.age:""}</small></span>)}
@@ -308,7 +309,7 @@ function oddsUnavailableText(row) {
 function evidenceCoverage(row) {
   const e=row.evidence;
   return [e?.score,e?.prediction,e?.forebet,e?.forebetOU25,e?.forebetCorners95,e?.quote,
-    e?.confirmedXI,e?.historicalForm?.home,e?.historicalForm?.away,e?.observedStats].filter(Boolean).length;
+    e?.confirmedXI,e?.projectedXI,e?.historicalForm?.home,e?.historicalForm?.away,e?.observedStats].filter(Boolean).length;
 }
 export default function HomepageClient() {
   const [feed,setFeed]=useState(null);
@@ -428,7 +429,7 @@ export default function HomepageClient() {
   const counts={all:matches.length,featured:matches.filter(m=>m.info.featured).length,other:matches.filter(m=>!m.info.featured).length,
     details:matches.filter(m=>Boolean(m.evidence)).length,
     live:matches.filter(m=>m.phase==="live").length,
-    xi:matches.filter(m=>m.evidence?.confirmedXI).length,
+    xi:matches.filter(m=>m.evidence?.confirmedXI||m.evidence?.projectedXI).length,
     forebetStrict:matches.filter(m=>m.evidence?.prediction||m.evidence?.forebet).length,
     forebetOneSide:matches.filter(m=>m.provisional?.acceptedForDisplay).length,
     forebetFuzzy:matches.filter(m=>m.provisional && !m.provisional.acceptedForDisplay).length,
@@ -462,7 +463,7 @@ export default function HomepageClient() {
     &&(phase==="all"||m.phase===phase)
     &&(feature==="all"||(ADVISER_KEYS[feature]
       ?matchAdviserFacet(m,feature)
-      :(feature==="details"?Boolean(m.evidence):feature==="xi"?m.evidence?.confirmedXI:feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m))))
+      :(feature==="details"?Boolean(m.evidence):feature==="xi"?(m.evidence?.confirmedXI||m.evidence?.projectedXI):feature==="prediction"?(m.evidence?.prediction||m.evidence?.forebet||m.evidence?.dc||m.evidence?.pi||m.evidence?.form||m.evidence?.externalAdvisers?.length||m.provisional||m.externalProvisional.length):feature==="fresh-odds"?m.quote?.type==="recent":oddsText(m))))
     &&(m.home+" "+m.away+" "+m.league+" "+m.providerEventId).toLowerCase().includes(query.toLowerCase().trim())
   ).sort((a,b)=>(a.phase==="live"?0:1)-(b.phase==="live"?0:1)
     ||a.info.priority-b.info.priority
@@ -506,7 +507,7 @@ export default function HomepageClient() {
     {key:"details",icon:"target",label:"More details",value:detailsValue,hint:"Games with extra info",active:feature==="details"&&phase==="all",test:"overview-details"},
     {key:"live",icon:"live",label:"Live now",value:liveValue,hint:"Confirmed live games",active:phase==="live",test:"overview-live",theme:"live"},
     {key:"prediction",icon:"chart",label:"Predictions",value:forecastValue,hint:"Games with predictions",active:feature==="prediction"&&phase==="all",test:"overview-predictions"},
-    {key:"xi",icon:"players",label:"Lineups",value:lineupsValue,hint:"Full starting XIs",active:feature==="xi"&&phase==="all",test:"overview-lineups"},
+    {key:"xi",icon:"players",label:"Lineups",value:lineupsValue,hint:"Official or projected XIs",active:feature==="xi"&&phase==="all",test:"overview-lineups"},
     {key:"odds",icon:"grid",label:"Odds",value:priceValue,hint:"Recent & earlier quotes",active:feature==="odds"&&phase==="all",test:"overview-odds"}
   ];
 
