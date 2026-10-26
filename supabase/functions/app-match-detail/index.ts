@@ -325,6 +325,38 @@ async function withExternalAdvisers(db:any,matches:any[]) {
 }
 
 
+async function readExactPredictedFotmobXI(db:any,fixtureId:string,kickoff:string) {
+  const starts=Date.parse(String(kickoff||"")),now=Date.now();
+  if(!/^FS:[A-Za-z0-9_-]{5,32}$/.test(fixtureId)
+      ||!Number.isFinite(starts)||starts<=now)return null;
+  try{
+    // Only this exact Flashscore fixture. A single read on the details page,
+    // never a background source capture and never visible as confirmed.
+    const {data,error}=await db.from("phase2_match_lineup_evidence")
+      .select("match_id,team_side,player_key,player_name,role,starter,confirmed,formation_slot,shirt_number,source_name,source_url,fetched_at")
+      .eq("match_id",fixtureId).eq("source_name","FOTMOB_PREDICTED")
+      .eq("starter",true).order("fetched_at",{ascending:false}).limit(22);
+    if(error||!Array.isArray(data)||data.length!==22)return null;
+    const at=Date.parse(String(data[0]?.fetched_at||""));
+    if(!Number.isFinite(at)||at>now+60000||at<now-36*3600000||at>=starts)return null;
+    const seen=new Set<string>(),counts={H:0,A:0};
+    for(const r of data){
+      if(r.match_id!==fixtureId||r.source_name!=="FOTMOB_PREDICTED"
+        ||r.starter!==true||r.confirmed!==false||Date.parse(String(r.fetched_at||""))!==at
+        ||(r.team_side!=="H"&&r.team_side!=="A")
+        ||typeof r.player_name!=="string"||!r.player_name.trim()
+        ||typeof r.player_key!=="string"||!r.player_key.trim())return null;
+      const key=r.team_side+":"+r.player_key;
+      if(seen.has(key))return null;
+      seen.add(key);counts[r.team_side as "H"|"A"]++;
+    }
+    return counts.H===11&&counts.A===11 ? {
+      rows:data.map(r=>({...r,predicted:true})),
+      source:"FOTMOB_PREDICTED",fetchedAt:new Date(at).toISOString()
+    }:null;
+  }catch{return null;}
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   if(req.method!=="GET") return Response.json({error:"method_not_allowed"},{status:405,headers:{...cors,"Cache-Control":"no-store"}});
@@ -367,6 +399,7 @@ Deno.serve(async(req:Request)=>{
         && row.verified_lineup.homeStarters===11
         && row.verified_lineup.awayStarters===11
         ? row.verified_lineup:null;
+      const projectedRoster=roster?null:await readExactPredictedFotmobXI(optionalDb,requestedId,row.kickoff_hkt);
       const lineupIdentityVerified=roster?.canonicalIdentitiesVerified===true;
       const coaches=row.verified_managers && Array.isArray(row.verified_managers.rows)
         && row.verified_managers.rows.length===2
@@ -376,7 +409,7 @@ Deno.serve(async(req:Request)=>{
       // Reuse the exact one-fixture SQL read. No extra network queries/crawlers.
       const playerMatchStats=Array.isArray(row.player_match_stats)?row.player_match_stats:[];
       const byFotmobId=new Map(playerMatchStats.filter((s:any)=>s.playerId).map((s:any)=>[String(s.playerId),s]));
-      const verifiedLineupRows=(roster?.rows??[]).map((p:any)=>{
+      const verifiedLineupRows=(roster?.rows??projectedRoster?.rows??[]).map((p:any)=>{
         const provider=String(p.source_name||"").toUpperCase();
         // Never equate Flashscore numerical IDs with FotMob IDs by coincidence.
         const exact=provider==="FOTMOB_OFFICIAL" ? byFotmobId.get(String(p.player_key||"")):null;
@@ -452,6 +485,11 @@ Deno.serve(async(req:Request)=>{
             homeStarters:11,awayStarters:11,
             semantics:lineupIdentityVerified?"VERIFIED_CANONICAL_PLAYER_IDENTITIES":
               "OFFICIAL_SOURCE_XI_CANONICAL_PLAYER_IDENTITIES_UNRESOLVED"
+          }:projectedRoster?{
+            source:"FOTMOB_PREDICTED",status:"PREDICTED",predicted:true,
+            capturedAt:projectedRoster.fetchedAt,sourceConfirmed:false,
+            canonicalIdentitiesVerified:false,homeStarters:11,awayStarters:11,
+            semantics:"SOURCE_PROJECTED_XI_NOT_CONFIRMED"
           }:null,
           playerProfiles:[],playerMatchStats,playerMatchStatsMeta:playerStatsMeta,
           lineupStrength:[],
@@ -467,7 +505,8 @@ Deno.serve(async(req:Request)=>{
         marketIntelligence:{bestValue:null,value:[],arbitrage:[],nearArbitrage:null,mode:"DETECT_ONLY"},
         errors:{},
         evidenceMode:stats?"EXACT_FLASHSCORE_MATCH_STATISTICS":
-          roster?"EXACT_FLASHSCORE_FIXTURE_VERIFIED_SOURCE_XI":"EXACT_FLASHSCORE_FIXTURE_HDA",
+          roster?"EXACT_FLASHSCORE_FIXTURE_VERIFIED_SOURCE_XI":
+          projectedRoster?"EXACT_FLASHSCORE_FIXTURE_FOTMOB_PROJECTED_XI":"EXACT_FLASHSCORE_FIXTURE_HDA",
         sourceLineage:{fixture:"FLASHSCORE",bookmaker:fresh?"FLASHSCORE_BET365":null,
           quoteCapturedAt:quoteAt,statsCapturedAt:stats?.capturedAt||null,
           fotmobPlayerStatsCapturedAt:playerStatsMeta?.observedAt||null,
