@@ -30,12 +30,18 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      # The production target is Vercel's Next.js runtime. Never force
+      # CF_PAGES static export: /api/health is intentionally live/dynamic.
       - name: Validate raw fixture and verified UI contract
         run: npm run build
-        env:
-          CF_PAGES: '1'
-      - name: Verify exported public routes
+      - name: Verify server routes without downgrading live health
         run: |
-          test -f out/index.html
-          test -f out/details/index.html
-          test -f out/health/index.html
+          test -s .next/BUILD_ID
+          test -s .next/server/app-paths-manifest.json
+          node - <<'NODE'
+          const routes = require('./.next/server/app-paths-manifest.json');
+          for (const route of ['/page','/details/page','/health/page','/api/health/route']) {
+            if (!routes[route]) throw new Error('Missing runtime route: ' + route);
+          }
+          console.log('PASS: four runtime routes built, live health preserved');
+          NODE
