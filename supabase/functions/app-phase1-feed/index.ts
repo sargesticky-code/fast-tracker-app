@@ -264,8 +264,45 @@ async function withExternalAdvisers(db:any,matches:any[]) {
   } catch {return matches;}
 }
 
+// Exact-ID, bounded lineup availability for the lightweight homepage.
+// A projected XI is NEVER an official/confirmed XI or a model input.
+// Failure leaves the existing fixture feed untouched.
+async function withProjectedLineupSummary(db:any,matches:any[]) {
+  const ids=[...new Set(matches.map(m=>m?.id).filter(
+    id=>typeof id==="string"&&/^FS:[A-Za-z0-9_-]{5,32}$/.test(id)))].slice(0,100);
+  if(!ids.length)return matches;
+  try{
+    const {data,error}=await db.from("phase2_lineup_coverage_display_current")
+      .select("match_id,kickoff_hkt,lineup_status,canonical_source,home_starters,away_starters,confirmed_rows,lineup_rows")
+      .in("match_id",ids).limit(100);
+    if(error||!Array.isArray(data))return matches;
+    const found=new Map<string,any>(),ambiguous=new Set<string>();
+    for(const row of data){
+      const id=String(row?.match_id||"");
+      if(!ids.includes(id)||ambiguous.has(id))continue;
+      if(found.has(id)){found.delete(id);ambiguous.add(id);continue;}
+      found.set(id,row);
+    }
+    const now=Date.now();
+    return matches.map(m=>{
+      const r=found.get(m.id);
+      if(!r||ambiguous.has(m.id)||m?.sourceContext?.source!=="FLASHSCORE"
+          ||m?.sourceContext?.lineupAvailable===true)return m;
+      const a=Date.parse(String(m.kickoff||"")),b=Date.parse(String(r.kickoff_hkt||""));
+      if(!Number.isFinite(a)||!Number.isFinite(b)||a<=now||Math.abs(a-b)>60000
+        ||r.lineup_status!=="PREDICTED_FULL"||r.canonical_source!=="FOTMOB_PREDICTED"
+        ||Number(r.home_starters)!==11||Number(r.away_starters)!==11
+        ||Number(r.confirmed_rows)!==0||Number(r.lineup_rows)!==22)return m;
+      return {...m,sourceContext:{...m.sourceContext,
+        lineupCoverage:{...m.sourceContext?.lineupCoverage,
+          source:"FOTMOB_PREDICTED",status:"PREDICTED_FULL",homeStarters:11,
+          awayStarters:11,confirmedStarters:0}}};
+    });
+  }catch{return matches;}
+}
+
 // Homepage only needs exact-ID forecast badges and canonical fallback context.
-// This response shape is deliberately compact and requires NO additional SQL.
+// Only a bounded exact-ID lineup-status query augments the compact response.
 function verifiedCompactSummaryRow(m: any) {
   const src=m?.sourceContext??{};
   const c=src.lineupCoverage??{};
@@ -908,7 +945,7 @@ Deno.serve(async (req: Request) => {
           source:"flashscore-single-rpc-canonical",
           view:compactOnly?"compact":"summary",windowHours:hours,
           count:matches.length,
-          matches:await withExternalAdvisers(adviserDb,compactOnly?matches.map(verifiedCompactSummaryRow):matches),
+          matches:await withExternalAdvisers(adviserDb,compactOnly?await withProjectedLineupSummary(adviserDb,matches.map(verifiedCompactSummaryRow)):matches),
           ...(compactOnly ? {previousBookmakerQuotes:priorBookmakerQuotes} : {}),
           fixtureKickoffs: Array.isArray(fixtureTimesResult.data)
             ? fixtureTimesResult.data.filter((r:any)=>/^FS:[A-Za-z0-9_-]{5,32}$/.test(String(r.match_id||""))
@@ -1069,7 +1106,7 @@ Deno.serve(async (req: Request) => {
             raw:bet365Heartbeat?.raw??{}
           }
         },
-        matches:await withExternalAdvisers(adviserDb,compactOnly?directMatches.map(verifiedCompactSummaryRow):directMatches),
+        matches:await withExternalAdvisers(adviserDb,compactOnly?await withProjectedLineupSummary(adviserDb,directMatches.map(verifiedCompactSummaryRow)):directMatches),
       },{headers:{...corsHeaders,"Cache-Control":"public, max-age=10, stale-while-revalidate=40"}});
     }
 
